@@ -1,6 +1,6 @@
 [package]
-name = "attune-cli"
-description = "Attune CLI for testing the core library"
+name = "attune-gui"
+description = "Attune GUI: dark-theme menu-bar-style window for recording meetings"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -9,7 +9,7 @@ repository.workspace = true
 authors.workspace = true
 
 [[bin]]
-name = "attune-cli"
+name = "attune"
 path = "src/main.rs"
 
 [lints]
@@ -17,9 +17,14 @@ workspace = true
 
 [dependencies]
 attune-core = { path = "../attune-core" }
-clap = { workspace = true }
-tokio = { workspace = true }
+
+eframe = { workspace = true }
+egui = { workspace = true }
+rfd = { workspace = true }
+
 anyhow = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 chrono = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }

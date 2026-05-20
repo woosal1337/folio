@@ -38,6 +38,7 @@ attune/
   crates/
     attune-core/            library: audio, whisper, vault, store
     attune-cli/             CLI for testing the core
+    attune-gui/             dark-theme egui GUI (interim shell, ships with v0)
   apps/
     Attune.xcodeproj        (added week 4) SwiftUI shell
     Attune/                 (added week 4) Swift sources
@@ -54,19 +55,37 @@ attune/
 Requirements:
 
 - macOS 14.4+ on Apple Silicon (Intel Macs work but are not the perf target)
-- Rust 1.78 via rustup
+- Rust 1.88 via rustup
 - Xcode 16+ command line tools
 
 ```sh
 git clone git@github.com:woosal1337/attune.git
 cd attune
-cargo build --release
-
-# Record 60 seconds of mic + system audio (week 1 vertical slice)
-cargo run -p attune-cli --release -- record --seconds 60 --output ./recordings
+cargo build --workspace --release
 ```
 
-This produces `./recordings/<timestamp>/mic.wav` and `./recordings/<timestamp>/system.wav`. Both 16kHz mono PCM.
+### GUI
+
+```sh
+cargo run -p attune-gui --release
+```
+
+A dark-theme window with input device picker, system audio toggle, output directory picker, and a recording button with live duration counter. Recordings land in the selected output directory as `<timestamp>/mic.wav` (16 kHz mono PCM).
+
+### CLI
+
+```sh
+# List input devices
+cargo run -p attune-cli --release -- devices
+
+# Record from the default device for 60 seconds
+cargo run -p attune-cli --release -- record --seconds 60
+
+# Record from a specific device
+cargo run -p attune-cli --release -- record --seconds 60 --mic-device "MacBook Pro Microphone"
+```
+
+This produces `./recordings/<timestamp>/mic.wav`. System audio capture is stubbed until week 2.
 
 On first run, macOS will prompt for microphone permission (and screen recording permission for system audio capture on macOS 13+).
 

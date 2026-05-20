@@ -31,11 +31,27 @@ pub struct MicCapture {
 impl MicCapture {
     /// Build and start mic capture. Returns once the stream is running. Audio
     /// samples flow into `writer` until [`Self::stop`] is called.
-    pub fn start(writer: Arc<AudioWavWriter>, target_sample_rate: u32) -> Result<Self> {
+    ///
+    /// `device_name` selects a specific input device by name. `None` uses the
+    /// system default input device.
+    pub fn start(
+        writer: Arc<AudioWavWriter>,
+        target_sample_rate: u32,
+        device_name: Option<&str>,
+    ) -> Result<Self> {
         let host = cpal::default_host();
-        let device = host
-            .default_input_device()
-            .ok_or(AttuneError::NoInputDevice)?;
+        let device = match device_name {
+            Some(name) => host
+                .input_devices()
+                .map_err(|e| AttuneError::AudioDevice(format!("input_devices: {e}")))?
+                .find(|d| d.name().ok().as_deref() == Some(name))
+                .ok_or_else(|| {
+                    AttuneError::AudioDevice(format!("input device not found: {name}"))
+                })?,
+            None => host
+                .default_input_device()
+                .ok_or(AttuneError::NoInputDevice)?,
+        };
 
         let device_name = device.name().unwrap_or_else(|_| "<unknown>".to_string());
         info!(device = %device_name, "selected default input device");

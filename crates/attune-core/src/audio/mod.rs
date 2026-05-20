@@ -6,12 +6,14 @@
 //! vault for the full pipeline diagram.
 
 pub mod capture;
+pub mod devices;
 pub mod mic;
 pub mod resampler;
 pub mod system;
 pub mod wav_writer;
 
 pub use capture::{CaptureArtifacts, CaptureSession};
+pub use devices::{list_input_devices, DeviceInfo};
 
 /// Capture source channel. Used for routing and labeling downstream
 /// (`me` for [`Channel::Microphone`], `others` for [`Channel::System`]).
@@ -35,6 +37,8 @@ impl Channel {
 pub struct CaptureConfig {
     pub mic_enabled: bool,
     pub system_enabled: bool,
+    /// Microphone device by name. `None` selects the default input device.
+    pub mic_device_name: Option<String>,
     /// Target sample rate fed to the transcription pipeline. Whisper expects
     /// 16 kHz mono.
     pub target_sample_rate: u32,
@@ -48,6 +52,7 @@ impl Default for CaptureConfig {
         Self {
             mic_enabled: true,
             system_enabled: true,
+            mic_device_name: None,
             target_sample_rate: 16_000,
             output_dir: std::path::PathBuf::from("./recordings"),
         }

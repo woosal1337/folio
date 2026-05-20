@@ -1,13 +1,14 @@
 //! Attune CLI. Test harness for the `attune-core` library during development.
 //!
 //! Subcommands:
-//!   * `record` — capture mic + system audio to WAV files for a fixed duration.
+//!   * `record`  — capture mic + system audio to WAV files for a fixed duration.
+//!   * `devices` — list available input devices.
 
 use std::path::PathBuf;
 use std::time::Duration;
 
 use anyhow::Result;
-use attune_core::audio::{CaptureConfig, CaptureSession};
+use attune_core::audio::{list_input_devices, CaptureConfig, CaptureSession};
 use clap::{Parser, Subcommand};
 use tracing_subscriber::EnvFilter;
 
@@ -24,6 +25,8 @@ struct Cli {
 enum Command {
     /// Record audio for a fixed duration and write WAV files to disk.
     Record(RecordArgs),
+    /// List available input audio devices.
+    Devices,
 }
 
 #[derive(Parser, Debug)]
@@ -44,6 +47,10 @@ struct RecordArgs {
     #[arg(long, default_value_t = false)]
     no_system: bool,
 
+    /// Microphone device by exact name. Use `attune-cli devices` to list.
+    #[arg(long)]
+    mic_device: Option<String>,
+
     /// Target sample rate for the output WAV files.
     #[arg(long, default_value_t = 16_000)]
     sample_rate: u32,
@@ -54,6 +61,7 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
     match cli.command {
         Command::Record(args) => run_record(args),
+        Command::Devices => run_devices(),
     }
 }
 
@@ -67,10 +75,35 @@ fn init_tracing() {
         .init();
 }
 
+fn run_devices() -> Result<()> {
+    let devices = list_input_devices()?;
+    if devices.is_empty() {
+        println!("No input devices found.");
+        return Ok(());
+    }
+    println!("Input devices:");
+    for d in devices {
+        let marker = if d.is_default { "*" } else { " " };
+        let sr = d
+            .default_sample_rate
+            .map(|s| format!("{} Hz", s))
+            .unwrap_or_else(|| "unknown".into());
+        let ch = d
+            .default_channels
+            .map(|c| format!("{} ch", c))
+            .unwrap_or_else(|| "unknown".into());
+        println!("  {} {:40}  {:10}  {}", marker, d.name, sr, ch);
+    }
+    println!();
+    println!("* = default. Pass --mic-device \"<name>\" to record from a specific device.");
+    Ok(())
+}
+
 fn run_record(args: RecordArgs) -> Result<()> {
     let config = CaptureConfig {
         mic_enabled: !args.no_mic,
         system_enabled: !args.no_system,
+        mic_device_name: args.mic_device,
         target_sample_rate: args.sample_rate,
         output_dir: args.output,
     };
@@ -78,6 +111,7 @@ fn run_record(args: RecordArgs) -> Result<()> {
     tracing::info!(
         mic = config.mic_enabled,
         system = config.system_enabled,
+        device = ?config.mic_device_name,
         sample_rate = config.target_sample_rate,
         seconds = args.seconds,
         output = %config.output_dir.display(),

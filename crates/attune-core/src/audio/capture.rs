@@ -49,7 +49,11 @@ impl CaptureSession {
         let mic = if config.mic_enabled {
             let path = session_dir.join("mic.wav");
             let writer = Arc::new(AudioWavWriter::create(&path, config.target_sample_rate)?);
-            match MicCapture::start(writer.clone(), config.target_sample_rate) {
+            match MicCapture::start(
+                writer.clone(),
+                config.target_sample_rate,
+                config.mic_device_name.as_deref(),
+            ) {
                 Ok(c) => {
                     info!(path = %path.display(), "mic capture started");
                     Some(c)
