@@ -1,0 +1,61 @@
+[workspace]
+members = ["crates/attune-core", "crates/attune-cli"]
+resolver = "2"
+
+[workspace.package]
+version = "0.0.1"
+edition = "2021"
+rust-version = "1.85"
+license = "MIT"
+repository = "https://github.com/woosal1337/attune"
+authors = ["Ege Çelebi <woosal@pm.me>"]
+
+[workspace.dependencies]
+# error handling
+thiserror = "1.0"
+anyhow = "1.0"
+
+# logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+
+# audio
+cpal = "0.15"
+hound = "3.5"
+rubato = "0.15"
+crossbeam-queue = "0.3"
+crossbeam-channel = "0.5"
+
+# async + concurrency
+tokio = { version = "1.38", features = ["full"] }
+parking_lot = "0.12"
+
+# CLI
+clap = { version = "4.5", features = ["derive"] }
+
+# time
+chrono = { version = "0.4", features = ["serde"] }
+
+# serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# macOS: ScreenCaptureKit fallback for system audio. HAL Tap binding lives in
+# attune-core directly via FFI when ready (week 2).
+[workspace.metadata]
+description = "Local-first meeting transcription for macOS"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+debug = "line-tables-only"
+strip = "symbols"
+
+[profile.dev]
+opt-level = 0
+debug = true
+
+# Faster local builds for dependencies
+[profile.dev.package."*"]
+opt-level = 1
