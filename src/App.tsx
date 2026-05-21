@@ -7,6 +7,7 @@ import {
 } from "react-router-dom";
 
 import { Sidebar } from "@/components/sidebar";
+import { DragStrip } from "@/components/drag-strip";
 import Record from "@/routes/record";
 import Library from "@/routes/library";
 import Editor from "@/routes/editor";
@@ -19,15 +20,10 @@ export default function App() {
   return (
     <HashRouter>
       <div className="flex h-screen w-screen flex-col overflow-hidden bg-background">
-        {/* Window drag strip. Spans the full width above the sidebar +
-            content. macOS traffic lights live inside this region at the
-            system level and stay clickable; everything else here is pure
-            drag surface so the user can grab the window anywhere along
-            the top. */}
-        <div
-          data-tauri-drag-region
-          className="h-8 w-full shrink-0 bg-sidebar"
-        />
+        {/* Window drag strip — full-width across the top, draggable via
+            data-tauri-drag-region AND an explicit startDragging() handler
+            so it works on every Tauri/macOS combination. */}
+        <DragStrip />
         <div className="flex flex-1 overflow-hidden">
           <Sidebar onOpenSettings={() => setSettingsOpen(true)} />
           <main className="flex-1 overflow-y-auto">

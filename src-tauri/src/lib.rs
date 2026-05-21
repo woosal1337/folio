@@ -20,6 +20,11 @@ pub fn run() {
             commands::list_input_devices,
             commands::get_settings,
             commands::save_settings,
+            commands::recording_status,
+            commands::start_recording,
+            commands::stop_recording,
+            commands::list_recordings,
+            commands::reveal_in_finder,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

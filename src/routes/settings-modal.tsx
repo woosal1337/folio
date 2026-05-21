@@ -70,6 +70,9 @@ export function SettingsModal({ open, onOpenChange }: Props) {
     setSaving(true);
     try {
       await saveSettings(settings);
+      onOpenChange(false);
+    } catch (e) {
+      console.error("settings save:", e);
     } finally {
       setSaving(false);
     }

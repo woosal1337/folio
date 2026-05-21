@@ -3,7 +3,13 @@
  * and screens never sprinkle stringly-typed invoke calls. */
 
 import { invoke } from "@tauri-apps/api/core";
-import type { DeviceInfo, Settings } from "./types";
+import type {
+  DeviceInfo,
+  RecordingResult,
+  RecordingStatus,
+  RecordingSummary,
+  Settings,
+} from "./types";
 
 export async function ping(name?: string): Promise<string> {
   return invoke<string>("ping", { name });
@@ -19,4 +25,28 @@ export async function getSettings(): Promise<Settings> {
 
 export async function saveSettings(settings: Settings): Promise<void> {
   return invoke<void>("save_settings", { settings });
+}
+
+// ---- Recording ----------------------------------------------------------
+
+export async function recordingStatus(): Promise<RecordingStatus> {
+  return invoke<RecordingStatus>("recording_status");
+}
+
+export async function startRecording(): Promise<RecordingStatus> {
+  return invoke<RecordingStatus>("start_recording");
+}
+
+export async function stopRecording(): Promise<RecordingResult> {
+  return invoke<RecordingResult>("stop_recording");
+}
+
+// ---- Library ------------------------------------------------------------
+
+export async function listRecordings(): Promise<RecordingSummary[]> {
+  return invoke<RecordingSummary[]>("list_recordings");
+}
+
+export async function revealInFinder(path: string): Promise<void> {
+  return invoke<void>("reveal_in_finder", { path });
 }

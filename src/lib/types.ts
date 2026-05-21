@@ -33,6 +33,26 @@ export interface RecordingSummary {
   system_bytes: number | null;
   mic_sample_rate: number | null;
   system_sample_rate: number | null;
+  created_at: string | null;
+}
+
+export interface RecordingStatus {
+  recording: boolean;
+  elapsed_secs: number;
+  channels: string[];
+}
+
+export interface CaptureArtifacts {
+  session_dir: string;
+  mic_path: string | null;
+  system_path: string | null;
+  started_at: string;
+  stopped_at: string;
+}
+
+export interface RecordingResult {
+  artifacts: CaptureArtifacts;
+  label: string;
 }
 
 export interface TranscriptSegment {

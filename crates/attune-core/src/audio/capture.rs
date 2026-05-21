@@ -10,6 +10,7 @@ use std::sync::Arc;
 use std::time::SystemTime;
 
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use tracing::{info, warn};
 
 use crate::audio::devices::default_input_sample_rate;
@@ -33,6 +34,15 @@ pub struct CaptureSession {
     system_started: bool,
 }
 
+// SAFETY: CaptureSession is intended to be held under a Mutex when used
+// from Tauri command handlers, which may run on different worker threads
+// across the start/stop boundary. The underlying cpal::Stream (CoreAudio
+// AudioUnit) and ScreenCaptureKit SCStream do not auto-derive Send, but
+// both APIs explicitly support cross-thread ownership transfer as long as
+// they are not used concurrently. The Mutex guarantees that.
+unsafe impl Send for CaptureSession {}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CaptureArtifacts {
     pub session_dir: PathBuf,
     pub mic_path: Option<PathBuf>,

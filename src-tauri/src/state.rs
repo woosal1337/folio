@@ -3,7 +3,9 @@
 //! lives here. UI-only state lives in the React frontend.
 
 use std::path::PathBuf;
+use std::time::Instant;
 
+use attune_core::audio::CaptureSession;
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 
@@ -65,9 +67,43 @@ fn home_attune() -> PathBuf {
     home.join("Documents").join("Attune")
 }
 
-/// Process-wide state. Wraps `Settings` so commands can lock + mutate
-/// atomically.
+/// Status of an active (or absent) recording session, reported to the UI.
+#[derive(Debug, Clone, Serialize)]
+pub struct RecordingStatus {
+    pub recording: bool,
+    pub elapsed_secs: u64,
+    pub channels: Vec<String>,
+}
+
+/// Process-wide state. Wraps each piece in its own Mutex so commands lock
+/// only what they touch.
 #[derive(Default)]
 pub struct AppState {
     pub settings: Mutex<Settings>,
+    pub session: Mutex<Option<CaptureSession>>,
+    pub recording_started: Mutex<Option<Instant>>,
+}
+
+impl AppState {
+    /// Snapshot the current recording status for the UI.
+    pub fn recording_status(&self) -> RecordingStatus {
+        let session = self.session.lock();
+        let started = self.recording_started.lock();
+        let recording = session.is_some();
+        let elapsed_secs = started.map(|t| t.elapsed().as_secs()).unwrap_or(0);
+        let channels = session
+            .as_ref()
+            .map(|s| {
+                s.channels_active()
+                    .into_iter()
+                    .map(|c| c.as_str().to_string())
+                    .collect()
+            })
+            .unwrap_or_default();
+        RecordingStatus {
+            recording,
+            elapsed_secs,
+            channels,
+        }
+    }
 }
