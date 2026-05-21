@@ -1,0 +1,136 @@
+@import "@fontsource/inter/400.css";
+@import "@fontsource/inter/500.css";
+@import "@fontsource/inter/600.css";
+@import "@fontsource/jetbrains-mono/400.css";
+@import "@fontsource/jetbrains-mono/500.css";
+@import "@fontsource/spectral/400.css";
+@import "@fontsource/spectral/400-italic.css";
+@import "@fontsource/spectral/500.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* -----------------------------------------------------------------------------
+   Design tokens. Light is default. Dark applied via [data-theme="dark"] on
+   <html>. Every shadcn primitive reads these variables, so screens and
+   custom components inherit the theme without any per-component branching.
+   ---------------------------------------------------------------------------*/
+
+@layer base {
+  :root {
+    /* Surfaces */
+    --background: 38 33% 94%;            /* #F5F2EC warm cream */
+    --foreground: 0 0% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 10%;
+    --sidebar: 38 27% 91%;
+    --sidebar-foreground: 0 0% 10%;
+
+    /* Primary = sage accent */
+    --primary: 165 42% 30%;              /* #2D6E5E */
+    --primary-foreground: 0 0% 100%;
+
+    /* Secondary = soft neutral */
+    --secondary: 38 27% 91%;
+    --secondary-foreground: 0 0% 12%;
+
+    /* Muted */
+    --muted: 38 24% 89%;
+    --muted-foreground: 0 0% 42%;
+
+    /* Accent (lighter sage tint) */
+    --accent: 159 28% 90%;
+    --accent-foreground: 165 42% 24%;
+
+    /* Destructive */
+    --destructive: 4 60% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Borders + inputs */
+    --border: 36 23% 88%;
+    --input: 36 23% 88%;
+    --ring: 165 42% 30%;
+
+    /* Radius scale */
+    --radius: 0.75rem;
+  }
+
+  [data-theme="dark"] {
+    --background: 240 7% 6%;
+    --foreground: 0 0% 92%;
+    --card: 240 6% 10%;
+    --card-foreground: 0 0% 92%;
+    --popover: 240 6% 10%;
+    --popover-foreground: 0 0% 92%;
+    --sidebar: 240 7% 8%;
+    --sidebar-foreground: 0 0% 90%;
+
+    --primary: 0 0% 92%;
+    --primary-foreground: 240 7% 8%;
+
+    --secondary: 240 6% 14%;
+    --secondary-foreground: 0 0% 90%;
+
+    --muted: 240 5% 16%;
+    --muted-foreground: 240 5% 65%;
+
+    --accent: 240 5% 18%;
+    --accent-foreground: 0 0% 92%;
+
+    --destructive: 4 65% 55%;
+    --destructive-foreground: 0 0% 95%;
+
+    --border: 240 6% 18%;
+    --input: 240 6% 18%;
+    --ring: 0 0% 60%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11", "ss01";
+  }
+
+  /* Scrollbar — subtle, themed */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.4);
+    background-clip: padding-box;
+    border: 2px solid transparent;
+  }
+}
+
+@layer components {
+  /* Drag region so the user can move the borderless window from anywhere
+     marked with this class. Used in the sidebar header and topbar. */
+  .drag {
+    -webkit-app-region: drag;
+  }
+  .no-drag {
+    -webkit-app-region: no-drag;
+  }
+}

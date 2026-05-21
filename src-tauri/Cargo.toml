@@ -1,0 +1,54 @@
+[package]
+name = "attune-app"
+description = "Attune — local-first meeting transcription"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+# Tauri requires a library target so the binary can also be linked as a
+# library (mobile, integration tests, etc.). The crate uses lib + bin.
+[lib]
+name = "attune_app_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "attune"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { workspace = true }
+
+[dependencies]
+attune-core = { path = "../crates/attune-core" }
+
+tauri = { workspace = true }
+tauri-plugin-dialog = { workspace = true }
+tauri-plugin-fs = { workspace = true }
+tauri-plugin-opener = { workspace = true }
+
+# State + IO
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+chrono = { workspace = true }
+parking_lot = { workspace = true }
+uuid = { workspace = true }
+
+# Audio playback
+rodio = { workspace = true }
+hound = { workspace = true }
+
+# HTTP for OpenAI Whisper
+reqwest = { workspace = true }
+
+# Async runtime for command handlers
+tokio = { workspace = true }
+
+[lints]
+workspace = true

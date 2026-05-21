@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/attune-core", "crates/attune-cli", "crates/attune-gui"]
+members = ["crates/attune-core", "crates/attune-cli", "src-tauri"]
 resolver = "2"
 
 [workspace.package]
@@ -33,15 +33,7 @@ parking_lot = "0.12"
 # CLI
 clap = { version = "4.5", features = ["derive"] }
 
-# GUI
-eframe = { version = "0.31", default-features = false, features = ["default_fonts", "wgpu", "persistence"] }
-egui = "0.31"
-egui_extras = { version = "0.31", features = ["all_loaders"] }
-egui-phosphor = "0.9"
-egui_commonmark = { version = "0.20", features = ["better_syntax_highlighting"] }
-rfd = "0.15"
-
-# Audio playback
+# Audio playback (used by Tauri command for in-app preview)
 rodio = { version = "0.20", default-features = false, features = ["wav"] }
 
 # IDs and time
@@ -57,10 +49,15 @@ chrono = { version = "0.4", features = ["serde"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 
-# macOS: ScreenCaptureKit fallback for system audio. HAL Tap binding lives in
-# attune-core directly via FFI when ready (week 2).
+# Tauri 2
+tauri = { version = "2", features = [] }
+tauri-build = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+tauri-plugin-fs = "2"
+tauri-plugin-opener = "2"
+
 [workspace.metadata]
-description = "Local-first meeting transcription for macOS"
+description = "Local-first meeting transcription, cross-platform via Tauri 2"
 
 [workspace.lints.clippy]
 uninlined_format_args = "allow"

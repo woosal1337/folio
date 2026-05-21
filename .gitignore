@@ -59,3 +59,13 @@ Package.resolved
 # Logs
 *.log
 logs/
+
+# Node / Vite / Tauri 2 frontend
+node_modules/
+/dist/
+.vite/
+
+# Tauri generated
+src-tauri/gen/
+src-tauri/target/
+src-tauri/Cargo.lock

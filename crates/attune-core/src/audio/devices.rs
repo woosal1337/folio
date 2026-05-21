@@ -2,10 +2,11 @@
 //! a mic. Falls back to the default device when no name is specified.
 
 use cpal::traits::{DeviceTrait, HostTrait};
+use serde::{Deserialize, Serialize};
 
 use crate::error::{AttuneError, Result};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DeviceInfo {
     pub name: String,
     pub is_default: bool,
