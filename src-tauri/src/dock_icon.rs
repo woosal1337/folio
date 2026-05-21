@@ -9,8 +9,11 @@
 //! `NSApplication.applicationIconImage` so the Dock shows the real icon
 //! in development too.
 
+// Embed the 1024 master so macOS has plenty of pixel data to downscale
+// at any Dock size. Smaller derived rasters can become stale or be
+// downscaled poorly by NSImage's interpolation.
 #[cfg(target_os = "macos")]
-const ICON_PNG: &[u8] = include_bytes!("../icons/128x128@2x.png");
+const ICON_PNG: &[u8] = include_bytes!("../icons/logo-source.png");
 
 #[cfg(target_os = "macos")]
 pub fn set_dock_icon() {
@@ -18,6 +21,20 @@ pub fn set_dock_icon() {
     use cocoa::base::{id, nil};
     use cocoa::foundation::NSUInteger;
     use objc::{class, msg_send, sel, sel_impl};
+
+    // Hash + size logging so the running binary can prove which bytes
+    // it's about to assign — invaluable when the Dock is caching old
+    // versions and you want to confirm the new one really shipped.
+    let len = ICON_PNG.len();
+    let prefix = ICON_PNG
+        .iter()
+        .take(64)
+        .fold(0u64, |acc, b| acc.wrapping_mul(31).wrapping_add(*b as u64));
+    tracing::info!(
+        bytes = len,
+        prefix_hash = prefix,
+        "set_dock_icon: loading icon"
+    );
 
     unsafe {
         // NSData *data = [NSData dataWithBytes:bytes length:len];
