@@ -1,9 +1,19 @@
 import * as React from "react";
-import { Mic, Square, FileAudio, FolderOpen, RefreshCw } from "lucide-react";
+import {
+  Mic,
+  Square,
+  FileAudio,
+  FolderOpen,
+  RefreshCw,
+  ChevronDown,
+  ChevronRight,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { AudioPlayer } from "@/components/audio-player";
 import { cn, formatBytes, formatDuration } from "@/lib/utils";
 import { useRecording } from "@/hooks/use-recording";
 import { listRecordings, revealInFinder } from "@/lib/api";
@@ -12,6 +22,7 @@ import type { RecordingSummary } from "@/lib/types";
 export default function Record() {
   const rec = useRecording();
   const [history, setHistory] = React.useState<RecordingSummary[]>([]);
+  const [expanded, setExpanded] = React.useState<string | null>(null);
 
   const refresh = React.useCallback(async () => {
     try {
@@ -26,9 +37,11 @@ export default function Record() {
     refresh();
   }, [refresh]);
 
-  // When a recording stops, refresh the list.
   React.useEffect(() => {
-    if (rec.lastSavedDir) refresh();
+    if (rec.lastSavedDir) {
+      refresh();
+      setExpanded(rec.lastSavedDir);
+    }
   }, [rec.lastSavedDir, refresh]);
 
   const elapsedLabel = React.useMemo(() => {
@@ -109,6 +122,12 @@ export default function Record() {
             <RecordingRow
               key={item.session_dir}
               item={item}
+              open={expanded === item.session_dir}
+              onToggle={() =>
+                setExpanded((cur) =>
+                  cur === item.session_dir ? null : item.session_dir
+                )
+              }
               onReveal={() => revealInFinder(item.session_dir)}
             />
           ))}
@@ -118,7 +137,13 @@ export default function Record() {
   );
 }
 
-function StatusPill({ recording, label }: { recording: boolean; label: string }) {
+function StatusPill({
+  recording,
+  label,
+}: {
+  recording: boolean;
+  label: string;
+}) {
   return (
     <Badge variant="outline" className="gap-2 px-3 py-1 font-mono tracking-tight">
       <span
@@ -136,38 +161,70 @@ function StatusPill({ recording, label }: { recording: boolean; label: string })
   );
 }
 
-function RecordingRow({
-  item,
-  onReveal,
-}: {
+interface RowProps {
   item: RecordingSummary;
+  open: boolean;
+  onToggle: () => void;
   onReveal: () => void;
-}) {
+}
+
+function RecordingRow({ item, open, onToggle, onReveal }: RowProps) {
   const totalBytes = (item.mic_bytes ?? 0) + (item.system_bytes ?? 0);
   const parts: string[] = [
     formatDuration(item.duration_seconds),
     formatBytes(totalBytes),
   ];
+
+  const micPath = item.mic_bytes ? `${item.session_dir}/mic.wav` : null;
+  const systemPath = item.system_bytes
+    ? `${item.session_dir}/system.wav`
+    : null;
+
   return (
-    <Card>
-      <CardContent className="flex items-center gap-4 px-5 py-3">
-        <FileAudio className="h-4 w-4 text-muted-foreground" />
-        <div className="flex flex-col">
-          <span className="font-mono text-sm">{item.label}</span>
+    <Card className="overflow-hidden">
+      <button
+        onClick={onToggle}
+        className="flex w-full items-center gap-4 px-5 py-3 text-left transition-colors hover:bg-accent/40"
+      >
+        {open ? (
+          <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+        ) : (
+          <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+        )}
+        <FileAudio className="h-4 w-4 shrink-0 text-muted-foreground" />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <span className="truncate font-mono text-sm">{item.label}</span>
           <span className="font-mono text-2xs text-muted-foreground">
             {parts.join("  ·  ")}
           </span>
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="ml-auto gap-2"
-          onClick={onReveal}
+        <span
+          className="ml-auto inline-flex items-center gap-2"
+          onClick={(e) => e.stopPropagation()}
         >
-          <FolderOpen className="h-3.5 w-3.5" />
-          Reveal
-        </Button>
-      </CardContent>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-2"
+            onClick={onReveal}
+          >
+            <FolderOpen className="h-3.5 w-3.5" />
+            Reveal
+          </Button>
+        </span>
+      </button>
+
+      {open && (
+        <CardContent className="flex flex-col gap-4 border-t border-border bg-secondary/40 px-5 py-4">
+          {micPath ? (
+            <AudioPlayer filePath={micPath} label="Mic" />
+          ) : (
+            <p className="text-xs text-muted-foreground">No mic track.</p>
+          )}
+          {systemPath && <Separator />}
+          {systemPath && <AudioPlayer filePath={systemPath} label="System" />}
+        </CardContent>
+      )}
     </Card>
   );
 }
