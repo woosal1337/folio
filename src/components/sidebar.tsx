@@ -13,6 +13,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/hooks/use-theme";
 import { Button } from "@/components/ui/button";
+import logoUrl from "@/assets/logo.png";
 
 interface NavItem {
   to: string;
@@ -40,7 +41,13 @@ export function Sidebar({ onOpenSettings }: SidebarProps) {
       className="flex w-[220px] flex-col select-none border-r border-border bg-sidebar text-sidebar-foreground"
     >
       {/* Brand */}
-      <div className="flex items-center gap-2 px-5 pb-2 pt-4">
+      <div className="flex items-center gap-2.5 px-5 pb-2 pt-4">
+        <img
+          src={logoUrl}
+          alt="Attune"
+          className="h-7 w-7 select-none"
+          draggable={false}
+        />
         <span className="font-serif text-2xl font-medium tracking-tight">
           attune
         </span>
