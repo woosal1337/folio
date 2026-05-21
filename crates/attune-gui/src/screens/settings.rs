@@ -5,11 +5,11 @@ use egui::{Align, Layout, RichText};
 
 use crate::components::{caption, card, ghost_button_icon, labeled_section, mono};
 use crate::design::tokens::{Radius, Space};
-use crate::design::{palette, Icon, TextStyle};
+use crate::design::{palette, Icon, TextStyle, Theme};
 use crate::state::{Persisted, Runtime};
 use crate::transcription::TranscriberKind;
 
-pub fn show(ui: &mut egui::Ui, _ctx: &egui::Context, rt: &mut Runtime, persisted: &mut Persisted) {
+pub fn show(ui: &mut egui::Ui, ctx: &egui::Context, rt: &mut Runtime, persisted: &mut Persisted) {
     let p = palette::current();
     ui.label(
         RichText::new("Settings")
@@ -21,6 +21,52 @@ pub fn show(ui: &mut egui::Ui, _ctx: &egui::Context, rt: &mut Runtime, persisted
         "Storage paths and provider keys. Everything stays on this Mac.",
     ));
     ui.add_space(Space::xl());
+
+    // Appearance card
+    card(ui, |ui| {
+        labeled_section(ui, Some(Icon::Sparkle), "APPEARANCE", |ui| {
+            ui.horizontal(|ui| {
+                for theme in Theme::all() {
+                    let selected = persisted.theme == *theme;
+                    let bg = if selected {
+                        p.accent_subtle
+                    } else {
+                        p.surface_subtle
+                    };
+                    let text_color = if selected {
+                        p.accent_strong
+                    } else {
+                        p.text_muted
+                    };
+                    let resp = ui.add(
+                        egui::Button::new(
+                            egui::RichText::new(theme.label())
+                                .font(TextStyle::Body.font_id())
+                                .color(text_color),
+                        )
+                        .corner_radius(egui::CornerRadius::same(Radius::md() as u8))
+                        .fill(bg)
+                        .stroke(egui::Stroke::new(
+                            1.0,
+                            if selected { p.accent } else { p.border },
+                        ))
+                        .min_size(egui::vec2(96.0, 32.0)),
+                    );
+                    if resp.clicked() && !selected {
+                        persisted.theme = *theme;
+                        crate::design::set_theme_and_apply(ctx, *theme);
+                    }
+                    ui.add_space(Space::xs());
+                }
+            });
+            ui.add_space(Space::x2s());
+            ui.label(caption(
+                "Light is the default. Dark stays available for late-night work.",
+            ));
+        });
+    });
+
+    ui.add_space(Space::lg());
 
     card(ui, |ui| {
         folder_setting(ui, "RECORDINGS FOLDER", &mut persisted.output_dir);

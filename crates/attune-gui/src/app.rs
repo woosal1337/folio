@@ -20,6 +20,9 @@ impl App {
             .and_then(|s| eframe::get_value::<Persisted>(s, eframe::APP_KEY))
             .unwrap_or_default();
 
+        // Apply the persisted theme so the very first paint matches.
+        crate::design::set_theme_and_apply(&cc.egui_ctx, persisted.theme);
+
         let mut rt = Runtime::new(&persisted);
         state::refresh_devices(&mut rt, &mut persisted);
         state::refresh_history(&mut rt, &persisted.output_dir);

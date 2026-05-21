@@ -5,7 +5,8 @@
 //! consumes these tokens via [`tokens`], [`palette`], [`typography`], and
 //! [`icon`].
 //!
-//! Apply once at app startup with [`apply`].
+//! Apply once at app startup with [`apply`]; switch themes at runtime with
+//! [`set_theme_and_apply`].
 
 // The design system defines a complete scale up-front. Not every token is
 // consumed by today's screens; the rest are kept available so future
@@ -18,7 +19,7 @@ pub mod tokens;
 pub mod typography;
 
 pub use icon::Icon;
-pub use palette::Palette;
+pub use palette::{active_theme, set_theme, Palette, Theme};
 pub use tokens::{Motion, Radius, Space};
 pub use typography::TextStyle;
 
@@ -26,31 +27,50 @@ pub use typography::TextStyle;
 /// styles, apply visuals and spacing. Call once during app creation.
 pub fn apply(ctx: &egui::Context) {
     typography::install_fonts(ctx);
+    refresh(ctx);
+}
+
+/// Re-apply the visuals + style from the currently active palette. Call
+/// after [`set_theme`] to flip the entire app to the new theme.
+pub fn refresh(ctx: &egui::Context) {
     apply_visuals(ctx);
     apply_style(ctx);
+    ctx.request_repaint();
+}
+
+/// Convenience: switch theme + re-apply.
+pub fn set_theme_and_apply(ctx: &egui::Context, theme: Theme) {
+    set_theme(theme);
+    refresh(ctx);
 }
 
 fn apply_visuals(ctx: &egui::Context) {
-    let p = Palette::dark();
-    let mut v = egui::Visuals::dark();
-    v.dark_mode = true;
+    let p = palette::current();
+    // Start from egui's matching base so widgets we don't explicitly style
+    // (sliders, text-edit selection, etc.) read coherently.
+    let mut v = if p.is_dark {
+        egui::Visuals::dark()
+    } else {
+        egui::Visuals::light()
+    };
+    v.dark_mode = p.is_dark;
 
-    v.panel_fill = p.surface;
-    v.window_fill = p.surface_raised;
-    v.extreme_bg_color = p.surface_recessed;
+    v.panel_fill = p.bg;
+    v.window_fill = p.surface;
+    v.extreme_bg_color = p.surface;
     v.faint_bg_color = p.surface_subtle;
     v.code_bg_color = p.surface_subtle;
     v.window_stroke = egui::Stroke::new(1.0, p.border);
     v.window_shadow = egui::Shadow {
-        offset: [0, 8],
-        blur: 24,
+        offset: [0, 12],
+        blur: 28,
         spread: 0,
-        color: egui::Color32::from_black_alpha(64),
+        color: p.shadow,
     };
 
-    v.hyperlink_color = p.text;
+    v.hyperlink_color = p.accent;
     v.selection.bg_fill = p.selection_bg;
-    v.selection.stroke = egui::Stroke::new(1.0, p.text);
+    v.selection.stroke = egui::Stroke::new(1.0, p.accent);
 
     // Non-interactive (labels)
     v.widgets.noninteractive.bg_fill = p.surface;
@@ -60,39 +80,39 @@ fn apply_visuals(ctx: &egui::Context) {
     v.widgets.noninteractive.corner_radius = egui::CornerRadius::same(tokens::Radius::sm() as u8);
 
     // Inactive (buttons at rest)
-    v.widgets.inactive.bg_fill = p.surface_raised;
+    v.widgets.inactive.bg_fill = p.surface;
     v.widgets.inactive.weak_bg_fill = p.surface_subtle;
     v.widgets.inactive.bg_stroke = egui::Stroke::new(1.0, p.border);
     v.widgets.inactive.fg_stroke = egui::Stroke::new(1.0, p.text);
     v.widgets.inactive.corner_radius = egui::CornerRadius::same(tokens::Radius::md() as u8);
 
     // Hovered
-    v.widgets.hovered.bg_fill = p.surface_overlay;
-    v.widgets.hovered.weak_bg_fill = p.surface_raised;
+    v.widgets.hovered.bg_fill = p.surface_subtle;
+    v.widgets.hovered.weak_bg_fill = p.surface_subtle;
     v.widgets.hovered.bg_stroke = egui::Stroke::new(1.0, p.border_strong);
     v.widgets.hovered.fg_stroke = egui::Stroke::new(1.0, p.text);
     v.widgets.hovered.corner_radius = egui::CornerRadius::same(tokens::Radius::md() as u8);
 
     // Active (pressed)
-    v.widgets.active.bg_fill = p.surface_overlay_strong;
-    v.widgets.active.weak_bg_fill = p.surface_overlay;
+    v.widgets.active.bg_fill = p.surface_overlay;
+    v.widgets.active.weak_bg_fill = p.surface_subtle;
     v.widgets.active.bg_stroke = egui::Stroke::new(1.0, p.border_strong);
     v.widgets.active.fg_stroke = egui::Stroke::new(1.0, p.text);
     v.widgets.active.corner_radius = egui::CornerRadius::same(tokens::Radius::md() as u8);
 
     // Open menus
-    v.widgets.open.bg_fill = p.surface_raised;
-    v.widgets.open.weak_bg_fill = p.surface_raised;
+    v.widgets.open.bg_fill = p.surface;
+    v.widgets.open.weak_bg_fill = p.surface;
     v.widgets.open.bg_stroke = egui::Stroke::new(1.0, p.border_strong);
     v.widgets.open.fg_stroke = egui::Stroke::new(1.0, p.text);
     v.widgets.open.corner_radius = egui::CornerRadius::same(tokens::Radius::md() as u8);
 
     v.override_text_color = Some(p.text);
     v.popup_shadow = egui::Shadow {
-        offset: [0, 6],
-        blur: 18,
+        offset: [0, 8],
+        blur: 22,
         spread: 0,
-        color: egui::Color32::from_black_alpha(96),
+        color: p.shadow,
     };
     v.menu_corner_radius = egui::CornerRadius::same(tokens::Radius::md() as u8);
     v.window_corner_radius = egui::CornerRadius::same(tokens::Radius::lg() as u8);

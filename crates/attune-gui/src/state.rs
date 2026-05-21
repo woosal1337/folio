@@ -12,6 +12,7 @@ use attune_core::audio::{
 };
 use serde::{Deserialize, Serialize};
 
+use crate::design::Theme;
 use crate::notes::NotesStore;
 use crate::playback::Player;
 use crate::tasks::TaskStore;
@@ -29,6 +30,8 @@ pub struct Persisted {
     pub active_screen: Screen,
     pub transcriber: TranscriberKind,
     pub openai_api_key: String,
+    #[serde(default)]
+    pub theme: Theme,
 }
 
 impl Default for Persisted {
@@ -43,6 +46,7 @@ impl Default for Persisted {
             active_screen: Screen::Record,
             transcriber: TranscriberKind::default(),
             openai_api_key: String::new(),
+            theme: Theme::default(),
         }
     }
 }
