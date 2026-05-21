@@ -111,7 +111,7 @@ impl AttuneApp {
             mic_enabled: true,
             system_enabled: self.persisted.system_audio_enabled,
             mic_device_name: self.persisted.mic_device.clone(),
-            target_sample_rate: 16_000,
+            target_sample_rate: 48_000,
             output_dir: self.persisted.output_dir.clone(),
         };
 
@@ -354,7 +354,7 @@ impl AttuneApp {
                 })
                 .unwrap_or_else(|| "unknown".into());
             ui.label(
-                RichText::new(format!("{sr} · {ch} · resampled to 16 kHz mono"))
+                RichText::new(format!("{sr} · {ch} · saved at 48 kHz mono"))
                     .small()
                     .color(SUBTLER),
             );
@@ -597,8 +597,8 @@ fn scan_history(output_dir: &std::path::Path) -> Vec<RecordingSummary> {
         if mic_bytes.is_none() && system_bytes.is_none() {
             continue;
         }
-        let duration_seconds = mic_bytes
-            .map(|b| ((b.saturating_sub(44)) / (16_000 * 2)) as i64)
+        let duration_seconds = wav_duration_seconds(&mic_path)
+            .or_else(|| wav_duration_seconds(&sys_path))
             .unwrap_or(0);
         sessions.push(RecordingSummary {
             session_dir: path,
@@ -611,6 +611,18 @@ fn scan_history(output_dir: &std::path::Path) -> Vec<RecordingSummary> {
     sessions.sort_by(|a, b| b.label.cmp(&a.label));
     sessions.truncate(20);
     sessions
+}
+
+/// Read the WAV header and return the duration in whole seconds.
+/// Returns None if the file is missing, unreadable, or malformed.
+fn wav_duration_seconds(path: &std::path::Path) -> Option<i64> {
+    let reader = hound::WavReader::open(path).ok()?;
+    let spec = reader.spec();
+    let frames = reader.duration() as u64;
+    if spec.sample_rate == 0 {
+        return None;
+    }
+    Some((frames / spec.sample_rate as u64) as i64)
 }
 
 fn format_duration(secs: i64) -> String {

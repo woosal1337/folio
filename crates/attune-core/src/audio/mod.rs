@@ -39,8 +39,10 @@ pub struct CaptureConfig {
     pub system_enabled: bool,
     /// Microphone device by name. `None` selects the default input device.
     pub mic_device_name: Option<String>,
-    /// Target sample rate fed to the transcription pipeline. Whisper expects
-    /// 16 kHz mono.
+    /// Target sample rate written to disk. Defaults to 48 kHz mono for
+    /// playback clarity (anything above 8 kHz is lost at 16 kHz, which makes
+    /// music and high-frequency voice content sound muffled). The Whisper
+    /// pipeline downsamples on read, so the on-disk WAVs stay native quality.
     pub target_sample_rate: u32,
     /// Output directory for WAV files. A timestamped subdirectory is created
     /// per session.
@@ -53,7 +55,7 @@ impl Default for CaptureConfig {
             mic_enabled: true,
             system_enabled: true,
             mic_device_name: None,
-            target_sample_rate: 16_000,
+            target_sample_rate: 48_000,
             output_dir: std::path::PathBuf::from("./recordings"),
         }
     }

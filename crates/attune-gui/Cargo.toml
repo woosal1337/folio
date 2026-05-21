@@ -23,6 +23,7 @@ egui = { workspace = true }
 rfd = { workspace = true }
 
 anyhow = { workspace = true }
+hound = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 chrono = { workspace = true }

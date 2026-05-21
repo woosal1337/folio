@@ -39,11 +39,15 @@ impl StreamingResampler {
         let chunk_size = 1024;
         let ratio = output_sample_rate as f64 / input_sample_rate as f64;
 
+        // High-quality polyphase: longer sinc kernel + cubic interpolation
+        // between table entries. About 2-3x slower than the previous "good
+        // enough for Whisper" config and meaningfully cleaner for playback,
+        // especially around 4-8 kHz where voice intelligibility lives.
         let params = SincInterpolationParameters {
-            sinc_len: 128,
+            sinc_len: 256,
             f_cutoff: 0.95,
-            interpolation: SincInterpolationType::Linear,
-            oversampling_factor: 128,
+            interpolation: SincInterpolationType::Cubic,
+            oversampling_factor: 256,
             window: WindowFunction::BlackmanHarris2,
         };
 

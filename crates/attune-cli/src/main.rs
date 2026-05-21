@@ -51,8 +51,9 @@ struct RecordArgs {
     #[arg(long)]
     mic_device: Option<String>,
 
-    /// Target sample rate for the output WAV files.
-    #[arg(long, default_value_t = 16_000)]
+    /// Target sample rate for the output WAV files. Defaults to 48 kHz
+    /// (native quality). Use 16000 for Whisper-ready files.
+    #[arg(long, default_value_t = 48_000)]
     sample_rate: u32,
 }
 
