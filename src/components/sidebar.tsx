@@ -35,19 +35,19 @@ export function Sidebar({ onOpenSettings }: SidebarProps) {
   const { theme, toggle } = useTheme();
 
   return (
-    <aside className="flex h-screen w-[220px] flex-col border-r border-border bg-sidebar text-sidebar-foreground">
+    <aside className="flex w-[220px] flex-col border-r border-border bg-sidebar text-sidebar-foreground">
       {/* Brand */}
-      <div className="drag flex items-center gap-2 px-5 pb-3 pt-7">
+      <div className="flex items-center gap-2 px-5 pb-2 pt-4">
         <span className="font-serif text-2xl font-medium tracking-tight">
           attune
         </span>
       </div>
-      <div className="no-drag px-5 pb-4">
+      <div className="px-5 pb-4">
         <p className="text-xs text-muted-foreground">local meeting capture</p>
       </div>
 
       {/* Primary nav */}
-      <nav className="no-drag flex-1 space-y-0.5 px-2">
+      <nav className="flex-1 space-y-0.5 px-2">
         {items.map((item) => {
           const Icon = item.icon;
           return (
@@ -71,7 +71,7 @@ export function Sidebar({ onOpenSettings }: SidebarProps) {
       </nav>
 
       {/* Footer */}
-      <div className="no-drag flex flex-col gap-1 border-t border-border px-2 py-3">
+      <div className="flex flex-col gap-1 border-t border-border px-2 py-3">
         <Button
           variant="ghost"
           size="sm"
