@@ -203,6 +203,46 @@ fn wav_duration_seconds(path: &std::path::Path) -> Option<i64> {
     Some((frames / spec.sample_rate as u64) as i64)
 }
 
+/// Delete a recording session directory.
+///
+/// Refuses to delete unless the path lies under the user's configured
+/// recordings folder — defence in depth so a bug in the frontend can't
+/// trigger an `rm -rf /` situation.
+#[tauri::command]
+pub fn delete_recording(
+    state: State<'_, AppState>,
+    session_dir: PathBuf,
+) -> Result<(), String> {
+    let output_dir = state.settings.lock().output_dir.clone();
+    let canon_root = std::fs::canonicalize(&output_dir).map_err(|e| {
+        format!(
+            "could not canonicalize recordings dir {}: {e}",
+            output_dir.display()
+        )
+    })?;
+    let canon_target = std::fs::canonicalize(&session_dir).map_err(|e| {
+        format!(
+            "could not canonicalize session dir {}: {e}",
+            session_dir.display()
+        )
+    })?;
+    if !canon_target.starts_with(&canon_root) {
+        return Err(format!(
+            "refused to delete {}: not under recordings folder {}",
+            canon_target.display(),
+            canon_root.display(),
+        ));
+    }
+    if canon_target == canon_root {
+        return Err("refused to delete the recordings folder itself".into());
+    }
+    std::fs::remove_dir_all(&canon_target).map_err(|e| {
+        format!("could not delete {}: {e}", canon_target.display())
+    })?;
+    info!(path = %canon_target.display(), "recording deleted");
+    Ok(())
+}
+
 #[tauri::command]
 pub fn reveal_in_finder(path: PathBuf) -> Result<(), String> {
     #[cfg(target_os = "macos")]

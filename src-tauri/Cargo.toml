@@ -29,6 +29,15 @@ tauri-plugin-dialog = { workspace = true }
 tauri-plugin-fs = { workspace = true }
 tauri-plugin-opener = { workspace = true }
 
+[target.'cfg(target_os = "macos")'.dependencies]
+# Used to set the Dock icon at runtime for dev binaries that aren't
+# launched from a .app bundle. We use raw msg_send! rather than the
+# feature-gated high-level wrappers because the dock-icon trick needs
+# only NSData / NSImage / NSApplication, and the high-level crates'
+# feature flags are brittle across versions.
+objc = "0.2"
+cocoa = "0.26"
+
 # State + IO
 serde = { workspace = true }
 serde_json = { workspace = true }

@@ -7,6 +7,7 @@ import {
   RefreshCw,
   ChevronDown,
   ChevronRight,
+  Trash2,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -16,7 +17,7 @@ import { Separator } from "@/components/ui/separator";
 import { AudioPlayer } from "@/components/audio-player";
 import { cn, formatBytes, formatDuration } from "@/lib/utils";
 import { useRecording } from "@/hooks/use-recording";
-import { listRecordings, revealInFinder } from "@/lib/api";
+import { deleteRecording, listRecordings, revealInFinder } from "@/lib/api";
 import type { RecordingSummary } from "@/lib/types";
 
 export default function Record() {
@@ -132,6 +133,20 @@ export default function Record() {
                 )
               }
               onReveal={() => revealInFinder(item.session_dir)}
+              onDelete={async () => {
+                const ok = window.confirm(
+                  `Delete this recording?\n\n${item.label}\n\nThis removes the session folder and every file inside it. Cannot be undone.`
+                );
+                if (!ok) return;
+                try {
+                  await deleteRecording(item.session_dir);
+                  if (expanded === item.session_dir) setExpanded(null);
+                  refresh();
+                } catch (e) {
+                  console.error("delete_recording:", e);
+                  window.alert(`Could not delete: ${e}`);
+                }
+              }}
             />
           ))}
         </div>
@@ -169,9 +184,10 @@ interface RowProps {
   open: boolean;
   onToggle: () => void;
   onReveal: () => void;
+  onDelete: () => void;
 }
 
-function RecordingRow({ item, open, onToggle, onReveal }: RowProps) {
+function RecordingRow({ item, open, onToggle, onReveal, onDelete }: RowProps) {
   const totalBytes = (item.mic_bytes ?? 0) + (item.system_bytes ?? 0);
   const parts: string[] = [
     formatDuration(item.duration_seconds),
@@ -202,7 +218,7 @@ function RecordingRow({ item, open, onToggle, onReveal }: RowProps) {
           </span>
         </div>
         <span
-          className="ml-auto inline-flex items-center gap-2"
+          className="ml-auto inline-flex items-center gap-1"
           onClick={(e) => e.stopPropagation()}
         >
           <Button
@@ -213,6 +229,19 @@ function RecordingRow({ item, open, onToggle, onReveal }: RowProps) {
           >
             <FolderOpen className="h-3.5 w-3.5" />
             Reveal
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete();
+            }}
+            aria-label="Delete recording"
+            title="Delete recording"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
           </Button>
         </span>
       </button>

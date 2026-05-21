@@ -2,6 +2,7 @@
 //! exposes Rust functions to the React frontend as Tauri commands.
 
 mod commands;
+mod dock_icon;
 mod state;
 
 use tracing_subscriber::EnvFilter;
@@ -15,6 +16,12 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .manage(state::AppState::default())
+        .setup(|_app| {
+            // Dev builds launch as raw binaries without a .app bundle, so
+            // macOS would otherwise show a blank Dock icon. Set it here.
+            dock_icon::set_dock_icon();
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             commands::ping,
             commands::list_input_devices,
@@ -24,6 +31,7 @@ pub fn run() {
             commands::start_recording,
             commands::stop_recording,
             commands::list_recordings,
+            commands::delete_recording,
             commands::reveal_in_finder,
         ])
         .run(tauri::generate_context!())

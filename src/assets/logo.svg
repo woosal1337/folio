@@ -1,0 +1,29 @@
+<svg
+  width="380"
+  height="280"
+  viewBox="66 120 380 280"
+  fill="none"
+  xmlns="http://www.w3.org/2000/svg"
+>
+  <!-- Three concentric 180° semicircles sharing the baseline y = 310,
+       centered on x = 256. Stroke-width matched to the source logo:
+       thick rounded lines with generous gaps between rings. viewBox is
+       cropped tight to the artwork bounds so the mark fills its
+       container at every size. -->
+  <g
+    stroke="#2D6E5E"
+    stroke-width="30"
+    stroke-linecap="round"
+    fill="none"
+  >
+    <!-- Outer ring: radius 170 -->
+    <path d="M 86 310 A 170 170 0 0 1 426 310" />
+    <!-- Middle ring: radius 110 -->
+    <path d="M 146 310 A 110 110 0 0 1 366 310" />
+    <!-- Inner ring: radius 50 -->
+    <path d="M 206 310 A 50 50 0 0 1 306 310" />
+  </g>
+
+  <!-- Center dot below the baseline -->
+  <circle cx="256" cy="366" r="19" fill="#2D6E5E" />
+</svg>

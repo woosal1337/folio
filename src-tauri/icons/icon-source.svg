@@ -1,0 +1,33 @@
+<svg
+  width="1024"
+  height="1024"
+  viewBox="0 0 1024 1024"
+  fill="none"
+  xmlns="http://www.w3.org/2000/svg"
+>
+  <!-- Squircle/rounded-rect background. 230 corner radius matches the
+       macOS Big Sur+ icon spec (~22% of canvas side). Outside the rect
+       stays transparent so macOS sees a real squircle, not a flat
+       square. Cream + sage matches the in-app brand orientation. -->
+  <rect width="1024" height="1024" rx="230" ry="230" fill="#F5F2EC" />
+
+  <!-- Concentric arcs + dot in sage. Mirrored from src/assets/logo.svg,
+       scaled and centered with proper safe-area padding for the icon
+       canvas. -->
+  <g
+    stroke="#2D6E5E"
+    stroke-width="60"
+    stroke-linecap="round"
+    fill="none"
+  >
+    <!-- Outer ring: radius 340 -->
+    <path d="M 172 620 A 340 340 0 0 1 852 620" />
+    <!-- Middle ring: radius 220 -->
+    <path d="M 292 620 A 220 220 0 0 1 732 620" />
+    <!-- Inner ring: radius 100 -->
+    <path d="M 412 620 A 100 100 0 0 1 612 620" />
+  </g>
+
+  <!-- Center dot below the baseline -->
+  <circle cx="512" cy="732" r="38" fill="#2D6E5E" />
+</svg>

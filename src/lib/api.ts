@@ -50,3 +50,7 @@ export async function listRecordings(): Promise<RecordingSummary[]> {
 export async function revealInFinder(path: string): Promise<void> {
   return invoke<void>("reveal_in_finder", { path });
 }
+
+export async function deleteRecording(sessionDir: string): Promise<void> {
+  return invoke<void>("delete_recording", { sessionDir });
+}

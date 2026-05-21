@@ -13,7 +13,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/hooks/use-theme";
 import { Button } from "@/components/ui/button";
-import logoUrl from "@/assets/logo.png";
+import logoUrl from "@/assets/logo.svg";
 
 interface NavItem {
   to: string;
@@ -45,7 +45,7 @@ export function Sidebar({ onOpenSettings }: SidebarProps) {
         <img
           src={logoUrl}
           alt="Attune"
-          className="h-7 w-7 select-none"
+          className="h-6 w-6 select-none"
           draggable={false}
         />
         <span className="font-serif text-2xl font-medium tracking-tight">
