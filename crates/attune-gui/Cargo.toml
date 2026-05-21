@@ -28,6 +28,7 @@ rfd = { workspace = true }
 rodio = { workspace = true }
 uuid = { workspace = true }
 parking_lot = { workspace = true }
+reqwest = { workspace = true }
 
 anyhow = { workspace = true }
 hound = { workspace = true }

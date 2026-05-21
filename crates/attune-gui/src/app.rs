@@ -19,6 +19,7 @@ impl App {
             .storage
             .and_then(|s| eframe::get_value::<Persisted>(s, eframe::APP_KEY))
             .unwrap_or_default();
+        persisted.active_screen = persisted.active_screen.migrated();
 
         // Apply the persisted theme so the very first paint matches.
         crate::design::set_theme_and_apply(&cc.egui_ctx, persisted.theme);
@@ -145,10 +146,10 @@ impl App {
             let (icon, label) = match screen {
                 Screen::Record => (Icon::Record, "Record"),
                 Screen::Library => (Icon::Library, "Library"),
-                Screen::Transcripts => (Icon::Transcript, "Transcripts"),
                 Screen::Editor => (Icon::Editor, "Editor"),
                 Screen::Tasks => (Icon::CheckSquare, "Tasks"),
                 Screen::Settings => (Icon::Settings, "Settings"),
+                Screen::Transcripts => continue,
             };
             let is_active = self.persisted.active_screen == *screen;
             if nav_item(ui, icon, label, is_active).clicked() {
@@ -178,9 +179,9 @@ impl App {
     fn draw_content(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
         match self.persisted.active_screen {
             Screen::Record => screens::record::show(ui, ctx, &mut self.rt, &mut self.persisted),
-            Screen::Library => screens::library::show(ui, ctx, &mut self.rt, &mut self.persisted),
-            Screen::Transcripts => {
-                screens::transcripts::show(ui, ctx, &mut self.rt, &mut self.persisted)
+            // Transcripts is merged into Library; any stale routing lands here too.
+            Screen::Library | Screen::Transcripts => {
+                screens::library::show(ui, ctx, &mut self.rt, &mut self.persisted)
             }
             Screen::Editor => screens::editor::show(ui, ctx, &mut self.rt, &mut self.persisted),
             Screen::Tasks => screens::tasks::show(ui, ctx, &mut self.rt, &mut self.persisted),

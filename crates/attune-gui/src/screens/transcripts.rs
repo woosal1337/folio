@@ -1,6 +1,11 @@
-//! Transcripts screen. Lists every transcribed recording with its
-//! generated text alongside. When the transcription pipeline is wired up,
-//! finished transcripts land in [`Runtime::transcripts`] automatically.
+//! Transcripts screen — deprecated.
+//!
+//! The Transcripts entry has been folded into Library. This file is kept
+//! as a compile-time anchor so old persisted state pointing at the old
+//! Transcripts variant still has somewhere to land. The dispatcher in
+//! `app.rs` routes Screen::Transcripts to the Library screen.
+
+#![allow(dead_code)]
 
 use egui::{Align, Layout, RichText};
 

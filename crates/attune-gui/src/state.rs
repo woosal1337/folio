@@ -16,7 +16,9 @@ use crate::design::Theme;
 use crate::notes::NotesStore;
 use crate::playback::Player;
 use crate::tasks::TaskStore;
-use crate::transcription::{TranscriberKind, TranscriptStore};
+use crate::transcription::{
+    transcribe_session, TranscriberKind, TranscriptStore, TranscriptionEvent, TranscriptionRequest,
+};
 
 /// State that survives across app launches.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -32,6 +34,14 @@ pub struct Persisted {
     pub openai_api_key: String,
     #[serde(default)]
     pub theme: Theme,
+    #[serde(default = "default_language")]
+    pub transcription_language: String,
+    #[serde(default)]
+    pub dictionary_terms: Vec<String>,
+}
+
+fn default_language() -> String {
+    "auto".into()
 }
 
 impl Default for Persisted {
@@ -47,6 +57,8 @@ impl Default for Persisted {
             transcriber: TranscriberKind::default(),
             openai_api_key: String::new(),
             theme: Theme::default(),
+            transcription_language: default_language(),
+            dictionary_terms: Vec::new(),
         }
     }
 }
@@ -77,7 +89,6 @@ impl Screen {
         &[
             Screen::Record,
             Screen::Library,
-            Screen::Transcripts,
             Screen::Editor,
             Screen::Tasks,
             Screen::Settings,
@@ -101,6 +112,15 @@ impl Screen {
     pub fn wants_full_width(self) -> bool {
         matches!(self, Screen::Editor | Screen::Tasks | Screen::Library)
     }
+
+    /// Old persisted state may point at Screen::Transcripts (a sidebar entry
+    /// we removed when merging into Library). Coerce to a still-valid screen.
+    pub fn migrated(self) -> Screen {
+        match self {
+            Screen::Transcripts => Screen::Library,
+            other => other,
+        }
+    }
 }
 
 /// In-memory state that does not persist.
@@ -115,6 +135,14 @@ pub struct Runtime {
     pub notes: NotesStore,
     pub tasks: TaskStore,
     pub transcripts: TranscriptStore,
+    /// Active transcription jobs keyed by session directory.
+    pub jobs: std::collections::HashMap<PathBuf, TranscriptionJob>,
+}
+
+pub struct TranscriptionJob {
+    pub status: String,
+    pub started_at: Instant,
+    pub rx: std::sync::mpsc::Receiver<TranscriptionEvent>,
 }
 
 impl Runtime {
@@ -133,7 +161,108 @@ impl Runtime {
             notes,
             tasks,
             transcripts,
+            jobs: std::collections::HashMap::new(),
         }
+    }
+}
+
+/// Spawn a transcription job for a recording. Stores the job handle in
+/// `rt.jobs` so the UI can poll progress and surface results.
+pub fn start_transcription(rt: &mut Runtime, persisted: &Persisted, item: &RecordingSummary) {
+    if rt.jobs.contains_key(&item.session_dir) {
+        return;
+    }
+    if persisted.transcriber == TranscriberKind::OpenAi
+        && persisted.openai_api_key.trim().is_empty()
+    {
+        rt.last_error =
+            Some("Paste your OpenAI API key in Settings → Transcription, then try again.".into());
+        return;
+    }
+
+    let mic_path = item
+        .mic_bytes
+        .map(|_| item.session_dir.join("mic.wav"))
+        .filter(|p| p.exists());
+    let system_path = item
+        .system_bytes
+        .map(|_| item.session_dir.join("system.wav"))
+        .filter(|p| p.exists());
+    if mic_path.is_none() && system_path.is_none() {
+        rt.last_error = Some("No audio files found for this recording.".into());
+        return;
+    }
+
+    let request = TranscriptionRequest {
+        session_dir: item.session_dir.clone(),
+        mic_path,
+        system_path,
+        recording_label: item.label.clone(),
+        provider: persisted.transcriber,
+        openai_api_key: persisted.openai_api_key.clone(),
+        language: persisted.transcription_language.clone(),
+        initial_prompt: if persisted.dictionary_terms.is_empty() {
+            None
+        } else {
+            Some(persisted.dictionary_terms.join(", "))
+        },
+    };
+    let rx = transcribe_session(request);
+    rt.jobs.insert(
+        item.session_dir.clone(),
+        TranscriptionJob {
+            status: "starting".into(),
+            started_at: Instant::now(),
+            rx,
+        },
+    );
+}
+
+/// Drain pending events from every active job. Should be called every
+/// frame so the UI sees progress in real time.
+pub fn poll_transcription_jobs(rt: &mut Runtime) {
+    let mut finished: Vec<PathBuf> = Vec::new();
+    let mut new_errors: Vec<String> = Vec::new();
+    let mut to_save: Vec<crate::transcription::Transcript> = Vec::new();
+
+    for (path, job) in rt.jobs.iter_mut() {
+        loop {
+            match job.rx.try_recv() {
+                Ok(TranscriptionEvent::Started) => {
+                    job.status = "starting".into();
+                }
+                Ok(TranscriptionEvent::Progress(s)) => {
+                    job.status = s;
+                }
+                Ok(TranscriptionEvent::Completed(t)) => {
+                    to_save.push(t);
+                    finished.push(path.clone());
+                    break;
+                }
+                Ok(TranscriptionEvent::Failed(e)) => {
+                    new_errors.push(e);
+                    finished.push(path.clone());
+                    break;
+                }
+                Err(std::sync::mpsc::TryRecvError::Empty) => break,
+                Err(std::sync::mpsc::TryRecvError::Disconnected) => {
+                    finished.push(path.clone());
+                    break;
+                }
+            }
+        }
+    }
+
+    for t in to_save {
+        if let Err(e) = rt.transcripts.save(t) {
+            new_errors.push(format!("could not save transcript: {e}"));
+        }
+    }
+    for path in finished {
+        rt.jobs.remove(&path);
+    }
+    if let Some(err) = new_errors.into_iter().next() {
+        rt.last_error = Some(err);
     }
 }
 

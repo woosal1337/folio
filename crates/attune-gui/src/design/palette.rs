@@ -149,18 +149,18 @@ impl Palette {
         Self {
             is_dark: true,
 
-            bg: Color32::from_rgb(13, 13, 14),
-            sidebar_bg: Color32::from_rgb(16, 16, 18),
-            surface: Color32::from_rgb(18, 18, 20),
-            surface_subtle: Color32::from_rgb(22, 22, 24),
-            surface_raised: Color32::from_rgb(24, 24, 26),
-            surface_overlay: Color32::from_rgb(34, 34, 38),
-            surface_overlay_strong: Color32::from_rgb(50, 50, 55),
+            bg: Color32::from_rgb(10, 10, 12),
+            sidebar_bg: Color32::from_rgb(14, 14, 16),
+            surface: Color32::from_rgb(20, 20, 22),
+            surface_subtle: Color32::from_rgb(26, 26, 30),
+            surface_raised: Color32::from_rgb(28, 28, 32),
+            surface_overlay: Color32::from_rgb(40, 40, 46),
+            surface_overlay_strong: Color32::from_rgb(58, 58, 64),
             hero_bg: Color32::from_rgb(10, 10, 12),
 
-            border: Color32::from_rgb(36, 36, 40),
-            border_strong: Color32::from_rgb(64, 64, 70),
-            border_focus: Color32::from_rgb(130, 130, 138),
+            border: Color32::from_rgb(46, 46, 52),
+            border_strong: Color32::from_rgb(78, 78, 86),
+            border_focus: Color32::from_rgb(150, 150, 158),
 
             text: Color32::from_rgb(232, 232, 234),
             text_muted: Color32::from_rgb(165, 165, 170),

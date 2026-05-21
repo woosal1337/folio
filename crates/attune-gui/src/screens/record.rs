@@ -1,23 +1,27 @@
-//! Record screen. Device picker, system audio toggle, output directory,
-//! main capture toggle, recent recordings.
+//! Record screen.
+//!
+//! Stripped-down capture surface. The big "Start recording" CTA sits at the
+//! top with the live status pill on the right. Every recording you make is
+//! listed underneath. Device, system-audio toggle, and output folder live in
+//! Settings → Recording so this screen stays focused on the act of
+//! recording rather than configuring it.
 
-use egui::{Align, Layout, RichText};
+use egui::{Align, Layout, RichText, Sense, Vec2};
 
 use crate::components::{
-    body_strong, caption, card, divider, empty_state, ghost_button_icon, labeled_section, micro,
-    mono, mono_small, record_button, status_pill,
+    caption, empty_state, ghost_button_icon, mono, mono_small, record_button, status_pill,
 };
-use crate::design::tokens::{Layout as L, Radius, Space};
+use crate::design::tokens::{Radius, Space};
 use crate::design::{palette, Icon, TextStyle};
 use crate::state::{
-    format_bytes, format_duration, format_khz, refresh_devices, refresh_history, reveal_in_finder,
-    start_recording, stop_recording, Persisted, RecordingSummary, Runtime,
+    format_bytes, format_duration, format_khz, refresh_history, start_recording, stop_recording,
+    Persisted, RecordingSummary, Runtime, Screen,
 };
 
 pub fn show(ui: &mut egui::Ui, ctx: &egui::Context, rt: &mut Runtime, persisted: &mut Persisted) {
     let p = palette::current();
 
-    // Page header
+    // Header row
     ui.horizontal(|ui| {
         ui.label(
             RichText::new("Record")
@@ -34,22 +38,7 @@ pub fn show(ui: &mut egui::Ui, ctx: &egui::Context, rt: &mut Runtime, persisted:
     ));
     ui.add_space(Space::xl());
 
-    // Controls card
-    card(ui, |ui| {
-        device_section(ui, rt, persisted);
-        ui.add_space(Space::md());
-        divider(ui);
-        ui.add_space(Space::md());
-        system_section(ui, rt, persisted);
-        ui.add_space(Space::md());
-        divider(ui);
-        ui.add_space(Space::md());
-        output_section(ui, rt, persisted);
-    });
-
-    ui.add_space(Space::xl());
-
-    // Big record button
+    // CTA
     let response = record_button(ui, rt.is_recording());
     if response.clicked() {
         if rt.is_recording() {
@@ -59,7 +48,6 @@ pub fn show(ui: &mut egui::Ui, ctx: &egui::Context, rt: &mut Runtime, persisted:
         }
         refresh_history(rt, &persisted.output_dir);
     }
-
     if let Some(err) = rt.last_error.as_deref() {
         ui.add_space(Space::sm());
         ui.label(
@@ -71,10 +59,41 @@ pub fn show(ui: &mut egui::Ui, ctx: &egui::Context, rt: &mut Runtime, persisted:
 
     ui.add_space(Space::xl());
 
-    // Recent recordings
+    // Tiny meta strip pointing at Settings.
     ui.horizontal(|ui| {
-        ui.label(body_strong("Recent recordings").color(p.text));
+        let mic_name = persisted
+            .mic_device
+            .as_deref()
+            .unwrap_or("system default mic");
+        let sys_state = if persisted.system_audio_enabled {
+            "system audio on"
+        } else {
+            "system audio off"
+        };
+        ui.label(
+            RichText::new(format!("{}  ·  {}", mic_name, sys_state))
+                .font(TextStyle::Caption.font_id())
+                .color(p.text_subtle),
+        );
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+            if ghost_button_icon(ui, Icon::Settings, "recording settings").clicked() {
+                persisted.active_screen = Screen::Settings;
+            }
+        });
+    });
+    ui.add_space(Space::xl());
+
+    // Recordings list
+    ui.horizontal(|ui| {
+        ui.label(
+            RichText::new("Recent recordings")
+                .font(TextStyle::Heading.font_id())
+                .color(p.text),
+        );
+        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+            if ghost_button_icon(ui, Icon::Library, "open library").clicked() {
+                persisted.active_screen = Screen::Library;
+            }
             if ghost_button_icon(ui, Icon::Refresh, "refresh").clicked() {
                 refresh_history(rt, &persisted.output_dir);
             }
@@ -87,205 +106,93 @@ pub fn show(ui: &mut egui::Ui, ctx: &egui::Context, rt: &mut Runtime, persisted:
             ui,
             Icon::FileAudio,
             "No recordings yet",
-            "Recordings will appear here after you stop a session.",
+            "Start a recording to see it land here.",
         );
-    } else {
-        recordings_list(ui, &rt.history);
+        return;
     }
 
-    let _ = L::header_height();
-}
-
-fn device_section(ui: &mut egui::Ui, rt: &mut Runtime, persisted: &mut Persisted) {
-    let p = palette::current();
-    let recording = rt.is_recording();
-
-    labeled_section(ui, Some(Icon::Microphone), "INPUT DEVICE", |ui| {
-        ui.horizontal(|ui| {
-            ui.add_enabled_ui(!recording, |ui| {
-                let selected_label = match &persisted.mic_device {
-                    Some(name) => name.clone(),
-                    None => rt
-                        .devices
-                        .iter()
-                        .find(|d| d.is_default)
-                        .map(|d| format!("{}  ·  default", d.name))
-                        .unwrap_or_else(|| "(system default)".into()),
-                };
-                let mut combo = egui::ComboBox::from_id_salt("mic_device")
-                    .selected_text(selected_label)
-                    .width(ui.available_width() - 90.0);
-                combo = combo.height(260.0);
-                combo.show_ui(ui, |ui| {
-                    let default_selected = persisted.mic_device.is_none();
-                    if ui
-                        .selectable_label(default_selected, "(system default)")
-                        .clicked()
-                    {
-                        persisted.mic_device = None;
-                    }
-                    ui.separator();
-                    for d in &rt.devices {
-                        let selected = persisted.mic_device.as_deref() == Some(&d.name);
-                        let label = if d.is_default {
-                            format!("{}  ·  default", d.name)
-                        } else {
-                            d.name.clone()
-                        };
-                        if ui.selectable_label(selected, label).clicked() {
-                            persisted.mic_device = Some(d.name.clone());
-                        }
-                    }
-                });
-            });
-            ui.add_enabled_ui(!recording, |ui| {
-                if ghost_button_icon(ui, Icon::Refresh, "refresh").clicked() {
-                    refresh_devices(rt, persisted);
-                }
-            });
-        });
-
-        if let Some(d) = selected_device_meta(rt, persisted) {
-            let sr = d
-                .default_sample_rate
-                .map(format_khz)
-                .unwrap_or_else(|| "unknown".into());
-            let ch = d
-                .default_channels
-                .map(|c| match c {
-                    1 => "mono".to_string(),
-                    2 => "stereo".to_string(),
-                    n => format!("{n} ch"),
-                })
-                .unwrap_or_else(|| "?".into());
-            ui.add_space(Space::xs());
-            ui.label(micro(format!("{sr} · {ch} · saved at native rate")).color(p.text_subtle));
+    let history = rt.history.clone();
+    let mut open_in_library: Option<std::path::PathBuf> = None;
+    for item in history.iter().take(6) {
+        if recent_row(ui, item).clicked() {
+            open_in_library = Some(item.session_dir.clone());
         }
-    });
-}
+        ui.add_space(Space::sm());
+    }
+    if history.len() > 6 {
+        ui.add_space(Space::xs());
+        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+            let label = format!("View all {}", history.len());
+            if ghost_button_icon(ui, Icon::Library, label).clicked() {
+                persisted.active_screen = Screen::Library;
+            }
+        });
+    }
 
-fn selected_device_meta<'a>(
-    rt: &'a Runtime,
-    persisted: &Persisted,
-) -> Option<&'a attune_core::audio::DeviceInfo> {
-    match &persisted.mic_device {
-        Some(name) => rt.devices.iter().find(|d| &d.name == name),
-        None => rt.devices.iter().find(|d| d.is_default),
+    if let Some(path) = open_in_library {
+        rt.expanded_recording = Some(path);
+        persisted.active_screen = Screen::Library;
     }
 }
 
-fn system_section(ui: &mut egui::Ui, rt: &Runtime, persisted: &mut Persisted) {
-    let recording = rt.is_recording();
-    labeled_section(ui, Some(Icon::SpeakerSimple), "SYSTEM AUDIO", |ui| {
-        ui.horizontal(|ui| {
-            ui.add_enabled_ui(!recording, |ui| {
-                ui.checkbox(&mut persisted.system_audio_enabled, "Capture system audio");
-            });
-            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                ui.label(micro("ScreenCaptureKit · audio only"));
-            });
-        });
-        ui.add_space(Space::x2s());
-        ui.label(micro(
-            "macOS prompts for Screen Recording permission the first time. \
-                 No video is captured.",
-        ));
-    });
-}
-
-fn output_section(ui: &mut egui::Ui, rt: &Runtime, persisted: &mut Persisted) {
-    let recording = rt.is_recording();
-    labeled_section(ui, Some(Icon::Folder), "OUTPUT FOLDER", |ui| {
-        ui.horizontal(|ui| {
-            ui.add_enabled_ui(!recording, |ui| {
-                let raw = persisted.output_dir.display().to_string();
-                let display = if raw.len() > 56 {
-                    format!("…{}", &raw[raw.len() - 55..])
-                } else {
-                    raw.clone()
-                };
-                let label = mono(display).color(palette::current().text_muted);
-                ui.add_sized(
-                    [ui.available_width() - 90.0, 28.0],
-                    egui::Label::new(label).truncate(),
-                )
-                .on_hover_text(raw);
-
-                if ghost_button_icon(ui, Icon::FolderOpen, "browse").clicked() {
-                    if let Some(dir) = rfd::FileDialog::new().pick_folder() {
-                        persisted.output_dir = dir;
-                    }
-                }
-            });
-        });
-        let _ = rt;
-    });
-}
-
-pub fn recordings_list(ui: &mut egui::Ui, history: &[RecordingSummary]) {
+fn recent_row(ui: &mut egui::Ui, item: &RecordingSummary) -> egui::Response {
     let p = palette::current();
-    let frame = egui::Frame::default()
-        .fill(p.surface)
-        .stroke(egui::Stroke::new(1.0, p.border))
-        .corner_radius(egui::CornerRadius::same(Radius::lg() as u8));
-    frame.show(ui, |ui| {
-        egui::ScrollArea::vertical()
-            .max_height(260.0)
-            .auto_shrink([false, true])
-            .show(ui, |ui| {
-                for (i, item) in history.iter().enumerate() {
-                    if i > 0 {
-                        ui.add_space(0.5);
-                        divider(ui);
-                    }
-                    history_row(ui, item);
-                }
-            });
+    let avail_w = ui.available_width();
+    let height = 56.0;
+    let (rect, response) = ui.allocate_exact_size(Vec2::new(avail_w, height), Sense::click());
+
+    let bg = if response.hovered() {
+        p.surface_subtle
+    } else {
+        p.surface
+    };
+    let painter = ui.painter();
+    painter.rect_filled(rect, egui::CornerRadius::same(Radius::md() as u8), bg);
+    painter.rect_stroke(
+        rect,
+        egui::CornerRadius::same(Radius::md() as u8),
+        egui::Stroke::new(1.0, p.border),
+        egui::StrokeKind::Inside,
+    );
+
+    let pad_x = Space::md();
+    let mut child = ui.new_child(
+        egui::UiBuilder::new()
+            .max_rect(rect.shrink2(Vec2::new(pad_x, Space::sm())))
+            .layout(Layout::left_to_right(Align::Center)),
+    );
+
+    child.label(
+        RichText::new(Icon::FileAudio.glyph())
+            .font(TextStyle::Body.font_id())
+            .color(p.text_subtle),
+    );
+    child.add_space(Space::sm());
+    child.vertical(|ui| {
+        ui.label(mono(item.label.clone()).color(p.text));
+        let mut parts = vec![format_duration(item.duration_seconds)];
+        let mut total: u64 = 0;
+        if let Some(b) = item.mic_bytes {
+            total += b;
+        }
+        if let Some(b) = item.system_bytes {
+            total += b;
+        }
+        if total > 0 {
+            parts.push(format_bytes(total));
+        }
+        if let Some(sr) = item.mic_sample_rate.or(item.system_sample_rate) {
+            parts.push(format_khz(sr));
+        }
+        ui.label(mono_small(parts.join("    ")));
     });
-}
+    child.with_layout(Layout::right_to_left(Align::Center), |ui| {
+        ui.label(
+            RichText::new("open")
+                .font(TextStyle::Caption.font_id())
+                .color(p.text_subtle),
+        );
+    });
 
-fn history_row(ui: &mut egui::Ui, item: &RecordingSummary) {
-    let p = palette::current();
-    egui::Frame::default()
-        .inner_margin(egui::Margin::symmetric(
-            Space::md() as i8,
-            Space::sm() as i8 + 2,
-        ))
-        .show(ui, |ui| {
-            ui.horizontal(|ui| {
-                // Left icon column.
-                ui.label(
-                    RichText::new(Icon::FileAudio.glyph())
-                        .font(TextStyle::Body.font_id())
-                        .color(p.text_subtle),
-                );
-                ui.add_space(Space::sm());
-
-                ui.vertical(|ui| {
-                    ui.label(mono(item.label.clone()));
-                    let mut parts = vec![format_duration(item.duration_seconds)];
-                    if let Some(b) = item.mic_bytes {
-                        let sr = item
-                            .mic_sample_rate
-                            .map(|s| format!(" {}", format_khz(s)))
-                            .unwrap_or_default();
-                        parts.push(format!("mic {}{}", format_bytes(b), sr));
-                    }
-                    if let Some(b) = item.system_bytes {
-                        let sr = item
-                            .system_sample_rate
-                            .map(|s| format!(" {}", format_khz(s)))
-                            .unwrap_or_default();
-                        parts.push(format!("system {}{}", format_bytes(b), sr));
-                    }
-                    ui.label(mono_small(parts.join("    ")));
-                });
-
-                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                    if ghost_button_icon(ui, Icon::Reveal, "reveal").clicked() {
-                        let _ = reveal_in_finder(&item.session_dir);
-                    }
-                });
-            });
-        });
+    response
 }

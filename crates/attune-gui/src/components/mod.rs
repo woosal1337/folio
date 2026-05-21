@@ -19,6 +19,7 @@ pub mod section;
 pub mod status_pill;
 pub mod surface;
 pub mod text;
+pub mod text_input;
 
 pub use audio_player::{audio_player, AudioPlayerAction};
 pub use button::{ghost_button, ghost_button_icon, primary_button, secondary_button};
@@ -30,3 +31,4 @@ pub use section::{labeled_section, section_header};
 pub use status_pill::status_pill;
 pub use surface::card;
 pub use text::{body, body_strong, caption, heading, micro, mono, mono_small, title};
+pub use text_input::{mono_input, password_input, text_input};
