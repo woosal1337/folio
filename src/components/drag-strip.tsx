@@ -42,9 +42,13 @@ export function DragStrip({ className }: { className?: string }) {
   return (
     <div
       data-tauri-drag-region
+      data-drag=""
       onMouseDown={handleMouseDown}
       onDoubleClick={handleDoubleClick}
-      className={cn("h-8 w-full shrink-0 bg-sidebar", className)}
+      className={cn(
+        "h-9 w-full shrink-0 select-none bg-sidebar",
+        className
+      )}
     />
   );
 }

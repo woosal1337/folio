@@ -35,7 +35,10 @@ export function Sidebar({ onOpenSettings }: SidebarProps) {
   const { theme, toggle } = useTheme();
 
   return (
-    <aside className="flex w-[220px] flex-col border-r border-border bg-sidebar text-sidebar-foreground">
+    <aside
+      data-drag=""
+      className="flex w-[220px] flex-col select-none border-r border-border bg-sidebar text-sidebar-foreground"
+    >
       {/* Brand */}
       <div className="flex items-center gap-2 px-5 pb-2 pt-4">
         <span className="font-serif text-2xl font-medium tracking-tight">

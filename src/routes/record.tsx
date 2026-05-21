@@ -52,7 +52,10 @@ export default function Record() {
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-8 py-10">
-      <header className="flex items-baseline justify-between">
+      <header
+        data-drag=""
+        className="flex select-none items-baseline justify-between"
+      >
         <div>
           <h1 className="font-serif text-3xl font-medium tracking-tight">
             Record
