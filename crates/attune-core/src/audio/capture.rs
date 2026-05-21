@@ -12,11 +12,17 @@ use std::time::SystemTime;
 use chrono::{DateTime, Utc};
 use tracing::{info, warn};
 
+use crate::audio::devices::default_input_sample_rate;
 use crate::audio::mic::MicCapture;
 use crate::audio::system::SystemCapture;
 use crate::audio::wav_writer::AudioWavWriter;
 use crate::audio::{CaptureConfig, Channel};
 use crate::error::Result;
+
+/// ScreenCaptureKit always delivers at 48 kHz on macOS. Treat this as the
+/// "native" rate for system audio when CaptureConfig.target_sample_rate is
+/// None.
+const SYSTEM_NATIVE_RATE: u32 = 48_000;
 
 pub struct CaptureSession {
     config: CaptureConfig,
@@ -48,19 +54,27 @@ impl CaptureSession {
         info!(dir = %session_dir.display(), "capture session started");
 
         let mic = if config.mic_enabled {
+            // Resolve the mic's target rate. `None` means native — use whatever
+            // the device reports. Falls back to 48 kHz if the query fails.
+            let mic_rate = match config.target_sample_rate {
+                Some(rate) => rate,
+                None => default_input_sample_rate(config.mic_device_name.as_deref())
+                    .unwrap_or_else(|e| {
+                        warn!(error = %e, "could not query mic native rate; falling back to 48000");
+                        48_000
+                    }),
+            };
             let path = session_dir.join("mic.wav");
-            let writer = Arc::new(AudioWavWriter::create(&path, config.target_sample_rate)?);
-            match MicCapture::start(
-                writer.clone(),
-                config.target_sample_rate,
-                config.mic_device_name.as_deref(),
-            ) {
+            let writer = Arc::new(AudioWavWriter::create(&path, mic_rate)?);
+            match MicCapture::start(writer.clone(), mic_rate, config.mic_device_name.as_deref()) {
                 Ok(c) => {
-                    info!(path = %path.display(), "mic capture started");
+                    info!(path = %path.display(), rate = mic_rate, "mic capture started");
                     Some(c)
                 }
                 Err(e) => {
                     warn!(error = %e, "mic capture failed to start");
+                    drop(writer);
+                    let _ = std::fs::remove_file(&path);
                     None
                 }
             }
@@ -70,18 +84,20 @@ impl CaptureSession {
 
         let mut system_started = false;
         let system = if config.system_enabled {
+            // System audio uses ScreenCaptureKit which delivers at 48 kHz.
+            // When a target rate is set explicitly, the system module
+            // resamples internally; when None, we save the native 48 kHz.
+            let sys_rate = config.target_sample_rate.unwrap_or(SYSTEM_NATIVE_RATE);
             let path = session_dir.join("system.wav");
-            let writer = Arc::new(AudioWavWriter::create(&path, config.target_sample_rate)?);
-            match SystemCapture::start(writer.clone(), config.target_sample_rate) {
+            let writer = Arc::new(AudioWavWriter::create(&path, sys_rate)?);
+            match SystemCapture::start(writer.clone(), sys_rate) {
                 Ok(c) => {
-                    info!(path = %path.display(), "system audio capture started");
+                    info!(path = %path.display(), rate = sys_rate, "system audio capture started");
                     system_started = true;
                     Some(c)
                 }
                 Err(e) => {
                     warn!(error = %e, "system audio capture unavailable, continuing without it");
-                    // Drop the writer so it doesn't keep an orphan header-only
-                    // file on disk, then unlink the file.
                     drop(writer);
                     let _ = std::fs::remove_file(&path);
                     None

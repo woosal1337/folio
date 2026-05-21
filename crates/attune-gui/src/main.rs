@@ -4,9 +4,12 @@ use anyhow::Result;
 use tracing_subscriber::EnvFilter;
 
 mod app;
-mod theme;
+mod components;
+mod design;
+mod screens;
+mod state;
 
-use app::AttuneApp;
+use app::App;
 
 fn main() -> Result<()> {
     init_tracing();
@@ -14,8 +17,8 @@ fn main() -> Result<()> {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_title("Attune")
-            .with_inner_size([500.0, 720.0])
-            .with_min_inner_size([460.0, 600.0])
+            .with_inner_size([960.0, 720.0])
+            .with_min_inner_size([820.0, 600.0])
             .with_resizable(true),
         wgpu_options: eframe::egui_wgpu::WgpuConfiguration::default(),
         ..Default::default()
@@ -25,8 +28,8 @@ fn main() -> Result<()> {
         "Attune",
         options,
         Box::new(|cc| {
-            theme::apply(&cc.egui_ctx);
-            Ok(Box::new(AttuneApp::new(cc)))
+            design::apply(&cc.egui_ctx);
+            Ok(Box::new(App::new(cc)))
         }),
     )
     .map_err(|e| anyhow::anyhow!("eframe: {e}"))?;

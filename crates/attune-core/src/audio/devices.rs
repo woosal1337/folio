@@ -16,6 +16,26 @@ pub struct DeviceInfo {
     pub default_channels: Option<u16>,
 }
 
+/// Query the native default sample rate of a specific input device, or the
+/// system default if `name` is `None`. Returned in Hz.
+pub fn default_input_sample_rate(name: Option<&str>) -> Result<u32> {
+    let host = cpal::default_host();
+    let device = match name {
+        Some(name) => host
+            .input_devices()
+            .map_err(|e| AttuneError::AudioDevice(format!("input_devices: {e}")))?
+            .find(|d| d.name().ok().as_deref() == Some(name))
+            .ok_or_else(|| AttuneError::AudioDevice(format!("input device not found: {name}")))?,
+        None => host
+            .default_input_device()
+            .ok_or(AttuneError::NoInputDevice)?,
+    };
+    let cfg = device
+        .default_input_config()
+        .map_err(|e| AttuneError::AudioDevice(format!("default_input_config: {e}")))?;
+    Ok(cfg.sample_rate().0)
+}
+
 /// List all input devices visible to the default audio host. The default
 /// device, if any, is marked with `is_default = true`.
 pub fn list_input_devices() -> Result<Vec<DeviceInfo>> {

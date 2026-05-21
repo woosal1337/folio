@@ -51,10 +51,11 @@ struct RecordArgs {
     #[arg(long)]
     mic_device: Option<String>,
 
-    /// Target sample rate for the output WAV files. Defaults to 48 kHz
-    /// (native quality). Use 16000 for Whisper-ready files.
-    #[arg(long, default_value_t = 48_000)]
-    sample_rate: u32,
+    /// Override the on-disk sample rate. Default: native per source (device's
+    /// reported rate for the mic, 48 kHz for ScreenCaptureKit). Pass 16000
+    /// to write Whisper-ready files instead.
+    #[arg(long)]
+    sample_rate: Option<u32>,
 }
 
 fn main() -> Result<()> {

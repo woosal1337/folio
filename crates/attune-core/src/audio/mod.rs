@@ -39,11 +39,12 @@ pub struct CaptureConfig {
     pub system_enabled: bool,
     /// Microphone device by name. `None` selects the default input device.
     pub mic_device_name: Option<String>,
-    /// Target sample rate written to disk. Defaults to 48 kHz mono for
-    /// playback clarity (anything above 8 kHz is lost at 16 kHz, which makes
-    /// music and high-frequency voice content sound muffled). The Whisper
-    /// pipeline downsamples on read, so the on-disk WAVs stay native quality.
-    pub target_sample_rate: u32,
+    /// Optional override for the on-disk sample rate. When `None` (the
+    /// default), each source writes at its own native rate: the device's
+    /// reported default rate for the mic (typically 44.1 or 48 kHz) and
+    /// 48 kHz for ScreenCaptureKit system audio. Set this when you need a
+    /// specific rate (e.g. 16 kHz for direct Whisper input).
+    pub target_sample_rate: Option<u32>,
     /// Output directory for WAV files. A timestamped subdirectory is created
     /// per session.
     pub output_dir: std::path::PathBuf,
@@ -55,7 +56,7 @@ impl Default for CaptureConfig {
             mic_enabled: true,
             system_enabled: true,
             mic_device_name: None,
-            target_sample_rate: 48_000,
+            target_sample_rate: None,
             output_dir: std::path::PathBuf::from("./recordings"),
         }
     }

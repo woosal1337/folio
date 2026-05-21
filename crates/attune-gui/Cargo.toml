@@ -20,6 +20,8 @@ attune-core = { path = "../attune-core" }
 
 eframe = { workspace = true }
 egui = { workspace = true }
+egui_extras = { workspace = true }
+egui-phosphor = { workspace = true }
 rfd = { workspace = true }
 
 anyhow = { workspace = true }
