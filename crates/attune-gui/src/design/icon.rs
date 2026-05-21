@@ -12,6 +12,7 @@ pub enum Icon {
     Library,
     Transcript,
     Editor,
+    CheckSquare,
     Settings,
 
     // Recording
@@ -53,6 +54,7 @@ impl Icon {
             Icon::Library => ph::FILES,
             Icon::Transcript => ph::ARTICLE,
             Icon::Editor => ph::TEXT_ALIGN_LEFT,
+            Icon::CheckSquare => ph::CHECK_SQUARE,
             Icon::Settings => ph::SLIDERS_HORIZONTAL,
 
             Icon::Microphone => ph::MICROPHONE,

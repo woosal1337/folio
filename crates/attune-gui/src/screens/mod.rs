@@ -5,4 +5,5 @@ pub mod editor;
 pub mod library;
 pub mod record;
 pub mod settings;
+pub mod tasks;
 pub mod transcripts;

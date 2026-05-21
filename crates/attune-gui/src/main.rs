@@ -6,8 +6,12 @@ use tracing_subscriber::EnvFilter;
 mod app;
 mod components;
 mod design;
+mod notes;
+mod playback;
 mod screens;
 mod state;
+mod tasks;
+mod transcription;
 
 use app::App;
 

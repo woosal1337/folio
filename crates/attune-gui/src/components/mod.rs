@@ -9,6 +9,7 @@
 // screens. Keeping them available for future work.
 #![allow(dead_code, unused_imports)]
 
+pub mod audio_player;
 pub mod button;
 pub mod divider;
 pub mod empty_state;
@@ -19,6 +20,7 @@ pub mod status_pill;
 pub mod surface;
 pub mod text;
 
+pub use audio_player::{audio_player, AudioPlayerAction};
 pub use button::{ghost_button, ghost_button_icon, primary_button, secondary_button};
 pub use divider::{divider, vertical_divider};
 pub use empty_state::empty_state;

@@ -22,7 +22,12 @@ eframe = { workspace = true }
 egui = { workspace = true }
 egui_extras = { workspace = true }
 egui-phosphor = { workspace = true }
+egui_commonmark = { workspace = true }
 rfd = { workspace = true }
+
+rodio = { workspace = true }
+uuid = { workspace = true }
+parking_lot = { workspace = true }
 
 anyhow = { workspace = true }
 hound = { workspace = true }

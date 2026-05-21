@@ -12,13 +12,23 @@ use attune_core::audio::{
 };
 use serde::{Deserialize, Serialize};
 
+use crate::notes::NotesStore;
+use crate::playback::Player;
+use crate::tasks::TaskStore;
+use crate::transcription::{TranscriberKind, TranscriptStore};
+
 /// State that survives across app launches.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Persisted {
     pub mic_device: Option<String>,
     pub system_audio_enabled: bool,
     pub output_dir: PathBuf,
+    pub notes_dir: PathBuf,
+    pub tasks_path: PathBuf,
+    pub transcripts_dir: PathBuf,
     pub active_screen: Screen,
+    pub transcriber: TranscriberKind,
+    pub openai_api_key: String,
 }
 
 impl Default for Persisted {
@@ -26,19 +36,25 @@ impl Default for Persisted {
         Self {
             mic_device: None,
             system_audio_enabled: true,
-            output_dir: default_output_dir(),
+            output_dir: default_attune_subdir("Recordings"),
+            notes_dir: default_attune_subdir("Notes"),
+            tasks_path: default_attune_subdir("Tasks").join("tasks.json"),
+            transcripts_dir: default_attune_subdir("Transcripts"),
             active_screen: Screen::Record,
+            transcriber: TranscriberKind::default(),
+            openai_api_key: String::new(),
         }
     }
 }
 
-fn default_output_dir() -> PathBuf {
-    dirs_recordings().unwrap_or_else(|| PathBuf::from("./recordings"))
+fn default_attune_subdir(name: &str) -> PathBuf {
+    home_dir()
+        .map(|h| h.join("Documents").join("Attune").join(name))
+        .unwrap_or_else(|| PathBuf::from(format!("./{}", name)))
 }
 
-fn dirs_recordings() -> Option<PathBuf> {
-    let home = std::env::var_os("HOME").map(PathBuf::from)?;
-    Some(home.join("Documents").join("Attune").join("Recordings"))
+fn home_dir() -> Option<PathBuf> {
+    std::env::var_os("HOME").map(PathBuf::from)
 }
 
 /// The current screen.
@@ -48,6 +64,7 @@ pub enum Screen {
     Library,
     Transcripts,
     Editor,
+    Tasks,
     Settings,
 }
 
@@ -58,6 +75,7 @@ impl Screen {
             Screen::Library,
             Screen::Transcripts,
             Screen::Editor,
+            Screen::Tasks,
             Screen::Settings,
         ]
     }
@@ -68,19 +86,51 @@ impl Screen {
             Screen::Library => "Library",
             Screen::Transcripts => "Transcripts",
             Screen::Editor => "Editor",
+            Screen::Tasks => "Tasks",
             Screen::Settings => "Settings",
         }
+    }
+
+    /// Whether the screen should use the full content width rather than the
+    /// 720 px reading column. Used for multi-pane screens (editor with file
+    /// rail, kanban with three columns) where extra width matters.
+    pub fn wants_full_width(self) -> bool {
+        matches!(self, Screen::Editor | Screen::Tasks | Screen::Library)
     }
 }
 
 /// In-memory state that does not persist.
-#[derive(Default)]
 pub struct Runtime {
     pub devices: Vec<DeviceInfo>,
     pub last_error: Option<String>,
     pub session: Option<CaptureSession>,
     pub recording_started: Option<Instant>,
     pub history: Vec<RecordingSummary>,
+    pub player: Option<Player>,
+    pub expanded_recording: Option<PathBuf>,
+    pub notes: NotesStore,
+    pub tasks: TaskStore,
+    pub transcripts: TranscriptStore,
+}
+
+impl Runtime {
+    pub fn new(persisted: &Persisted) -> Self {
+        let notes = NotesStore::load(&persisted.notes_dir);
+        let tasks = TaskStore::load(&persisted.tasks_path);
+        let transcripts = TranscriptStore::load(&persisted.transcripts_dir);
+        Self {
+            devices: Vec::new(),
+            last_error: None,
+            session: None,
+            recording_started: None,
+            history: Vec::new(),
+            player: Player::new(),
+            expanded_recording: None,
+            notes,
+            tasks,
+            transcripts,
+        }
+    }
 }
 
 #[derive(Clone, Debug)]

@@ -15,13 +15,13 @@ pub struct App {
 
 impl App {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
-        let persisted: Persisted = cc
+        let mut persisted: Persisted = cc
             .storage
             .and_then(|s| eframe::get_value::<Persisted>(s, eframe::APP_KEY))
             .unwrap_or_default();
 
-        let mut rt = Runtime::default();
-        state::refresh_devices(&mut rt, &mut persisted.clone());
+        let mut rt = Runtime::new(&persisted);
+        state::refresh_devices(&mut rt, &mut persisted);
         state::refresh_history(&mut rt, &persisted.output_dir);
 
         Self { persisted, rt }
@@ -53,6 +53,7 @@ impl eframe::App for App {
             });
 
         // Content area
+        let full_width = self.persisted.active_screen.wants_full_width();
         egui::CentralPanel::default()
             .frame(
                 egui::Frame::default()
@@ -63,21 +64,24 @@ impl eframe::App for App {
                     )),
             )
             .show(ctx, |ui| {
-                // Constrain content width so wide windows don't sprawl.
-                egui::ScrollArea::vertical()
-                    .auto_shrink([false, false])
-                    .show(ui, |ui| {
-                        let max_w = L::content_max_width();
-                        let avail = ui.available_width();
-                        let pad = ((avail - max_w) * 0.5).max(0.0);
-                        ui.horizontal(|ui| {
-                            ui.add_space(pad);
-                            ui.vertical(|ui| {
-                                ui.set_max_width(max_w.min(avail));
-                                self.draw_content(ui, ctx);
+                if full_width {
+                    self.draw_content(ui, ctx);
+                } else {
+                    egui::ScrollArea::vertical()
+                        .auto_shrink([false, false])
+                        .show(ui, |ui| {
+                            let max_w = L::content_max_width();
+                            let avail = ui.available_width();
+                            let pad = ((avail - max_w) * 0.5).max(0.0);
+                            ui.horizontal(|ui| {
+                                ui.add_space(pad);
+                                ui.vertical(|ui| {
+                                    ui.set_max_width(max_w.min(avail));
+                                    self.draw_content(ui, ctx);
+                                });
                             });
                         });
-                    });
+                }
             });
     }
 }
@@ -140,6 +144,7 @@ impl App {
                 Screen::Library => (Icon::Library, "Library"),
                 Screen::Transcripts => (Icon::Transcript, "Transcripts"),
                 Screen::Editor => (Icon::Editor, "Editor"),
+                Screen::Tasks => (Icon::CheckSquare, "Tasks"),
                 Screen::Settings => (Icon::Settings, "Settings"),
             };
             let is_active = self.persisted.active_screen == *screen;
@@ -175,6 +180,7 @@ impl App {
                 screens::transcripts::show(ui, ctx, &mut self.rt, &mut self.persisted)
             }
             Screen::Editor => screens::editor::show(ui, ctx, &mut self.rt, &mut self.persisted),
+            Screen::Tasks => screens::tasks::show(ui, ctx, &mut self.rt, &mut self.persisted),
             Screen::Settings => screens::settings::show(ui, ctx, &mut self.rt, &mut self.persisted),
         }
     }
