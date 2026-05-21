@@ -10,7 +10,11 @@ debug/
 .DS_Store
 .AppleDouble
 .LSOverride
-Icon?
+# The macOS "Icon\r" sentinel files (those weird files Finder leaves
+# in custom-icon folders). The pattern is rooted to avoid case-
+# insensitively matching directories like src-tauri/icons/.
+/Icon?
+**/Icon\r
 ._*
 
 # Xcode
