@@ -381,16 +381,12 @@ impl AttuneApp {
                 );
             });
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                ui.label(
-                    RichText::new("ScreenCaptureKit — week 2")
-                        .small()
-                        .color(SUBTLER),
-                );
+                ui.label(RichText::new("ScreenCaptureKit").small().color(SUBTLER));
             });
         });
         ui.label(
             RichText::new(
-                "System audio capture is stubbed in this build. Mic recording is unaffected.",
+                "macOS will prompt for Screen Recording permission the first time. Audio-only \u{2014} no video is captured.",
             )
             .small()
             .color(SUBTLER),

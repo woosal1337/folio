@@ -24,6 +24,7 @@ pub struct CaptureSession {
     session_dir: PathBuf,
     mic: Option<MicCapture>,
     system: Option<SystemCapture>,
+    system_started: bool,
 }
 
 pub struct CaptureArtifacts {
@@ -67,16 +68,22 @@ impl CaptureSession {
             None
         };
 
+        let mut system_started = false;
         let system = if config.system_enabled {
             let path = session_dir.join("system.wav");
             let writer = Arc::new(AudioWavWriter::create(&path, config.target_sample_rate)?);
             match SystemCapture::start(writer.clone(), config.target_sample_rate) {
                 Ok(c) => {
                     info!(path = %path.display(), "system audio capture started");
+                    system_started = true;
                     Some(c)
                 }
                 Err(e) => {
                     warn!(error = %e, "system audio capture unavailable, continuing without it");
+                    // Drop the writer so it doesn't keep an orphan header-only
+                    // file on disk, then unlink the file.
+                    drop(writer);
+                    let _ = std::fs::remove_file(&path);
                     None
                 }
             }
@@ -90,6 +97,7 @@ impl CaptureSession {
             session_dir,
             mic,
             system,
+            system_started,
         })
     }
 
@@ -126,8 +134,7 @@ impl CaptureSession {
             .mic_enabled
             .then(|| self.session_dir.join("mic.wav"));
         let system_path = self
-            .config
-            .system_enabled
+            .system_started
             .then(|| self.session_dir.join("system.wav"));
         info!(
             dir = %self.session_dir.display(),
