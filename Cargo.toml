@@ -20,7 +20,7 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 
 # audio
-cpal = "0.15"
+cpal = "0.17"
 hound = "3.5"
 rubato = "0.15"
 crossbeam-queue = "0.3"
