@@ -102,37 +102,42 @@ fn pick_audio_source(session_dir: &Path) -> Option<PathBuf> {
 /// Read a previously persisted transcript for `session_dir`.
 ///
 /// Validates that the target is under the user's configured recordings
-/// folder — same defence-in-depth as `delete_recording`.
+/// folder — same defence-in-depth as `delete_recording`. Disk read +
+/// JSON parse run on a blocking task.
 #[tauri::command]
-pub fn read_transcript(
+pub async fn read_transcript(
     state: State<'_, AppState>,
     session_dir: PathBuf,
 ) -> Result<Transcript, String> {
     let output_dir = state.settings.lock().output_dir.clone();
-    let canon_root = std::fs::canonicalize(&output_dir).map_err(|e| {
-        format!(
-            "could not canonicalize recordings dir {}: {e}",
-            output_dir.display()
-        )
-    })?;
-    let canon_target = std::fs::canonicalize(&session_dir).map_err(|e| {
-        format!(
-            "could not canonicalize session dir {}: {e}",
-            session_dir.display()
-        )
-    })?;
-    if !canon_target.starts_with(&canon_root) {
-        return Err(format!(
-            "refused to read {}: not under recordings folder {}",
-            canon_target.display(),
-            canon_root.display(),
-        ));
-    }
 
-    let path = canon_target.join(TRANSCRIPT_FILENAME);
-    let raw = std::fs::read_to_string(&path)
-        .map_err(|e| format!("could not read transcript {}: {e}", path.display()))?;
-    let transcript: Transcript = serde_json::from_str(&raw)
-        .map_err(|e| format!("could not parse transcript {}: {e}", path.display()))?;
-    Ok(transcript)
+    tauri::async_runtime::spawn_blocking(move || -> Result<Transcript, String> {
+        let canon_root = std::fs::canonicalize(&output_dir).map_err(|e| {
+            format!(
+                "could not canonicalize recordings dir {}: {e}",
+                output_dir.display()
+            )
+        })?;
+        let canon_target = std::fs::canonicalize(&session_dir).map_err(|e| {
+            format!(
+                "could not canonicalize session dir {}: {e}",
+                session_dir.display()
+            )
+        })?;
+        if !canon_target.starts_with(&canon_root) {
+            return Err(format!(
+                "refused to read {}: not under recordings folder {}",
+                canon_target.display(),
+                canon_root.display(),
+            ));
+        }
+
+        let path = canon_target.join(TRANSCRIPT_FILENAME);
+        let raw = std::fs::read_to_string(&path)
+            .map_err(|e| format!("could not read transcript {}: {e}", path.display()))?;
+        serde_json::from_str(&raw)
+            .map_err(|e| format!("could not parse transcript {}: {e}", path.display()))
+    })
+    .await
+    .map_err(|e| format!("read_transcript task panicked: {e}"))?
 }

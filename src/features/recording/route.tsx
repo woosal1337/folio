@@ -12,6 +12,8 @@ import {
   Trash2,
 } from "lucide-react";
 
+import { toast } from "sonner";
+
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent } from "@/shared/ui/card";
 import { Badge } from "@/shared/ui/badge";
@@ -155,7 +157,17 @@ export default function Record() {
                   cur === item.session_dir ? null : item.session_dir
                 )
               }
-              onReveal={() => revealInFinder(item.session_dir)}
+              onReveal={() => {
+                // Fire-and-forget, but surface IPC failures so the
+                // click does not silently drop on the floor if the
+                // subprocess spawn fails.
+                revealInFinder(item.session_dir).catch((e) => {
+                  console.error("reveal_in_finder:", e);
+                  toast.error("Could not open Finder", {
+                    description: String(e),
+                  });
+                });
+              }}
               onDelete={async () => {
                 const ok = window.confirm(
                   `Delete this recording?\n\n${item.label}\n\nThis removes the session folder and every file inside it. Cannot be undone.`
