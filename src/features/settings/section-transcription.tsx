@@ -51,7 +51,7 @@ export function SectionTranscription({ settings, onChange }: Props) {
         <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
           Provider
         </Label>
-        <div className="grid gap-2">
+        <div className="grid gap-1.5">
           {PROVIDERS.map((p) => {
             const selected = settings.transcriber === p.id;
             return (
@@ -59,22 +59,25 @@ export function SectionTranscription({ settings, onChange }: Props) {
                 type="button"
                 key={p.id}
                 onClick={() => onChange("transcriber", p.id)}
+                aria-pressed={selected}
                 className={cn(
-                  "flex flex-col items-start gap-1 rounded-lg border p-4 text-left transition-colors",
+                  "flex items-center justify-between gap-3 rounded-md border px-3 py-2 text-left transition-colors",
                   selected
                     ? "border-primary bg-accent"
                     : "border-border bg-card hover:bg-secondary"
                 )}
               >
-                <div className="flex w-full items-center justify-between">
-                  <span className="font-medium">{p.label}</span>
-                  {selected && (
-                    <Badge variant="accent" className="text-2xs">
-                      selected
-                    </Badge>
-                  )}
+                <div className="flex min-w-0 flex-col gap-0.5">
+                  <span className="text-sm font-medium">{p.label}</span>
+                  <span className="truncate text-xs text-muted-foreground">
+                    {p.desc}
+                  </span>
                 </div>
-                <span className="text-xs text-muted-foreground">{p.desc}</span>
+                {selected && (
+                  <Badge variant="accent" className="shrink-0 text-2xs">
+                    selected
+                  </Badge>
+                )}
               </button>
             );
           })}

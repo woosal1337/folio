@@ -136,8 +136,11 @@ export function SettingsModal({ open, onOpenChange }: Props) {
           ScrollArea from ever constraining its viewport. Without this,
           the modal silently overflows and tall sections (e.g. the
           Local Whisper model picker) get clipped off the bottom.
+          overflow-hidden + shrink-0 on the footer below guarantee the
+          Save / Cancel row is always rendered, no matter how tall the
+          scrolling content grows.
         */}
-        <div className="flex h-full min-h-0 flex-col">
+        <div className="flex h-full min-h-0 flex-col overflow-hidden">
           <ScrollArea className="min-h-0 flex-1">
             <div className="px-8 py-7">
               {!settings ? (
@@ -164,7 +167,7 @@ export function SettingsModal({ open, onOpenChange }: Props) {
             </div>
           </ScrollArea>
 
-          <div className="flex items-center justify-end gap-2 border-t border-border bg-card px-6 py-3">
+          <div className="flex shrink-0 items-center justify-end gap-2 border-t border-border bg-card px-6 py-3">
             <Button
               variant="ghost"
               onClick={() => onOpenChange(false)}
