@@ -5,8 +5,8 @@ use std::path::PathBuf;
 use std::time::Instant;
 
 use attune_core::audio::{
-    list_input_devices as core_list_input_devices, CaptureArtifacts, CaptureConfig,
-    CaptureSession, DeviceInfo,
+    list_input_devices as core_list_input_devices, CaptureArtifacts, CaptureConfig, CaptureSession,
+    DeviceInfo,
 };
 use chrono::{DateTime, Local, Utc};
 use serde::Serialize;
@@ -209,10 +209,7 @@ fn wav_duration_seconds(path: &std::path::Path) -> Option<i64> {
 /// recordings folder — defence in depth so a bug in the frontend can't
 /// trigger an `rm -rf /` situation.
 #[tauri::command]
-pub fn delete_recording(
-    state: State<'_, AppState>,
-    session_dir: PathBuf,
-) -> Result<(), String> {
+pub fn delete_recording(state: State<'_, AppState>, session_dir: PathBuf) -> Result<(), String> {
     let output_dir = state.settings.lock().output_dir.clone();
     let canon_root = std::fs::canonicalize(&output_dir).map_err(|e| {
         format!(
@@ -236,9 +233,8 @@ pub fn delete_recording(
     if canon_target == canon_root {
         return Err("refused to delete the recordings folder itself".into());
     }
-    std::fs::remove_dir_all(&canon_target).map_err(|e| {
-        format!("could not delete {}: {e}", canon_target.display())
-    })?;
+    std::fs::remove_dir_all(&canon_target)
+        .map_err(|e| format!("could not delete {}: {e}", canon_target.display()))?;
     info!(path = %canon_target.display(), "recording deleted");
     Ok(())
 }

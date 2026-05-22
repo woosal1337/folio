@@ -11,7 +11,7 @@ env:
   RUSTFLAGS: "-D warnings"
 
 jobs:
-  fmt:
+  rust-fmt:
     name: cargo fmt
     runs-on: macos-14
     steps:
@@ -21,7 +21,7 @@ jobs:
           components: rustfmt
       - run: cargo fmt --all -- --check
 
-  clippy:
+  rust-clippy:
     name: cargo clippy
     runs-on: macos-14
     steps:
@@ -32,7 +32,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo clippy --workspace --all-targets -- -D warnings
 
-  test:
+  rust-test:
     name: cargo test
     runs-on: macos-14
     steps:
@@ -41,3 +41,37 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo build --workspace --all-targets
       - run: cargo test --workspace --lib --bins
+
+  rust-deny:
+    name: cargo deny
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check
+          arguments: --all-features
+
+  typos:
+    name: typos
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: crate-ci/typos@master
+
+  frontend:
+    name: frontend (lint + typecheck + format)
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm format:check

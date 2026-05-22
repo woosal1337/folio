@@ -62,6 +62,16 @@ description = "Local-first meeting transcription, cross-platform via Tauri 2"
 [workspace.lints.clippy]
 uninlined_format_args = "allow"
 
+[workspace.lints.rust]
+# The `objc` 0.2 macros emit `#[cfg(feature = "cargo-clippy")]`, which
+# newer Rust treats as an unexpected cfg value because that feature is
+# defined inside the macro itself, not in our Cargo.toml. Allow this
+# specific value workspace-wide. Migrating away from objc 0.2 to objc2
+# is tracked as a follow-up.
+unexpected_cfgs = { level = "warn", check-cfg = [
+  "cfg(feature, values(\"cargo-clippy\"))",
+] }
+
 [profile.release]
 opt-level = 3
 lto = "thin"

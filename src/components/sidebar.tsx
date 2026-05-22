@@ -38,7 +38,7 @@ export function Sidebar({ onOpenSettings }: SidebarProps) {
   return (
     <aside
       data-drag=""
-      className="flex w-[220px] flex-col select-none border-r border-border bg-sidebar text-sidebar-foreground"
+      className="flex w-[220px] select-none flex-col border-r border-border bg-sidebar text-sidebar-foreground"
     >
       {/* Brand */}
       <div className="flex items-center gap-2.5 px-5 pb-2 pt-4">
@@ -48,9 +48,7 @@ export function Sidebar({ onOpenSettings }: SidebarProps) {
           className="h-6 w-6 select-none"
           draggable={false}
         />
-        <span className="font-serif text-2xl font-medium tracking-tight">
-          attune
-        </span>
+        <span className="font-serif text-2xl font-medium tracking-tight">attune</span>
       </div>
       <div className="px-5 pb-4">
         <p className="text-xs text-muted-foreground">local meeting capture</p>

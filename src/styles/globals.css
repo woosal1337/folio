@@ -20,7 +20,7 @@
 @layer base {
   :root {
     /* Surfaces */
-    --background: 38 33% 94%;            /* #F5F2EC warm cream */
+    --background: 38 33% 94%; /* #F5F2EC warm cream */
     --foreground: 0 0% 10%;
     --card: 0 0% 100%;
     --card-foreground: 0 0% 10%;
@@ -30,7 +30,7 @@
     --sidebar-foreground: 0 0% 10%;
 
     /* Primary = sage accent */
-    --primary: 165 42% 30%;              /* #2D6E5E */
+    --primary: 165 42% 30%; /* #2D6E5E */
     --primary-foreground: 0 0% 100%;
 
     /* Secondary = soft neutral */
@@ -99,7 +99,7 @@
   }
 
   body {
-    @apply bg-background text-foreground font-sans;
+    @apply bg-background font-sans text-foreground;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11", "ss01";
   }
 

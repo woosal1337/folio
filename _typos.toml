@@ -1,0 +1,36 @@
+# Configuration for typos (https://github.com/crate-ci/typos).
+
+[default]
+extend-ignore-identifiers-re = [
+  "attune",
+  "Attune",
+  "ATTUNE",
+  "Spectral",
+  "JetBrains",
+  "rustfmt",
+  "clippy",
+  "Tauri",
+  "Tailwind",
+  "shadcn",
+]
+
+[default.extend-words]
+# `abl` is the local variable name for an AudioBufferList in the
+# ScreenCaptureKit callback (system.rs); it mirrors the API's
+# abbreviation and is not a typo of "able".
+abl = "abl"
+# `ege` is the maintainer's name in the LICENSE.
+ege = "ege"
+
+[files]
+extend-exclude = [
+  "pnpm-lock.yaml",
+  "Cargo.lock",
+  "bun.lock",
+  "dist/**",
+  "target/**",
+  "node_modules/**",
+  "src-tauri/gen/**",
+  "src-tauri/icons/**",
+  "*.svg",
+]

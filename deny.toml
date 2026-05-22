@@ -1,0 +1,67 @@
+[graph]
+all-features = false
+no-default-features = false
+
+[output]
+feature-depth = 1
+
+[advisories]
+version = 2
+db-urls = ["https://github.com/rustsec/advisory-db"]
+yanked = "deny"
+# Only flag unmaintained advisories for crates we depend on directly.
+# Tauri 2 still pulls gtk-rs / gtk3 on Linux transitively (RUSTSEC-2024-0411
+# through 0420) and there is nothing we can do about that until upstream
+# migrates; the desktop binary targets macOS first so these are not
+# load-bearing for us today.
+unmaintained = "workspace"
+ignore = []
+
+[licenses]
+version = 2
+confidence-threshold = 0.85
+allow = [
+  "MIT",
+  "Apache-2.0",
+  "Apache-2.0 WITH LLVM-exception",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  "ISC",
+  "Unicode-DFS-2016",
+  "Unicode-3.0",
+  "Zlib",
+  "MPL-2.0",
+  "CC0-1.0",
+  "BSL-1.0",
+  "OFL-1.1",
+  "0BSD",
+]
+
+[[licenses.exceptions]]
+allow = ["LicenseRef-ring"]
+name = "ring"
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+# Workspace member crates are referenced by path (e.g. attune-app depends
+# on attune-core via `path = "../crates/attune-core"`), which cargo-deny
+# would otherwise flag as a wildcard. Allow those.
+allow-wildcard-paths = true
+highlight = "all"
+workspace-default-features = "allow"
+external-default-features = "allow"
+allow = []
+deny = [
+  { name = "openssl", reason = "use rustls; openssl pulls libssl/libcrypto and has a noisy CVE history" },
+  { name = "openssl-sys", reason = "use rustls" },
+  { name = "git2", reason = "use gix; git2 pulls libgit2" },
+]
+skip = []
+skip-tree = []
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []
