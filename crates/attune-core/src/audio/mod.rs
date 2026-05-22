@@ -12,7 +12,7 @@ pub mod resampler;
 pub mod system;
 pub mod wav_writer;
 
-pub use capture::{CaptureArtifacts, CaptureSession};
+pub use capture::{CaptureArtifacts, CaptureSession, RecordingResult, RecordingStatus};
 pub use devices::{list_input_devices, DeviceInfo};
 
 /// Capture source channel. Used for routing and labeling downstream

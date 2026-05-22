@@ -73,3 +73,4 @@ node_modules/
 src-tauri/gen/
 src-tauri/target/
 src-tauri/Cargo.lock
+tsconfig.tsbuildinfo
