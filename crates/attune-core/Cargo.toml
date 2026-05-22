@@ -32,7 +32,7 @@ serde_json = { workspace = true }
 # (macOS 14.4+, no Screen Recording permission required) tracked in
 # architecture/audio-capture.md.
 screencapturekit = "0.3"
-core-foundation = "0.9"
+core-foundation = "0.10"
 core-media-rs = "0.3"
 core-audio-types-rs = "0.3"
 

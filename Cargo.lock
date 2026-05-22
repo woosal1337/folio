@@ -332,7 +332,7 @@ dependencies = [
  "approx",
  "chrono",
  "core-audio-types-rs",
- "core-foundation 0.9.4",
+ "core-foundation",
  "core-media-rs",
  "cpal",
  "crossbeam-channel",
@@ -712,7 +712,7 @@ dependencies = [
  "bitflags 2.11.1",
  "block",
  "cocoa-foundation",
- "core-foundation 0.10.1",
+ "core-foundation",
  "core-graphics 0.24.0",
  "foreign-types",
  "libc",
@@ -727,7 +727,7 @@ checksum = "81411967c50ee9a1fc11365f8c585f863a22a9697c89239c452292c40ba79b0d"
 dependencies = [
  "bitflags 2.11.1",
  "block",
- "core-foundation 0.10.1",
+ "core-foundation",
  "core-graphics-types",
  "objc",
 ]
@@ -773,17 +773,7 @@ version = "0.3.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bebfc66b5ef3f159b3c4a6097e7c2a2e2cc71ec77fff7913e9895fae45f4c349"
 dependencies = [
- "core-foundation 0.10.1",
-]
-
-[[package]]
-name = "core-foundation"
-version = "0.9.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "91e195e091a93c46f7102ec7818a2aa394e1e1771c3ab4825963fa03e45afb8f"
-dependencies = [
- "core-foundation-sys",
- "libc",
+ "core-foundation",
 ]
 
 [[package]]
@@ -809,7 +799,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fa95a34622365fa5bbf40b20b75dba8dfa8c94c734aea8ac9a5ca38af14316f1"
 dependencies = [
  "bitflags 2.11.1",
- "core-foundation 0.10.1",
+ "core-foundation",
  "core-graphics-types",
  "foreign-types",
  "libc",
@@ -822,7 +812,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "064badf302c3194842cf2c5d61f56cc88e54a759313879cdf03abdd27d0c3b97"
 dependencies = [
  "bitflags 2.11.1",
- "core-foundation 0.10.1",
+ "core-foundation",
  "core-graphics-types",
  "foreign-types",
  "libc",
@@ -835,7 +825,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3d44a101f213f6c4cdc1853d4b78aef6db6bdfa3468798cc1d9912f4735013eb"
 dependencies = [
  "bitflags 2.11.1",
- "core-foundation 0.10.1",
+ "core-foundation",
  "libc",
 ]
 
@@ -846,7 +836,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6592bdc3e2b3479140e8c64d419b62d613526c8b61136ca990cd0bae4377db4f"
 dependencies = [
  "core-audio-types-rs",
- "core-foundation 0.10.1",
+ "core-foundation",
  "core-utils-rs",
  "core-video-rs",
  "thiserror 2.0.18",
@@ -858,7 +848,7 @@ version = "0.3.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "791d9e8eb99cff8db5e2b6a5bb420b893476b7a064bb6889b2a691c1bb6d745c"
 dependencies = [
- "core-foundation 0.10.1",
+ "core-foundation",
  "four-char-code",
 ]
 
@@ -868,7 +858,7 @@ version = "0.3.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f1f1614e163a5d6fb972305fa14fc5c2989143da0426c213b74785b31e1fadb8"
 dependencies = [
- "core-foundation 0.10.1",
+ "core-foundation",
  "core-graphics 0.24.0",
  "core-utils-rs",
  "io-surface",
@@ -2156,7 +2146,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "554b8c5d64ec09a3a520fe58e4d48a73e00ff32899cdcbe32a4877afd4968b8e"
 dependencies = [
  "cgl",
- "core-foundation 0.10.1",
+ "core-foundation",
  "core-foundation-sys",
  "leaky-cow",
 ]
@@ -3582,7 +3572,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c62ae379564f834110c5b020cc731a7c14b8ec4879b4367579a467a0a704c21"
 dependencies = [
  "block2",
- "core-foundation 0.10.1",
+ "core-foundation",
  "core-graphics 0.25.0",
  "core-media-rs",
  "core-utils-rs",
@@ -4011,7 +4001,7 @@ checksum = "a33f7f9e486ade65fcf1e45c440f9236c904f5c1002cdc7fc6ae582777345ce4"
 dependencies = [
  "bitflags 2.11.1",
  "block2",
- "core-foundation 0.10.1",
+ "core-foundation",
  "core-graphics 0.25.0",
  "crossbeam-channel",
  "dbus",
