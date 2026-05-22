@@ -22,7 +22,7 @@ import type { RecordingResult } from "@/shared/types/RecordingResult";
 import type { RecordingStatus } from "@/shared/types/RecordingStatus";
 import type { RecordingSummary } from "@/shared/types/RecordingSummary";
 import type { Settings } from "@/shared/types/Settings";
-import type { Transcript } from "@/shared/types/Transcript";
+import type { SessionTranscript } from "@/shared/types/SessionTranscript";
 import type { TranscriptionResult } from "@/shared/types/TranscriptionResult";
 import type { WhisperModel } from "@/shared/types/WhisperModel";
 import type { WhisperModelStatus } from "@/shared/types/WhisperModelStatus";
@@ -111,13 +111,13 @@ export function transcribeRecording(sessionDir: string): Promise<TranscriptionRe
   return call<TranscriptionResult>("transcribe_recording", { sessionDir });
 }
 
-export function readTranscript(sessionDir: string): Promise<Transcript> {
-  return call<Transcript>("read_transcript", { sessionDir });
+export function readTranscript(sessionDir: string): Promise<SessionTranscript> {
+  return call<SessionTranscript>("read_transcript", { sessionDir });
 }
 
 export function saveTranscript(
   sessionDir: string,
-  transcript: Transcript
+  transcript: SessionTranscript
 ): Promise<string> {
   return call<string>("save_transcript", { sessionDir, transcript });
 }
