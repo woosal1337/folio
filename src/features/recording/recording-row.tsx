@@ -31,6 +31,13 @@ interface Props {
    * recent-recordings row stays focused on capture.
    */
   onOpenInEditor?: () => void;
+  /**
+   * Optional "Transcribe" action. Rendered only when the recording is
+   * not currently transcribing and does not yet have a transcript on
+   * disk — covers both never-attempted recordings and ones whose
+   * earlier auto-transcription failed.
+   */
+  onTranscribe?: () => void;
 }
 
 /**
@@ -49,7 +56,9 @@ export function RecordingRow({
   onReveal,
   onDelete,
   onOpenInEditor,
+  onTranscribe,
 }: Props) {
+  const canTranscribe = !transcribing && !item.has_transcript && Boolean(onTranscribe);
   // ts-rs maps Rust's i64 / u64 to TypeScript `bigint`. At JSON-parse time
   // these arrive as plain numbers, but the type system insists. Cast back
   // to number here — recording files are well under 2^53 bytes.
@@ -106,6 +115,19 @@ export function RecordingRow({
           className="ml-auto inline-flex items-center gap-1"
           onClick={(e) => e.stopPropagation()}
         >
+          {canTranscribe && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-2 text-foreground"
+              onClick={onTranscribe}
+              aria-label="Transcribe recording"
+              title="Send to OpenAI Whisper to generate a transcript."
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              Transcribe
+            </Button>
+          )}
           {onOpenInEditor && (
             <Button
               variant="ghost"

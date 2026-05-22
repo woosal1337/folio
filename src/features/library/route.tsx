@@ -22,6 +22,7 @@ export default function Library() {
   const transcribingDir = useRecording((s) => s.transcribingDir);
   const lastSavedDir = useRecording((s) => s.lastSavedDir);
   const lastTranscriptPath = useRecording((s) => s.lastTranscriptPath);
+  const transcribe = useRecording((s) => s.transcribe);
 
   const [recordings, setRecordings] = React.useState<RecordingSummary[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -135,6 +136,11 @@ export default function Library() {
                   state: { recording: item },
                 })
               }
+              onTranscribe={() => {
+                // Fire-and-forget; the store flips `transcribingDir`
+                // for the spinner and toasts on success/failure.
+                void transcribe(item.session_dir);
+              }}
               onReveal={() => {
                 revealInFinder(item.session_dir).catch((e) => {
                   console.error("reveal_in_finder:", e);

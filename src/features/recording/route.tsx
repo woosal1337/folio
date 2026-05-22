@@ -142,6 +142,9 @@ export default function Record() {
                   cur === item.session_dir ? null : item.session_dir
                 )
               }
+              onTranscribe={() => {
+                void rec.transcribe(item.session_dir);
+              }}
               onReveal={() => {
                 revealInFinder(item.session_dir).catch((e) => {
                   console.error("reveal_in_finder:", e);
