@@ -147,9 +147,11 @@ export function LocalWhisperSection({ settings, onChange }: Props) {
         })}
       </div>
 
-      <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-card p-3">
-        <div className="flex min-w-0 flex-col gap-1">
-          <div className="flex items-center gap-2">
+      <div className="flex flex-col gap-2 rounded-md border border-border bg-card p-3">
+        {/* Top row: status badge + actions. Buttons are shrink-0 so a
+            very long size string can't push them off the right edge. */}
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-2">
             <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
               Status
             </span>
@@ -165,6 +167,43 @@ export function LocalWhisperSection({ settings, onChange }: Props) {
               </Badge>
             )}
           </div>
+
+          <div className="flex shrink-0 items-center gap-1">
+            {!downloading && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={refreshStatus}
+                aria-label="Refresh model status"
+                className="gap-2"
+                disabled={statusLoading}
+              >
+                <RefreshCw className="h-3.5 w-3.5" />
+              </Button>
+            )}
+            <Button
+              onClick={handleDownload}
+              disabled={downloading || statusLoading}
+              className="gap-2"
+            >
+              {downloading ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Download className="h-3.5 w-3.5" />
+              )}
+              {downloading
+                ? "Downloading…"
+                : status?.present
+                  ? "Re-download"
+                  : "Download"}
+            </Button>
+          </div>
+        </div>
+
+        {/* Bottom row: details. Long paths are clipped with ellipsis
+            on the left so the filename stays visible; full path is in
+            the title attribute for hover. */}
+        <div className="min-w-0">
           {downloading && progress ? (
             <div className="flex flex-col gap-1" role="status" aria-live="polite">
               <span className="font-mono text-2xs text-muted-foreground">
@@ -180,45 +219,22 @@ export function LocalWhisperSection({ settings, onChange }: Props) {
               </div>
             </div>
           ) : status?.present ? (
-            <p className="truncate font-mono text-2xs text-muted-foreground">
+            <p
+              className="truncate font-mono text-2xs text-muted-foreground"
+              title={status.path}
+              dir="rtl"
+            >
               {formatBytes(Number(status.bytes_on_disk ?? 0n))} · {status.path}
             </p>
           ) : (
-            <p className="font-mono text-2xs text-muted-foreground">
+            <p
+              className="truncate font-mono text-2xs text-muted-foreground"
+              title={status?.path}
+              dir="rtl"
+            >
               Will download to {status?.path ?? "your application support folder"}
             </p>
           )}
-        </div>
-
-        <div className="flex items-center gap-1">
-          {!downloading && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={refreshStatus}
-              aria-label="Refresh model status"
-              className="gap-2"
-              disabled={statusLoading}
-            >
-              <RefreshCw className="h-3.5 w-3.5" />
-            </Button>
-          )}
-          <Button
-            onClick={handleDownload}
-            disabled={downloading || statusLoading}
-            className="gap-2"
-          >
-            {downloading ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Download className="h-3.5 w-3.5" />
-            )}
-            {downloading
-              ? "Downloading…"
-              : status?.present
-                ? "Re-download"
-                : "Download"}
-          </Button>
         </div>
       </div>
 
