@@ -129,8 +129,16 @@ export function SettingsModal({ open, onOpenChange }: Props) {
           })}
         </nav>
 
-        <div className="flex h-full flex-col">
-          <ScrollArea className="flex-1">
+        {/*
+          min-h-0 is load-bearing: this column is a grid item, and grid
+          items default to `min-height: auto`, which lets the content
+          push past the container's fixed height and prevents the inner
+          ScrollArea from ever constraining its viewport. Without this,
+          the modal silently overflows and tall sections (e.g. the
+          Local Whisper model picker) get clipped off the bottom.
+        */}
+        <div className="flex h-full min-h-0 flex-col">
+          <ScrollArea className="min-h-0 flex-1">
             <div className="px-8 py-7">
               {!settings ? (
                 <p className="text-sm text-muted-foreground">Loading…</p>
