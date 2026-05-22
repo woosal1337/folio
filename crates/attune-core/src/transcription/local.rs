@@ -106,20 +106,15 @@ impl Transcriber for LocalWhisperTranscriber {
         params.set_temperature(0.0);
         params.set_temperature_inc(0.2);
 
-        // Language handling. When the user has picked a specific
-        // language we set it directly. When they leave it on "auto",
-        // we explicitly trigger whisper.cpp's detection step instead
-        // of letting it silently default to English — that default is
-        // what mangled Turkish meetings into English nonsense.
+        // Language handling. The whisper.cpp default for `language` is
+        // "en", and `detect_language = true` is a *detect-only* mode
+        // that returns early without transcribing — we tried that and
+        // got zero segments back. The correct way to auto-detect is to
+        // pass language = NULL (None on the Rust side); whisper.cpp
+        // then runs detection as part of the regular full() call and
+        // transcribes in the detected language.
         let hint = language_hint.filter(|l| !l.is_empty() && *l != "auto");
-        match hint {
-            Some(lang) => {
-                params.set_language(Some(lang));
-            }
-            None => {
-                params.set_detect_language(true);
-            }
-        }
+        params.set_language(hint);
 
         info!("starting local whisper inference");
         state
@@ -149,16 +144,19 @@ impl Transcriber for LocalWhisperTranscriber {
             });
         }
 
+        // Whisper exposes the detected language as an integer id into
+        // its internal table. Log it so we can debug when transcripts
+        // come back in the wrong language.
+        let detected_lang_id = state.full_lang_id_from_state().ok();
         info!(
             segments = segments.len(),
-            "local whisper inference complete"
+            detected_lang_id, "local whisper inference complete"
         );
 
         Ok(Transcript {
-            // Detected language id is exposed via full_lang_id; we
-            // surface the hint instead (or None if auto-detect) to
-            // keep this code small. A follow-up can map the int to a
-            // human-readable code.
+            // Surface whatever language we ended up using: the
+            // explicit hint if one was given, otherwise fall back to
+            // None and let the UI label it as "auto-detected".
             language: hint.map(|s| s.to_string()),
             segments,
         })
