@@ -84,9 +84,41 @@ impl Transcriber for LocalWhisperTranscriber {
         params.set_print_special(false);
         params.set_print_timestamps(false);
 
+        // Critical for transcript quality. By default whisper.cpp feeds
+        // each segment the *previous* segment's text as a prompt. That
+        // is great when the audio is clean and the previous text is
+        // accurate; it is catastrophic when a hallucination slips in —
+        // the bad text becomes the prompt for the next segment and the
+        // model loops on its own output ("We will choose the sixth
+        // one." × ∞). Turning context off makes each window decode
+        // independently and prevents the cascade.
+        params.set_no_context(true);
+
+        // Strip whisper.cpp's annotation tokens like `[Music]` or
+        // `[Inaudible]` from the output stream — they confuse the
+        // downstream UI and rarely help.
+        params.set_suppress_blank(true);
+        params.set_suppress_non_speech_tokens(true);
+
+        // Greedy with a small fallback temperature for windows where
+        // the deterministic decode collapses into garbage. whisper.cpp
+        // bumps temperature on each retry and keeps the best one.
+        params.set_temperature(0.0);
+        params.set_temperature_inc(0.2);
+
+        // Language handling. When the user has picked a specific
+        // language we set it directly. When they leave it on "auto",
+        // we explicitly trigger whisper.cpp's detection step instead
+        // of letting it silently default to English — that default is
+        // what mangled Turkish meetings into English nonsense.
         let hint = language_hint.filter(|l| !l.is_empty() && *l != "auto");
-        if let Some(lang) = hint {
-            params.set_language(Some(lang));
+        match hint {
+            Some(lang) => {
+                params.set_language(Some(lang));
+            }
+            None => {
+                params.set_detect_language(true);
+            }
         }
 
         info!("starting local whisper inference");
