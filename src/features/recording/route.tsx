@@ -1,12 +1,13 @@
 import * as React from "react";
 import {
-  Mic,
-  Square,
-  FileAudio,
-  FolderOpen,
-  RefreshCw,
   ChevronDown,
   ChevronRight,
+  FileAudio,
+  FolderOpen,
+  Loader2,
+  Mic,
+  RefreshCw,
+  Square,
   Trash2,
 } from "lucide-react";
 
@@ -94,9 +95,21 @@ export default function Record() {
           )}
           <p className="text-xs text-muted-foreground">
             {rec.recording
-              ? `Capturing ${rec.channels.length > 0 ? rec.channels.join(" + ") : "audio"} · transcribe afterward in Library`
-              : "Mic + system audio in parallel · transcribe afterward in Library"}
+              ? `Capturing ${rec.channels.length > 0 ? rec.channels.join(" + ") : "audio"} · transcribes automatically when you stop`
+              : rec.transcribing
+                ? "Transcribing the last recording…"
+                : "Mic + system audio in parallel · transcribes automatically when you stop"}
           </p>
+          {rec.transcribing && (
+            <div
+              className="flex items-center gap-2 text-xs text-muted-foreground"
+              role="status"
+              aria-live="polite"
+            >
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              <span>Sending audio to OpenAI Whisper…</span>
+            </div>
+          )}
           {rec.error && <p className="text-xs text-destructive">{rec.error}</p>}
         </CardContent>
       </Card>
@@ -125,6 +138,7 @@ export default function Record() {
               key={item.session_dir}
               item={item}
               open={expanded === item.session_dir}
+              transcribing={rec.transcribingDir === item.session_dir}
               onToggle={() =>
                 setExpanded((cur) =>
                   cur === item.session_dir ? null : item.session_dir
@@ -174,12 +188,20 @@ function StatusPill({ recording, label }: { recording: boolean; label: string })
 interface RowProps {
   item: RecordingSummary;
   open: boolean;
+  transcribing: boolean;
   onToggle: () => void;
   onReveal: () => void;
   onDelete: () => void;
 }
 
-function RecordingRow({ item, open, onToggle, onReveal, onDelete }: RowProps) {
+function RecordingRow({
+  item,
+  open,
+  transcribing,
+  onToggle,
+  onReveal,
+  onDelete,
+}: RowProps) {
   // ts-rs maps Rust's i64 / u64 to TypeScript `bigint`. At JSON-parse time
   // these arrive as plain numbers, but the type system insists. Cast back
   // to number here — recording files are well under 2^53 bytes.
@@ -210,6 +232,17 @@ function RecordingRow({ item, open, onToggle, onReveal, onDelete }: RowProps) {
             {parts.join("  ·  ")}
           </span>
         </div>
+        {transcribing && (
+          <Badge
+            variant="accent"
+            className="gap-1.5 font-mono text-2xs"
+            role="status"
+            aria-live="polite"
+          >
+            <Loader2 className="h-3 w-3 animate-spin" />
+            transcribing
+          </Badge>
+        )}
         <span
           className="ml-auto inline-flex items-center gap-1"
           onClick={(e) => e.stopPropagation()}

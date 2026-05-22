@@ -5,16 +5,20 @@
  * survives route changes (the Record page can unmount without losing the
  * timer or the in-flight session). The store mirrors the backend's
  * `RecordingStatus` and adds UI-only state: a high-resolution local
- * timer, busy/error flags, and the last saved session directory.
+ * timer, busy/error flags, the last saved session directory, and the
+ * post-stop transcription lifecycle.
  */
 
+import { toast } from "sonner";
 import { create } from "zustand";
 
 import {
   recordingStatus as fetchStatus,
   startRecording as ipcStart,
   stopRecording as ipcStop,
+  transcribeRecording as ipcTranscribe,
 } from "@/shared/lib/ipc";
+import { useSettingsStore } from "@/shared/stores/settings-store";
 
 interface RecordingState {
   recording: boolean;
@@ -30,6 +34,20 @@ interface RecordingState {
   busy: boolean;
   /** Session directory of the most recently stopped recording. */
   lastSavedDir: string | null;
+
+  /** True while an auto-transcription job is in flight. */
+  transcribing: boolean;
+  /**
+   * Session directory of the recording currently being transcribed, or
+   * null if no job is active. Lets the UI show a spinner on a specific
+   * row without conflating it with `lastSavedDir`.
+   */
+  transcribingDir: string | null;
+  /** Last transcript JSON path written, or null. */
+  lastTranscriptPath: string | null;
+  /** Last transcription error, or null. */
+  transcribeError: string | null;
+
   /** Internal: interval handle for the local ticker. */
   _tickerId: number | null;
 
@@ -37,8 +55,10 @@ interface RecordingState {
   syncFromBackend: () => Promise<void>;
   /** Start a new recording session. */
   start: () => Promise<void>;
-  /** Stop the current recording session. */
+  /** Stop the current recording session. Auto-transcribes if configured. */
   stop: () => Promise<void>;
+  /** Transcribe an existing session on demand. */
+  transcribe: (sessionDir: string) => Promise<void>;
 }
 
 export const useRecording = create<RecordingState>((set, get) => {
@@ -63,6 +83,35 @@ export const useRecording = create<RecordingState>((set, get) => {
     }
   };
 
+  // Self-contained transcription routine so both `stop` (auto) and an
+  // explicit `transcribe(...)` call route through the same lifecycle.
+  const runTranscription = async (sessionDir: string) => {
+    set({
+      transcribing: true,
+      transcribingDir: sessionDir,
+      transcribeError: null,
+    });
+    try {
+      const result = await ipcTranscribe(sessionDir);
+      set({
+        transcribing: false,
+        transcribingDir: null,
+        lastTranscriptPath: result.transcript_path,
+      });
+      toast.success("Transcription complete", {
+        description: `${result.transcript.segments.length} segments saved.`,
+      });
+    } catch (e) {
+      const message = String(e);
+      set({
+        transcribing: false,
+        transcribingDir: null,
+        transcribeError: message,
+      });
+      toast.error("Transcription failed", { description: message });
+    }
+  };
+
   return {
     recording: false,
     startedAt: null,
@@ -71,6 +120,10 @@ export const useRecording = create<RecordingState>((set, get) => {
     error: null,
     busy: false,
     lastSavedDir: null,
+    transcribing: false,
+    transcribingDir: null,
+    lastTranscriptPath: null,
+    transcribeError: null,
     _tickerId: null,
 
     syncFromBackend: async () => {
@@ -90,7 +143,14 @@ export const useRecording = create<RecordingState>((set, get) => {
     },
 
     start: async () => {
-      set({ busy: true, error: null });
+      set({
+        busy: true,
+        error: null,
+        // Reset transcription state from any prior session so the loader
+        // doesn't bleed across recordings.
+        transcribeError: null,
+        lastTranscriptPath: null,
+      });
       try {
         const status = await ipcStart();
         set({
@@ -110,21 +170,39 @@ export const useRecording = create<RecordingState>((set, get) => {
 
     stop: async () => {
       set({ busy: true, error: null });
+      let sessionDir: string | null = null;
       try {
         const result = await ipcStop();
+        sessionDir = result.artifacts.session_dir;
         clearTicker();
         set({
           recording: false,
           startedAt: null,
           elapsed: 0,
           channels: [],
-          lastSavedDir: result.artifacts.session_dir,
+          lastSavedDir: sessionDir,
         });
       } catch (e) {
         set({ error: String(e) });
       } finally {
         set({ busy: false });
       }
+
+      if (!sessionDir) return;
+
+      // Decide whether to auto-transcribe. We read settings from the
+      // settings store rather than re-fetching them on every stop —
+      // the store is loaded once on app startup.
+      const settings = useSettingsStore.getState().settings;
+      const shouldTranscribe =
+        settings?.transcriber === "openai" && settings.openai_api_key.trim().length > 0;
+      if (shouldTranscribe) {
+        await runTranscription(sessionDir);
+      }
+    },
+
+    transcribe: async (sessionDir: string) => {
+      await runTranscription(sessionDir);
     },
   };
 });

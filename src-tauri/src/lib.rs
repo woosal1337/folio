@@ -34,6 +34,7 @@ pub fn run() {
             commands::library::list_recordings,
             commands::library::delete_recording,
             commands::library::reveal_in_finder,
+            commands::transcription::transcribe_recording,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

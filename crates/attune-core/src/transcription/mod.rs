@@ -35,6 +35,16 @@ pub struct Transcript {
     pub segments: Vec<TranscriptSegment>,
 }
 
+/// Outcome of a transcription run: the transcript itself plus the
+/// session it belongs to and the on-disk JSON it was persisted to.
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../src/shared/types/")]
+pub struct TranscriptionResult {
+    pub session_dir: std::path::PathBuf,
+    pub transcript_path: std::path::PathBuf,
+    pub transcript: Transcript,
+}
+
 impl Transcript {
     pub fn full_text(&self) -> String {
         self.segments
@@ -42,6 +52,20 @@ impl Transcript {
             .map(|s| s.text.as_str())
             .collect::<Vec<_>>()
             .join(" ")
+    }
+
+    /// Persist the transcript as pretty-printed JSON.
+    pub fn write_json(&self, path: &std::path::Path) -> crate::error::Result<()> {
+        let json = serde_json::to_string_pretty(self).map_err(|e| {
+            crate::error::AttuneError::Transcription(format!("could not serialize transcript: {e}"))
+        })?;
+        std::fs::write(path, json).map_err(|e| {
+            crate::error::AttuneError::Transcription(format!(
+                "could not write transcript {}: {e}",
+                path.display()
+            ))
+        })?;
+        Ok(())
     }
 }
 

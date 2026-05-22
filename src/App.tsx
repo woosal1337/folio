@@ -11,11 +11,20 @@ import Tasks from "@/features/tasks/route";
 import { SettingsModal } from "@/features/settings/route";
 import { ErrorBoundary } from "@/error-boundary";
 import { useWindowDoubleClick, useWindowDrag } from "@/shared/hooks/use-window-drag";
+import { useSettingsStore } from "@/shared/stores/settings-store";
 
 export default function App() {
   const [settingsOpen, setSettingsOpen] = React.useState(false);
   const onMouseDown = useWindowDrag();
   const onDoubleClick = useWindowDoubleClick();
+  const loadSettings = useSettingsStore((s) => s.load);
+
+  // Load settings once at mount. The recording store reads from this
+  // cache when deciding whether to auto-transcribe after stop, so the
+  // settings need to be in memory before the first stop fires.
+  React.useEffect(() => {
+    loadSettings();
+  }, [loadSettings]);
 
   return (
     <ErrorBoundary>
