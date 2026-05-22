@@ -7,6 +7,7 @@ rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 authors.workspace = true
+publish = false
 
 # Tauri requires a library target so the binary can also be linked as a
 # library (mobile, integration tests, etc.). The crate uses lib + bin.

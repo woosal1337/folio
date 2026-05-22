@@ -9,6 +9,12 @@ feature-depth = 1
 version = 2
 db-urls = ["https://github.com/rustsec/advisory-db"]
 yanked = "deny"
+# Only flag unmaintained advisories for crates we depend on directly.
+# Tauri 2 still pulls gtk-rs / gtk3 on Linux transitively (RUSTSEC-2024-0411
+# through 0420) and there is nothing we can do about that until upstream
+# migrates; the desktop binary targets macOS first so these are not
+# load-bearing for us today.
+unmaintained = "workspace"
 ignore = []
 
 [licenses]
@@ -38,6 +44,10 @@ name = "ring"
 [bans]
 multiple-versions = "warn"
 wildcards = "deny"
+# Workspace member crates are referenced by path (e.g. attune-app depends
+# on attune-core via `path = "../crates/attune-core"`), which cargo-deny
+# would otherwise flag as a wildcard. Allow those.
+allow-wildcard-paths = true
 highlight = "all"
 workspace-default-features = "allow"
 external-default-features = "allow"
