@@ -22,6 +22,20 @@ use crate::transcription::{Transcriber, Transcript, TranscriptSegment};
 /// the resampler before inference.
 const WHISPER_INPUT_SAMPLE_RATE: u32 = 16_000;
 
+/// Vocabulary glossary fed to Whisper's `initial_prompt`. Steers the
+/// spelling of proper nouns and recurring technical terms that
+/// Whisper-large-v3 otherwise mangles on the user's meeting audio. See
+/// `~/Documents/GitHub/obsidian.md/projects/attune/references/whisper-customization.md`
+/// for the 224-token budget and the cookbook-derived design rationale.
+///
+/// Keep this a comma-separated proper-noun list rather than a sentence-
+/// style example: the cookbook shows glossary-form prompts do NOT leak
+/// into the transcript, but style-form prompts CAN.
+const ATTUNE_INITIAL_PROMPT: &str =
+    "Attune meeting glossary: Tahir, Yusuf, İbrahim, Ege, Vusal, Azerbaycan, \
+     Chrome extension, Claude, Gemini, MIS, veri tabanı, sistemleri, \
+     multidisipliner, agent, startup.";
+
 pub struct LocalWhisperTranscriber {
     model_path: PathBuf,
     /// Number of CPU threads to use. Defaults to `num_cpus` heuristic.
@@ -78,7 +92,16 @@ impl Transcriber for LocalWhisperTranscriber {
             .create_state()
             .map_err(|e| AttuneError::Transcription(format!("whisper state init: {e}")))?;
 
-        let mut params = FullParams::new(SamplingStrategy::Greedy { best_of: 1 });
+        // Beam search beats greedy on Whisper-large-v3 on every quality
+        // benchmark in the literature (and on the 2026-05 Attune bake-off
+        // qualitatively on the user's recordings). The cost is ~30%
+        // slower inference, which is well under realtime on M5. patience
+        // is currently a no-op in whisper.cpp (TODO upstream) but the
+        // field still needs a value.
+        let mut params = FullParams::new(SamplingStrategy::BeamSearch {
+            beam_size: 5,
+            patience: -1.0,
+        });
         params.set_n_threads(self.threads);
         params.set_print_progress(false);
         params.set_print_realtime(false);
@@ -106,11 +129,17 @@ impl Transcriber for LocalWhisperTranscriber {
         params.set_suppress_blank(true);
         params.set_suppress_non_speech_tokens(true);
 
-        // Greedy with a small fallback temperature for windows where
-        // the deterministic decode collapses into garbage. whisper.cpp
-        // bumps temperature on each retry and keeps the best one.
+        // Temperature fallback chain. whisper.cpp tries
+        // [0.0, 0.2, 0.4, 0.6, 0.8, 1.0] in order, accepting the first
+        // decode whose token entropy (over the last 32 tokens) clears
+        // entropy_thold AND whose avg logprob clears logprob_thold.
+        // Entropy is whisper.cpp's substitute for OpenAI's
+        // compression_ratio_threshold and catches "I think that you
+        // know"-style loops.
         params.set_temperature(0.0);
         params.set_temperature_inc(0.2);
+        params.set_entropy_thold(2.4);
+        params.set_logprob_thold(-1.0);
 
         // Tighten the silence guard a notch. The default 0.6 lets
         // mostly-silent windows through and they hallucinate
@@ -118,6 +147,28 @@ impl Transcriber for LocalWhisperTranscriber {
         // loop). 0.8 means whisper has to be more confident there is
         // actual speech before emitting a segment.
         params.set_no_speech_thold(0.8);
+
+        // Prevent the decoder from jumping past the start of a chunk.
+        // Without this, on chunks that start with quiet audio the model
+        // sometimes emits its first segment with a timestamp several
+        // seconds in, which corrupts the merged timeline.
+        params.set_max_initial_ts(1.0);
+
+        // Word-level UI affordances. token_timestamps emits per-token
+        // timing metadata, split_on_word keeps segment breaks at word
+        // boundaries, max_len caps a single segment at ~one sentence
+        // for the live-transcript view. The text content of each
+        // segment is unchanged — only how segment boundaries fall.
+        params.set_token_timestamps(true);
+        params.set_split_on_word(true);
+        params.set_max_len(120);
+
+        // Static glossary of proper nouns and Turkish technical
+        // vocabulary the user's meetings repeat. Steers spelling on
+        // names that Whisper-large-v3 otherwise approximates
+        // ("multidisplinar" → "multidisipliner"). 224-token budget on
+        // whisper.cpp's initial_prompt, so keep this terse.
+        params.set_initial_prompt(ATTUNE_INITIAL_PROMPT);
 
         // Language handling. The whisper.cpp default for `language` is
         // "en", and `detect_language = true` is a *detect-only* mode
