@@ -14,6 +14,14 @@ extend-ignore-identifiers-re = [
   "shadcn",
 ]
 
+[default.extend-words]
+# `abl` is the local variable name for an AudioBufferList in the
+# ScreenCaptureKit callback (system.rs); it mirrors the API's
+# abbreviation and is not a typo of "able".
+abl = "abl"
+# `ege` is the maintainer's name in the LICENSE.
+ege = "ege"
+
 [files]
 extend-exclude = [
   "pnpm-lock.yaml",
