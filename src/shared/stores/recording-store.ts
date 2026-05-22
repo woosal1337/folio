@@ -197,7 +197,11 @@ export const useRecording = create<RecordingState>((set, get) => {
       const shouldTranscribe =
         settings?.transcriber === "openai" && settings.openai_api_key.trim().length > 0;
       if (shouldTranscribe) {
-        await runTranscription(sessionDir);
+        // Fire-and-forget. `runTranscription` flips `transcribing` so
+        // the UI shows a spinner on the row; we deliberately do not
+        // await so the Stop click resolves as soon as the WAV is
+        // saved and the user can keep using the app.
+        void runTranscription(sessionDir);
       }
     },
 

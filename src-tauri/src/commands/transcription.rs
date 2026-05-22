@@ -16,8 +16,13 @@ use crate::app::AppState;
 /// Picks `mic.wav` if present (the canonical "me" channel), falls back
 /// to `system.wav` otherwise. Writes the resulting transcript JSON to
 /// `<session_dir>/transcript.json`.
+///
+/// Declared `async` and offloaded to `spawn_blocking` so the blocking
+/// reqwest upload does not park a Tauri command worker thread. The
+/// command can run for the full ~10 minute Whisper timeout without
+/// affecting the responsiveness of other IPC calls.
 #[tauri::command]
-pub fn transcribe_recording(
+pub async fn transcribe_recording(
     state: State<'_, AppState>,
     session_dir: PathBuf,
 ) -> Result<TranscriptionResult, String> {
@@ -49,14 +54,22 @@ pub fn transcribe_recording(
         "starting OpenAI transcription",
     );
 
-    let transcriber = OpenAiTranscriber::new(api_key);
-    let language_hint = (!language.is_empty() && language != "auto").then_some(language.as_str());
+    let session_dir_for_task = session_dir.clone();
+    let language_for_task = language.clone();
 
-    let transcript = transcriber
-        .transcribe(&audio_path, language_hint)
-        .map_err(|e| e.to_string())?;
+    // Move the blocking HTTP call onto a dedicated blocking thread so
+    // the Tauri runtime stays free to dispatch other commands.
+    let transcript = tauri::async_runtime::spawn_blocking(move || {
+        let transcriber = OpenAiTranscriber::new(api_key);
+        let hint = (!language_for_task.is_empty() && language_for_task != "auto")
+            .then_some(language_for_task.as_str());
+        transcriber.transcribe(&audio_path, hint)
+    })
+    .await
+    .map_err(|e| format!("transcription task panicked: {e}"))?
+    .map_err(|e| e.to_string())?;
 
-    let transcript_path = session_dir.join(TRANSCRIPT_FILENAME);
+    let transcript_path = session_dir_for_task.join(TRANSCRIPT_FILENAME);
     transcript
         .write_json(&transcript_path)
         .map_err(|e| e.to_string())?;
