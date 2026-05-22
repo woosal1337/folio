@@ -45,7 +45,8 @@ export default function App() {
                 <Route path="/" element={<Navigate to="/record" replace />} />
                 <Route path="/record" element={<Record />} />
                 <Route path="/library" element={<Library />} />
-                <Route path="/editor" element={<Editor />} />
+                <Route path="/editor" element={<Navigate to="/library" replace />} />
+                <Route path="/editor/:label" element={<Editor />} />
                 <Route path="/tasks" element={<Tasks />} />
                 <Route path="*" element={<Navigate to="/record" replace />} />
               </Routes>

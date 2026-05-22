@@ -99,6 +99,60 @@ fn pick_audio_source(session_dir: &Path) -> Option<PathBuf> {
     None
 }
 
+/// Persist an edited transcript back to disk.
+///
+/// Same defence-in-depth as the other path-taking commands: the target
+/// must canonicalize to a path under the user's recordings folder.
+/// Writes via an atomic temp-file-rename so a crash mid-write cannot
+/// corrupt the on-disk JSON.
+#[tauri::command]
+pub async fn save_transcript(
+    state: State<'_, AppState>,
+    session_dir: PathBuf,
+    transcript: Transcript,
+) -> Result<PathBuf, String> {
+    let output_dir = state.settings.lock().output_dir.clone();
+
+    tauri::async_runtime::spawn_blocking(move || -> Result<PathBuf, String> {
+        let canon_root = std::fs::canonicalize(&output_dir).map_err(|e| {
+            format!(
+                "could not canonicalize recordings dir {}: {e}",
+                output_dir.display()
+            )
+        })?;
+        let canon_target = std::fs::canonicalize(&session_dir).map_err(|e| {
+            format!(
+                "could not canonicalize session dir {}: {e}",
+                session_dir.display()
+            )
+        })?;
+        if !canon_target.starts_with(&canon_root) {
+            return Err(format!(
+                "refused to write {}: not under recordings folder {}",
+                canon_target.display(),
+                canon_root.display(),
+            ));
+        }
+
+        let path = canon_target.join(TRANSCRIPT_FILENAME);
+        let json = serde_json::to_string_pretty(&transcript)
+            .map_err(|e| format!("could not serialize transcript: {e}"))?;
+        let tmp = path.with_extension("json.tmp");
+        std::fs::write(&tmp, json).map_err(|e| {
+            format!(
+                "could not write transcript temp file {}: {e}",
+                tmp.display()
+            )
+        })?;
+        std::fs::rename(&tmp, &path)
+            .map_err(|e| format!("could not finalize transcript file {}: {e}", path.display()))?;
+        info!(path = %path.display(), "transcript saved (edited)");
+        Ok(path)
+    })
+    .await
+    .map_err(|e| format!("save_transcript task panicked: {e}"))?
+}
+
 /// Read a previously persisted transcript for `session_dir`.
 ///
 /// Validates that the target is under the user's configured recordings

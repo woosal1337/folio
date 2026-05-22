@@ -14,14 +14,33 @@ use crate::app::AppState;
 ///
 /// File-system scan + WAV header reads can take a measurable amount of
 /// time once there are many recordings, so this runs on a blocking task.
+///
+/// Filters out the currently-active recording session. The capture
+/// pipeline creates the session dir and the mic.wav / system.wav files
+/// up-front, but the WAV headers are not finalized until
+/// [`CaptureSession::stop`] runs — so if we surface that directory in
+/// the list while a recording is in progress, the `<audio>` element on
+/// the frontend hits MediaError 4 ("source not supported"). Hiding it
+/// until stop keeps the library honest about what is actually playable.
 #[tauri::command]
 pub async fn list_recordings(state: State<'_, AppState>) -> Result<Vec<RecordingSummary>, String> {
     debug!("list_recordings");
     let output_dir = state.settings.lock().output_dir.clone();
+    let active_session_dir = state
+        .session
+        .lock()
+        .as_ref()
+        .map(|s| s.session_dir().clone());
 
-    tauri::async_runtime::spawn_blocking(move || scan_recordings(&output_dir))
-        .await
-        .map_err(|e| format!("list_recordings task panicked: {e}"))
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut list = scan_recordings(&output_dir);
+        if let Some(active) = active_session_dir {
+            list.retain(|entry| entry.session_dir != active);
+        }
+        list
+    })
+    .await
+    .map_err(|e| format!("list_recordings task panicked: {e}"))
 }
 
 /// Delete a recording session directory.
@@ -70,6 +89,31 @@ pub async fn delete_recording(
     .map(|path| {
         info!(path = %path.display(), "recording deleted");
     })
+}
+
+/// Look up a single recording by its label (the session directory's
+/// timestamp name). Used by the Editor route when the user lands on a
+/// `/editor/:label` URL directly and does not have the `RecordingSummary`
+/// in router state.
+#[tauri::command]
+pub async fn get_recording(
+    state: State<'_, AppState>,
+    label: String,
+) -> Result<Option<RecordingSummary>, String> {
+    let output_dir = state.settings.lock().output_dir.clone();
+    let active_session_dir = state
+        .session
+        .lock()
+        .as_ref()
+        .map(|s| s.session_dir().clone());
+
+    tauri::async_runtime::spawn_blocking(move || {
+        let list = scan_recordings(&output_dir);
+        list.into_iter()
+            .find(|r| r.label == label && Some(&r.session_dir) != active_session_dir.as_ref())
+    })
+    .await
+    .map_err(|e| format!("get_recording task panicked: {e}"))
 }
 
 /// Reveal `path` in the platform file browser. Subprocess spawn is

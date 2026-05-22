@@ -91,6 +91,10 @@ export function listRecordings(): Promise<RecordingSummary[]> {
   return call<RecordingSummary[]>("list_recordings");
 }
 
+export function getRecording(label: string): Promise<RecordingSummary | null> {
+  return call<RecordingSummary | null>("get_recording", { label });
+}
+
 export function revealInFinder(path: string): Promise<void> {
   return call<void>("reveal_in_finder", { path });
 }
@@ -107,4 +111,11 @@ export function transcribeRecording(sessionDir: string): Promise<TranscriptionRe
 
 export function readTranscript(sessionDir: string): Promise<Transcript> {
   return call<Transcript>("read_transcript", { sessionDir });
+}
+
+export function saveTranscript(
+  sessionDir: string,
+  transcript: Transcript
+): Promise<string> {
+  return call<string>("save_transcript", { sessionDir, transcript });
 }
