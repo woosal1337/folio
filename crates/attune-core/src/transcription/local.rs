@@ -15,6 +15,7 @@ use whisper_rs::{FullParams, SamplingStrategy, WhisperContext, WhisperContextPar
 
 use crate::audio::resampler::StreamingResampler;
 use crate::error::{AttuneError, Result};
+use crate::transcription::hallucination_filter::filter_segments;
 use crate::transcription::{Transcriber, Transcript, TranscriptSegment};
 
 /// Whisper consumes 16 kHz mono f32 audio. Any other shape goes through
@@ -156,13 +157,19 @@ impl Transcriber for LocalWhisperTranscriber {
             });
         }
 
+        // Strip Whisper's "Thank you." / "you" / "Thanks for watching."
+        // artifacts that leak through even after no_speech_thold=0.8.
+        // See hallucination_filter for the rationale and the 2026-05
+        // benchmark notes.
+        let (segments, dropped_hallucinations) = filter_segments(segments);
+
         // Whisper exposes the detected language as an integer id into
         // its internal table. Log it so we can debug when transcripts
         // come back in the wrong language.
         let detected_lang_id = state.full_lang_id_from_state().ok();
         info!(
             segments = segments.len(),
-            detected_lang_id, "local whisper inference complete"
+            dropped_hallucinations, detected_lang_id, "local whisper inference complete"
         );
 
         Ok(Transcript {
