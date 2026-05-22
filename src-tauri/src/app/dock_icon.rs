@@ -13,7 +13,7 @@
 // at any Dock size. Smaller derived rasters can become stale or be
 // downscaled poorly by NSImage's interpolation.
 #[cfg(target_os = "macos")]
-const ICON_PNG: &[u8] = include_bytes!("../icons/logo-source.png");
+const ICON_PNG: &[u8] = include_bytes!("../../icons/logo-source.png");
 
 // The `cocoa` crate is in maintenance mode and marks most of its surface
 // as deprecated in favor of `objc2`. Migrating to objc2 is tracked as a

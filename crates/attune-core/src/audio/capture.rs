@@ -12,6 +12,7 @@ use std::time::SystemTime;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use tracing::{info, warn};
+use ts_rs::TS;
 
 use crate::audio::devices::default_input_sample_rate;
 use crate::audio::mic::MicCapture;
@@ -42,13 +43,33 @@ pub struct CaptureSession {
 // they are not used concurrently. The Mutex guarantees that.
 unsafe impl Send for CaptureSession {}
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../src/shared/types/")]
 pub struct CaptureArtifacts {
     pub session_dir: PathBuf,
     pub mic_path: Option<PathBuf>,
     pub system_path: Option<PathBuf>,
     pub started_at: DateTime<Utc>,
     pub stopped_at: DateTime<Utc>,
+}
+
+/// Snapshot of the current capture session, reported to the UI.
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../src/shared/types/")]
+pub struct RecordingStatus {
+    pub recording: bool,
+    pub elapsed_secs: u64,
+    pub channels: Vec<String>,
+}
+
+/// Result of [`CaptureSession::stop`] in a form ready to hand to the UI:
+/// the raw [`CaptureArtifacts`] plus a human-friendly label derived from
+/// the session directory name.
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../src/shared/types/")]
+pub struct RecordingResult {
+    pub artifacts: CaptureArtifacts,
+    pub label: String,
 }
 
 impl CaptureSession {

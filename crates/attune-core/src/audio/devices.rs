@@ -3,10 +3,12 @@
 
 use cpal::traits::{DeviceTrait, HostTrait};
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
 use crate::error::{AttuneError, Result};
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../src/shared/types/")]
 pub struct DeviceInfo {
     pub name: String,
     pub is_default: bool,

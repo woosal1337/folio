@@ -1,11 +1,12 @@
 //! Attune Tauri 2 app entry. Sets up the window, registers plugins, and
 //! exposes Rust functions to the React frontend as Tauri commands.
 
+mod app;
 mod commands;
-mod dock_icon;
-mod state;
 
 use tracing_subscriber::EnvFilter;
+
+use crate::app::AppState;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -15,24 +16,24 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
-        .manage(state::AppState::default())
+        .manage(AppState::new_default())
         .setup(|_app| {
             // Dev builds launch as raw binaries without a .app bundle, so
             // macOS would otherwise show a blank Dock icon. Set it here.
-            dock_icon::set_dock_icon();
+            app::dock_icon::set_dock_icon();
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            commands::ping,
-            commands::list_input_devices,
-            commands::get_settings,
-            commands::save_settings,
-            commands::recording_status,
-            commands::start_recording,
-            commands::stop_recording,
-            commands::list_recordings,
-            commands::delete_recording,
-            commands::reveal_in_finder,
+            commands::health::ping,
+            commands::devices::list_input_devices,
+            commands::settings::get_settings,
+            commands::settings::save_settings,
+            commands::recording::recording_status,
+            commands::recording::start_recording,
+            commands::recording::stop_recording,
+            commands::library::list_recordings,
+            commands::library::delete_recording,
+            commands::library::reveal_in_finder,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

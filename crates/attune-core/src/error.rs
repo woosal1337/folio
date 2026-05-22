@@ -34,6 +34,12 @@ pub enum AttuneError {
     #[error("hound (wav) error: {0}")]
     Hound(#[from] hound::Error),
 
+    #[error("storage error: {0}")]
+    Storage(String),
+
+    #[error("transcription error: {0}")]
+    Transcription(String),
+
     #[error("internal: {0}")]
     Internal(String),
 }
