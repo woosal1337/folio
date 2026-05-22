@@ -4,14 +4,12 @@
 
 use std::path::{Path, PathBuf};
 
-use attune_core::transcription::{OpenAiTranscriber, Transcriber, TranscriptionResult};
+use attune_core::storage::session::TRANSCRIPT_FILENAME;
+use attune_core::transcription::{OpenAiTranscriber, Transcriber, Transcript, TranscriptionResult};
 use tauri::State;
 use tracing::{debug, info};
 
 use crate::app::AppState;
-
-/// Where the transcript lives on disk, relative to the session dir.
-const TRANSCRIPT_FILENAME: &str = "transcript.json";
 
 /// Transcribe a previously recorded session.
 ///
@@ -86,4 +84,42 @@ fn pick_audio_source(session_dir: &Path) -> Option<PathBuf> {
         return Some(system);
     }
     None
+}
+
+/// Read a previously persisted transcript for `session_dir`.
+///
+/// Validates that the target is under the user's configured recordings
+/// folder — same defence-in-depth as `delete_recording`.
+#[tauri::command]
+pub fn read_transcript(
+    state: State<'_, AppState>,
+    session_dir: PathBuf,
+) -> Result<Transcript, String> {
+    let output_dir = state.settings.lock().output_dir.clone();
+    let canon_root = std::fs::canonicalize(&output_dir).map_err(|e| {
+        format!(
+            "could not canonicalize recordings dir {}: {e}",
+            output_dir.display()
+        )
+    })?;
+    let canon_target = std::fs::canonicalize(&session_dir).map_err(|e| {
+        format!(
+            "could not canonicalize session dir {}: {e}",
+            session_dir.display()
+        )
+    })?;
+    if !canon_target.starts_with(&canon_root) {
+        return Err(format!(
+            "refused to read {}: not under recordings folder {}",
+            canon_target.display(),
+            canon_root.display(),
+        ));
+    }
+
+    let path = canon_target.join(TRANSCRIPT_FILENAME);
+    let raw = std::fs::read_to_string(&path)
+        .map_err(|e| format!("could not read transcript {}: {e}", path.display()))?;
+    let transcript: Transcript = serde_json::from_str(&raw)
+        .map_err(|e| format!("could not parse transcript {}: {e}", path.display()))?;
+    Ok(transcript)
 }

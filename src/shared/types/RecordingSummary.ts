@@ -3,4 +3,9 @@
 /**
  * Metadata about a saved recording session, as discovered on disk.
  */
-export type RecordingSummary = { session_dir: string, label: string, duration_seconds: bigint, mic_bytes: bigint | null, system_bytes: bigint | null, mic_sample_rate: number | null, system_sample_rate: number | null, created_at: string | null, };
+export type RecordingSummary = { session_dir: string, label: string, duration_seconds: bigint, mic_bytes: bigint | null, system_bytes: bigint | null, mic_sample_rate: number | null, system_sample_rate: number | null, created_at: string | null, 
+/**
+ * True iff `<session_dir>/transcript.json` exists. Used by the UI
+ * to mark previously transcribed sessions in the library list.
+ */
+has_transcript: boolean, };

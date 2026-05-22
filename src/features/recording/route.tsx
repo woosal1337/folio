@@ -7,6 +7,7 @@ import {
   Loader2,
   Mic,
   RefreshCw,
+  Sparkles,
   Square,
   Trash2,
 } from "lucide-react";
@@ -16,6 +17,7 @@ import { Card, CardContent } from "@/shared/ui/card";
 import { Badge } from "@/shared/ui/badge";
 import { Separator } from "@/shared/ui/separator";
 import { AudioPlayer } from "@/features/recording/audio-player";
+import { TranscriptView } from "@/features/recording/transcript-view";
 import { cn, formatBytes, formatDuration } from "@/shared/lib/utils";
 import { useRecording } from "@/shared/stores/recording-store";
 import { deleteRecording, listRecordings, revealInFinder } from "@/shared/lib/ipc";
@@ -50,6 +52,15 @@ export default function Record() {
       setExpanded(rec.lastSavedDir);
     }
   }, [rec.lastSavedDir, refresh]);
+
+  // After an auto-transcription completes, re-list so the row flips
+  // from "transcribing" to "transcribed" without the user having to
+  // hit Refresh.
+  React.useEffect(() => {
+    if (rec.lastTranscriptPath) {
+      refresh();
+    }
+  }, [rec.lastTranscriptPath, refresh]);
 
   const elapsedLabel = React.useMemo(() => {
     const m = Math.floor(rec.elapsed / 60);
@@ -232,7 +243,7 @@ function RecordingRow({
             {parts.join("  ·  ")}
           </span>
         </div>
-        {transcribing && (
+        {transcribing ? (
           <Badge
             variant="accent"
             className="gap-1.5 font-mono text-2xs"
@@ -242,7 +253,16 @@ function RecordingRow({
             <Loader2 className="h-3 w-3 animate-spin" />
             transcribing
           </Badge>
-        )}
+        ) : item.has_transcript ? (
+          <Badge
+            variant="accent"
+            className="gap-1.5 font-mono text-2xs"
+            title="A transcript is available — expand the row to read it."
+          >
+            <Sparkles className="h-3 w-3" />
+            transcribed
+          </Badge>
+        ) : null}
         <span
           className="ml-auto inline-flex items-center gap-1"
           onClick={(e) => e.stopPropagation()}
@@ -276,6 +296,12 @@ function RecordingRow({
           )}
           {systemPath && <Separator />}
           {systemPath && <AudioPlayer filePath={systemPath} label="System" />}
+          {item.has_transcript && (
+            <>
+              <Separator />
+              <TranscriptView sessionDir={item.session_dir} />
+            </>
+          )}
         </CardContent>
       )}
     </Card>

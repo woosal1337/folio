@@ -22,6 +22,7 @@ import type { RecordingResult } from "@/shared/types/RecordingResult";
 import type { RecordingStatus } from "@/shared/types/RecordingStatus";
 import type { RecordingSummary } from "@/shared/types/RecordingSummary";
 import type { Settings } from "@/shared/types/Settings";
+import type { Transcript } from "@/shared/types/Transcript";
 import type { TranscriptionResult } from "@/shared/types/TranscriptionResult";
 
 export class IpcError extends Error {
@@ -102,4 +103,8 @@ export function deleteRecording(sessionDir: string): Promise<void> {
 
 export function transcribeRecording(sessionDir: string): Promise<TranscriptionResult> {
   return call<TranscriptionResult>("transcribe_recording", { sessionDir });
+}
+
+export function readTranscript(sessionDir: string): Promise<Transcript> {
+  return call<Transcript>("read_transcript", { sessionDir });
 }

@@ -7,6 +7,10 @@ use chrono::{DateTime, Local, Utc};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
+/// Filename of the transcript JSON that the transcription pipeline
+/// writes inside each session directory.
+pub const TRANSCRIPT_FILENAME: &str = "transcript.json";
+
 /// Metadata about a saved recording session, as discovered on disk.
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../src/shared/types/")]
@@ -19,6 +23,9 @@ pub struct RecordingSummary {
     pub mic_sample_rate: Option<u32>,
     pub system_sample_rate: Option<u32>,
     pub created_at: Option<DateTime<Utc>>,
+    /// True iff `<session_dir>/transcript.json` exists. Used by the UI
+    /// to mark previously transcribed sessions in the library list.
+    pub has_transcript: bool,
 }
 
 /// Scan `output_dir` for recording sessions and return one summary per
@@ -60,6 +67,7 @@ pub fn scan_recordings(output_dir: &Path) -> Vec<RecordingSummary> {
                 let dt: DateTime<Local> = t.into();
                 dt.with_timezone(&Utc)
             });
+        let has_transcript = path.join(TRANSCRIPT_FILENAME).is_file();
         out.push(RecordingSummary {
             session_dir: path,
             label,
@@ -69,6 +77,7 @@ pub fn scan_recordings(output_dir: &Path) -> Vec<RecordingSummary> {
             mic_sample_rate,
             system_sample_rate,
             created_at,
+            has_transcript,
         });
     }
     out.sort_by(|a, b| b.label.cmp(&a.label));
