@@ -119,7 +119,7 @@ export function LocalWhisperSection({ settings, onChange }: Props) {
         Local model
       </Label>
 
-      <div className="grid gap-2">
+      <div className="grid gap-1.5">
         {MODELS.map((m) => {
           const selected = settings.local_whisper_model === m.id;
           return (
@@ -127,18 +127,21 @@ export function LocalWhisperSection({ settings, onChange }: Props) {
               type="button"
               key={m.id}
               onClick={() => onChange("local_whisper_model", m.id)}
+              aria-pressed={selected}
               className={cn(
-                "flex items-center justify-between gap-3 rounded-lg border p-3 text-left transition-colors",
+                "flex items-center justify-between gap-3 rounded-md border px-3 py-2 text-left transition-colors",
                 selected
                   ? "border-primary bg-accent"
                   : "border-border bg-card hover:bg-secondary"
               )}
             >
-              <div className="flex flex-col">
-                <span className="font-medium">{m.label}</span>
-                <span className="text-xs text-muted-foreground">{m.note}</span>
+              <div className="flex min-w-0 items-baseline gap-2.5">
+                <span className="text-sm font-medium">{m.label}</span>
+                <span className="truncate text-xs text-muted-foreground">{m.note}</span>
               </div>
-              <span className="font-mono text-2xs text-muted-foreground">{m.size}</span>
+              <span className="shrink-0 font-mono text-2xs text-muted-foreground">
+                {m.size}
+              </span>
             </button>
           );
         })}
