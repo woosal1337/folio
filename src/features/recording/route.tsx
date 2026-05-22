@@ -1,20 +1,25 @@
 import * as React from "react";
 import {
-  Mic,
-  Square,
-  FileAudio,
-  FolderOpen,
-  RefreshCw,
   ChevronDown,
   ChevronRight,
+  FileAudio,
+  FolderOpen,
+  Loader2,
+  Mic,
+  RefreshCw,
+  Sparkles,
+  Square,
   Trash2,
 } from "lucide-react";
+
+import { toast } from "sonner";
 
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent } from "@/shared/ui/card";
 import { Badge } from "@/shared/ui/badge";
 import { Separator } from "@/shared/ui/separator";
 import { AudioPlayer } from "@/features/recording/audio-player";
+import { TranscriptView } from "@/features/recording/transcript-view";
 import { cn, formatBytes, formatDuration } from "@/shared/lib/utils";
 import { useRecording } from "@/shared/stores/recording-store";
 import { deleteRecording, listRecordings, revealInFinder } from "@/shared/lib/ipc";
@@ -49,6 +54,15 @@ export default function Record() {
       setExpanded(rec.lastSavedDir);
     }
   }, [rec.lastSavedDir, refresh]);
+
+  // After an auto-transcription completes, re-list so the row flips
+  // from "transcribing" to "transcribed" without the user having to
+  // hit Refresh.
+  React.useEffect(() => {
+    if (rec.lastTranscriptPath) {
+      refresh();
+    }
+  }, [rec.lastTranscriptPath, refresh]);
 
   const elapsedLabel = React.useMemo(() => {
     const m = Math.floor(rec.elapsed / 60);
@@ -94,9 +108,21 @@ export default function Record() {
           )}
           <p className="text-xs text-muted-foreground">
             {rec.recording
-              ? `Capturing ${rec.channels.length > 0 ? rec.channels.join(" + ") : "audio"} · transcribe afterward in Library`
-              : "Mic + system audio in parallel · transcribe afterward in Library"}
+              ? `Capturing ${rec.channels.length > 0 ? rec.channels.join(" + ") : "audio"} · transcribes automatically when you stop`
+              : rec.transcribing
+                ? "Transcribing the last recording…"
+                : "Mic + system audio in parallel · transcribes automatically when you stop"}
           </p>
+          {rec.transcribing && (
+            <div
+              className="flex items-center gap-2 text-xs text-muted-foreground"
+              role="status"
+              aria-live="polite"
+            >
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              <span>Sending audio to OpenAI Whisper…</span>
+            </div>
+          )}
           {rec.error && <p className="text-xs text-destructive">{rec.error}</p>}
         </CardContent>
       </Card>
@@ -125,12 +151,23 @@ export default function Record() {
               key={item.session_dir}
               item={item}
               open={expanded === item.session_dir}
+              transcribing={rec.transcribingDir === item.session_dir}
               onToggle={() =>
                 setExpanded((cur) =>
                   cur === item.session_dir ? null : item.session_dir
                 )
               }
-              onReveal={() => revealInFinder(item.session_dir)}
+              onReveal={() => {
+                // Fire-and-forget, but surface IPC failures so the
+                // click does not silently drop on the floor if the
+                // subprocess spawn fails.
+                revealInFinder(item.session_dir).catch((e) => {
+                  console.error("reveal_in_finder:", e);
+                  toast.error("Could not open Finder", {
+                    description: String(e),
+                  });
+                });
+              }}
               onDelete={async () => {
                 const ok = window.confirm(
                   `Delete this recording?\n\n${item.label}\n\nThis removes the session folder and every file inside it. Cannot be undone.`
@@ -174,12 +211,20 @@ function StatusPill({ recording, label }: { recording: boolean; label: string })
 interface RowProps {
   item: RecordingSummary;
   open: boolean;
+  transcribing: boolean;
   onToggle: () => void;
   onReveal: () => void;
   onDelete: () => void;
 }
 
-function RecordingRow({ item, open, onToggle, onReveal, onDelete }: RowProps) {
+function RecordingRow({
+  item,
+  open,
+  transcribing,
+  onToggle,
+  onReveal,
+  onDelete,
+}: RowProps) {
   // ts-rs maps Rust's i64 / u64 to TypeScript `bigint`. At JSON-parse time
   // these arrive as plain numbers, but the type system insists. Cast back
   // to number here — recording files are well under 2^53 bytes.
@@ -210,6 +255,26 @@ function RecordingRow({ item, open, onToggle, onReveal, onDelete }: RowProps) {
             {parts.join("  ·  ")}
           </span>
         </div>
+        {transcribing ? (
+          <Badge
+            variant="accent"
+            className="gap-1.5 font-mono text-2xs"
+            role="status"
+            aria-live="polite"
+          >
+            <Loader2 className="h-3 w-3 animate-spin" />
+            transcribing
+          </Badge>
+        ) : item.has_transcript ? (
+          <Badge
+            variant="accent"
+            className="gap-1.5 font-mono text-2xs"
+            title="A transcript is available — expand the row to read it."
+          >
+            <Sparkles className="h-3 w-3" />
+            transcribed
+          </Badge>
+        ) : null}
         <span
           className="ml-auto inline-flex items-center gap-1"
           onClick={(e) => e.stopPropagation()}
@@ -243,6 +308,12 @@ function RecordingRow({ item, open, onToggle, onReveal, onDelete }: RowProps) {
           )}
           {systemPath && <Separator />}
           {systemPath && <AudioPlayer filePath={systemPath} label="System" />}
+          {item.has_transcript && (
+            <>
+              <Separator />
+              <TranscriptView sessionDir={item.session_dir} />
+            </>
+          )}
         </CardContent>
       )}
     </Card>

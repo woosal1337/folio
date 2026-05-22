@@ -12,7 +12,8 @@ import { ScrollArea } from "@/shared/ui/scroll-area";
 import { Button } from "@/shared/ui/button";
 import { cn } from "@/shared/lib/utils";
 import { useTheme } from "@/shared/hooks/use-theme";
-import { getSettings, listInputDevices, saveSettings } from "@/shared/lib/ipc";
+import { getSettings, listInputDevices } from "@/shared/lib/ipc";
+import { useSettingsStore } from "@/shared/stores/settings-store";
 import type { DeviceInfo } from "@/shared/types/DeviceInfo";
 import type { Settings } from "@/shared/types/Settings";
 import type { Theme } from "@/shared/hooks/use-theme";
@@ -70,11 +71,16 @@ export function SettingsModal({ open, onOpenChange }: Props) {
     []
   );
 
+  const saveToStore = useSettingsStore((s) => s.save);
+
   const handleSave = async () => {
     if (!settings) return;
     setSaving(true);
     try {
-      await saveSettings(settings);
+      // Persist via the store so the in-memory cache (read by the
+      // recording-store when deciding whether to auto-transcribe) stays
+      // in sync with disk.
+      await saveToStore(settings);
       toast.success("Settings saved");
       onOpenChange(false);
     } catch (e) {
