@@ -4,6 +4,8 @@
 //! implementations live in submodules: [`openai`] for the hosted Whisper
 //! API and [`stub`] for tests and offline use.
 
+pub mod local;
+pub mod models;
 pub mod openai;
 pub mod stub;
 
@@ -12,6 +14,8 @@ use std::path::Path;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
+pub use local::LocalWhisperTranscriber;
+pub use models::{DownloadProgress, WhisperModel, WhisperModelStatus, WhisperModelStore};
 pub use openai::OpenAiTranscriber;
 pub use stub::StubTranscriber;
 

@@ -6,6 +6,8 @@ import { Label } from "@/shared/ui/label";
 import { cn } from "@/shared/lib/utils";
 import type { Settings } from "@/shared/types/Settings";
 
+import { LocalWhisperSection } from "./local-whisper-section";
+
 interface Props {
   settings: Settings;
   onChange: <K extends keyof Settings>(key: K, value: Settings[K]) => void;
@@ -20,7 +22,7 @@ const PROVIDERS: { id: string; label: string; desc: string }[] = [
   {
     id: "local_whisper",
     label: "Local Whisper",
-    desc: "Runs on this Mac · lands in a future session",
+    desc: "Runs on this Mac via whisper.cpp · no audio leaves your machine",
   },
 ];
 
@@ -100,6 +102,10 @@ export function SectionTranscription({ settings, onChange }: Props) {
             Stored locally. Sent only to api.openai.com.
           </p>
         </section>
+      )}
+
+      {settings.transcriber === "local_whisper" && (
+        <LocalWhisperSection settings={settings} onChange={onChange} />
       )}
 
       <section className="space-y-3">

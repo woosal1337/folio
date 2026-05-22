@@ -38,6 +38,9 @@ allow = [
   # Used by webpki-roots (pulled in by reqwest's rustls TLS stack).
   # Permissive Linux Foundation license, safe to allow.
   "CDLA-Permissive-2.0",
+  # Used by whisper-rs / whisper-rs-sys (Rust bindings to whisper.cpp).
+  # OSI-approved, FSF-Libre — strictly more permissive than MIT.
+  "Unlicense",
 ]
 
 [[licenses.exceptions]]
