@@ -28,9 +28,10 @@ const DOWNLOAD_PROGRESS_EVENT: &str = "whisper:model-download-progress";
 ///                        on disk; if not, the user is prompted to
 ///                        download it from Settings.
 ///
-/// Picks `mic.wav` if present (the canonical "me" channel), falls back
-/// to `system.wav` otherwise. Writes the resulting transcript JSON to
-/// `<session_dir>/transcript.json`.
+/// Picks whichever of `mic.wav` / `system.wav` is larger on disk (rough
+/// proxy for "the one with more actual audio content" — see
+/// `pick_audio_source` for the rationale). Writes the resulting
+/// transcript JSON to `<session_dir>/transcript.json`.
 ///
 /// Declared `async` and offloaded to `spawn_blocking` so the blocking
 /// inference or upload does not park a Tauri command worker thread.
@@ -197,16 +198,48 @@ pub async fn ensure_whisper_model(
     .map_err(|e| format!("ensure_whisper_model task panicked: {e}"))?
 }
 
+/// Pick which channel to transcribe.
+///
+/// We used to prefer mic.wav unconditionally, on the theory that the
+/// user's own voice is "what they said". That falls apart for meetings
+/// where the user is mostly listening — their mic.wav is near-silence,
+/// and whisper hallucinates (the famous "The city was built in the 12th
+/// century by the Roman emperor" cascade on a Turkish meeting was
+/// caused by exactly this).
+///
+/// Heuristic: pick whichever file is larger on disk. WAV size scales
+/// linearly with duration × sample rate × channels, so as long as both
+/// were captured for the same span they'll be similar sizes; if one is
+/// dramatically larger it almost always means that track has more
+/// non-silent content. This isn't perfect (loud mic noise would beat a
+/// quiet conversation) but it's a meaningful improvement over "mic
+/// first, always".
 fn pick_audio_source(session_dir: &Path) -> Option<PathBuf> {
     let mic = session_dir.join("mic.wav");
-    if mic.exists() {
-        return Some(mic);
-    }
     let system = session_dir.join("system.wav");
-    if system.exists() {
-        return Some(system);
+
+    let mic_size = std::fs::metadata(&mic).ok().map(|m| m.len());
+    let system_size = std::fs::metadata(&system).ok().map(|m| m.len());
+
+    match (mic_size, system_size) {
+        (Some(mic_bytes), Some(system_bytes)) => {
+            let chosen = if system_bytes > mic_bytes {
+                &system
+            } else {
+                &mic
+            };
+            info!(
+                mic_bytes,
+                system_bytes,
+                chose = %chosen.display(),
+                "audio source picked for transcription",
+            );
+            Some(chosen.clone())
+        }
+        (Some(_), None) => Some(mic),
+        (None, Some(_)) => Some(system),
+        (None, None) => None,
     }
-    None
 }
 
 /// Persist an edited transcript back to disk.

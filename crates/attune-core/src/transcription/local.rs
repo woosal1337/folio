@@ -92,7 +92,12 @@ impl Transcriber for LocalWhisperTranscriber {
         // model loops on its own output ("We will choose the sixth
         // one." × ∞). Turning context off makes each window decode
         // independently and prevents the cascade.
+        //
+        // Belt-and-suspenders: also clamp the max-text-context to 0 so
+        // even if no_context were silently ignored on this build, no
+        // previous tokens can sneak into the decoder prompt.
         params.set_no_context(true);
+        params.set_n_max_text_ctx(0);
 
         // Strip whisper.cpp's annotation tokens like `[Music]` or
         // `[Inaudible]` from the output stream — they confuse the
@@ -105,6 +110,13 @@ impl Transcriber for LocalWhisperTranscriber {
         // bumps temperature on each retry and keeps the best one.
         params.set_temperature(0.0);
         params.set_temperature_inc(0.2);
+
+        // Tighten the silence guard a notch. The default 0.6 lets
+        // mostly-silent windows through and they hallucinate
+        // "training-data" English nonsense (the classic Roman-emperor
+        // loop). 0.8 means whisper has to be more confident there is
+        // actual speech before emitting a segment.
+        params.set_no_speech_thold(0.8);
 
         // Language handling. The whisper.cpp default for `language` is
         // "en", and `detect_language = true` is a *detect-only* mode
