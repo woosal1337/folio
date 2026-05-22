@@ -22,7 +22,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 # audio
 cpal = "0.15"
 hound = "3.5"
-rubato = "0.15"
+rubato = "3.0"
 crossbeam-queue = "0.3"
 crossbeam-channel = "0.5"
 
