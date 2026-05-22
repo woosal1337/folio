@@ -1,0 +1,49 @@
+[package]
+name = "attune-core"
+description = "Attune core library: audio capture, transcription, vault writes"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[lib]
+crate-type = ["lib"]
+name = "attune_core"
+
+[dependencies]
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+cpal = { workspace = true }
+hound = { workspace = true }
+rubato = { workspace = true }
+crossbeam-queue = { workspace = true }
+crossbeam-channel = { workspace = true }
+parking_lot = { workspace = true }
+chrono = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+ts-rs = { workspace = true }
+
+# HTTP client for the OpenAI Whisper transcription backend. Only the
+# rustls TLS stack is enabled; openssl is denied by deny.toml.
+reqwest = { workspace = true }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+# ScreenCaptureKit Rust bindings for system audio capture.
+# Pinned to a known-good version. Migration path to CoreAudio HAL Tap
+# (macOS 14.4+, no Screen Recording permission required) tracked in
+# architecture/audio-capture.md.
+screencapturekit = "0.3"
+core-foundation = "0.9"
+core-media-rs = "0.3"
+core-audio-types-rs = "0.3"
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+tempfile = "3.10"
+approx = "0.5"

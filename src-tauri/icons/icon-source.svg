@@ -1,0 +1,50 @@
+<svg
+  width="1024"
+  height="1024"
+  viewBox="0 0 1024 1024"
+  fill="none"
+  xmlns="http://www.w3.org/2000/svg"
+>
+  <!--
+    Apple's macOS app-icon template:
+      - 1024 x 1024 canvas
+      - Visible squircle occupies a centered 824 x 824 area
+        (100 px transparent margin on every side)
+      - Squircle corner radius ~ 185 (about 22.4% of the 824 visible side)
+    Without that 100 px transparent margin every renderer (qlmanage,
+    icns, NSImage) shows a hard-cornered rectangle because the artwork
+    fills the entire canvas. With the margin, macOS displays a real
+    squircle that visually matches every native app in the Dock.
+  -->
+
+  <!-- Squircle background, brand cream. -->
+  <rect
+    x="100"
+    y="100"
+    width="824"
+    height="824"
+    rx="185"
+    ry="185"
+    fill="#F5F2EC"
+  />
+
+  <!-- Concentric sage arcs inside the squircle, with their own internal
+       padding (~80 px from the squircle edges). All three arcs share a
+       baseline at y = 580 and are centered on x = 512. -->
+  <g
+    stroke="#2D6E5E"
+    stroke-width="56"
+    stroke-linecap="round"
+    fill="none"
+  >
+    <!-- Outer ring: radius 320 -->
+    <path d="M 192 580 A 320 320 0 0 1 832 580" />
+    <!-- Middle ring: radius 208 -->
+    <path d="M 304 580 A 208 208 0 0 1 720 580" />
+    <!-- Inner ring: radius 96 -->
+    <path d="M 416 580 A 96 96 0 0 1 608 580" />
+  </g>
+
+  <!-- Center dot below the baseline -->
+  <circle cx="512" cy="690" r="34" fill="#2D6E5E" />
+</svg>
