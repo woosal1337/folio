@@ -60,7 +60,7 @@ jobs:
       - uses: crate-ci/typos@master
 
   frontend:
-    name: frontend (lint + typecheck + format)
+    name: frontend (lint + typecheck + format + test)
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
@@ -75,3 +75,4 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm format:check
+      - run: pnpm test
