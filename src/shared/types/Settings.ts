@@ -3,4 +3,9 @@
 /**
  * Persisted user settings.
  */
-export type Settings = { mic_device: string | null, system_audio_enabled: boolean, output_dir: string, notes_dir: string, tasks_path: string, transcripts_dir: string, theme: string, transcriber: string, openai_api_key: string, transcription_language: string, dictionary_terms: Array<string>, };
+export type Settings = { mic_device: string | null, system_audio_enabled: boolean, output_dir: string, notes_dir: string, tasks_path: string, transcripts_dir: string, theme: string, transcriber: string, openai_api_key: string, transcription_language: string, dictionary_terms: Array<string>, 
+/**
+ * Identifier of the local Whisper model the user has chosen (e.g.
+ * "large-v3", "small"). Used only when `transcriber == "local_whisper"`.
+ */
+local_whisper_model: string, };

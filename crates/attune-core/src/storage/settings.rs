@@ -33,6 +33,10 @@ pub struct Settings {
     pub transcription_language: String,
     #[serde(default)]
     pub dictionary_terms: Vec<String>,
+    /// Identifier of the local Whisper model the user has chosen (e.g.
+    /// "large-v3", "small"). Used only when `transcriber == "local_whisper"`.
+    #[serde(default = "default_local_whisper_model")]
+    pub local_whisper_model: String,
 }
 
 fn default_theme() -> String {
@@ -43,6 +47,9 @@ fn default_provider() -> String {
 }
 fn default_language() -> String {
     "auto".into()
+}
+fn default_local_whisper_model() -> String {
+    "large-v3".into()
 }
 
 impl Default for Settings {
@@ -60,6 +67,7 @@ impl Default for Settings {
             openai_api_key: String::new(),
             transcription_language: default_language(),
             dictionary_terms: Vec::new(),
+            local_whisper_model: default_local_whisper_model(),
         }
     }
 }

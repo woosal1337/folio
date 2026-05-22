@@ -54,6 +54,12 @@ serde_json = "1.0"
 # are emitted into `src/lib/generated/` during `cargo test`.
 ts-rs = { version = "10", features = ["serde-compat", "chrono-impl"] }
 
+# Local Whisper inference via whisper.cpp. Builds whisper.cpp from
+# source the first time — first cargo build picks up a noticeable
+# extra few minutes. Metal acceleration is enabled in attune-core's
+# Cargo.toml on macOS.
+whisper-rs = { version = "0.13", default-features = false }
+
 # Tauri 2
 tauri = { version = "2", features = ["protocol-asset"] }
 tauri-build = { version = "2", features = [] }

@@ -2,7 +2,9 @@
 import type { TranscriptSegment } from "./TranscriptSegment";
 
 /**
- * A full transcript: the ordered sequence of segments and the language
- * the backend identified.
+ * A full transcript for a single audio channel: the ordered sequence
+ * of segments and the language the backend identified. This is the
+ * shape each individual whisper run produces, before we attach a
+ * channel name to it.
  */
 export type Transcript = { language: string | null, segments: Array<TranscriptSegment>, };

@@ -22,8 +22,10 @@ import type { RecordingResult } from "@/shared/types/RecordingResult";
 import type { RecordingStatus } from "@/shared/types/RecordingStatus";
 import type { RecordingSummary } from "@/shared/types/RecordingSummary";
 import type { Settings } from "@/shared/types/Settings";
-import type { Transcript } from "@/shared/types/Transcript";
+import type { SessionTranscript } from "@/shared/types/SessionTranscript";
 import type { TranscriptionResult } from "@/shared/types/TranscriptionResult";
+import type { WhisperModel } from "@/shared/types/WhisperModel";
+import type { WhisperModelStatus } from "@/shared/types/WhisperModelStatus";
 
 export class IpcError extends Error {
   constructor(
@@ -109,13 +111,33 @@ export function transcribeRecording(sessionDir: string): Promise<TranscriptionRe
   return call<TranscriptionResult>("transcribe_recording", { sessionDir });
 }
 
-export function readTranscript(sessionDir: string): Promise<Transcript> {
-  return call<Transcript>("read_transcript", { sessionDir });
+export function readTranscript(sessionDir: string): Promise<SessionTranscript> {
+  return call<SessionTranscript>("read_transcript", { sessionDir });
 }
 
 export function saveTranscript(
   sessionDir: string,
-  transcript: Transcript
+  transcript: SessionTranscript
 ): Promise<string> {
   return call<string>("save_transcript", { sessionDir, transcript });
 }
+
+// ---- Local Whisper models -----------------------------------------------
+
+export function whisperModelStatus(): Promise<WhisperModelStatus> {
+  return call<WhisperModelStatus>("whisper_model_status");
+}
+
+export function ensureWhisperModel(modelId: WhisperModel): Promise<WhisperModelStatus> {
+  return call<WhisperModelStatus>("ensure_whisper_model", { modelId });
+}
+
+/** Live progress emitted while a model download is in flight. */
+export interface WhisperDownloadProgress {
+  model_id: string;
+  downloaded: number;
+  total: number | null;
+}
+
+/** Channel name for the Tauri event. Exported so listeners stay in sync. */
+export const WHISPER_DOWNLOAD_PROGRESS_EVENT = "whisper:model-download-progress";

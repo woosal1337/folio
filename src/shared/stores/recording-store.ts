@@ -98,8 +98,13 @@ export const useRecording = create<RecordingState>((set, get) => {
         transcribingDir: null,
         lastTranscriptPath: result.transcript_path,
       });
+      const segments = result.session_transcript.channels.reduce(
+        (acc, channel) => acc + channel.segments.length,
+        0
+      );
+      const channelCount = result.session_transcript.channels.length;
       toast.success("Transcription complete", {
-        description: `${result.transcript.segments.length} segments saved.`,
+        description: `${segments} segments across ${channelCount} channel${channelCount === 1 ? "" : "s"} saved.`,
       });
     } catch (e) {
       const message = String(e);

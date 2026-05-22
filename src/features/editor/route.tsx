@@ -12,7 +12,7 @@ import { formatBytes, formatDuration } from "@/shared/lib/utils";
 import { getRecording, readTranscript, transcribeRecording } from "@/shared/lib/ipc";
 import { useRecording } from "@/shared/stores/recording-store";
 import type { RecordingSummary } from "@/shared/types/RecordingSummary";
-import type { Transcript } from "@/shared/types/Transcript";
+import type { SessionTranscript } from "@/shared/types/SessionTranscript";
 
 import { TranscriptEditor } from "./transcript-editor";
 
@@ -32,7 +32,7 @@ export default function Editor() {
   const [recordingLoading, setRecordingLoading] = React.useState(!stateFromNav);
   const [notFound, setNotFound] = React.useState(false);
 
-  const [transcript, setTranscript] = React.useState<Transcript | null>(null);
+  const [transcript, setTranscript] = React.useState<SessionTranscript | null>(null);
   const [transcriptLoading, setTranscriptLoading] = React.useState(false);
   const [transcriptError, setTranscriptError] = React.useState<string | null>(null);
 

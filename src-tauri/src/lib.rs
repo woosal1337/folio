@@ -38,6 +38,8 @@ pub fn run() {
             commands::transcription::transcribe_recording,
             commands::transcription::read_transcript,
             commands::transcription::save_transcript,
+            commands::transcription::whisper_model_status,
+            commands::transcription::ensure_whisper_model,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
