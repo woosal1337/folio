@@ -1,11 +1,5 @@
 import * as React from "react";
-import {
-  Mic,
-  Sparkles,
-  Folder,
-  Palette,
-  KeyRound,
-} from "lucide-react";
+import { Mic, Sparkles, Folder, Palette, KeyRound } from "lucide-react";
 
 import {
   Dialog,
@@ -106,7 +100,7 @@ export function SettingsModal({ open, onOpenChange }: Props) {
                 key={item.id}
                 onClick={() => setSection(item.id)}
                 className={cn(
-                  "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-left transition-colors",
+                  "flex items-center gap-3 rounded-md px-3 py-2 text-left text-sm font-medium transition-colors",
                   active
                     ? "bg-card text-foreground shadow-sm"
                     : "text-muted-foreground hover:bg-card/60 hover:text-foreground"
@@ -185,10 +179,7 @@ function GeneralSection({
         <select
           value={settings.mic_device ?? ""}
           onChange={(e) =>
-            onChange(
-              "mic_device",
-              e.target.value === "" ? null : e.target.value
-            )
+            onChange("mic_device", e.target.value === "" ? null : e.target.value)
           }
           className="h-9 w-full rounded-md border border-input bg-card px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
@@ -201,8 +192,8 @@ function GeneralSection({
           ))}
         </select>
         <p className="text-xs text-muted-foreground">
-          {devices.length} input device{devices.length === 1 ? "" : "s"} visible
-          to the system.
+          {devices.length} input device{devices.length === 1 ? "" : "s"} visible to the
+          system.
         </p>
       </section>
 
@@ -212,9 +203,8 @@ function GeneralSection({
         <div>
           <h3 className="font-medium">Capture system audio</h3>
           <p className="mt-1 max-w-md text-xs text-muted-foreground">
-            Records what comes out of your speakers via ScreenCaptureKit. macOS
-            prompts for Screen Recording permission the first time. Audio only —
-            no video.
+            Records what comes out of your speakers via ScreenCaptureKit. macOS prompts
+            for Screen Recording permission the first time. Audio only — no video.
           </p>
         </div>
         <Switch
@@ -330,8 +320,7 @@ function TranscriptionSection({
           <option value="zh">Chinese</option>
         </select>
         <p className="text-xs text-muted-foreground">
-          Set a language if you record predominantly in one. Auto detects per
-          segment.
+          Set a language if you record predominantly in one. Auto detects per segment.
         </p>
       </section>
     </div>

@@ -1,0 +1,13 @@
+node_modules
+dist
+target
+src-tauri/gen
+src-tauri/target
+src-tauri/icons
+src/shared/types
+pnpm-lock.yaml
+Cargo.lock
+*.min.js
+*.min.css
+LICENSE
+CHANGELOG.md

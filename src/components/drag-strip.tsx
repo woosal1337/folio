@@ -45,10 +45,7 @@ export function DragStrip({ className }: { className?: string }) {
       data-drag=""
       onMouseDown={handleMouseDown}
       onDoubleClick={handleDoubleClick}
-      className={cn(
-        "h-9 w-full shrink-0 select-none bg-sidebar",
-        className
-      )}
+      className={cn("h-9 w-full shrink-0 select-none bg-sidebar", className)}
     />
   );
 }

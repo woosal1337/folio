@@ -53,14 +53,9 @@ export default function Record() {
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-8 py-10">
-      <header
-        data-drag=""
-        className="flex select-none items-baseline justify-between"
-      >
+      <header data-drag="" className="flex select-none items-baseline justify-between">
         <div>
-          <h1 className="font-serif text-3xl font-medium tracking-tight">
-            Record
-          </h1>
+          <h1 className="font-serif text-3xl font-medium tracking-tight">Record</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Capture system audio and microphone independently.
           </p>
@@ -97,9 +92,7 @@ export default function Record() {
               ? `Capturing ${rec.channels.length > 0 ? rec.channels.join(" + ") : "audio"} · transcribe afterward in Library`
               : "Mic + system audio in parallel · transcribe afterward in Library"}
           </p>
-          {rec.error && (
-            <p className="text-xs text-destructive">{rec.error}</p>
-          )}
+          {rec.error && <p className="text-xs text-destructive">{rec.error}</p>}
         </CardContent>
       </Card>
 
@@ -155,20 +148,14 @@ export default function Record() {
   );
 }
 
-function StatusPill({
-  recording,
-  label,
-}: {
-  recording: boolean;
-  label: string;
-}) {
+function StatusPill({ recording, label }: { recording: boolean; label: string }) {
   return (
     <Badge variant="outline" className="gap-2 px-3 py-1 font-mono tracking-tight">
       <span
         className={cn(
           "inline-block h-2 w-2 rounded-full",
           recording
-            ? "bg-destructive animate-pulse-record"
+            ? "animate-pulse-record bg-destructive"
             : "border border-muted-foreground"
         )}
       />
@@ -195,9 +182,7 @@ function RecordingRow({ item, open, onToggle, onReveal, onDelete }: RowProps) {
   ];
 
   const micPath = item.mic_bytes ? `${item.session_dir}/mic.wav` : null;
-  const systemPath = item.system_bytes
-    ? `${item.session_dir}/system.wav`
-    : null;
+  const systemPath = item.system_bytes ? `${item.session_dir}/system.wav` : null;
 
   return (
     <Card className="overflow-hidden">
@@ -221,12 +206,7 @@ function RecordingRow({ item, open, onToggle, onReveal, onDelete }: RowProps) {
           className="ml-auto inline-flex items-center gap-1"
           onClick={(e) => e.stopPropagation()}
         >
-          <Button
-            variant="ghost"
-            size="sm"
-            className="gap-2"
-            onClick={onReveal}
-          >
+          <Button variant="ghost" size="sm" className="gap-2" onClick={onReveal}>
             <FolderOpen className="h-3.5 w-3.5" />
             Reveal
           </Button>

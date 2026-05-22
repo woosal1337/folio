@@ -47,17 +47,9 @@ tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 chrono = { workspace = true }
 parking_lot = { workspace = true }
-uuid = { workspace = true }
 
-# Audio playback
-rodio = { workspace = true }
+# Used by the library scan to read WAV headers for duration + sample rate
 hound = { workspace = true }
-
-# HTTP for OpenAI Whisper
-reqwest = { workspace = true }
-
-# Async runtime for command handlers
-tokio = { workspace = true }
 
 [lints]
 workspace = true

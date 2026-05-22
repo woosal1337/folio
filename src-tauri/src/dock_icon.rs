@@ -15,7 +15,12 @@
 #[cfg(target_os = "macos")]
 const ICON_PNG: &[u8] = include_bytes!("../icons/logo-source.png");
 
+// The `cocoa` crate is in maintenance mode and marks most of its surface
+// as deprecated in favor of `objc2`. Migrating to objc2 is tracked as a
+// follow-up; for now we silence the warnings here since the runtime
+// behavior is correct and unchanged.
 #[cfg(target_os = "macos")]
+#[allow(deprecated)]
 pub fn set_dock_icon() {
     use cocoa::appkit::NSApp;
     use cocoa::base::{id, nil};

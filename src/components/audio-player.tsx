@@ -119,8 +119,9 @@ export function AudioPlayer({ filePath, label, className }: AudioPlayerProps) {
         aria-label={playing ? "Pause" : "Play"}
         className={cn(
           "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border bg-card text-foreground transition-colors",
-          "hover:bg-accent hover:text-accent-foreground disabled:opacity-40 disabled:cursor-not-allowed",
-          playing && "bg-primary text-primary-foreground border-primary hover:bg-primary/90"
+          "hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-40",
+          playing &&
+            "border-primary bg-primary text-primary-foreground hover:bg-primary/90"
         )}
       >
         {playing ? (
@@ -136,20 +137,13 @@ export function AudioPlayer({ filePath, label, className }: AudioPlayerProps) {
         </span>
       )}
 
-      <Scrubber
-        current={current}
-        duration={duration}
-        onSeek={seek}
-        disabled={!ready}
-      />
+      <Scrubber current={current} duration={duration} onSeek={seek} disabled={!ready} />
 
-      <span className="w-24 shrink-0 text-right font-mono text-2xs text-muted-foreground tabular-nums">
+      <span className="w-24 shrink-0 text-right font-mono text-2xs tabular-nums text-muted-foreground">
         {formatDuration(current)} / {formatDuration(duration)}
       </span>
 
-      {error && (
-        <span className="text-2xs text-destructive">{error}</span>
-      )}
+      {error && <span className="text-2xs text-destructive">{error}</span>}
     </div>
   );
 }

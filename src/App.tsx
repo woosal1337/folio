@@ -1,10 +1,5 @@
 import * as React from "react";
-import {
-  HashRouter,
-  Route,
-  Routes,
-  Navigate,
-} from "react-router-dom";
+import { HashRouter, Route, Routes, Navigate } from "react-router-dom";
 
 import { Sidebar } from "@/components/sidebar";
 import { DragStrip } from "@/components/drag-strip";
@@ -13,10 +8,7 @@ import Library from "@/routes/library";
 import Editor from "@/routes/editor";
 import Tasks from "@/routes/tasks";
 import { SettingsModal } from "@/routes/settings-modal";
-import {
-  useWindowDoubleClick,
-  useWindowDrag,
-} from "@/hooks/use-window-drag";
+import { useWindowDoubleClick, useWindowDrag } from "@/hooks/use-window-drag";
 
 export default function App() {
   const [settingsOpen, setSettingsOpen] = React.useState(false);

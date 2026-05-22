@@ -28,12 +28,7 @@
       "csp": null,
       "assetProtocol": {
         "enable": true,
-        "scope": [
-          "$HOME/**",
-          "/Users/**",
-          "/var/folders/**",
-          "/tmp/**"
-        ]
+        "scope": ["$HOME/**", "/Users/**", "/var/folders/**", "/tmp/**"]
       }
     }
   },

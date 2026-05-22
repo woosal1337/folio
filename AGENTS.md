@@ -21,7 +21,7 @@ Guidance for AI agents (Claude Code, Codex, etc.) working in this repo. Mirrors 
 - Errors via `thiserror` enums in `crates/attune-core/src/error.rs`. `AttuneError` is the public error type; new variants get added there, not invented per-module.
 - Logging via `tracing`, never `println!`. Spans for cross-async work.
 - No `unwrap()` outside tests. `expect("<reason>")` is acceptable for invariants that cannot fail.
-- Comments only for non-obvious *why*. Code should not need comments to explain what it does.
+- Comments only for non-obvious _why_. Code should not need comments to explain what it does.
 
 ## Architecture rules
 
