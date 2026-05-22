@@ -2,11 +2,10 @@ import * as React from "react";
 import { NavLink } from "react-router-dom";
 import {
   AudioLines,
-  Library,
-  Pencil,
   KanbanSquare,
-  Settings as SettingsIcon,
+  Library,
   Moon,
+  Settings as SettingsIcon,
   Sun,
 } from "lucide-react";
 
@@ -21,10 +20,11 @@ interface NavItem {
   icon: React.ComponentType<{ className?: string }>;
 }
 
+// The Editor is a per-recording detail page reached from a row's "Edit"
+// button in the Library. It is intentionally not in the global nav.
 const items: NavItem[] = [
   { to: "/record", label: "Record", icon: AudioLines },
   { to: "/library", label: "Library", icon: Library },
-  { to: "/editor", label: "Editor", icon: Pencil },
   { to: "/tasks", label: "Tasks", icon: KanbanSquare },
 ];
 
@@ -104,7 +104,7 @@ export function Sidebar({ onOpenSettings }: SidebarProps) {
           {theme === "light" ? "Dark mode" : "Light mode"}
         </Button>
         <div className="mt-2 px-3 pb-1 text-2xs text-muted-foreground">
-          v0.0.1 · audio stays on this Mac
+          v1.0.0 · audio stays on this Mac
         </div>
       </div>
     </aside>
