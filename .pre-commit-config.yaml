@@ -2,7 +2,7 @@
 #
 # One-time setup:
 #   brew install pre-commit gitleaks shellcheck     (or your package manager)
-#   pnpm install
+#   bun install
 #   pre-commit install
 #   pre-commit install --hook-type commit-msg
 #   pre-commit install --hook-type pre-push
@@ -22,9 +22,9 @@ repos:
     rev: v5.0.0
     hooks:
       - id: trailing-whitespace
-        exclude: ^(.*\.md|.*\.svg|src-tauri/icons/.*|.*\.lock|pnpm-lock\.yaml)$
+        exclude: ^(.*\.md|.*\.svg|src-tauri/icons/.*|.*\.lock|bun\.lock)$
       - id: end-of-file-fixer
-        exclude: ^(src-tauri/icons/.*|.*\.lock|pnpm-lock\.yaml)$
+        exclude: ^(src-tauri/icons/.*|.*\.lock|bun\.lock)$
       - id: check-yaml
         args: [--allow-multiple-documents]
       - id: check-toml
@@ -32,7 +32,7 @@ repos:
         exclude: ^(src-tauri/tauri\.conf\.json|src-tauri/capabilities/.*\.json|tsconfig.*\.json)$
       - id: check-added-large-files
         args: [--maxkb=1024]
-        exclude: ^(src-tauri/icons/.*|.*\.lock|pnpm-lock\.yaml)$
+        exclude: ^(src-tauri/icons/.*|.*\.lock|bun\.lock)$
       - id: check-merge-conflict
       - id: check-case-conflict
       - id: check-symlinks
@@ -56,7 +56,7 @@ repos:
     rev: v1.27.3
     hooks:
       - id: typos
-        exclude: ^(.*\.lock|pnpm-lock\.yaml|src-tauri/icons/.*|src-tauri/gen/.*|dist/.*)$
+        exclude: ^(.*\.lock|bun\.lock|src-tauri/icons/.*|src-tauri/gen/.*|dist/.*)$
 
   - repo: https://github.com/ComPWA/taplo-pre-commit
     rev: v0.9.3
@@ -100,21 +100,21 @@ repos:
 
       - id: prettier
         name: prettier
-        entry: pnpm exec prettier --write --ignore-unknown
+        entry: bun x prettier --write --ignore-unknown
         language: system
         types_or: [ts, tsx, javascript, jsx, json, css, html, markdown, yaml]
-        exclude: ^(pnpm-lock\.yaml|src-tauri/gen/.*|dist/.*|CHANGELOG\.md|src/shared/types/.*)$
+        exclude: ^(bun\.lock|src-tauri/gen/.*|dist/.*|CHANGELOG\.md|src/shared/types/.*)$
 
       - id: eslint
         name: eslint
-        entry: pnpm exec eslint --max-warnings 0 --fix
+        entry: bun x eslint --max-warnings 0 --fix
         language: system
         types_or: [ts, tsx]
         exclude: ^(dist/.*|src-tauri/.*|src/shared/types/.*)$
 
       - id: tsc
         name: tsc --noEmit
-        entry: pnpm exec tsc --noEmit
+        entry: bun x tsc --noEmit
         language: system
         types: [ts]
         pass_filenames: false

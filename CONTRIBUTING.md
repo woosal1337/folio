@@ -8,7 +8,7 @@ Thanks for considering a contribution. This document covers setup, conventions, 
 
 - macOS 13.3 or later (Apple Silicon recommended)
 - Rust 1.88+ via `rustup` (the toolchain is pinned in `rust-toolchain.toml`)
-- Node 20+ and pnpm 9+
+- [Bun](https://bun.sh) 1.3+ (the only JS package manager + runtime this repo uses)
 - Xcode command-line tools: `xcode-select --install`
 
 ### First-time setup
@@ -16,11 +16,11 @@ Thanks for considering a contribution. This document covers setup, conventions, 
 ```sh
 git clone git@github.com:woosal1337/attune.git
 cd attune
-pnpm install
+bun install
 pre-commit install
 pre-commit install --hook-type commit-msg
 pre-commit install --hook-type pre-push
-pnpm tauri dev
+bun tauri dev
 ```
 
 If `pre-commit` is not installed system-wide:
@@ -85,11 +85,11 @@ git checkout -b chore/<scope>         # tooling, build, deps
 ### Local commands
 
 ```sh
-# Frontend
-pnpm dev              # vite dev server
-pnpm typecheck        # tsc --noEmit
-pnpm lint             # eslint
-pnpm format           # prettier --write
+# Frontend (bun runs the npm scripts in package.json)
+bun run dev           # vite dev server
+bun run typecheck     # tsc --noEmit
+bun run lint          # eslint
+bun run format        # prettier --write
 
 # Backend
 cargo check --workspace
@@ -98,8 +98,8 @@ cargo test --workspace
 cargo fmt --all
 
 # Full app
-pnpm tauri dev        # development build
-pnpm tauri build      # release build
+bun tauri dev         # development build
+bun tauri build       # release build
 ```
 
 `pre-commit` runs the relevant subset of these automatically on every commit.

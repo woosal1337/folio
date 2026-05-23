@@ -76,5 +76,5 @@ body:
     id: logs
     attributes:
       label: Logs
-      description: Output from running `RUST_LOG=debug pnpm tauri dev` if relevant.
+      description: Output from running `RUST_LOG=debug bun tauri dev` if relevant.
       render: shell
