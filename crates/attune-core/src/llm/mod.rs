@@ -12,11 +12,15 @@
 //!
 //! Anthropic and DeepSeek arrive in phase 2 and share the same trait.
 
+pub mod agent_run;
+pub mod agents;
 pub mod keystore;
 pub mod provider;
 pub mod providers;
 pub mod types;
 
+pub use agent_run::{AgentRun, AgentRunStore};
+pub use agents::Agent;
 pub use keystore::KeyStore;
 pub use provider::{LlmProvider, ProviderId};
 pub use providers::openai::OpenAiProvider;

@@ -14,6 +14,7 @@ import { useRecording } from "@/shared/stores/recording-store";
 import type { RecordingSummary } from "@/shared/types/RecordingSummary";
 import type { SessionTranscript } from "@/shared/types/SessionTranscript";
 
+import { AgentPanel } from "./agent-panel";
 import { TranscriptEditor } from "./transcript-editor";
 
 interface LocationState {
@@ -244,6 +245,14 @@ export default function Editor() {
           ) : null}
         </CardContent>
       </Card>
+
+      {recording.has_transcript && transcript ? (
+        <Card>
+          <CardContent className="py-5">
+            <AgentPanel sessionDir={recording.session_dir} />
+          </CardContent>
+        </Card>
+      ) : null}
     </div>
   );
 }
