@@ -209,10 +209,24 @@ impl Transcriber for LocalWhisperTranscriber {
         }
 
         // Strip Whisper's "Thank you." / "you" / "Thanks for watching."
-        // artifacts that leak through even after no_speech_thold=0.8.
-        // See hallucination_filter for the rationale and the 2026-05
+        // artifacts and the multilingual subtitle-credit hallucinations
+        // ("Altyazı M.K.", "Amara.org community", "QTSS", …) that leak
+        // through even after no_speech_thold=0.8. See
+        // hallucination_filter for the curated list and the 2026-05
         // benchmark notes.
+        //
+        // Log every dropped text verbatim so that when a transcript
+        // ends up unexpectedly short, we can tell whether the filter
+        // caught real Whisper junk (good) or shadowed legitimate
+        // speech (bug to fix).
         let (segments, dropped_hallucinations) = filter_segments(segments);
+        if !dropped_hallucinations.is_empty() {
+            info!(
+                count = dropped_hallucinations.len(),
+                dropped = ?dropped_hallucinations,
+                "filtered whisper hallucinations",
+            );
+        }
 
         // Whisper exposes the detected language as an integer id into
         // its internal table. Log it so we can debug when transcripts
@@ -220,7 +234,9 @@ impl Transcriber for LocalWhisperTranscriber {
         let detected_lang_id = state.full_lang_id_from_state().ok();
         info!(
             segments = segments.len(),
-            dropped_hallucinations, detected_lang_id, "local whisper inference complete"
+            dropped_hallucinations = dropped_hallucinations.len(),
+            detected_lang_id,
+            "local whisper inference complete"
         );
 
         Ok(Transcript {

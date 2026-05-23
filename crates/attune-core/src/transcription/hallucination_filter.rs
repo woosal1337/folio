@@ -198,15 +198,21 @@ pub fn is_whisper_hallucination(text: &str) -> bool {
 }
 
 /// Strip Whisper artifact segments out of `segments`. Returns the
-/// kept segments and the number that were dropped, so callers can
-/// log it.
-pub fn filter_segments(segments: Vec<TranscriptSegment>) -> (Vec<TranscriptSegment>, usize) {
-    let original = segments.len();
-    let kept: Vec<TranscriptSegment> = segments
-        .into_iter()
-        .filter(|seg| !is_whisper_hallucination(&seg.text))
-        .collect();
-    let dropped = original - kept.len();
+/// kept segments alongside the text of every segment that was
+/// dropped, so callers can log which artifact triggered the filter.
+/// Visibility is the point: without the dropped text, a "0 segments
+/// kept, 2 dropped" log line gives no way to tell whether the filter
+/// caught real hallucinations or accidentally killed real speech.
+pub fn filter_segments(segments: Vec<TranscriptSegment>) -> (Vec<TranscriptSegment>, Vec<String>) {
+    let mut kept = Vec::with_capacity(segments.len());
+    let mut dropped = Vec::new();
+    for seg in segments {
+        if is_whisper_hallucination(&seg.text) {
+            dropped.push(seg.text);
+        } else {
+            kept.push(seg);
+        }
+    }
     (kept, dropped)
 }
 
@@ -357,7 +363,7 @@ mod tests {
     }
 
     #[test]
-    fn filter_drops_hallucinations_and_reports_count() {
+    fn filter_drops_hallucinations_and_returns_their_text() {
         let segments = vec![
             seg("El elemleri koşturan kişinin bir arkitektür"),
             seg("Thank you."),
@@ -370,16 +376,19 @@ mod tests {
             seg("Bu Cloudedir, Giminal'dir."),
         ];
         let (kept, dropped) = filter_segments(segments);
-        assert_eq!(dropped, 5);
+        assert_eq!(dropped.len(), 5);
         assert_eq!(kept.len(), 4);
         assert!(kept.iter().all(|s| !is_whisper_hallucination(&s.text)));
+        assert!(dropped.contains(&"Altyazı M.K.".to_string()));
+        assert!(dropped.contains(&"Thank you.".to_string()));
+        assert!(dropped.contains(&"you".to_string()));
     }
 
     #[test]
     fn filter_passes_empty_input_through() {
         let (kept, dropped) = filter_segments(vec![]);
         assert!(kept.is_empty());
-        assert_eq!(dropped, 0);
+        assert!(dropped.is_empty());
     }
 
     #[test]
@@ -390,7 +399,7 @@ mod tests {
             seg("Hello world"),
         ];
         let (kept, dropped) = filter_segments(segments);
-        assert_eq!(dropped, 0);
+        assert!(dropped.is_empty());
         assert_eq!(kept.len(), 3);
     }
 }
