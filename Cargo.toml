@@ -49,6 +49,15 @@ reqwest = { version = "0.12", default-features = false, features = ["blocking", 
 keyring = { version = "3", features = ["apple-native", "linux-native", "windows-native"] }
 async-trait = "0.1"
 
+# Apple Voice Processing IO AudioUnit. Used by the macOS-only AEC +
+# noise-suppression + AGC mic capture path (phase 1 of
+# projects/attune/plan/voice-processing-io.md in the vault).
+# `coreaudio-rs` wraps the high-level AudioUnit API; `coreaudio-sys`
+# is the FFI source for VPIO property constants that the high-level
+# wrapper does not re-export.
+coreaudio-rs = { version = "0.14", default-features = false, features = ["audio_unit"] }
+coreaudio-sys = "0.2"
+
 # time
 chrono = { version = "0.4", features = ["serde"] }
 

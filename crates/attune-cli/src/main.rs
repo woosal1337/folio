@@ -31,6 +31,28 @@ enum Command {
     /// the raw segments AND the hallucination-filter drops. Used to
     /// investigate empty/short transcripts from the app.
     Transcribe(TranscribeArgs),
+    /// macOS only. Record from the default mic through Apple's Voice
+    /// Processing IO AudioUnit (AEC + noise suppression + AGC) for a
+    /// fixed duration. Writes the captured audio to a WAV so you can
+    /// listen to it and compare against a non-VPIO recording.
+    ///
+    /// Phase 1 smoke test for projects/attune/plan/voice-processing-io.md
+    /// in the vault. Wiring into the real `CaptureSession` is phase 2.
+    #[cfg(target_os = "macos")]
+    VpioSmoke(VpioSmokeArgs),
+}
+
+#[cfg(target_os = "macos")]
+#[derive(Parser, Debug)]
+struct VpioSmokeArgs {
+    /// Recording duration in seconds.
+    #[arg(long, default_value_t = 5)]
+    seconds: u64,
+
+    /// Output WAV path. Defaults to a unique timestamped file under
+    /// /tmp so successive runs don't clobber each other.
+    #[arg(long)]
+    output: Option<PathBuf>,
 }
 
 #[derive(Parser, Debug)]
@@ -129,7 +151,94 @@ fn main() -> Result<()> {
         Command::Record(args) => run_record(args),
         Command::Devices => run_devices(),
         Command::Transcribe(args) => run_transcribe(args),
+        #[cfg(target_os = "macos")]
+        Command::VpioSmoke(args) => run_vpio_smoke(args),
     }
+}
+
+#[cfg(target_os = "macos")]
+fn run_vpio_smoke(args: VpioSmokeArgs) -> Result<()> {
+    use attune_core::audio::voice_processing_capture::{
+        VoiceProcessingCapture, VPIO_SAMPLE_RATE_HZ,
+    };
+
+    let output = args.output.unwrap_or_else(|| {
+        use std::time::SystemTime;
+        let nanos = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or_default();
+        std::env::temp_dir().join(format!("vpio-smoke-{nanos}.wav"))
+    });
+
+    println!("VoiceProcessingIO smoke test");
+    println!("  duration: {} s", args.seconds);
+    println!("  rate:     {} Hz", VPIO_SAMPLE_RATE_HZ);
+    println!("  output:   {}", output.display());
+    println!();
+    println!("Talk into the mic now. Play something through the speakers");
+    println!("for the bleed-cancellation test (e.g. a YouTube video).");
+    println!();
+
+    let mut capture = VoiceProcessingCapture::new()?;
+    capture.start()?;
+
+    // Display a 1 Hz countdown so the user knows recording is live.
+    for remaining in (1..=args.seconds).rev() {
+        print!("\r  recording… {remaining:>3}s ");
+        use std::io::Write;
+        std::io::stdout().flush().ok();
+        std::thread::sleep(Duration::from_secs(1));
+    }
+    println!("\r  recording… done   ");
+
+    // Use the ACTUAL negotiated rate, not the constant. VPIO may
+    // pick the bound device's native rate (often 44.1 kHz on built-
+    // in mics) over our requested rate (16 kHz). If we wrote the
+    // WAV with our requested rate but the samples were at the
+    // device's rate, the file would play back at the wrong pitch.
+    let actual_rate = capture.sample_rate() as u32;
+    let samples = capture.stop()?;
+    let duration_s = samples.len() as f64 / actual_rate as f64;
+    println!();
+    println!(
+        "Captured {} samples ({:.2} s at {} Hz)",
+        samples.len(),
+        duration_s,
+        actual_rate
+    );
+
+    let spec = hound::WavSpec {
+        channels: 1,
+        sample_rate: actual_rate,
+        bits_per_sample: 16,
+        sample_format: hound::SampleFormat::Int,
+    };
+    let mut writer = hound::WavWriter::create(&output, spec)
+        .map_err(|e| anyhow::anyhow!("could not create WAV at {}: {e}", output.display()))?;
+    for s in &samples {
+        // f32 [-1, 1] → i16 [-32768, 32767], clipping at the bounds
+        // so a runaway gain spike from AGC can't blow the encoder.
+        let clamped = s.clamp(-1.0, 1.0);
+        let sample = (clamped * i16::MAX as f32) as i16;
+        writer
+            .write_sample(sample)
+            .map_err(|e| anyhow::anyhow!("WAV write: {e}"))?;
+    }
+    writer
+        .finalize()
+        .map_err(|e| anyhow::anyhow!("WAV finalize: {e}"))?;
+
+    let bytes = std::fs::metadata(&output).map(|m| m.len()).unwrap_or(0);
+    println!("Wrote {} ({} bytes)", output.display(), bytes);
+    println!();
+    println!("Verify with:");
+    println!("  afinfo {}", output.display());
+    println!(
+        "  open {}    # opens in QuickTime to listen",
+        output.display()
+    );
+    Ok(())
 }
 
 fn run_transcribe(args: TranscribeArgs) -> Result<()> {
