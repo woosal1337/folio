@@ -17,6 +17,8 @@
 
 import { invoke, type InvokeArgs } from "@tauri-apps/api/core";
 
+import type { Agent } from "@/shared/types/Agent";
+import type { AgentRun } from "@/shared/types/AgentRun";
 import type { DeviceInfo } from "@/shared/types/DeviceInfo";
 import type { ModelInfo } from "@/shared/types/ModelInfo";
 import type { ProviderId } from "@/shared/types/ProviderId";
@@ -165,4 +167,22 @@ export function testProvider(provider: ProviderId): Promise<void> {
 
 export function listProviderModels(provider: ProviderId): Promise<ModelInfo[]> {
   return call<ModelInfo[]>("list_provider_models", { provider });
+}
+
+// ---- Agents ------------------------------------------------------------
+
+export function listAgents(): Promise<Agent[]> {
+  return call<Agent[]>("list_agents");
+}
+
+export function runAgent(sessionDir: string, agentId: string): Promise<AgentRun> {
+  return call<AgentRun>("run_agent", { sessionDir, agentId });
+}
+
+export function listAgentRuns(sessionDir: string): Promise<AgentRun[]> {
+  return call<AgentRun[]>("list_agent_runs", { sessionDir });
+}
+
+export function deleteAgentRun(sessionDir: string, agentId: string): Promise<void> {
+  return call<void>("delete_agent_run", { sessionDir, agentId });
 }

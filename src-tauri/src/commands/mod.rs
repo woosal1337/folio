@@ -5,6 +5,7 @@
 //! are an IPC contract; renames here are breaking changes to the
 //! frontend.
 
+pub mod agents;
 pub mod devices;
 pub mod health;
 pub mod library;

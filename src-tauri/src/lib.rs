@@ -45,6 +45,10 @@ pub fn run() {
             commands::llm::delete_provider_key,
             commands::llm::test_provider,
             commands::llm::list_provider_models,
+            commands::agents::list_agents,
+            commands::agents::run_agent,
+            commands::agents::list_agent_runs,
+            commands::agents::delete_agent_run,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
