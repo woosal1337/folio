@@ -1,9 +1,18 @@
 import * as React from "react";
-import { Bot, Loader2, RefreshCw, Sparkles, Trash2 } from "lucide-react";
+import {
+  Bot,
+  ChevronDown,
+  ChevronUp,
+  Loader2,
+  RefreshCw,
+  Sparkles,
+  Trash2,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
+import { Markdown } from "@/shared/ui/markdown";
 import { cn } from "@/shared/lib/utils";
 import { deleteAgentRun, listAgentRuns, listAgents, runAgent } from "@/shared/lib/ipc";
 import type { Agent } from "@/shared/types/Agent";
@@ -27,18 +36,17 @@ export interface AgentPanelHandle {
 /**
  * Per-recording agent panel.
  *
- * Phase 1.5 MVP. Lists every default agent. Clicking one runs it
- * against the recording's transcript using the configured OpenAI key
- * and shows the markdown response inline. Results persist under the
- * recording dir so they survive a reload.
+ * Lists every default agent in a compact grid that acts only as a
+ * trigger (Run / Re-run / Delete). Every completed result renders
+ * below the grid in a stacked list, always visible by default, with a
+ * per-result collapse chevron for when the user wants to tidy up.
  *
- * UX rules from the vault plan (`ai-chat-multi-provider.md`, section
- * "UX smoothness"):
- *   - One-click runs: pick agent, see result. No config in the flow.
- *   - Helpful empty states. "Configure your AI provider →" when no key.
- *   - Re-run button visible only after a run exists.
- *   - Markdown rendering is intentionally minimal (whitespace pre-wrap
- *     + monospace headings) until we adopt a real markdown renderer.
+ * Earlier iterations gated results behind a "Show result" button
+ * which was friction — users want to read what just ran, not click
+ * an extra control to see it.
+ *
+ * Results persist under `<session_dir>/agent_runs/<agent>.json` so
+ * they survive a reload.
  */
 export const AgentPanel = React.forwardRef<AgentPanelHandle, Props>(function AgentPanel(
   { sessionDir },
@@ -47,7 +55,10 @@ export const AgentPanel = React.forwardRef<AgentPanelHandle, Props>(function Age
   const [agents, setAgents] = React.useState<Agent[] | null>(null);
   const [runs, setRuns] = React.useState<Record<string, AgentRun>>({});
   const [running, setRunning] = React.useState<Set<string>>(new Set());
-  const [expanded, setExpanded] = React.useState<string | null>(null);
+  // Per-result collapse state. Default is open (id NOT in the set).
+  // Stays local to the component — no persistence; collapse a result,
+  // navigate away, come back, it is open again.
+  const [collapsed, setCollapsed] = React.useState<Set<string>>(new Set());
 
   React.useEffect(() => {
     let cancelled = false;
@@ -58,7 +69,6 @@ export const AgentPanel = React.forwardRef<AgentPanelHandle, Props>(function Age
         const map: Record<string, AgentRun> = {};
         for (const r of runList) map[r.agent_id] = r;
         setRuns(map);
-        if (runList.length > 0) setExpanded(runList[0].agent_id);
       })
       .catch((e) => {
         if (cancelled) return;
@@ -77,10 +87,18 @@ export const AgentPanel = React.forwardRef<AgentPanelHandle, Props>(function Age
         next.add(agent.id);
         return next;
       });
+      // Re-run should bring the result back into view if the user had
+      // collapsed it; otherwise it's confusing to see "no spinner, no
+      // result update" after a re-run click.
+      setCollapsed((prev) => {
+        if (!prev.has(agent.id)) return prev;
+        const next = new Set(prev);
+        next.delete(agent.id);
+        return next;
+      });
       try {
         const run = await runAgent(sessionDir, agent.id);
         setRuns((prev) => ({ ...prev, [agent.id]: run }));
-        setExpanded(agent.id);
         toast.success(`${agent.name} finished`);
       } catch (e) {
         console.error(`run_agent ${agent.id}:`, e);
@@ -97,10 +115,9 @@ export const AgentPanel = React.forwardRef<AgentPanelHandle, Props>(function Age
   );
 
   // Imperative handle: lets the recording-detail route fire an agent
-  // by id (used by the autoRun nav-state hint). The handle's runAgent
-  // reads the latest `agents` list via the ref so it always finds
-  // freshly-loaded agents even if the parent triggers it during the
-  // same render cycle that loaded them.
+  // by id (used by the autoRun nav-state hint). Reads the latest
+  // agents via a ref so it works even if the parent triggers it
+  // during the same render cycle that loaded them.
   const agentsRef = React.useRef<Agent[] | null>(agents);
   React.useEffect(() => {
     agentsRef.current = agents;
@@ -129,13 +146,27 @@ export const AgentPanel = React.forwardRef<AgentPanelHandle, Props>(function Age
         delete next[agent.id];
         return next;
       });
-      if (expanded === agent.id) setExpanded(null);
+      setCollapsed((prev) => {
+        if (!prev.has(agent.id)) return prev;
+        const next = new Set(prev);
+        next.delete(agent.id);
+        return next;
+      });
       toast.success(`${agent.name} result deleted`);
     } catch (e) {
       toast.error(`Could not delete ${agent.name} result`, {
         description: String(e),
       });
     }
+  };
+
+  const toggleCollapsed = (agentId: string) => {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(agentId)) next.delete(agentId);
+      else next.add(agentId);
+      return next;
+    });
   };
 
   if (agents === null) {
@@ -146,6 +177,10 @@ export const AgentPanel = React.forwardRef<AgentPanelHandle, Props>(function Age
       </div>
     );
   }
+
+  // Results render in the order agents are defined — stable, matches
+  // the grid above so the user can visually link card to result.
+  const completedAgents = agents.filter((a) => runs[a.id]);
 
   return (
     <div className="space-y-4">
@@ -160,32 +195,33 @@ export const AgentPanel = React.forwardRef<AgentPanelHandle, Props>(function Age
       </header>
 
       <div className="grid gap-2 sm:grid-cols-2">
-        {agents.map((agent) => {
-          const isRunning = running.has(agent.id);
-          const existing = runs[agent.id];
-          const isExpanded = expanded === agent.id;
-          return (
-            <AgentCard
-              key={agent.id}
-              agent={agent}
-              run={existing}
-              isRunning={isRunning}
-              isExpanded={isExpanded}
-              onRun={() => handleRun(agent)}
-              onToggleExpand={() =>
-                setExpanded((cur) => (cur === agent.id ? null : agent.id))
-              }
-              onDelete={() => handleDelete(agent)}
-            />
-          );
-        })}
+        {agents.map((agent) => (
+          <AgentCard
+            key={agent.id}
+            agent={agent}
+            run={runs[agent.id]}
+            isRunning={running.has(agent.id)}
+            onRun={() => handleRun(agent)}
+            onDelete={() => handleDelete(agent)}
+          />
+        ))}
       </div>
 
-      {expanded && runs[expanded] ? (
-        <AgentResult
-          agent={agents.find((a) => a.id === expanded)}
-          run={runs[expanded]}
-        />
+      {completedAgents.length > 0 ? (
+        <div className="space-y-3">
+          {completedAgents.map((agent) => (
+            <AgentResult
+              key={agent.id}
+              agent={agent}
+              run={runs[agent.id]}
+              collapsed={collapsed.has(agent.id)}
+              isRunning={running.has(agent.id)}
+              onToggleCollapsed={() => toggleCollapsed(agent.id)}
+              onRerun={() => handleRun(agent)}
+              onDelete={() => handleDelete(agent)}
+            />
+          ))}
+        </div>
       ) : null}
     </div>
   );
@@ -195,27 +231,17 @@ interface CardProps {
   agent: Agent;
   run: AgentRun | undefined;
   isRunning: boolean;
-  isExpanded: boolean;
   onRun: () => void;
-  onToggleExpand: () => void;
   onDelete: () => void;
 }
 
-function AgentCard({
-  agent,
-  run,
-  isRunning,
-  isExpanded,
-  onRun,
-  onToggleExpand,
-  onDelete,
-}: CardProps) {
+function AgentCard({ agent, run, isRunning, onRun, onDelete }: CardProps) {
   const hasRun = Boolean(run);
   return (
     <div
       className={cn(
         "flex flex-col rounded-lg border border-border bg-card p-3 transition-colors",
-        isExpanded && "ring-1 ring-primary/40"
+        hasRun && "border-primary/30"
       )}
     >
       <div className="mb-2 flex items-start justify-between gap-2">
@@ -226,8 +252,9 @@ function AgentCard({
           </p>
         </div>
         {hasRun ? (
-          <Badge variant="secondary" className="shrink-0 text-2xs">
-            Ready
+          <Badge variant="secondary" className="shrink-0 gap-1 text-2xs">
+            <Sparkles className="h-2.5 w-2.5" />
+            Ran
           </Badge>
         ) : null}
       </div>
@@ -237,25 +264,21 @@ function AgentCard({
             <Button
               type="button"
               size="sm"
-              variant={isExpanded ? "secondary" : "outline"}
-              onClick={onToggleExpand}
-              className="flex-1"
-            >
-              {isExpanded ? "Hide result" : "Show result"}
-            </Button>
-            <Button
-              type="button"
-              size="icon"
-              variant="ghost"
+              variant="outline"
               onClick={onRun}
               disabled={isRunning}
-              aria-label="Re-run agent"
-              title="Re-run agent"
+              className="flex-1 gap-1.5"
             >
               {isRunning ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Running…
+                </>
               ) : (
-                <RefreshCw className="h-3.5 w-3.5" />
+                <>
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  Re-run
+                </>
               )}
             </Button>
             <Button
@@ -296,30 +319,87 @@ function AgentCard({
   );
 }
 
-function AgentResult({ agent, run }: { agent: Agent | undefined; run: AgentRun }) {
+interface ResultProps {
+  agent: Agent;
+  run: AgentRun;
+  collapsed: boolean;
+  isRunning: boolean;
+  onToggleCollapsed: () => void;
+  onRerun: () => void;
+  onDelete: () => void;
+}
+
+function AgentResult({
+  agent,
+  run,
+  collapsed,
+  isRunning,
+  onToggleCollapsed,
+  onRerun,
+  onDelete,
+}: ResultProps) {
   const finishedAgo = relativeTime(run.finished_at);
   return (
-    <div className="rounded-lg border border-border bg-muted/30 p-4">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-2xs text-muted-foreground">
-        <div className="flex items-center gap-2">
-          <Sparkles className="h-3 w-3" />
-          <span className="font-medium text-foreground">
-            {agent?.name ?? run.agent_name}
-          </span>
-          <span>·</span>
-          <span>{run.model}</span>
-          <span>·</span>
-          <span>{finishedAgo}</span>
-        </div>
+    <div className="rounded-lg border border-border bg-muted/30">
+      <button
+        type="button"
+        onClick={onToggleCollapsed}
+        className="flex w-full items-center gap-2 px-4 py-3 text-left hover:bg-muted/50"
+        aria-expanded={!collapsed}
+      >
+        {collapsed ? (
+          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+        ) : (
+          <ChevronUp className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+        )}
+        <Sparkles className="h-3 w-3 shrink-0 text-muted-foreground" />
+        <span className="text-sm font-medium">{agent.name}</span>
+        <span className="text-2xs text-muted-foreground">·</span>
+        <span className="truncate text-2xs text-muted-foreground">{run.model}</span>
+        <span className="text-2xs text-muted-foreground">·</span>
+        <span className="shrink-0 text-2xs text-muted-foreground">{finishedAgo}</span>
         {run.prompt_tokens !== null || run.completion_tokens !== null ? (
-          <span className="font-mono">
+          <span className="ml-auto shrink-0 font-mono text-2xs text-muted-foreground">
             {run.prompt_tokens ?? "?"} in · {run.completion_tokens ?? "?"} out
           </span>
-        ) : null}
-      </div>
-      <pre className="whitespace-pre-wrap break-words font-sans text-sm leading-relaxed text-foreground">
-        {run.response}
-      </pre>
+        ) : (
+          <span className="ml-auto" />
+        )}
+        <span className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            onClick={onRerun}
+            disabled={isRunning}
+            aria-label="Re-run agent"
+            title="Re-run agent"
+            className="h-6 w-6"
+          >
+            {isRunning ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <RefreshCw className="h-3 w-3" />
+            )}
+          </Button>
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            onClick={onDelete}
+            aria-label="Delete result"
+            title="Delete result"
+            className="h-6 w-6 text-muted-foreground hover:text-destructive"
+          >
+            <Trash2 className="h-3 w-3" />
+          </Button>
+        </span>
+      </button>
+      {!collapsed ? (
+        <div className="border-t border-border px-4 py-4">
+          <Markdown>{run.response}</Markdown>
+        </div>
+      ) : null}
     </div>
   );
 }
