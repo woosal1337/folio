@@ -10,6 +10,8 @@ pub mod devices;
 pub mod mic;
 pub mod resampler;
 pub mod system;
+#[cfg(target_os = "macos")]
+pub mod voice_processing_capture;
 pub mod wav_writer;
 
 pub use capture::{CaptureArtifacts, CaptureSession, RecordingResult, RecordingStatus};
