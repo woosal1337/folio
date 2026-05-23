@@ -83,6 +83,25 @@ export const useRecording = create<RecordingState>((set, get) => {
     }
   };
 
+  // Pull the trailing component of a path, cross-platform. Used by the
+  // toast descriptions so we surface "2026-05-23-19-15-22" rather than
+  // the full /Users/…/Recordings/2026-05-23-19-15-22 mouthful.
+  const basename = (path: string): string => {
+    const trimmed = path.replace(/[\\/]+$/, "");
+    const idx = Math.max(trimmed.lastIndexOf("/"), trimmed.lastIndexOf("\\"));
+    return idx === -1 ? trimmed : trimmed.slice(idx + 1);
+  };
+
+  // Format seconds as "M:SS" for toast descriptions on stop. Mirrors
+  // the formatter used elsewhere in the UI but kept local so the
+  // store has no UI-layer dep.
+  const formatDurationSeconds = (s: number): string => {
+    const safe = Math.max(0, Math.floor(s));
+    const m = Math.floor(safe / 60);
+    const sec = safe % 60;
+    return `${m}:${sec.toString().padStart(2, "0")}`;
+  };
+
   // Self-contained transcription routine so both `stop` (auto) and an
   // explicit `transcribe(...)` call route through the same lifecycle.
   const runTranscription = async (sessionDir: string) => {
@@ -90,6 +109,12 @@ export const useRecording = create<RecordingState>((set, get) => {
       transcribing: true,
       transcribingDir: sessionDir,
       transcribeError: null,
+    });
+    // Inform the user the async job kicked off. Useful when they
+    // navigate away from the row that shows the spinner — the toast
+    // is the only persistent signal that work is happening.
+    toast.info("Transcribing…", {
+      description: basename(sessionDir),
     });
     try {
       const result = await ipcTranscribe(sessionDir);
@@ -166,8 +191,17 @@ export const useRecording = create<RecordingState>((set, get) => {
           lastSavedDir: null,
         });
         installTicker();
+        const count = status.channels.length;
+        toast.success("Recording started", {
+          description:
+            count === 0
+              ? "No channels active yet"
+              : `${count} channel${count === 1 ? "" : "s"} active: ${status.channels.join(", ")}`,
+        });
       } catch (e) {
-        set({ error: String(e) });
+        const message = String(e);
+        set({ error: message });
+        toast.error("Could not start recording", { description: message });
       } finally {
         set({ busy: false });
       }
@@ -175,6 +209,9 @@ export const useRecording = create<RecordingState>((set, get) => {
 
     stop: async () => {
       set({ busy: true, error: null });
+      // Snapshot duration before we reset elapsed, so the toast can
+      // surface "0:42" instead of always saying "0:00".
+      const elapsedAtStop = get().elapsed;
       let sessionDir: string | null = null;
       try {
         const result = await ipcStop();
@@ -187,8 +224,13 @@ export const useRecording = create<RecordingState>((set, get) => {
           channels: [],
           lastSavedDir: sessionDir,
         });
+        toast.success("Recording saved", {
+          description: `${formatDurationSeconds(elapsedAtStop)} · ${basename(sessionDir)}`,
+        });
       } catch (e) {
-        set({ error: String(e) });
+        const message = String(e);
+        set({ error: message });
+        toast.error("Could not stop recording", { description: message });
       } finally {
         set({ busy: false });
       }

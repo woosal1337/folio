@@ -163,6 +163,7 @@ export default function Library() {
                   await deleteRecording(item.session_dir);
                   if (expanded === item.session_dir) setExpanded(null);
                   refresh();
+                  toast.success("Recording deleted", { description: item.label });
                 } catch (e) {
                   console.error("delete_recording:", e);
                   toast.error("Could not delete recording", {

@@ -130,6 +130,7 @@ export const AgentPanel = React.forwardRef<AgentPanelHandle, Props>(function Age
         return next;
       });
       if (expanded === agent.id) setExpanded(null);
+      toast.success(`${agent.name} result deleted`);
     } catch (e) {
       toast.error(`Could not delete ${agent.name} result`, {
         description: String(e),
