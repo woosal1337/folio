@@ -24,9 +24,9 @@ Keep the title in conventional-commit style: type(scope): subject.
 - [ ] `cargo fmt --all -- --check`
 - [ ] `cargo clippy --workspace --all-targets -- -D warnings`
 - [ ] `cargo test --workspace`
-- [ ] `pnpm typecheck`
-- [ ] `pnpm lint`
-- [ ] Manually exercised the feature in `pnpm tauri dev`
+- [ ] `bun run typecheck`
+- [ ] `bun run lint`
+- [ ] Manually exercised the feature in `bun tauri dev`
 
 ## Linked issues
 

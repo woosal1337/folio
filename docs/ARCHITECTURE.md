@@ -200,8 +200,8 @@ against `main`. Jobs (all required):
   `cargo test --workspace --lib --bins`
 - `rust-deny` — `cargo deny check`
 - `typos` — `crate-ci/typos`
-- `frontend` — `pnpm lint`, `pnpm typecheck`, `pnpm format:check`,
-  `pnpm test`
+- `frontend` — `bun run lint`, `bun run typecheck`,
+  `bun run format:check`, `bun run test`
 
 `.pre-commit-config.yaml` mirrors most of these locally so the same
 gates run on every commit, well before CI sees the branch.

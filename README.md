@@ -46,13 +46,13 @@ Requirements:
 
 - macOS 13.3+ on Apple Silicon (Intel Macs build fine; Apple Silicon is the perf target)
 - Rust 1.88 via [`rustup`](https://rustup.rs/) (the toolchain is pinned in `rust-toolchain.toml`)
-- Node 20+ and pnpm 9+
+- [Bun](https://bun.sh) 1.3+ (the only JS package manager + runtime this repo uses)
 - Xcode command-line tools: `xcode-select --install`
 
 ```sh
 git clone git@github.com:woosal1337/attune.git
 cd attune
-pnpm install
+bun install
 pre-commit install
 pre-commit install --hook-type commit-msg
 pre-commit install --hook-type pre-push
@@ -61,7 +61,7 @@ pre-commit install --hook-type pre-push
 ### Run the desktop app
 
 ```sh
-pnpm tauri dev
+bun tauri dev
 ```
 
 First launch compiles the Rust workspace (~30 s on a warm cache). Subsequent launches reuse the cache.
@@ -92,11 +92,11 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace --lib --bins
 cargo deny check
 
-# Frontend
-pnpm typecheck
-pnpm lint
-pnpm format:check
-pnpm test
+# Frontend (bun runs the npm scripts defined in package.json)
+bun run typecheck
+bun run lint
+bun run format:check
+bun run test
 ```
 
 `pre-commit` runs the relevant subset on every commit; the full suite also runs in `.github/workflows/ci.yml`.
