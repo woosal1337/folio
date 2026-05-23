@@ -1,4 +1,5 @@
 import {
+  Bot,
   ChevronDown,
   ChevronRight,
   FileAudio,
@@ -38,6 +39,12 @@ interface Props {
    * earlier auto-transcription failed.
    */
   onTranscribe?: () => void;
+  /**
+   * Optional "Summarize" action. Rendered when the recording has a
+   * transcript and AI is configured. Opens the recording's detail
+   * view with the Summarize agent firing on arrival.
+   */
+  onSummarize?: () => void;
 }
 
 /**
@@ -57,8 +64,10 @@ export function RecordingRow({
   onDelete,
   onOpenInEditor,
   onTranscribe,
+  onSummarize,
 }: Props) {
   const canTranscribe = !transcribing && !item.has_transcript && Boolean(onTranscribe);
+  const canSummarize = !transcribing && item.has_transcript && Boolean(onSummarize);
   // ts-rs maps Rust's i64 / u64 to TypeScript `bigint`. At JSON-parse time
   // these arrive as plain numbers, but the type system insists. Cast back
   // to number here — recording files are well under 2^53 bytes.
@@ -126,6 +135,19 @@ export function RecordingRow({
             >
               <Sparkles className="h-3.5 w-3.5" />
               Transcribe
+            </Button>
+          )}
+          {canSummarize && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-2 text-foreground"
+              onClick={onSummarize}
+              aria-label="Summarize recording"
+              title="Run the Summarize agent on this recording."
+            >
+              <Bot className="h-3.5 w-3.5" />
+              Summarize
             </Button>
           )}
           {onOpenInEditor && (

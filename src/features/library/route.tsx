@@ -141,6 +141,11 @@ export default function Library() {
                 // for the spinner and toasts on success/failure.
                 void transcribe(item.session_dir);
               }}
+              onSummarize={() =>
+                navigate(`/editor/${encodeURIComponent(item.label)}`, {
+                  state: { recording: item, autoRun: "summarize" },
+                })
+              }
               onReveal={() => {
                 revealInFinder(item.session_dir).catch((e) => {
                   console.error("reveal_in_finder:", e);

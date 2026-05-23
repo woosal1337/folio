@@ -14,6 +14,17 @@ interface Props {
 }
 
 /**
+ * Imperative handle exposed by [`AgentPanel`] so the recording detail
+ * route can fire an agent in response to an autoRun nav-state hint
+ * (e.g. the library row's [Summarize] button).
+ */
+export interface AgentPanelHandle {
+  /** Run the agent with `agentId`. No-op (with a console warning) if
+   * the agent is not in the list of loaded defaults. */
+  runAgent: (agentId: string) => void;
+}
+
+/**
  * Per-recording agent panel.
  *
  * Phase 1.5 MVP. Lists every default agent. Clicking one runs it
@@ -29,7 +40,10 @@ interface Props {
  *   - Markdown rendering is intentionally minimal (whitespace pre-wrap
  *     + monospace headings) until we adopt a real markdown renderer.
  */
-export function AgentPanel({ sessionDir }: Props) {
+export const AgentPanel = React.forwardRef<AgentPanelHandle, Props>(function AgentPanel(
+  { sessionDir },
+  ref
+) {
   const [agents, setAgents] = React.useState<Agent[] | null>(null);
   const [runs, setRuns] = React.useState<Record<string, AgentRun>>({});
   const [running, setRunning] = React.useState<Set<string>>(new Set());
@@ -56,28 +70,55 @@ export function AgentPanel({ sessionDir }: Props) {
     };
   }, [sessionDir]);
 
-  const handleRun = async (agent: Agent) => {
-    setRunning((prev) => {
-      const next = new Set(prev);
-      next.add(agent.id);
-      return next;
-    });
-    try {
-      const run = await runAgent(sessionDir, agent.id);
-      setRuns((prev) => ({ ...prev, [agent.id]: run }));
-      setExpanded(agent.id);
-      toast.success(`${agent.name} finished`);
-    } catch (e) {
-      console.error(`run_agent ${agent.id}:`, e);
-      toast.error(`${agent.name} failed`, { description: String(e) });
-    } finally {
+  const handleRun = React.useCallback(
+    async (agent: Agent) => {
       setRunning((prev) => {
         const next = new Set(prev);
-        next.delete(agent.id);
+        next.add(agent.id);
         return next;
       });
-    }
-  };
+      try {
+        const run = await runAgent(sessionDir, agent.id);
+        setRuns((prev) => ({ ...prev, [agent.id]: run }));
+        setExpanded(agent.id);
+        toast.success(`${agent.name} finished`);
+      } catch (e) {
+        console.error(`run_agent ${agent.id}:`, e);
+        toast.error(`${agent.name} failed`, { description: String(e) });
+      } finally {
+        setRunning((prev) => {
+          const next = new Set(prev);
+          next.delete(agent.id);
+          return next;
+        });
+      }
+    },
+    [sessionDir]
+  );
+
+  // Imperative handle: lets the recording-detail route fire an agent
+  // by id (used by the autoRun nav-state hint). The handle's runAgent
+  // reads the latest `agents` list via the ref so it always finds
+  // freshly-loaded agents even if the parent triggers it during the
+  // same render cycle that loaded them.
+  const agentsRef = React.useRef<Agent[] | null>(agents);
+  React.useEffect(() => {
+    agentsRef.current = agents;
+  }, [agents]);
+  React.useImperativeHandle(
+    ref,
+    () => ({
+      runAgent: (agentId: string) => {
+        const target = agentsRef.current?.find((a) => a.id === agentId);
+        if (!target) {
+          console.warn(`AgentPanel.runAgent: unknown agent id "${agentId}"`);
+          return;
+        }
+        void handleRun(target);
+      },
+    }),
+    [handleRun]
+  );
 
   const handleDelete = async (agent: Agent) => {
     if (!window.confirm(`Delete the ${agent.name} result for this recording?`)) return;
@@ -147,7 +188,7 @@ export function AgentPanel({ sessionDir }: Props) {
       ) : null}
     </div>
   );
-}
+});
 
 interface CardProps {
   agent: Agent;
