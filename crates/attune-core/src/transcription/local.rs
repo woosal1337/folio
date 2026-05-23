@@ -74,7 +74,38 @@ impl Transcriber for LocalWhisperTranscriber {
         );
 
         let pcm = decode_wav_to_mono_f32(audio_path, WHISPER_INPUT_SAMPLE_RATE)?;
-        info!(samples = pcm.len(), "WAV decoded for whisper inference");
+
+        // Silence pre-filter. Whisper hallucinates aggressively on
+        // chunks that are functionally silent (a previous test on
+        // mic.wav at -74.8 dBFS RMS produced "I will put the tape on
+        // the back of the box" and other craft-video junk that the
+        // post-decode phrase filter can never enumerate). If the audio
+        // is below SILENCE_RMS_THRESHOLD we skip inference entirely
+        // and return an empty transcript. The threshold sits well
+        // below normal speech (~-30 dBFS RMS) and well above true
+        // digital silence (~-90 dBFS RMS).
+        let rms = if pcm.is_empty() {
+            0.0
+        } else {
+            (pcm.iter().map(|s| s * s).sum::<f32>() / pcm.len() as f32).sqrt()
+        };
+        let peak = pcm.iter().fold(0.0f32, |a, b| a.max(b.abs()));
+        info!(
+            samples = pcm.len(),
+            rms, peak, "WAV decoded for whisper inference"
+        );
+        const SILENCE_RMS_THRESHOLD: f32 = 0.002; // -54 dBFS
+        if rms < SILENCE_RMS_THRESHOLD {
+            info!(
+                rms,
+                threshold = SILENCE_RMS_THRESHOLD,
+                "audio below silence threshold, skipping whisper inference"
+            );
+            return Ok(Transcript {
+                language: language_hint.map(|s| s.to_string()),
+                segments: Vec::new(),
+            });
+        }
 
         // Loading the model is the expensive step (~hundreds of MB
         // mapped in). We do it inside `transcribe` for v1 — fine for
@@ -92,16 +123,19 @@ impl Transcriber for LocalWhisperTranscriber {
             .create_state()
             .map_err(|e| AttuneError::Transcription(format!("whisper state init: {e}")))?;
 
-        // Beam search beats greedy on Whisper-large-v3 on every quality
-        // benchmark in the literature (and on the 2026-05 Attune bake-off
-        // qualitatively on the user's recordings). The cost is ~30%
-        // slower inference, which is well under realtime on M5. patience
-        // is currently a no-op in whisper.cpp (TODO upstream) but the
-        // field still needs a value.
-        let mut params = FullParams::new(SamplingStrategy::BeamSearch {
-            beam_size: 5,
-            patience: -1.0,
-        });
+        // Greedy beats beam search empirically on this user's audio. The
+        // earlier "BeamSearch{5} is better in the literature" change was
+        // a regression: beam search converges on the highest-probability
+        // memorised token in the training data, which for any quiet or
+        // musical Turkish chunk is "Altyazı M.K." (subtitle credit
+        // artifact, see github.com/openai/whisper/discussions/2412). On
+        // a 42-second German/Turkish song, beam search produced
+        // "Altyazı M.K." x2 while greedy produced the actual lyrics.
+        // On the user's meeting recording, greedy also matched the
+        // previous shipping transcript word-for-word; beam search
+        // mangled proper nouns. best_of is unused at temperature=0 but
+        // 5 is the upstream default so we keep it.
+        let mut params = FullParams::new(SamplingStrategy::Greedy { best_of: 5 });
         params.set_n_threads(self.threads);
         params.set_print_progress(false);
         params.set_print_realtime(false);
