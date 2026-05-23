@@ -186,3 +186,9 @@ export function listAgentRuns(sessionDir: string): Promise<AgentRun[]> {
 export function deleteAgentRun(sessionDir: string, agentId: string): Promise<void> {
   return call<void>("delete_agent_run", { sessionDir, agentId });
 }
+
+// ---- Maintenance -------------------------------------------------------
+
+export function clearRecordingArtifacts(sessionDir: string): Promise<void> {
+  return call<void>("clear_recording_artifacts", { sessionDir });
+}

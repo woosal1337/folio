@@ -1,5 +1,5 @@
 import * as React from "react";
-import { ArrowLeft, FileAudio, Loader2, Sparkles } from "lucide-react";
+import { AlertTriangle, ArrowLeft, FileAudio, Loader2, Sparkles } from "lucide-react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -9,23 +9,37 @@ import { Button } from "@/shared/ui/button";
 import { Card, CardContent } from "@/shared/ui/card";
 import { Separator } from "@/shared/ui/separator";
 import { formatBytes, formatDuration } from "@/shared/lib/utils";
-import { getRecording, readTranscript, transcribeRecording } from "@/shared/lib/ipc";
+import {
+  clearRecordingArtifacts,
+  getRecording,
+  readTranscript,
+  transcribeRecording,
+} from "@/shared/lib/ipc";
 import { useRecording } from "@/shared/stores/recording-store";
 import type { RecordingSummary } from "@/shared/types/RecordingSummary";
 import type { SessionTranscript } from "@/shared/types/SessionTranscript";
 
-import { AgentPanel } from "./agent-panel";
+import { AgentPanel, type AgentPanelHandle } from "./agent-panel";
 import { TranscriptEditor } from "./transcript-editor";
 
 interface LocationState {
   recording?: RecordingSummary;
+  /** If set, the editor fires the named agent automatically once the
+   * transcript is loaded. Used by the library row's [Summarize] button
+   * for the one-tap UX rule in the vault plan. */
+  autoRun?: string;
 }
 
 export default function Editor() {
   const navigate = useNavigate();
   const { label = "" } = useParams<{ label: string }>();
   const location = useLocation();
-  const stateFromNav = (location.state as LocationState | null)?.recording;
+  const navState = location.state as LocationState | null;
+  const stateFromNav = navState?.recording;
+  const autoRunAgent = navState?.autoRun;
+  const agentPanelRef = React.useRef<AgentPanelHandle>(null);
+  const autoRunFiredRef = React.useRef(false);
+  const [reTranscribing, setReTranscribing] = React.useState(false);
 
   const [recording, setRecording] = React.useState<RecordingSummary | null>(
     stateFromNav ?? null
@@ -118,6 +132,49 @@ export default function Editor() {
     }
   };
 
+  // Legacy detection: transcripts produced before the dual-channel
+  // rewrite have a single channel labelled "legacy". They were also
+  // produced by the pre-PR-26 pipeline (no greedy sampling, no RMS
+  // guard, no hallucination filter) and so are noticeably worse than a
+  // re-transcribe today would produce.
+  const isLegacyTranscript = React.useMemo(() => {
+    if (!transcript) return false;
+    return transcript.channels.some((c) => c.channel === "legacy");
+  }, [transcript]);
+
+  const handleReTranscribe = async () => {
+    if (!recording) return;
+    const ok = window.confirm(
+      "Delete this recording's transcript and every saved agent result, then re-transcribe with the latest pipeline?\n\nAudio files are not touched."
+    );
+    if (!ok) return;
+    setReTranscribing(true);
+    try {
+      await clearRecordingArtifacts(recording.session_dir);
+      setTranscript(null);
+      await transcribeRecording(recording.session_dir);
+      toast.success("Re-transcribing — fresh transcript on the way");
+    } catch (e) {
+      console.error("re-transcribe:", e);
+      toast.error("Could not re-transcribe", { description: String(e) });
+    } finally {
+      setReTranscribing(false);
+    }
+  };
+
+  // Auto-run the requested agent once both the transcript and the
+  // panel are ready. Fires at most once per navigation; subsequent
+  // taps on the same recording row do not re-trigger.
+  React.useEffect(() => {
+    if (!autoRunAgent) return;
+    if (autoRunFiredRef.current) return;
+    if (!transcript) return;
+    const panel = agentPanelRef.current;
+    if (!panel) return;
+    autoRunFiredRef.current = true;
+    panel.runAgent(autoRunAgent);
+  }, [autoRunAgent, transcript]);
+
   // ---- Render guards ---------------------------------------------------
 
   if (notFound) {
@@ -199,6 +256,43 @@ export default function Editor() {
         </CardContent>
       </Card>
 
+      {isLegacyTranscript ? (
+        <Card className="border-amber-500/40 bg-amber-500/5">
+          <CardContent className="flex flex-col items-start gap-3 py-5">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-amber-500" />
+              <p className="text-sm font-medium">Legacy transcript</p>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              This transcript was produced by an older version of the transcription
+              pipeline (single channel, no hallucination filter, no silence guard).
+              Re-transcribing applies the current pipeline so the result matches
+              everything else in your library. The audio files are not touched; only the
+              transcript and any saved agent results are replaced.
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleReTranscribe}
+              disabled={reTranscribing || isCurrentlyTranscribing}
+              className="gap-2"
+            >
+              {reTranscribing || isCurrentlyTranscribing ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Re-transcribing…
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Delete transcript and re-transcribe
+                </>
+              )}
+            </Button>
+          </CardContent>
+        </Card>
+      ) : null}
+
       <Card>
         <CardContent className="py-5">
           {isCurrentlyTranscribing ? (
@@ -249,7 +343,7 @@ export default function Editor() {
       {recording.has_transcript && transcript ? (
         <Card>
           <CardContent className="py-5">
-            <AgentPanel sessionDir={recording.session_dir} />
+            <AgentPanel ref={agentPanelRef} sessionDir={recording.session_dir} />
           </CardContent>
         </Card>
       ) : null}
