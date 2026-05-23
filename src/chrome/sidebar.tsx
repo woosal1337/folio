@@ -1,5 +1,5 @@
 import * as React from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import {
   AudioLines,
   KanbanSquare,
@@ -18,13 +18,18 @@ interface NavItem {
   to: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
+  /** Extra path prefixes that should also light this item up. The
+   * editor route is a per-recording detail page reached from Library;
+   * NavLink's default isActive only matches the exact `to`, which left
+   * the sidebar feeling unmoored on /editor/*. Including the prefix
+   * here makes Library stay highlighted while the user is inside a
+   * recording. */
+  alsoActiveOn?: string[];
 }
 
-// The Editor is a per-recording detail page reached from a row's "Edit"
-// button in the Library. It is intentionally not in the global nav.
 const items: NavItem[] = [
   { to: "/record", label: "Record", icon: AudioLines },
-  { to: "/library", label: "Library", icon: Library },
+  { to: "/library", label: "Library", icon: Library, alsoActiveOn: ["/editor"] },
   { to: "/tasks", label: "Tasks", icon: KanbanSquare },
 ];
 
@@ -34,6 +39,7 @@ interface SidebarProps {
 
 export function Sidebar({ onOpenSettings }: SidebarProps) {
   const { theme, toggle } = useTheme();
+  const location = useLocation();
 
   return (
     <aside
@@ -58,6 +64,9 @@ export function Sidebar({ onOpenSettings }: SidebarProps) {
       <nav className="flex-1 space-y-0.5 px-2">
         {items.map((item) => {
           const Icon = item.icon;
+          const alsoActive = item.alsoActiveOn?.some((prefix) =>
+            location.pathname.startsWith(prefix)
+          );
           return (
             <NavLink
               key={item.to}
@@ -65,7 +74,7 @@ export function Sidebar({ onOpenSettings }: SidebarProps) {
               className={({ isActive }) =>
                 cn(
                   "group flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                  isActive
+                  isActive || alsoActive
                     ? "bg-accent text-accent-foreground"
                     : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
                 )
