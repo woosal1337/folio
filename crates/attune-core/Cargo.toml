@@ -27,10 +27,16 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 ts-rs = { workspace = true }
 
-# HTTP client for the OpenAI Whisper transcription backend and the
-# local-model downloader. Only the rustls TLS stack is enabled;
-# openssl is denied by deny.toml.
+# HTTP client for the OpenAI Whisper transcription backend, the
+# local-model downloader, and the LLM provider chat calls. Only the
+# rustls TLS stack is enabled; openssl is denied by deny.toml.
 reqwest = { workspace = true }
+
+# LLM provider plumbing for the AI chat feature (phase 1 of the plan
+# in the vault under projects/attune/plan/ai-chat-multi-provider.md).
+keyring = { workspace = true }
+async-trait = { workspace = true }
+tokio = { workspace = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 # ScreenCaptureKit Rust bindings for system audio capture.

@@ -8,6 +8,7 @@
 pub mod devices;
 pub mod health;
 pub mod library;
+pub mod llm;
 pub mod recording;
 pub mod settings;
 pub mod transcription;

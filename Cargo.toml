@@ -42,6 +42,13 @@ uuid = { version = "1.10", features = ["v4", "serde"] }
 # HTTP client for cloud transcription
 reqwest = { version = "0.12", default-features = false, features = ["blocking", "multipart", "json", "rustls-tls"] }
 
+# LLM provider plumbing (phase 1 of ai-chat-multi-provider plan in the
+# vault under projects/attune/plan/). `keyring` stores API keys in the
+# macOS Keychain. `async-trait` lets the LlmProvider trait declare
+# async methods.
+keyring = { version = "3", features = ["apple-native", "linux-native", "windows-native"] }
+async-trait = "0.1"
+
 # time
 chrono = { version = "0.4", features = ["serde"] }
 
