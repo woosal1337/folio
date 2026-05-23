@@ -56,9 +56,7 @@ export function Sidebar({ onOpenSettings }: SidebarProps) {
         />
         <span className="font-serif text-2xl font-medium tracking-tight">attune</span>
       </div>
-      <div className="px-5 pb-4">
-        <p className="text-xs text-muted-foreground">local meeting capture</p>
-      </div>
+      <div className="pb-4" />
 
       {/* Primary nav */}
       <nav className="flex-1 space-y-0.5 px-2">
