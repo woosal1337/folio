@@ -18,6 +18,9 @@
 import { invoke, type InvokeArgs } from "@tauri-apps/api/core";
 
 import type { DeviceInfo } from "@/shared/types/DeviceInfo";
+import type { ModelInfo } from "@/shared/types/ModelInfo";
+import type { ProviderId } from "@/shared/types/ProviderId";
+import type { ProviderStatus } from "@/shared/types/ProviderStatus";
 import type { RecordingResult } from "@/shared/types/RecordingResult";
 import type { RecordingStatus } from "@/shared/types/RecordingStatus";
 import type { RecordingSummary } from "@/shared/types/RecordingSummary";
@@ -141,3 +144,25 @@ export interface WhisperDownloadProgress {
 
 /** Channel name for the Tauri event. Exported so listeners stay in sync. */
 export const WHISPER_DOWNLOAD_PROGRESS_EVENT = "whisper:model-download-progress";
+
+// ---- LLM providers -----------------------------------------------------
+
+export function listProviders(): Promise<ProviderStatus[]> {
+  return call<ProviderStatus[]>("list_providers");
+}
+
+export function setProviderKey(provider: ProviderId, apiKey: string): Promise<void> {
+  return call<void>("set_provider_key", { provider, apiKey });
+}
+
+export function deleteProviderKey(provider: ProviderId): Promise<void> {
+  return call<void>("delete_provider_key", { provider });
+}
+
+export function testProvider(provider: ProviderId): Promise<void> {
+  return call<void>("test_provider", { provider });
+}
+
+export function listProviderModels(provider: ProviderId): Promise<ModelInfo[]> {
+  return call<ModelInfo[]>("list_provider_models", { provider });
+}

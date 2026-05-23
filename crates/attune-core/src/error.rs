@@ -40,6 +40,12 @@ pub enum AttuneError {
     #[error("transcription error: {0}")]
     Transcription(String),
 
+    #[error("llm provider error: {0}")]
+    Llm(String),
+
+    #[error("keychain error: {0}")]
+    Keychain(String),
+
     #[error("internal: {0}")]
     Internal(String),
 }

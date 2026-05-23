@@ -40,6 +40,11 @@ pub fn run() {
             commands::transcription::save_transcript,
             commands::transcription::whisper_model_status,
             commands::transcription::ensure_whisper_model,
+            commands::llm::list_providers,
+            commands::llm::set_provider_key,
+            commands::llm::delete_provider_key,
+            commands::llm::test_provider,
+            commands::llm::list_provider_models,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

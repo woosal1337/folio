@@ -13,6 +13,7 @@
 //! - [`storage`] — user settings persistence and recording-session
 //!   metadata scanning.
 //! - [`transcription`] — pluggable speech-to-text backends.
+//! - [`llm`] — pluggable chat-completion backends + key storage.
 //! - [`ffi`] — UniFFI-friendly surface for non-Rust consumers
 //!   (placeholder).
 //! - [`error`] — the single public [`AttuneError`] enum.
@@ -20,6 +21,7 @@
 pub mod audio;
 pub mod error;
 pub mod ffi;
+pub mod llm;
 pub mod storage;
 pub mod transcription;
 
