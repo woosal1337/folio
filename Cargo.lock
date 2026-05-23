@@ -319,9 +319,11 @@ dependencies = [
  "attune-core",
  "chrono",
  "clap",
+ "hound",
  "tokio",
  "tracing",
  "tracing-subscriber",
+ "whisper-rs",
 ]
 
 [[package]]

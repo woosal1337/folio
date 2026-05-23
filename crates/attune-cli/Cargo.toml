@@ -24,3 +24,5 @@ anyhow = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 chrono = { workspace = true }
+whisper-rs = { workspace = true, features = ["metal"] }
+hound = { workspace = true }
