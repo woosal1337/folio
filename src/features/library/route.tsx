@@ -59,11 +59,23 @@ export default function Library() {
       if (needle && !r.label.toLowerCase().includes(needle)) return false;
       return true;
     });
-    out.sort((a, b) =>
-      sort === "newest"
+    // Sort by filesystem creation time when available — labels are
+    // not reliably chronological once imported / hand-named sessions
+    // (e.g. "2026-05-23-mark-cuban-yahoo-trade") enter the library.
+    // Falls back to label-descending when created_at is null.
+    const compareBy = (a: RecordingSummary, b: RecordingSummary) => {
+      const aTime = a.created_at ? Date.parse(a.created_at) : NaN;
+      const bTime = b.created_at ? Date.parse(b.created_at) : NaN;
+      const aOk = !Number.isNaN(aTime);
+      const bOk = !Number.isNaN(bTime);
+      if (aOk && bOk) return sort === "newest" ? bTime - aTime : aTime - bTime;
+      if (aOk) return -1;
+      if (bOk) return 1;
+      return sort === "newest"
         ? b.label.localeCompare(a.label)
-        : a.label.localeCompare(b.label)
-    );
+        : a.label.localeCompare(b.label);
+    };
+    out.sort(compareBy);
     return out;
   }, [recordings, query, filter, sort]);
 
