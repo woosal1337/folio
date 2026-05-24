@@ -1,0 +1,115 @@
+[workspace]
+members = ["crates/attune-core", "crates/attune-cli", "src-tauri"]
+resolver = "2"
+
+[workspace.package]
+version = "1.0.0"
+edition = "2021"
+rust-version = "1.88"
+license = "MIT"
+repository = "https://github.com/woosal1337/attune"
+authors = ["Ege Çelebi <woosal@pm.me>"]
+
+[workspace.dependencies]
+# error handling
+thiserror = "1.0"
+anyhow = "1.0"
+
+# logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+
+# audio
+cpal = "0.15"
+hound = "3.5"
+rubato = "0.15"
+crossbeam-queue = "0.3"
+crossbeam-channel = "0.5"
+
+# async + concurrency
+tokio = { version = "1.38", features = ["full"] }
+parking_lot = "0.12"
+
+# CLI
+clap = { version = "4.5", features = ["derive"] }
+
+# Audio playback (used by Tauri command for in-app preview)
+rodio = { version = "0.20", default-features = false, features = ["wav"] }
+
+# IDs and time
+uuid = { version = "1.10", features = ["v4", "serde"] }
+
+# HTTP client for cloud transcription
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "multipart", "json", "rustls-tls"] }
+
+# LLM provider plumbing (phase 1 of ai-chat-multi-provider plan in the
+# vault under projects/attune/plan/). `keyring` stores API keys in the
+# macOS Keychain. `async-trait` lets the LlmProvider trait declare
+# async methods.
+keyring = { version = "3", features = ["apple-native", "linux-native", "windows-native"] }
+async-trait = "0.1"
+
+# Apple Voice Processing IO AudioUnit. Used by the macOS-only AEC +
+# noise-suppression + AGC mic capture path (phase 1 of
+# projects/attune/plan/voice-processing-io.md in the vault).
+# `coreaudio-rs` wraps the high-level AudioUnit API; `coreaudio-sys`
+# is the FFI source for VPIO property constants that the high-level
+# wrapper does not re-export.
+coreaudio-rs = { version = "0.14", default-features = false, features = ["audio_unit"] }
+coreaudio-sys = "0.2"
+
+# time
+chrono = { version = "0.4", features = ["serde"] }
+
+# serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# TypeScript binding generation for the Tauri IPC surface. Types in
+# attune-core that cross the IPC boundary derive `TS` and the bindings
+# are emitted into `src/lib/generated/` during `cargo test`.
+ts-rs = { version = "10", features = ["serde-compat", "chrono-impl"] }
+
+# Local Whisper inference via whisper.cpp. Builds whisper.cpp from
+# source the first time — first cargo build picks up a noticeable
+# extra few minutes. Metal acceleration is enabled in attune-core's
+# Cargo.toml on macOS.
+whisper-rs = { version = "0.13", default-features = false }
+
+# Tauri 2
+tauri = { version = "2", features = ["protocol-asset"] }
+tauri-build = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+tauri-plugin-fs = "2"
+tauri-plugin-opener = "2"
+
+[workspace.metadata]
+description = "Local-first meeting transcription, cross-platform via Tauri 2"
+
+[workspace.lints.clippy]
+uninlined_format_args = "allow"
+
+[workspace.lints.rust]
+# The `objc` 0.2 macros emit `#[cfg(feature = "cargo-clippy")]`, which
+# newer Rust treats as an unexpected cfg value because that feature is
+# defined inside the macro itself, not in our Cargo.toml. Allow this
+# specific value workspace-wide. Migrating away from objc 0.2 to objc2
+# is tracked as a follow-up.
+unexpected_cfgs = { level = "warn", check-cfg = [
+  "cfg(feature, values(\"cargo-clippy\"))",
+] }
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+debug = "line-tables-only"
+strip = "symbols"
+
+[profile.dev]
+opt-level = 0
+debug = true
+
+# Faster local builds for dependencies
+[profile.dev.package."*"]
+opt-level = 1

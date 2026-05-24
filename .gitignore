@@ -1,0 +1,76 @@
+# Rust
+/target/
+**/target/
+debug/
+**/*.rs.bk
+*.pdb
+**/mutants.out*/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+# The macOS "Icon\r" sentinel files (those weird files Finder leaves
+# in custom-icon folders). The pattern is rooted to avoid case-
+# insensitively matching directories like src-tauri/icons/.
+/Icon?
+**/Icon\r
+._*
+
+# Xcode
+*.xcuserstate
+*.xcuserdatad/
+xcuserdata/
+DerivedData/
+*.xcscmblueprint
+*.xccheckout
+*.moved-aside
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+
+# Swift Package Manager
+.swiftpm/
+.build/
+Package.resolved
+
+# Build outputs
+/build/
+*.dmg
+*.app/
+*.xcarchive/
+
+# Recordings (local test output)
+/recordings/
+/.recordings/
+
+# Whisper models
+/models/*.bin
+/models/*.gguf
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+logs/
+
+# Node / Vite / Tauri 2 frontend
+node_modules/
+/dist/
+.vite/
+
+# Tauri generated
+src-tauri/gen/
+src-tauri/target/
+src-tauri/Cargo.lock
+tsconfig.tsbuildinfo

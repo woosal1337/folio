@@ -1,0 +1,56 @@
+[package]
+name = "attune-app"
+description = "Attune — local-first meeting transcription"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish = false
+
+# Tauri requires a library target so the binary can also be linked as a
+# library (mobile, integration tests, etc.). The crate uses lib + bin.
+[lib]
+name = "attune_app_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "attune"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { workspace = true }
+
+[dependencies]
+attune-core = { path = "../crates/attune-core" }
+
+tauri = { workspace = true }
+tauri-plugin-dialog = { workspace = true }
+tauri-plugin-fs = { workspace = true }
+tauri-plugin-opener = { workspace = true }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+# Used to set the Dock icon at runtime for dev binaries that aren't
+# launched from a .app bundle. We use raw msg_send! rather than the
+# feature-gated high-level wrappers because the dock-icon trick needs
+# only NSData / NSImage / NSApplication, and the high-level crates'
+# feature flags are brittle across versions.
+objc = "0.2"
+cocoa = "0.26"
+
+# State + IO
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+chrono = { workspace = true }
+parking_lot = { workspace = true }
+
+# Used by the library scan to read WAV headers for duration + sample rate
+hound = { workspace = true }
+
+[lints]
+workspace = true

@@ -1,0 +1,328 @@
+//! OpenAI Chat Completions backend.
+//!
+//! Hits `/v1/chat/completions`. Phase 1 is non-streaming only; phase 5
+//! adds the SSE streaming path on top of the same provider.
+
+use async_trait::async_trait;
+use reqwest::Client;
+use serde::{Deserialize, Serialize};
+use tracing::debug;
+
+use crate::error::{AttuneError, Result};
+use crate::llm::provider::{LlmProvider, ProviderId};
+use crate::llm::types::{
+    ChatMessage, ChatRequest, ChatResponse, ChatRole, FinishReason, ModelInfo,
+};
+
+const DEFAULT_BASE_URL: &str = "https://api.openai.com/v1";
+
+/// OpenAI Chat Completions backend.
+pub struct OpenAiProvider {
+    api_key: String,
+    base_url: String,
+    client: Client,
+}
+
+impl OpenAiProvider {
+    /// New provider with the default base URL (`api.openai.com`).
+    pub fn new(api_key: impl Into<String>) -> Self {
+        Self::with_base_url(api_key, DEFAULT_BASE_URL)
+    }
+
+    /// New provider with a custom base URL. Used by the DeepSeek
+    /// provider in phase 2 (DeepSeek is OpenAI-compatible) and by
+    /// tests that point at a recorded fixture server.
+    pub fn with_base_url(api_key: impl Into<String>, base_url: impl Into<String>) -> Self {
+        Self {
+            api_key: api_key.into(),
+            base_url: base_url.into().trim_end_matches('/').to_string(),
+            client: Client::new(),
+        }
+    }
+}
+
+#[async_trait]
+impl LlmProvider for OpenAiProvider {
+    fn id(&self) -> ProviderId {
+        ProviderId::OpenAi
+    }
+
+    async fn test(&self) -> Result<()> {
+        let url = format!("{}/models", self.base_url);
+        let resp = self
+            .client
+            .get(&url)
+            .bearer_auth(&self.api_key)
+            .send()
+            .await
+            .map_err(|e| AttuneError::Llm(format!("openai /models request failed: {e}")))?;
+        let status = resp.status();
+        if !status.is_success() {
+            let body = resp.text().await.unwrap_or_default();
+            return Err(AttuneError::Llm(format!(
+                "openai /models returned HTTP {status}: {body}"
+            )));
+        }
+        Ok(())
+    }
+
+    async fn list_models(&self) -> Result<Vec<ModelInfo>> {
+        let url = format!("{}/models", self.base_url);
+        let resp = self
+            .client
+            .get(&url)
+            .bearer_auth(&self.api_key)
+            .send()
+            .await
+            .map_err(|e| AttuneError::Llm(format!("openai /models request failed: {e}")))?;
+        let status = resp.status();
+        if !status.is_success() {
+            let body = resp.text().await.unwrap_or_default();
+            return Err(AttuneError::Llm(format!(
+                "openai /models returned HTTP {status}: {body}"
+            )));
+        }
+        let parsed: ModelsResponse = resp
+            .json()
+            .await
+            .map_err(|e| AttuneError::Llm(format!("openai /models json decode failed: {e}")))?;
+
+        // Filter to the chat-capable families. The /models endpoint
+        // returns every model the org has access to, including
+        // embeddings/tts/dalle entries that the UI does not want to
+        // show in the chat-model picker.
+        let mut models: Vec<ModelInfo> = parsed
+            .data
+            .into_iter()
+            .filter(|m| is_chat_model(&m.id))
+            .map(|m| ModelInfo {
+                id: m.id.clone(),
+                display_name: m.id,
+                context_window: 0, // OpenAI does not return this; future phase fills it from a static table
+            })
+            .collect();
+
+        // Stable order so the UI dropdown does not jump around between
+        // refreshes.
+        models.sort_by(|a, b| a.id.cmp(&b.id));
+        Ok(models)
+    }
+
+    async fn chat(&self, request: ChatRequest) -> Result<ChatResponse> {
+        let body = build_chat_request_body(&request);
+        debug!(
+            model = %request.model,
+            messages = request.messages.len(),
+            "openai chat request",
+        );
+        let url = format!("{}/chat/completions", self.base_url);
+        let resp = self
+            .client
+            .post(&url)
+            .bearer_auth(&self.api_key)
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| {
+                AttuneError::Llm(format!("openai /chat/completions request failed: {e}"))
+            })?;
+        let status = resp.status();
+        if !status.is_success() {
+            let err_body = resp.text().await.unwrap_or_default();
+            return Err(AttuneError::Llm(format!(
+                "openai /chat/completions returned HTTP {status}: {err_body}"
+            )));
+        }
+        let parsed: ChatCompletionResponse = resp.json().await.map_err(|e| {
+            AttuneError::Llm(format!("openai /chat/completions json decode failed: {e}"))
+        })?;
+        let choice = parsed.choices.into_iter().next().ok_or_else(|| {
+            AttuneError::Llm("openai /chat/completions returned zero choices".to_string())
+        })?;
+        Ok(ChatResponse {
+            text: choice.message.content.unwrap_or_default(),
+            finish_reason: parse_finish_reason(choice.finish_reason.as_deref()),
+            prompt_tokens: parsed.usage.as_ref().map(|u| u.prompt_tokens),
+            completion_tokens: parsed.usage.as_ref().map(|u| u.completion_tokens),
+        })
+    }
+}
+
+fn build_chat_request_body(req: &ChatRequest) -> ChatCompletionRequestBody {
+    let mut messages: Vec<OpenAiMessage> = Vec::with_capacity(req.messages.len() + 1);
+    if !req.system_prompt.is_empty() {
+        messages.push(OpenAiMessage {
+            role: "system".to_string(),
+            content: Some(req.system_prompt.clone()),
+        });
+    }
+    for m in &req.messages {
+        messages.push(OpenAiMessage {
+            role: role_to_str(m.role).to_string(),
+            content: Some(m.content.clone()),
+        });
+    }
+    ChatCompletionRequestBody {
+        model: req.model.clone(),
+        messages,
+        temperature: req.temperature,
+        max_tokens: req.max_tokens,
+    }
+}
+
+fn role_to_str(role: ChatRole) -> &'static str {
+    match role {
+        ChatRole::System => "system",
+        ChatRole::User => "user",
+        ChatRole::Assistant => "assistant",
+    }
+}
+
+fn parse_finish_reason(s: Option<&str>) -> FinishReason {
+    match s {
+        Some("stop") => FinishReason::Stop,
+        Some("length") => FinishReason::Length,
+        Some("tool_calls") => FinishReason::ToolCall,
+        _ => FinishReason::Stop,
+    }
+}
+
+fn is_chat_model(id: &str) -> bool {
+    // Conservative allow-by-prefix list. We do NOT use a deny list
+    // because OpenAI adds new model families all the time and we
+    // want them to surface in the picker automatically.
+    const CHAT_PREFIXES: &[&str] = &["gpt-", "o1", "o3", "o4", "chatgpt-", "openai/gpt-"];
+    CHAT_PREFIXES.iter().any(|p| id.starts_with(p))
+}
+
+#[derive(Serialize)]
+struct ChatCompletionRequestBody {
+    model: String,
+    messages: Vec<OpenAiMessage>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    temperature: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    max_tokens: Option<u32>,
+}
+
+#[derive(Serialize, Deserialize)]
+struct OpenAiMessage {
+    role: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    content: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct ChatCompletionResponse {
+    choices: Vec<Choice>,
+    usage: Option<Usage>,
+}
+
+#[derive(Deserialize)]
+struct Choice {
+    message: OpenAiMessage,
+    finish_reason: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct Usage {
+    prompt_tokens: u32,
+    completion_tokens: u32,
+}
+
+#[derive(Deserialize)]
+struct ModelsResponse {
+    data: Vec<ModelEntry>,
+}
+
+#[derive(Deserialize)]
+struct ModelEntry {
+    id: String,
+}
+
+// Compile-time sanity: the cross-provider ChatMessage and the openai
+// wire type stay shaped the way we expect. If either changes shape
+// without the other being updated, the From impl will fail to compile.
+impl From<&ChatMessage> for OpenAiMessage {
+    fn from(m: &ChatMessage) -> Self {
+        OpenAiMessage {
+            role: role_to_str(m.role).to_string(),
+            content: Some(m.content.clone()),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::llm::types::{ChatMessage, ChatRequest, ChatRole};
+
+    #[test]
+    fn build_request_body_prepends_system_prompt() {
+        let req = ChatRequest {
+            model: "gpt-5".to_string(),
+            system_prompt: "you are a test".to_string(),
+            messages: vec![ChatMessage {
+                role: ChatRole::User,
+                content: "hi".to_string(),
+            }],
+            temperature: Some(0.2),
+            max_tokens: Some(64),
+        };
+        let body = build_chat_request_body(&req);
+        assert_eq!(body.model, "gpt-5");
+        assert_eq!(body.messages.len(), 2);
+        assert_eq!(body.messages[0].role, "system");
+        assert_eq!(body.messages[0].content.as_deref(), Some("you are a test"));
+        assert_eq!(body.messages[1].role, "user");
+        assert_eq!(body.messages[1].content.as_deref(), Some("hi"));
+        assert_eq!(body.temperature, Some(0.2));
+        assert_eq!(body.max_tokens, Some(64));
+    }
+
+    #[test]
+    fn build_request_body_skips_empty_system_prompt() {
+        let req = ChatRequest {
+            model: "gpt-5".to_string(),
+            system_prompt: "".to_string(),
+            messages: vec![ChatMessage {
+                role: ChatRole::User,
+                content: "hi".to_string(),
+            }],
+            temperature: None,
+            max_tokens: None,
+        };
+        let body = build_chat_request_body(&req);
+        assert_eq!(body.messages.len(), 1);
+        assert_eq!(body.messages[0].role, "user");
+    }
+
+    #[test]
+    fn chat_model_filter_keeps_gpt_and_o_series() {
+        assert!(is_chat_model("gpt-5"));
+        assert!(is_chat_model("gpt-4o"));
+        assert!(is_chat_model("o1-mini"));
+        assert!(is_chat_model("o3"));
+        assert!(is_chat_model("chatgpt-4o-latest"));
+    }
+
+    #[test]
+    fn chat_model_filter_drops_non_chat() {
+        assert!(!is_chat_model("text-embedding-3-large"));
+        assert!(!is_chat_model("whisper-1"));
+        assert!(!is_chat_model("dall-e-3"));
+        assert!(!is_chat_model("tts-1"));
+    }
+
+    #[test]
+    fn finish_reason_normalises_known_values() {
+        assert_eq!(parse_finish_reason(Some("stop")), FinishReason::Stop);
+        assert_eq!(parse_finish_reason(Some("length")), FinishReason::Length);
+        assert_eq!(
+            parse_finish_reason(Some("tool_calls")),
+            FinishReason::ToolCall
+        );
+        assert_eq!(parse_finish_reason(None), FinishReason::Stop);
+        assert_eq!(parse_finish_reason(Some("???")), FinishReason::Stop);
+    }
+}
