@@ -1,8 +1,9 @@
-import { KeyRound } from "lucide-react";
+import { KeyRound, Zap } from "lucide-react";
 
 import { Badge } from "@/shared/ui/badge";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
+import { Switch } from "@/shared/ui/switch";
 import { cn } from "@/shared/lib/utils";
 import type { Settings } from "@/shared/types/Settings";
 
@@ -46,6 +47,36 @@ export function SectionTranscription({ settings, onChange }: Props) {
   return (
     <div className="flex flex-col gap-7">
       <h2 className="font-serif text-2xl font-medium">Transcription</h2>
+
+      {/* Auto-transcribe toggle. When on, the recording-store fires
+          ipcTranscribe as soon as a recording stops, using whichever
+          provider is selected below. */}
+      <div className="flex items-start justify-between gap-6 rounded-lg border border-border bg-card p-4">
+        <div className="space-y-1">
+          <Label
+            htmlFor="auto-transcribe-toggle"
+            className="flex items-center gap-2 text-sm font-medium"
+          >
+            <Zap className="h-4 w-4 text-muted-foreground" />
+            Auto-transcribe after recording
+            <span className="rounded bg-muted px-1.5 py-0.5 text-2xs font-normal text-muted-foreground">
+              Recommended
+            </span>
+          </Label>
+          <p className="max-w-md text-xs text-muted-foreground">
+            Start transcribing as soon as you stop a recording, using the provider
+            selected below. Skipped silently if the OpenAI Whisper API is selected
+            without a key. Turn this off if you prefer to transcribe manually from the
+            Library.
+          </p>
+        </div>
+        <Switch
+          id="auto-transcribe-toggle"
+          checked={settings.auto_transcribe_enabled}
+          onCheckedChange={(checked) => onChange("auto_transcribe_enabled", checked)}
+          className="mt-1"
+        />
+      </div>
 
       <section className="space-y-3">
         <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
