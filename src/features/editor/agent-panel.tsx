@@ -15,12 +15,20 @@ import { Button } from "@/shared/ui/button";
 import { Markdown } from "@/shared/ui/markdown";
 import { cn } from "@/shared/lib/utils";
 import { deleteAgentRun, listAgentRuns, listAgents, runAgent } from "@/shared/lib/ipc";
+import { useJobsStore } from "@/shared/stores/jobs-store";
 import { useSettingsUiStore } from "@/shared/stores/settings-ui-store";
 import type { Agent } from "@/shared/types/Agent";
 import type { AgentRun } from "@/shared/types/AgentRun";
 
 interface Props {
   sessionDir: string;
+}
+
+/** Last path segment cross-platform — used for human-readable job labels. */
+function basename(path: string): string {
+  const trimmed = path.replace(/[\\/]+$/, "");
+  const idx = Math.max(trimmed.lastIndexOf("/"), trimmed.lastIndexOf("\\"));
+  return idx === -1 ? trimmed : trimmed.slice(idx + 1);
 }
 
 /**
@@ -97,6 +105,18 @@ export const AgentPanel = React.forwardRef<AgentPanelHandle, Props>(function Age
         next.delete(agent.id);
         return next;
       });
+      const jobId = `agent:${agent.id}:${sessionDir}`;
+      // Push into the cross-cutting jobs store so the user can see
+      // the agent run in the top JobStrip even if they navigate away
+      // from this recording while it runs.
+      useJobsStore.getState().push({
+        id: jobId,
+        kind: "agent",
+        label: `${agent.name}`,
+        detail: basename(sessionDir),
+        sessionDir,
+        recordingLabel: basename(sessionDir),
+      });
       try {
         const run = await runAgent(sessionDir, agent.id);
         setRuns((prev) => ({ ...prev, [agent.id]: run }));
@@ -110,6 +130,7 @@ export const AgentPanel = React.forwardRef<AgentPanelHandle, Props>(function Age
           next.delete(agent.id);
           return next;
         });
+        useJobsStore.getState().pop(jobId);
       }
     },
     [sessionDir]

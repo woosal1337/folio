@@ -1,11 +1,12 @@
 import * as React from "react";
-import { CheckCircle2, KeyRound, Loader2, Sparkles, XCircle } from "lucide-react";
+import { CheckCircle2, KeyRound, Loader2, Sparkles, XCircle, Zap } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
+import { Switch } from "@/shared/ui/switch";
 import { cn } from "@/shared/lib/utils";
 import {
   deleteProviderKey,
@@ -15,6 +16,12 @@ import {
 } from "@/shared/lib/ipc";
 import type { ProviderId } from "@/shared/types/ProviderId";
 import type { ProviderStatus } from "@/shared/types/ProviderStatus";
+import type { Settings } from "@/shared/types/Settings";
+
+interface SectionAiProps {
+  settings: Settings;
+  onChange: <K extends keyof Settings>(key: K, value: Settings[K]) => void;
+}
 
 type ProviderRowState = {
   pendingKey: string;
@@ -41,7 +48,7 @@ const INITIAL_ROW_STATE: ProviderRowState = {
  * The vault plan is at:
  *   ~/Documents/GitHub/obsidian.md/projects/attune/plan/ai-chat-multi-provider.md
  */
-export function SectionAi() {
+export function SectionAi({ settings, onChange }: SectionAiProps) {
   const [providers, setProviders] = React.useState<ProviderStatus[] | null>(null);
   const [rows, setRows] = React.useState<Record<string, ProviderRowState>>({});
 
@@ -129,6 +136,35 @@ export function SectionAi() {
           Used to summarise meetings, extract tasks, and chat with transcripts.
         </p>
       </header>
+
+      {/* Auto-summarize toggle. Reads from + writes to Settings; the
+          recording-store consults this after each transcription and
+          fires the Summarize agent in the background when on. */}
+      <div className="flex items-start justify-between gap-6 rounded-lg border border-border bg-card p-4">
+        <div className="space-y-1">
+          <Label
+            htmlFor="auto-summarize-toggle"
+            className="flex items-center gap-2 text-sm font-medium"
+          >
+            <Zap className="h-4 w-4 text-muted-foreground" />
+            Auto-summarize after recording
+            <span className="rounded bg-muted px-1.5 py-0.5 text-2xs font-normal text-muted-foreground">
+              Recommended
+            </span>
+          </Label>
+          <p className="max-w-md text-xs text-muted-foreground">
+            When a recording finishes transcribing, run the Summarize agent
+            automatically. The summary appears on the recording&apos;s page and in the
+            AI tab the next time you open them. Skipped if no AI key is set.
+          </p>
+        </div>
+        <Switch
+          id="auto-summarize-toggle"
+          checked={settings.auto_summarize_enabled}
+          onCheckedChange={(checked) => onChange("auto_summarize_enabled", checked)}
+          className="mt-1"
+        />
+      </div>
 
       {providers === null ? (
         <p className="text-sm text-muted-foreground">Loading providers…</p>

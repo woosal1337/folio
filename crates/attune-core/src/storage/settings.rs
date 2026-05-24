@@ -44,6 +44,13 @@ pub struct Settings {
     /// VPIO init failure. Ignored on non-macOS targets.
     #[serde(default = "default_voice_processing_enabled")]
     pub voice_processing_enabled: bool,
+    /// When true and an AI provider key is configured, the app
+    /// automatically runs the `summarize` agent immediately after a
+    /// transcription completes. Lets the user stop a meeting and walk
+    /// away knowing the summary will be on the recording's page when
+    /// they come back. Falls back to a no-op when no AI key is set.
+    #[serde(default = "default_auto_summarize_enabled")]
+    pub auto_summarize_enabled: bool,
 }
 
 fn default_theme() -> String {
@@ -59,6 +66,9 @@ fn default_local_whisper_model() -> String {
     "large-v3".into()
 }
 fn default_voice_processing_enabled() -> bool {
+    true
+}
+fn default_auto_summarize_enabled() -> bool {
     true
 }
 
@@ -79,6 +89,7 @@ impl Default for Settings {
             dictionary_terms: Vec::new(),
             local_whisper_model: default_local_whisper_model(),
             voice_processing_enabled: default_voice_processing_enabled(),
+            auto_summarize_enabled: default_auto_summarize_enabled(),
         }
     }
 }

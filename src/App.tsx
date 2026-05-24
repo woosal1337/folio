@@ -4,6 +4,7 @@ import { Toaster } from "sonner";
 
 import { Sidebar } from "@/chrome/sidebar";
 import { DragStrip } from "@/chrome/drag-strip";
+import { JobStrip } from "@/chrome/job-strip";
 import Record from "@/features/recording/route";
 import Library from "@/features/library/route";
 import Editor from "@/features/editor/route";
@@ -45,6 +46,10 @@ export default function App() {
               data-tauri-drag-region AND an explicit startDragging() handler
               so it works on every Tauri/macOS combination. */}
           <DragStrip />
+          {/* In-flight job pills (transcriptions, agent runs, model
+              downloads). Renders nothing when no jobs are active so the
+              chrome stays out of the way during idle. */}
+          <JobStrip />
           <div className="flex flex-1 overflow-hidden">
             <Sidebar onOpenSettings={() => openSettings()} />
             <main className="flex-1 overflow-y-auto">
