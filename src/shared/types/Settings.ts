@@ -3,12 +3,12 @@
 /**
  * Persisted user settings.
  */
-export type Settings = { mic_device: string | null, system_audio_enabled: boolean, output_dir: string, notes_dir: string, tasks_path: string, transcripts_dir: string, theme: string, transcriber: string, openai_api_key: string, transcription_language: string, dictionary_terms: Array<string>, 
+export type Settings = { mic_device: string | null, system_audio_enabled: boolean, output_dir: string, notes_dir: string, tasks_path: string, transcripts_dir: string, theme: string, transcriber: string, openai_api_key: string, transcription_language: string, dictionary_terms: Array<string>,
 /**
  * Identifier of the local Whisper model the user has chosen (e.g.
  * "large-v3", "small"). Used only when `transcriber == "local_whisper"`.
  */
-local_whisper_model: string, 
+local_whisper_model: string,
 /**
  * macOS only. When true, mic capture goes through Apple's Voice
  * Processing IO AudioUnit (AEC + noise suppression + AGC) so the
@@ -16,4 +16,12 @@ local_whisper_model: string,
  * wearing headphones. Falls back to the plain cpal path on
  * VPIO init failure. Ignored on non-macOS targets.
  */
-voice_processing_enabled: boolean, };
+voice_processing_enabled: boolean,
+/**
+ * When true and an AI provider key is configured, the app
+ * automatically runs the `summarize` agent immediately after a
+ * transcription completes. Lets the user stop a meeting and walk
+ * away knowing the summary will be on the recording's page when
+ * they come back. Falls back to a no-op when no AI key is set.
+ */
+auto_summarize_enabled: boolean, };

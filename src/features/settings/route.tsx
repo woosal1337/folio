@@ -168,7 +168,7 @@ export function SettingsModal({ open, onOpenChange }: Props) {
               ) : section === "transcription" ? (
                 <SectionTranscription settings={settings} onChange={update} />
               ) : section === "ai" ? (
-                <SectionAi />
+                <SectionAi settings={settings} onChange={update} />
               ) : section === "storage" ? (
                 <SectionStorage settings={settings} />
               ) : (

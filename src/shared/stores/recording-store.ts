@@ -14,10 +14,12 @@ import { create } from "zustand";
 
 import {
   recordingStatus as fetchStatus,
+  runAgent as ipcRunAgent,
   startRecording as ipcStart,
   stopRecording as ipcStop,
   transcribeRecording as ipcTranscribe,
 } from "@/shared/lib/ipc";
+import { useJobsStore } from "@/shared/stores/jobs-store";
 import { useSettingsStore } from "@/shared/stores/settings-store";
 
 interface RecordingState {
@@ -102,13 +104,57 @@ export const useRecording = create<RecordingState>((set, get) => {
     return `${m}:${sec.toString().padStart(2, "0")}`;
   };
 
+  // Try to auto-run the Summarize agent after a transcription completes.
+  // Silently no-ops when auto-summarize is off or no OpenAI key is set —
+  // we don't want to nag the user with toast errors for opt-out behaviour.
+  // Pushes its own pill into the jobs store so the user sees what's
+  // running.
+  const maybeAutoSummarize = async (sessionDir: string) => {
+    const settings = useSettingsStore.getState().settings;
+    if (!settings) return;
+    if (!settings.auto_summarize_enabled) return;
+    if (!settings.openai_api_key || settings.openai_api_key.trim().length === 0) {
+      // No AI key configured — the user can still summarize manually
+      // from the editor; the AgentPanel's hint links straight to
+      // Settings → AI for them.
+      return;
+    }
+    const jobId = `agent:summarize:${sessionDir}`;
+    useJobsStore.getState().push({
+      id: jobId,
+      kind: "agent",
+      label: `Summarizing ${basename(sessionDir)}`,
+      detail: "auto",
+      sessionDir,
+      recordingLabel: basename(sessionDir),
+    });
+    try {
+      await ipcRunAgent(sessionDir, "summarize");
+      toast.success("Summary ready", { description: basename(sessionDir) });
+    } catch (e) {
+      // Non-fatal — the manual button in the editor still works.
+      console.error("auto-summarize failed:", e);
+      toast.error("Auto-summary failed", { description: String(e) });
+    } finally {
+      useJobsStore.getState().pop(jobId);
+    }
+  };
+
   // Self-contained transcription routine so both `stop` (auto) and an
   // explicit `transcribe(...)` call route through the same lifecycle.
   const runTranscription = async (sessionDir: string) => {
+    const jobId = `transcribe:${sessionDir}`;
     set({
       transcribing: true,
       transcribingDir: sessionDir,
       transcribeError: null,
+    });
+    useJobsStore.getState().push({
+      id: jobId,
+      kind: "transcribe",
+      label: `Transcribing ${basename(sessionDir)}`,
+      sessionDir,
+      recordingLabel: basename(sessionDir),
     });
     // Inform the user the async job kicked off. Useful when they
     // navigate away from the row that shows the spinner — the toast
@@ -131,6 +177,11 @@ export const useRecording = create<RecordingState>((set, get) => {
       toast.success("Transcription complete", {
         description: `${segments} segments across ${channelCount} channel${channelCount === 1 ? "" : "s"} saved.`,
       });
+      // Chain into auto-summarize once the transcript has landed. We
+      // don't await — `runTranscription`'s caller doesn't care about
+      // the summary's outcome; the jobs strip + the editor page show
+      // the summary's progress and result.
+      void maybeAutoSummarize(sessionDir);
     } catch (e) {
       const message = String(e);
       set({
@@ -139,6 +190,8 @@ export const useRecording = create<RecordingState>((set, get) => {
         transcribeError: message,
       });
       toast.error("Transcription failed", { description: message });
+    } finally {
+      useJobsStore.getState().pop(jobId);
     }
   };
 
