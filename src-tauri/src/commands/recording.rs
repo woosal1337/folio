@@ -33,11 +33,13 @@ pub async fn start_recording(state: State<'_, AppState>) -> Result<RecordingStat
         mic_device_name: settings.mic_device.clone(),
         target_sample_rate: None,
         output_dir: settings.output_dir.clone(),
+        voice_processing_enabled: settings.voice_processing_enabled,
     };
 
     info!(
         device = ?config.mic_device_name,
         system = config.system_enabled,
+        voice_processing = config.voice_processing_enabled,
         output = %config.output_dir.display(),
         "starting capture"
     );

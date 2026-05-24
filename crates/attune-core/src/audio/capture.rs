@@ -17,9 +17,70 @@ use ts_rs::TS;
 use crate::audio::devices::default_input_sample_rate;
 use crate::audio::mic::MicCapture;
 use crate::audio::system::SystemCapture;
+#[cfg(target_os = "macos")]
+use crate::audio::voice_processing_capture::VoiceProcessingMicCapture;
 use crate::audio::wav_writer::AudioWavWriter;
 use crate::audio::{CaptureConfig, Channel};
 use crate::error::Result;
+
+/// Discriminated mic-capture handle. Either a cpal stream or a VPIO
+/// AudioUnit, both providing the same start/stop lifecycle. Held by
+/// [`CaptureSession`] so it stays alive for the recording's duration.
+enum MicHandle {
+    Cpal(MicCapture),
+    #[cfg(target_os = "macos")]
+    VoiceProcessing(VoiceProcessingMicCapture),
+}
+
+impl MicHandle {
+    fn stop(self) -> Result<()> {
+        match self {
+            MicHandle::Cpal(c) => c.stop(),
+            #[cfg(target_os = "macos")]
+            MicHandle::VoiceProcessing(v) => v.stop(),
+        }
+    }
+}
+
+impl std::fmt::Debug for MicHandle {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            MicHandle::Cpal(_) => f.write_str("cpal"),
+            #[cfg(target_os = "macos")]
+            MicHandle::VoiceProcessing(_) => f.write_str("voice-processing-io"),
+        }
+    }
+}
+
+/// Try VPIO first on macOS when the setting is on; fall back to
+/// cpal on failure (or on non-macOS, or when the setting is off).
+/// Returns `None` only when both paths fail; the caller deletes the
+/// pre-created WAV file in that case.
+fn start_mic_with_fallback(
+    config: &CaptureConfig,
+    writer: Arc<AudioWavWriter>,
+    mic_rate: u32,
+) -> Option<MicHandle> {
+    #[cfg(target_os = "macos")]
+    {
+        if config.voice_processing_enabled {
+            match VoiceProcessingMicCapture::start(writer.clone(), mic_rate) {
+                Ok(v) => return Some(MicHandle::VoiceProcessing(v)),
+                Err(e) => {
+                    warn!(error = %e, "VPIO mic capture failed; falling back to cpal");
+                }
+            }
+        }
+    }
+
+    match MicCapture::start(writer, mic_rate, config.mic_device_name.as_deref()) {
+        Ok(c) => Some(MicHandle::Cpal(c)),
+        Err(e) => {
+            warn!(error = %e, "cpal mic capture failed to start");
+            None
+        }
+    }
+}
 
 /// ScreenCaptureKit always delivers at 48 kHz on macOS. Treat this as the
 /// "native" rate for system audio when CaptureConfig.target_sample_rate is
@@ -30,7 +91,7 @@ pub struct CaptureSession {
     config: CaptureConfig,
     started_at: DateTime<Utc>,
     session_dir: PathBuf,
-    mic: Option<MicCapture>,
+    mic: Option<MicHandle>,
     system: Option<SystemCapture>,
     system_started: bool,
 }
@@ -97,13 +158,13 @@ impl CaptureSession {
             };
             let path = session_dir.join("mic.wav");
             let writer = Arc::new(AudioWavWriter::create(&path, mic_rate)?);
-            match MicCapture::start(writer.clone(), mic_rate, config.mic_device_name.as_deref()) {
-                Ok(c) => {
-                    info!(path = %path.display(), rate = mic_rate, "mic capture started");
-                    Some(c)
+            let handle = start_mic_with_fallback(&config, writer.clone(), mic_rate);
+            match handle {
+                Some(h) => {
+                    info!(path = %path.display(), rate = mic_rate, mode = ?h, "mic capture started");
+                    Some(h)
                 }
-                Err(e) => {
-                    warn!(error = %e, "mic capture failed to start");
+                None => {
                     drop(writer);
                     let _ = std::fs::remove_file(&path);
                     None
@@ -170,7 +231,7 @@ impl CaptureSession {
     /// files.
     pub fn stop(self) -> Result<CaptureArtifacts> {
         if let Some(mic) = self.mic {
-            mic.stop()?;
+            MicHandle::stop(mic)?;
         }
         if let Some(sys) = self.system {
             sys.stop()?;

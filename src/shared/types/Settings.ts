@@ -8,4 +8,12 @@ export type Settings = { mic_device: string | null, system_audio_enabled: boolea
  * Identifier of the local Whisper model the user has chosen (e.g.
  * "large-v3", "small"). Used only when `transcriber == "local_whisper"`.
  */
-local_whisper_model: string, };
+local_whisper_model: string, 
+/**
+ * macOS only. When true, mic capture goes through Apple's Voice
+ * Processing IO AudioUnit (AEC + noise suppression + AGC) so the
+ * mic stops picking up speaker bleed when the user is not
+ * wearing headphones. Falls back to the plain cpal path on
+ * VPIO init failure. Ignored on non-macOS targets.
+ */
+voice_processing_enabled: boolean, };

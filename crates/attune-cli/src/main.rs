@@ -142,6 +142,12 @@ struct RecordArgs {
     /// to write Whisper-ready files instead.
     #[arg(long)]
     sample_rate: Option<u32>,
+
+    /// macOS only. Disable Apple Voice Processing IO on the mic path
+    /// (AEC + noise suppression + AGC). Default behaviour is VPIO ON;
+    /// this flag forces the plain cpal path for A/B testing.
+    #[arg(long, default_value_t = false)]
+    no_voice_processing: bool,
 }
 
 fn main() -> Result<()> {
@@ -546,6 +552,7 @@ fn run_record(args: RecordArgs) -> Result<()> {
         mic_device_name: args.mic_device,
         target_sample_rate: args.sample_rate,
         output_dir: args.output,
+        voice_processing_enabled: !args.no_voice_processing,
     };
 
     tracing::info!(

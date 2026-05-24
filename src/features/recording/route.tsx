@@ -6,6 +6,9 @@ import { Button } from "@/shared/ui/button";
 import { Card, CardContent } from "@/shared/ui/card";
 import { RecordingRow } from "@/features/recording/recording-row";
 import { StatusPill } from "@/features/recording/status-pill";
+import { Badge } from "@/shared/ui/badge";
+import { useSettingsStore } from "@/shared/stores/settings-store";
+import { ShieldCheck } from "lucide-react";
 import { useRecording } from "@/shared/stores/recording-store";
 import { deleteRecording, listRecordings, revealInFinder } from "@/shared/lib/ipc";
 import type { RecordingSummary } from "@/shared/types/RecordingSummary";
@@ -64,7 +67,10 @@ export default function Record() {
             Capture system audio and microphone independently.
           </p>
         </div>
-        <StatusPill recording={rec.recording} label={elapsedLabel} />
+        <div className="flex flex-col items-end gap-1.5">
+          <StatusPill recording={rec.recording} label={elapsedLabel} />
+          <VoiceProcessingBadge />
+        </div>
       </header>
 
       <Card>
@@ -175,5 +181,32 @@ export default function Record() {
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * Tiny chip below the StatusPill that confirms Apple Voice Processing
+ * IO will run on the mic input for the next recording. Hidden when
+ * the user has explicitly turned it off in Settings → Audio.
+ */
+function VoiceProcessingBadge() {
+  const settings = useSettingsStore((s) => s.settings);
+  const enabled = settings?.voice_processing_enabled ?? true;
+  if (!enabled) {
+    return (
+      <Badge variant="outline" className="gap-1.5 text-2xs text-muted-foreground">
+        voice processing off
+      </Badge>
+    );
+  }
+  return (
+    <Badge
+      variant="outline"
+      className="gap-1.5 text-2xs text-muted-foreground"
+      title="Apple Voice Processing IO is active on the mic: AEC + noise suppression + AGC. Toggle in Settings → Audio."
+    >
+      <ShieldCheck className="h-3 w-3 text-emerald-500" />
+      voice processing on
+    </Badge>
   );
 }

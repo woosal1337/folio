@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Bot, Folder, Mic, Palette, Sparkles } from "lucide-react";
+import { Bot, Folder, Mic, Palette, Sparkles, Waves } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -20,11 +20,12 @@ import type { Theme } from "@/shared/hooks/use-theme";
 
 import { SectionAi } from "./section-ai";
 import { SectionAppearance } from "./section-appearance";
+import { SectionAudio } from "./section-audio";
 import { SectionGeneral } from "./section-general";
 import { SectionStorage } from "./section-storage";
 import { SectionTranscription } from "./section-transcription";
 
-type Section = "general" | "transcription" | "ai" | "storage" | "appearance";
+type Section = "general" | "audio" | "transcription" | "ai" | "storage" | "appearance";
 
 interface Props {
   open: boolean;
@@ -33,6 +34,7 @@ interface Props {
 
 const NAV: { id: Section; label: string; icon: typeof Mic }[] = [
   { id: "general", label: "General", icon: Mic },
+  { id: "audio", label: "Audio", icon: Waves },
   { id: "transcription", label: "Transcription", icon: Sparkles },
   { id: "ai", label: "AI", icon: Bot },
   { id: "storage", label: "Storage", icon: Folder },
@@ -153,6 +155,8 @@ export function SettingsModal({ open, onOpenChange }: Props) {
                   devices={devices}
                   onChange={update}
                 />
+              ) : section === "audio" ? (
+                <SectionAudio settings={settings} onChange={update} />
               ) : section === "transcription" ? (
                 <SectionTranscription settings={settings} onChange={update} />
               ) : section === "ai" ? (
