@@ -10,11 +10,13 @@ import { Badge } from "@/shared/ui/badge";
 import { useSettingsStore } from "@/shared/stores/settings-store";
 import { ShieldCheck } from "lucide-react";
 import { useRecording } from "@/shared/stores/recording-store";
+import { useTranscriberCopy } from "@/shared/hooks/use-transcriber-copy";
 import { deleteRecording, listRecordings, revealInFinder } from "@/shared/lib/ipc";
 import type { RecordingSummary } from "@/shared/types/RecordingSummary";
 
 export default function Record() {
   const rec = useRecording();
+  const transcriber = useTranscriberCopy();
   const syncFromBackend = useRecording((s) => s.syncFromBackend);
   const [history, setHistory] = React.useState<RecordingSummary[]>([]);
   const [expanded, setExpanded] = React.useState<string | null>(null);
@@ -111,7 +113,7 @@ export default function Record() {
               aria-live="polite"
             >
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              <span>Sending audio to OpenAI Whisper…</span>
+              <span>{transcriber.progressLabel}</span>
             </div>
           )}
           {rec.error && <p className="text-xs text-destructive">{rec.error}</p>}
