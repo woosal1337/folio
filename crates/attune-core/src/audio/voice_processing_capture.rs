@@ -47,6 +47,63 @@ use crate::error::{AttuneError, Result};
 /// content above the voice band that Whisper would drop anyway.
 pub const VPIO_SAMPLE_RATE_HZ: f64 = 16_000.0;
 
+/// `kAUVoiceIOProperty_OtherAudioDuckingConfiguration` — added in
+/// macOS 14 (Sonoma). Lets us configure how aggressively VPIO ducks
+/// "other" audio (Music, Safari, ScreenCaptureKit-rendered meeting
+/// audio, etc.) while voice input is active. Without setting this,
+/// the OS slams everything to ~5% volume by default — same reason
+/// your Mac volume crashes during a Zoom call. coreaudio-sys
+/// doesn't expose this constant yet, so we hard-code the value
+/// from `<AudioToolbox/AUComponent.h>`.
+const K_AU_VOICE_IO_PROPERTY_OTHER_AUDIO_DUCKING_CONFIGURATION: u32 = 2105;
+
+/// Mirror of Apple's `AUVoiceIOOtherAudioDuckingLevel` enum.
+/// Min keeps "other audio" near its original level while still
+/// letting VPIO do its echo cancellation on the mic side.
+#[allow(dead_code)]
+#[repr(u32)]
+enum DuckingLevel {
+    Default = 0,
+    Min = 10,
+    Mid = 20,
+    Max = 30,
+}
+
+/// Mirror of Apple's
+/// `AUVoiceIOOtherAudioDuckingConfiguration` struct, in C layout.
+/// `Boolean` on Apple platforms is a 1-byte type; `#[repr(C)]`
+/// inserts the 3 bytes of padding before the u32 automatically so
+/// the total size matches the 8-byte C struct CoreAudio expects.
+#[repr(C)]
+struct OtherAudioDuckingConfiguration {
+    enable_advanced_ducking: u8,
+    ducking_level: u32,
+}
+
+/// Apply the minimum-ducking configuration to a VPIO unit. Called
+/// after `initialize()` but before `start()`. Logs and swallows
+/// errors: an older macOS (< 14) will reject the property, which
+/// just means the system falls back to its default aggressive
+/// ducking — annoying but not fatal to recording.
+fn apply_minimum_ducking(audio_unit: &mut AudioUnit) {
+    let cfg = OtherAudioDuckingConfiguration {
+        enable_advanced_ducking: 0, // disable the "smart" variant
+        ducking_level: DuckingLevel::Min as u32,
+    };
+    match audio_unit.set_property(
+        K_AU_VOICE_IO_PROPERTY_OTHER_AUDIO_DUCKING_CONFIGURATION,
+        Scope::Global,
+        Element::Output,
+        Some(&cfg),
+    ) {
+        Ok(()) => debug!("VPIO other-audio ducking set to Min"),
+        Err(e) => debug!(
+            error = %e,
+            "VPIO ducking config rejected (macOS < 14?) — system default ducking will apply",
+        ),
+    }
+}
+
 /// One running VPIO capture session.
 ///
 /// Owns the AudioUnit and the shared buffer the render callback
@@ -100,6 +157,8 @@ impl VoiceProcessingCapture {
         audio_unit
             .initialize()
             .map_err(|e| AttuneError::AudioDevice(format!("VPIO initialize: {e}")))?;
+
+        apply_minimum_ducking(&mut audio_unit);
 
         // Read back the negotiated format so we know what the
         // callback will receive.
@@ -279,6 +338,8 @@ impl VoiceProcessingMicCapture {
         audio_unit
             .initialize()
             .map_err(|e| AttuneError::AudioDevice(format!("VPIO initialize: {e}")))?;
+
+        apply_minimum_ducking(&mut audio_unit);
 
         let negotiated: AudioStreamBasicDescription = audio_unit
             .get_property(
