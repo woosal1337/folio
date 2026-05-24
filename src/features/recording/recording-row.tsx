@@ -16,6 +16,7 @@ import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent } from "@/shared/ui/card";
 import { Separator } from "@/shared/ui/separator";
+import { useTranscriberCopy } from "@/shared/hooks/use-transcriber-copy";
 import { formatBytes, formatDuration } from "@/shared/lib/utils";
 import type { RecordingSummary } from "@/shared/types/RecordingSummary";
 
@@ -68,6 +69,7 @@ export function RecordingRow({
 }: Props) {
   const canTranscribe = !transcribing && !item.has_transcript && Boolean(onTranscribe);
   const canSummarize = !transcribing && item.has_transcript && Boolean(onSummarize);
+  const transcriber = useTranscriberCopy();
   // ts-rs maps Rust's i64 / u64 to TypeScript `bigint`. At JSON-parse time
   // these arrive as plain numbers, but the type system insists. Cast back
   // to number here — recording files are well under 2^53 bytes.
@@ -131,7 +133,7 @@ export function RecordingRow({
               className="gap-2 text-foreground"
               onClick={onTranscribe}
               aria-label="Transcribe recording"
-              title="Send to OpenAI Whisper to generate a transcript."
+              title={transcriber.triggerTooltip}
             >
               <Sparkles className="h-3.5 w-3.5" />
               Transcribe

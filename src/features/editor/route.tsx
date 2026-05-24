@@ -16,6 +16,7 @@ import {
   transcribeRecording,
 } from "@/shared/lib/ipc";
 import { useRecording } from "@/shared/stores/recording-store";
+import { useTranscriberCopy } from "@/shared/hooks/use-transcriber-copy";
 import type { RecordingSummary } from "@/shared/types/RecordingSummary";
 import type { SessionTranscript } from "@/shared/types/SessionTranscript";
 
@@ -40,6 +41,7 @@ export default function Editor() {
   const agentPanelRef = React.useRef<AgentPanelHandle>(null);
   const autoRunFiredRef = React.useRef(false);
   const [reTranscribing, setReTranscribing] = React.useState(false);
+  const transcriber = useTranscriberCopy();
 
   const [recording, setRecording] = React.useState<RecordingSummary | null>(
     stateFromNav ?? null
@@ -302,7 +304,7 @@ export default function Editor() {
               aria-live="polite"
             >
               <Loader2 className="h-4 w-4 animate-spin" />
-              <span>Sending audio to OpenAI Whisper…</span>
+              <span>{transcriber.progressLabel}</span>
             </div>
           ) : !recording.has_transcript ? (
             <div className="flex flex-col items-start gap-3">
@@ -315,8 +317,7 @@ export default function Editor() {
                 Transcribe now
               </Button>
               <p className="text-xs text-muted-foreground">
-                Uses the OpenAI Whisper API. Configure your key in Settings →
-                Transcription.
+                {transcriber.emptyStateHint}
               </p>
             </div>
           ) : transcriptLoading ? (
