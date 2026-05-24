@@ -2,6 +2,7 @@ import * as React from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
   AudioLines,
+  Bot,
   KanbanSquare,
   Library,
   Moon,
@@ -30,6 +31,7 @@ interface NavItem {
 const items: NavItem[] = [
   { to: "/record", label: "Record", icon: AudioLines },
   { to: "/library", label: "Library", icon: Library, alsoActiveOn: ["/editor"] },
+  { to: "/ai", label: "AI", icon: Bot },
   { to: "/tasks", label: "Tasks", icon: KanbanSquare },
 ];
 
