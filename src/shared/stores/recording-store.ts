@@ -292,10 +292,17 @@ export const useRecording = create<RecordingState>((set, get) => {
 
       // Decide whether to auto-transcribe. We read settings from the
       // settings store rather than re-fetching them on every stop —
-      // the store is loaded once on app startup.
+      // the store is loaded once on app startup. Honours the
+      // `auto_transcribe_enabled` toggle and falls back to manual
+      // transcription when the selected provider isn't usable
+      // (OpenAI without a key, anything else just runs).
       const settings = useSettingsStore.getState().settings;
+      const providerUsable =
+        settings?.transcriber === "local_whisper" ||
+        (settings?.transcriber === "openai" &&
+          settings.openai_api_key.trim().length > 0);
       const shouldTranscribe =
-        settings?.transcriber === "openai" && settings.openai_api_key.trim().length > 0;
+        (settings?.auto_transcribe_enabled ?? true) && providerUsable;
       if (shouldTranscribe) {
         // Fire-and-forget. `runTranscription` flips `transcribing` so
         // the UI shows a spinner on the row; we deliberately do not

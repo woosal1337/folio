@@ -44,6 +44,13 @@ pub struct Settings {
     /// VPIO init failure. Ignored on non-macOS targets.
     #[serde(default = "default_voice_processing_enabled")]
     pub voice_processing_enabled: bool,
+    /// When true, the app starts transcribing automatically as soon as
+    /// a recording is stopped. Honours the currently-selected
+    /// `transcriber` provider (OpenAI Whisper API requires
+    /// `openai_api_key`; Local Whisper needs no key). When false the
+    /// user transcribes manually from the Library row.
+    #[serde(default = "default_auto_transcribe_enabled")]
+    pub auto_transcribe_enabled: bool,
     /// When true and an AI provider key is configured, the app
     /// automatically runs the `summarize` agent immediately after a
     /// transcription completes. Lets the user stop a meeting and walk
@@ -68,6 +75,9 @@ fn default_local_whisper_model() -> String {
 fn default_voice_processing_enabled() -> bool {
     true
 }
+fn default_auto_transcribe_enabled() -> bool {
+    true
+}
 fn default_auto_summarize_enabled() -> bool {
     true
 }
@@ -89,6 +99,7 @@ impl Default for Settings {
             dictionary_terms: Vec::new(),
             local_whisper_model: default_local_whisper_model(),
             voice_processing_enabled: default_voice_processing_enabled(),
+            auto_transcribe_enabled: default_auto_transcribe_enabled(),
             auto_summarize_enabled: default_auto_summarize_enabled(),
         }
     }
