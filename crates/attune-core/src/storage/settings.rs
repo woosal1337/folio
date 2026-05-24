@@ -37,6 +37,13 @@ pub struct Settings {
     /// "large-v3", "small"). Used only when `transcriber == "local_whisper"`.
     #[serde(default = "default_local_whisper_model")]
     pub local_whisper_model: String,
+    /// macOS only. When true, mic capture goes through Apple's Voice
+    /// Processing IO AudioUnit (AEC + noise suppression + AGC) so the
+    /// mic stops picking up speaker bleed when the user is not
+    /// wearing headphones. Falls back to the plain cpal path on
+    /// VPIO init failure. Ignored on non-macOS targets.
+    #[serde(default = "default_voice_processing_enabled")]
+    pub voice_processing_enabled: bool,
 }
 
 fn default_theme() -> String {
@@ -50,6 +57,9 @@ fn default_language() -> String {
 }
 fn default_local_whisper_model() -> String {
     "large-v3".into()
+}
+fn default_voice_processing_enabled() -> bool {
+    true
 }
 
 impl Default for Settings {
@@ -68,6 +78,7 @@ impl Default for Settings {
             transcription_language: default_language(),
             dictionary_terms: Vec::new(),
             local_whisper_model: default_local_whisper_model(),
+            voice_processing_enabled: default_voice_processing_enabled(),
         }
     }
 }

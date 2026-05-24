@@ -50,6 +50,14 @@ pub struct CaptureConfig {
     /// Output directory for WAV files. A timestamped subdirectory is created
     /// per session.
     pub output_dir: std::path::PathBuf,
+    /// macOS only. When true, mic capture goes through Apple's
+    /// Voice Processing IO AudioUnit (AEC + noise suppression + AGC)
+    /// instead of the plain cpal path. Stops the mic from picking up
+    /// system audio when the user is not wearing headphones. The
+    /// session falls back to the cpal path automatically if VPIO
+    /// fails to initialise on the bound device (aggregate devices,
+    /// certain USB interfaces, etc.). No-op on non-macOS targets.
+    pub voice_processing_enabled: bool,
 }
 
 impl Default for CaptureConfig {
@@ -60,6 +68,7 @@ impl Default for CaptureConfig {
             mic_device_name: None,
             target_sample_rate: None,
             output_dir: std::path::PathBuf::from("./recordings"),
+            voice_processing_enabled: true,
         }
     }
 }
