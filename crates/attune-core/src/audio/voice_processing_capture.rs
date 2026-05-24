@@ -30,10 +30,12 @@ use std::sync::{Arc, Mutex};
 use coreaudio::audio_unit::render_callback::{self, data};
 use coreaudio::audio_unit::{AudioUnit, Element, IOType, Scope};
 use coreaudio_sys::{
-    kAudioOutputUnitProperty_EnableIO, kAudioUnitProperty_StreamFormat, AudioStreamBasicDescription,
+    kAUVoiceIOOtherAudioDuckingLevelMin, kAUVoiceIOProperty_OtherAudioDuckingConfiguration,
+    kAudioOutputUnitProperty_EnableIO, kAudioUnitProperty_StreamFormat,
+    AudioStreamBasicDescription,
 };
 use parking_lot::Mutex as PlMutex;
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 
 use crate::audio::resampler::StreamingResampler;
 use crate::audio::wav_writer::AudioWavWriter;
@@ -47,33 +49,16 @@ use crate::error::{AttuneError, Result};
 /// content above the voice band that Whisper would drop anyway.
 pub const VPIO_SAMPLE_RATE_HZ: f64 = 16_000.0;
 
-/// `kAUVoiceIOProperty_OtherAudioDuckingConfiguration` — added in
-/// macOS 14 (Sonoma). Lets us configure how aggressively VPIO ducks
-/// "other" audio (Music, Safari, ScreenCaptureKit-rendered meeting
-/// audio, etc.) while voice input is active. Without setting this,
-/// the OS slams everything to ~5% volume by default — same reason
-/// your Mac volume crashes during a Zoom call. coreaudio-sys
-/// doesn't expose this constant yet, so we hard-code the value
-/// from `<AudioToolbox/AUComponent.h>`.
-const K_AU_VOICE_IO_PROPERTY_OTHER_AUDIO_DUCKING_CONFIGURATION: u32 = 2105;
-
-/// Mirror of Apple's `AUVoiceIOOtherAudioDuckingLevel` enum.
-/// Min keeps "other audio" near its original level while still
-/// letting VPIO do its echo cancellation on the mic side.
-#[allow(dead_code)]
-#[repr(u32)]
-enum DuckingLevel {
-    Default = 0,
-    Min = 10,
-    Mid = 20,
-    Max = 30,
-}
-
-/// Mirror of Apple's
-/// `AUVoiceIOOtherAudioDuckingConfiguration` struct, in C layout.
+/// Mirror of Apple's `AUVoiceIOOtherAudioDuckingConfiguration`
+/// struct from `<AudioToolbox/AUComponent.h>`, in C layout.
 /// `Boolean` on Apple platforms is a 1-byte type; `#[repr(C)]`
 /// inserts the 3 bytes of padding before the u32 automatically so
 /// the total size matches the 8-byte C struct CoreAudio expects.
+///
+/// We declare the struct ourselves (not from coreaudio_sys) so the
+/// layout is self-evident at the call site; the constants for the
+/// property ID and ducking level come from coreaudio_sys to stay in
+/// sync with whatever the bound macOS SDK headers say.
 #[repr(C)]
 struct OtherAudioDuckingConfiguration {
     enable_advanced_ducking: u8,
@@ -81,25 +66,33 @@ struct OtherAudioDuckingConfiguration {
 }
 
 /// Apply the minimum-ducking configuration to a VPIO unit. Called
-/// after `initialize()` but before `start()`. Logs and swallows
-/// errors: an older macOS (< 14) will reject the property, which
-/// just means the system falls back to its default aggressive
-/// ducking — annoying but not fatal to recording.
+/// after `initialize()` but before `start()`.
+///
+/// Without this property set, macOS aggressively ducks every other
+/// audio stream (Music, Safari, ScreenCaptureKit-rendered meeting
+/// audio, etc.) down to ~5% volume the moment VPIO goes live —
+/// same hard-coded behaviour that drops your system volume during
+/// a Zoom call. Property added in macOS 14 (Sonoma); rejection on
+/// older versions is logged at warn level but does not fail the
+/// recording (the user just gets the default ducking behaviour).
 fn apply_minimum_ducking(audio_unit: &mut AudioUnit) {
     let cfg = OtherAudioDuckingConfiguration {
-        enable_advanced_ducking: 0, // disable the "smart" variant
-        ducking_level: DuckingLevel::Min as u32,
+        enable_advanced_ducking: 0,
+        ducking_level: kAUVoiceIOOtherAudioDuckingLevelMin,
     };
     match audio_unit.set_property(
-        K_AU_VOICE_IO_PROPERTY_OTHER_AUDIO_DUCKING_CONFIGURATION,
+        kAUVoiceIOProperty_OtherAudioDuckingConfiguration,
         Scope::Global,
         Element::Output,
         Some(&cfg),
     ) {
-        Ok(()) => debug!("VPIO other-audio ducking set to Min"),
-        Err(e) => debug!(
+        Ok(()) => info!(
+            level = kAUVoiceIOOtherAudioDuckingLevelMin,
+            "VPIO other-audio ducking set to Min",
+        ),
+        Err(e) => warn!(
             error = %e,
-            "VPIO ducking config rejected (macOS < 14?) — system default ducking will apply",
+            "VPIO ducking config rejected — system default ducking will apply",
         ),
     }
 }
