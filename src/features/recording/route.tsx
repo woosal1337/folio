@@ -99,13 +99,13 @@ export default function Record() {
               {rec.busy ? "Starting…" : "Start recording"}
             </Button>
           )}
-          <p className="text-xs text-muted-foreground">
-            {rec.recording
-              ? `Capturing ${rec.channels.length > 0 ? rec.channels.join(" + ") : "audio"} · transcribes automatically when you stop`
-              : rec.transcribing
-                ? "Transcribing the last recording…"
+          {!rec.transcribing && (
+            <p className="text-xs text-muted-foreground">
+              {rec.recording
+                ? `Capturing ${rec.channels.length > 0 ? rec.channels.join(" + ") : "audio"} · transcribes automatically when you stop`
                 : "Mic + system audio in parallel · transcribes automatically when you stop"}
-          </p>
+            </p>
+          )}
           {rec.transcribing && (
             <div
               className="flex items-center gap-2 text-xs text-muted-foreground"
