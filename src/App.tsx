@@ -12,9 +12,15 @@ import { SettingsModal } from "@/features/settings/route";
 import { ErrorBoundary } from "@/error-boundary";
 import { useWindowDoubleClick, useWindowDrag } from "@/shared/hooks/use-window-drag";
 import { useSettingsStore } from "@/shared/stores/settings-store";
+import { useSettingsUiStore } from "@/shared/stores/settings-ui-store";
 
 export default function App() {
-  const [settingsOpen, setSettingsOpen] = React.useState(false);
+  // Settings modal open/section lives in a global store so any component
+  // (sidebar button, agent-panel hints, future deep-links) can open it
+  // at a specific section without prop-drilling.
+  const settingsOpen = useSettingsUiStore((s) => s.open);
+  const setSettingsOpen = useSettingsUiStore((s) => s.setOpen);
+  const openSettings = useSettingsUiStore((s) => s.openAt);
   const onMouseDown = useWindowDrag();
   const onDoubleClick = useWindowDoubleClick();
   const loadSettings = useSettingsStore((s) => s.load);
@@ -39,7 +45,7 @@ export default function App() {
               so it works on every Tauri/macOS combination. */}
           <DragStrip />
           <div className="flex flex-1 overflow-hidden">
-            <Sidebar onOpenSettings={() => setSettingsOpen(true)} />
+            <Sidebar onOpenSettings={() => openSettings()} />
             <main className="flex-1 overflow-y-auto">
               <Routes>
                 <Route path="/" element={<Navigate to="/record" replace />} />

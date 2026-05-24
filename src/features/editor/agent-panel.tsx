@@ -15,6 +15,7 @@ import { Button } from "@/shared/ui/button";
 import { Markdown } from "@/shared/ui/markdown";
 import { cn } from "@/shared/lib/utils";
 import { deleteAgentRun, listAgentRuns, listAgents, runAgent } from "@/shared/lib/ipc";
+import { useSettingsUiStore } from "@/shared/stores/settings-ui-store";
 import type { Agent } from "@/shared/types/Agent";
 import type { AgentRun } from "@/shared/types/AgentRun";
 
@@ -190,7 +191,14 @@ export const AgentPanel = React.forwardRef<AgentPanelHandle, Props>(function Age
           <h2 className="text-sm font-semibold">AI agents</h2>
         </div>
         <p className="text-2xs text-muted-foreground">
-          Uses your OpenAI key · configure in Settings → AI
+          Uses your OpenAI key ·{" "}
+          <button
+            type="button"
+            onClick={() => useSettingsUiStore.getState().openAt("ai")}
+            className="rounded-sm font-medium text-foreground underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          >
+            configure in Settings → AI
+          </button>
         </p>
       </header>
 

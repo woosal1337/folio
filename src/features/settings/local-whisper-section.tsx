@@ -147,10 +147,11 @@ export function LocalWhisperSection({ settings, onChange }: Props) {
         })}
       </div>
 
-      <div className="flex flex-col gap-2 rounded-md border border-border bg-card p-3">
-        {/* Top row: status badge + actions. Buttons are shrink-0 so a
-            very long size string can't push them off the right edge. */}
-        <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-col gap-3 rounded-md border border-border bg-card p-3">
+        {/* Top row: status badge + actions. `flex-wrap` so the action
+            buttons drop below the badge on narrow modals instead of
+            forcing horizontal overflow that breaks the layout. */}
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-2">
             <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
               Status
@@ -175,16 +176,18 @@ export function LocalWhisperSection({ settings, onChange }: Props) {
                 size="sm"
                 onClick={refreshStatus}
                 aria-label="Refresh model status"
-                className="gap-2"
+                className="h-8 px-2"
                 disabled={statusLoading}
               >
                 <RefreshCw className="h-3.5 w-3.5" />
               </Button>
             )}
             <Button
+              variant="outline"
+              size="sm"
               onClick={handleDownload}
               disabled={downloading || statusLoading}
-              className="gap-2"
+              className="h-8 gap-1.5 px-3 text-xs"
             >
               {downloading ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -200,9 +203,10 @@ export function LocalWhisperSection({ settings, onChange }: Props) {
           </div>
         </div>
 
-        {/* Bottom row: details. Long paths are clipped with ellipsis
-            on the left so the filename stays visible; full path is in
-            the title attribute for hover. */}
+        {/* Bottom row: details. Path strings are full and wrap with
+            `break-all` so they stay inside the card no matter how long
+            the home directory + model filename run. No truncation,
+            so the user can read the whole path inline. */}
         <div className="min-w-0">
           {downloading && progress ? (
             <div className="flex flex-col gap-1" role="status" aria-live="polite">
@@ -220,17 +224,18 @@ export function LocalWhisperSection({ settings, onChange }: Props) {
             </div>
           ) : status?.present ? (
             <p
-              className="truncate font-mono text-2xs text-muted-foreground"
+              className="break-all font-mono text-2xs leading-relaxed text-muted-foreground"
               title={status.path}
-              dir="rtl"
             >
-              {formatBytes(Number(status.bytes_on_disk ?? 0n))} · {status.path}
+              <span className="text-muted-foreground/80">
+                {formatBytes(Number(status.bytes_on_disk ?? 0n))} ·
+              </span>{" "}
+              {status.path}
             </p>
           ) : (
             <p
-              className="truncate font-mono text-2xs text-muted-foreground"
+              className="break-all font-mono text-2xs leading-relaxed text-muted-foreground"
               title={status?.path}
-              dir="rtl"
             >
               Will download to {status?.path ?? "your application support folder"}
             </p>

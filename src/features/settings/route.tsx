@@ -14,6 +14,10 @@ import { cn } from "@/shared/lib/utils";
 import { useTheme } from "@/shared/hooks/use-theme";
 import { getSettings, listInputDevices } from "@/shared/lib/ipc";
 import { useSettingsStore } from "@/shared/stores/settings-store";
+import {
+  useSettingsUiStore,
+  type SettingsSection,
+} from "@/shared/stores/settings-ui-store";
 import type { DeviceInfo } from "@/shared/types/DeviceInfo";
 import type { Settings } from "@/shared/types/Settings";
 import type { Theme } from "@/shared/hooks/use-theme";
@@ -25,7 +29,7 @@ import { SectionGeneral } from "./section-general";
 import { SectionStorage } from "./section-storage";
 import { SectionTranscription } from "./section-transcription";
 
-type Section = "general" | "audio" | "transcription" | "ai" | "storage" | "appearance";
+type Section = SettingsSection;
 
 interface Props {
   open: boolean;
@@ -42,7 +46,11 @@ const NAV: { id: Section; label: string; icon: typeof Mic }[] = [
 ];
 
 export function SettingsModal({ open, onOpenChange }: Props) {
-  const [section, setSection] = React.useState<Section>("general");
+  // Section is owned by the global UI store so external deep-links
+  // (agent-panel "configure in Settings → AI" etc.) can jump straight
+  // to a target tab via `useSettingsUiStore.getState().openAt("ai")`.
+  const section = useSettingsUiStore((s) => s.section);
+  const setSection = useSettingsUiStore((s) => s.setSection);
   const [settings, setSettings] = React.useState<Settings | null>(null);
   const [devices, setDevices] = React.useState<DeviceInfo[]>([]);
   const [saving, setSaving] = React.useState(false);
