@@ -8,6 +8,7 @@ pub mod adaptive;
 pub mod hallucination_filter;
 pub mod local;
 pub mod models;
+pub mod model_lru;
 pub mod openai;
 pub mod stub;
 pub mod vad;
