@@ -14,6 +14,7 @@ pub mod retention;
 pub mod session;
 pub mod settings;
 pub mod share_bundle;
+pub mod showcase;
 pub mod snapshot;
 pub mod tasks;
 
