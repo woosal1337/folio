@@ -105,4 +105,12 @@ share_aggregate_stats: boolean,
  * of the key is a follow-up; for now the presence of a
  * non-empty value flips the tier.
  */
-pro_license_key: string, };
+pro_license_key: string,
+/**
+ * RFC-3339 timestamp the user started the 14-day Pro trial.
+ * Empty string = trial never started. The UI computes
+ * remaining days client-side and locks Pro features when more
+ * than 14 days have elapsed without a license_key. v2 finding
+ * 094 / GET-109.
+ */
+pro_trial_started_at: string, };
