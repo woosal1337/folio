@@ -21,6 +21,7 @@ export type SettingsSection =
   | "webhooks"
   | "usage"
   | "privacy"
+  | "pro"
   | "appearance";
 
 interface SettingsUiState {

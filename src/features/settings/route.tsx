@@ -1,6 +1,7 @@
 import * as React from "react";
 import {
   Bot,
+  Crown,
   Folder,
   Lock,
   Mic,
@@ -37,6 +38,7 @@ import { SectionAppearance } from "./section-appearance";
 import { SectionAudio } from "./section-audio";
 import { SectionGeneral } from "./section-general";
 import { SectionPrivacy } from "./section-privacy";
+import { SectionPro } from "./section-pro";
 import { SectionStorage } from "./section-storage";
 import { SectionTranscription } from "./section-transcription";
 import { SectionUsage } from "./section-usage";
@@ -58,6 +60,7 @@ const NAV: { id: Section; label: string; icon: typeof Mic }[] = [
   { id: "webhooks", label: "Webhooks", icon: Plug },
   { id: "usage", label: "Usage", icon: Wallet },
   { id: "privacy", label: "Privacy", icon: Lock },
+  { id: "pro", label: "Pro", icon: Crown },
   { id: "appearance", label: "Appearance", icon: Palette },
 ];
 
@@ -193,6 +196,8 @@ export function SettingsModal({ open, onOpenChange }: Props) {
                 <SectionUsage />
               ) : section === "privacy" ? (
                 <SectionPrivacy settings={settings} onChange={update} />
+              ) : section === "pro" ? (
+                <SectionPro settings={settings} onChange={update} />
               ) : (
                 <SectionAppearance
                   theme={(settings.theme === "dark" ? "dark" : "light") as Theme}
