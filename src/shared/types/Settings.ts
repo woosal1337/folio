@@ -85,4 +85,15 @@ auto_name_enabled: boolean,
  * lets the user keep transcripts but drop the source audio.
  * v2 finding 063 / GET-98.
  */
-wav_retention_days: number | null, };
+wav_retention_days: number | null,
+/**
+ * Opt-in toggle for the public-aggregate stats counter. v2
+ * finding 095 / GET-110. When true, the app uploads three
+ * numbers (minutes-transcribed-locally, USD-saved-aggregate,
+ * active-install ping) to the public counter; no content, no
+ * identifiers ever cross the wire. Default OFF — the user opts
+ * in from Settings → Privacy. The upload path itself lands in
+ * the follow-up PR; this setting ships the consent surface so
+ * adding the upload later is a zero-UI change.
+ */
+share_aggregate_stats: boolean, };

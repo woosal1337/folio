@@ -105,6 +105,16 @@ pub struct Settings {
     /// v2 finding 063 / GET-98.
     #[serde(default)]
     pub wav_retention_days: Option<u32>,
+    /// Opt-in toggle for the public-aggregate stats counter. v2
+    /// finding 095 / GET-110. When true, the app uploads three
+    /// numbers (minutes-transcribed-locally, USD-saved-aggregate,
+    /// active-install ping) to the public counter; no content, no
+    /// identifiers ever cross the wire. Default OFF — the user opts
+    /// in from Settings → Privacy. The upload path itself lands in
+    /// the follow-up PR; this setting ships the consent surface so
+    /// adding the upload later is a zero-UI change.
+    #[serde(default)]
+    pub share_aggregate_stats: bool,
 }
 
 fn default_theme() -> String {
@@ -190,6 +200,7 @@ impl Default for Settings {
             auto_extract_tasks_enabled: default_auto_extract_tasks_enabled(),
             auto_name_enabled: default_auto_name_enabled(),
             wav_retention_days: None,
+            share_aggregate_stats: false,
         }
     }
 }
