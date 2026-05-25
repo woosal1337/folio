@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { save as showSaveDialog } from "@tauri-apps/plugin-dialog";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { toast } from "sonner";
 
 import { Button } from "@/shared/ui/button";
@@ -21,6 +22,7 @@ import { cn } from "@/shared/lib/utils";
 import { saveTranscript } from "@/shared/lib/ipc";
 import type { ChannelTranscript } from "@/shared/types/ChannelTranscript";
 import type { SessionTranscript } from "@/shared/types/SessionTranscript";
+import type { TranscriptSegment } from "@/shared/types/TranscriptSegment";
 
 import { SegmentRow } from "./segment-row";
 import {
@@ -35,6 +37,16 @@ interface Props {
   initial: SessionTranscript;
   onSaved: (next: SessionTranscript) => void;
 }
+
+/**
+ * Number of visible segments above which the channel switches from a
+ * flat `<ol>` to a virtualised list. v2 finding 062 / GET-97. Below
+ * the threshold the flat list keeps the simpler DOM + spell-check
+ * affordances; above, the virtualiser caps off-screen render cost so
+ * a 4-hour meeting (~5000 segments) doesn't blow the WebView memory
+ * budget.
+ */
+const VIRTUALIZATION_THRESHOLD = 200;
 
 const EXPORT_FORMATS: Array<{
   id: ExportFormat;
@@ -341,6 +353,13 @@ function ChannelEditor({ channel, query, onSegmentChange }: ChannelEditorProps) 
         </p>
       ) : visibleCount === 0 ? (
         <p className="text-2xs text-muted-foreground">No segments match.</p>
+      ) : filtered.length > VIRTUALIZATION_THRESHOLD ? (
+        <VirtualSegmentList
+          filtered={filtered}
+          channelId={channel.channel}
+          query={query}
+          onSegmentChange={onSegmentChange}
+        />
       ) : (
         <ol className="flex flex-col gap-2">
           {filtered.map(({ segment, index }) => (
@@ -398,4 +417,82 @@ function sameChannel(a: ChannelTranscript, b: ChannelTranscript): boolean {
 
 function pathLeaf(path: string): string {
   return path.split("/").filter(Boolean).pop() ?? path;
+}
+
+interface FilteredSegment {
+  segment: TranscriptSegment;
+  index: number;
+}
+
+interface VirtualSegmentListProps {
+  filtered: FilteredSegment[];
+  channelId: string;
+  query: string;
+  onSegmentChange: (segmentIndex: number, text: string) => void;
+}
+
+/**
+ * Virtualised list for very long transcripts. Uses @tanstack/react-
+ * virtual with dynamic measurement — segments auto-grow to match
+ * their textarea height, and the virtualiser observes each rendered
+ * row so the absolute positions stay accurate as the user edits. We
+ * keep an overscan of 8 rows above and below the viewport so
+ * scrolling feels instant on common gesture distances.
+ *
+ * Height is capped at 1200px (vs. the whole transcript) so the
+ * scrolling lives inside the card; the parent route's ScrollArea
+ * handles document-level navigation. v2 finding 062 / GET-97.
+ */
+function VirtualSegmentList({
+  filtered,
+  channelId,
+  query,
+  onSegmentChange,
+}: VirtualSegmentListProps) {
+  const parentRef = React.useRef<HTMLDivElement>(null);
+  const rowVirtualizer = useVirtualizer({
+    count: filtered.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 56,
+    overscan: 8,
+    measureElement:
+      typeof window !== "undefined" && "ResizeObserver" in window
+        ? (el) => el.getBoundingClientRect().height
+        : undefined,
+  });
+
+  return (
+    <div
+      ref={parentRef}
+      className="relative max-h-[1200px] overflow-y-auto rounded-md border border-border bg-card/40"
+      data-virtualized="true"
+    >
+      <ol
+        style={{ height: `${rowVirtualizer.getTotalSize()}px` }}
+        className="relative w-full"
+      >
+        {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+          const item = filtered[virtualRow.index];
+          if (!item) return null;
+          return (
+            <li
+              key={`${item.index}-${item.segment.start_seconds}`}
+              data-index={virtualRow.index}
+              ref={rowVirtualizer.measureElement}
+              className="absolute left-0 top-0 w-full px-1.5 py-1"
+              style={{ transform: `translateY(${virtualRow.start}px)` }}
+            >
+              <SegmentRow
+                segment={item.segment}
+                index={item.index}
+                channel={channelId}
+                query={query}
+                onChange={(text) => onSegmentChange(item.index, text)}
+              />
+            </li>
+          );
+        })}
+      </ol>
+    </div>
+  );
 }
