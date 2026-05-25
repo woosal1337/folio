@@ -13,12 +13,15 @@ import { toast } from "sonner";
 import { create } from "zustand";
 
 import {
+  getRecording as ipcGetRecording,
   recordingStatus as fetchStatus,
   runAgent as ipcRunAgent,
   startRecording as ipcStart,
   stopRecording as ipcStop,
   transcribeRecording as ipcTranscribe,
 } from "@/shared/lib/ipc";
+import { estimateOpenAITranscribeCost } from "@/shared/lib/cost-estimate";
+import { useCloudCostConfirmStore } from "@/shared/stores/cloud-cost-confirm-store";
 import { useJobsStore } from "@/shared/stores/jobs-store";
 import { useMemoriesStore } from "@/shared/stores/memories-store";
 import { useSettingsStore } from "@/shared/stores/settings-store";
@@ -213,6 +216,33 @@ export const useRecording = create<RecordingState>((set, get) => {
   // Self-contained transcription routine so both `stop` (auto) and an
   // explicit `transcribe(...)` call route through the same lifecycle.
   const runTranscription = async (sessionDir: string) => {
+    // Before kicking off, ask for confirmation if the OpenAI Whisper
+    // path is about to send a sizeable WAV upstream. Below the
+    // threshold (small / cheap meetings) we don't bother the user.
+    // Local Whisper has no cost, so it bypasses this check.
+    const settings = useSettingsStore.getState().settings;
+    if (settings?.transcriber === "openai") {
+      const label = basename(sessionDir);
+      const summary = await ipcGetRecording(label).catch(() => null);
+      if (summary) {
+        const estimate = estimateOpenAITranscribeCost({
+          durationSeconds: Number(summary.duration_seconds ?? 0),
+          micBytes: Number(summary.mic_bytes ?? 0),
+          systemBytes: Number(summary.system_bytes ?? 0),
+        });
+        if (estimate.exceedsThreshold) {
+          const proceed = await useCloudCostConfirmStore.getState().confirm({
+            recordingLabel: label,
+            estimate,
+          });
+          if (!proceed) {
+            toast.info("Transcription cancelled", { description: label });
+            return;
+          }
+        }
+      }
+    }
+
     const jobId = `transcribe:${sessionDir}`;
     set({
       transcribing: true,

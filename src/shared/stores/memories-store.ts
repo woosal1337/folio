@@ -155,7 +155,7 @@ export const useMemoriesStore = create<MemoriesState>((set, get) => ({
     try {
       const n = await ipcRebuild();
       toast.success(`Memory index rebuilt`, {
-        description: `${n} memory${n === 1 ? "y" : "ies"} reindexed`,
+        description: `${n} ${n === 1 ? "memory" : "memories"} reindexed`,
       });
       await get().refresh();
       return n;

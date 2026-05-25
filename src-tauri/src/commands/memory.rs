@@ -224,6 +224,32 @@ pub async fn search_memories(
     .map_err(|e| format!("search_memories panicked: {e}"))?
 }
 
+/// Resolve the absolute path on disk for a memory's markdown page.
+/// Returns `None` if the memory exists in the index but the file is
+/// missing (which would be a drift the user should Reindex from).
+/// Used by the frontend to build `obsidian://` deep-links + Copy-path
+/// affordances (v2 roadmap finding 069).
+#[tauri::command]
+pub async fn memory_file_path(
+    state: State<'_, AppState>,
+    id: String,
+) -> Result<Option<String>, String> {
+    let dir = current_memory_dir(&state);
+    tauri::async_runtime::spawn_blocking(move || -> Result<Option<String>, String> {
+        let store = MemoryStore::open(&dir).map_err(|e| e.to_string())?;
+        let Some(memory) = store.get(&id).map_err(|e| e.to_string())? else {
+            return Ok(None);
+        };
+        let path = attune_core::memory::path_for(&dir, &memory);
+        if !path.exists() {
+            return Ok(None);
+        }
+        Ok(Some(path.to_string_lossy().into_owned()))
+    })
+    .await
+    .map_err(|e| format!("memory_file_path panicked: {e}"))?
+}
+
 #[tauri::command]
 pub async fn rebuild_memory_index(state: State<'_, AppState>) -> Result<usize, String> {
     let dir = current_memory_dir(&state);

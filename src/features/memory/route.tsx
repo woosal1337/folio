@@ -14,6 +14,8 @@ import * as React from "react";
 import {
   ArrowUpRight,
   Brain,
+  Copy,
+  ExternalLink,
   Loader2,
   Pin,
   PinOff,
@@ -38,6 +40,8 @@ import {
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
 import { cn } from "@/shared/lib/utils";
+import { memoryFilePath } from "@/shared/lib/ipc";
+import { copyToClipboard, memoryToMarkdown, openInObsidian } from "@/shared/lib/share";
 import { useMemoriesStore } from "@/shared/stores/memories-store";
 import type { Memory } from "@/shared/types/Memory";
 import type { MemoryKind } from "@/shared/types/MemoryKind";
@@ -147,7 +151,7 @@ export default function MemoryRoute() {
           <span className="text-xs text-muted-foreground">
             {current.length === 0
               ? "No memories yet"
-              : `${current.length} memory${current.length === 1 ? "y" : "ies"}`}
+              : `${current.length} ${current.length === 1 ? "memory" : "memories"}`}
           </span>
           <Button
             variant="ghost"
@@ -155,7 +159,7 @@ export default function MemoryRoute() {
             onClick={async () => {
               const n = await rebuildIndex();
               if (n !== null) {
-                toast.success(`Reindexed ${n} memory${n === 1 ? "y" : "ies"}`);
+                toast.success(`Reindexed ${n} ${n === 1 ? "memory" : "memories"}`);
               }
             }}
             title="Rebuild the FTS5 + vec index from the markdown files"
@@ -589,14 +593,47 @@ function EditMemoryDialog({ memory, onClose, onSave }: EditMemoryDialogProps) {
             </div>
           )}
         </div>
-        <DialogFooter>
-          <Button variant="ghost" onClick={onClose} disabled={saving}>
-            Cancel
-          </Button>
-          <Button onClick={submit} disabled={saving || content.trim().length === 0}>
-            {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-            Save
-          </Button>
+        <DialogFooter className="sm:justify-between">
+          <div className="flex items-center gap-1">
+            {memory ? (
+              <>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() =>
+                    memory &&
+                    copyToClipboard(memoryToMarkdown(memory), "Markdown copied")
+                  }
+                  title="Copy as Markdown"
+                >
+                  <Copy className="mr-1.5 h-3.5 w-3.5" />
+                  Copy MD
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={async () => {
+                    if (!memory) return;
+                    const path = await memoryFilePath(memory.id).catch(() => null);
+                    await openInObsidian(path);
+                  }}
+                  title="Open the source file in Obsidian"
+                >
+                  <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
+                  Open in Obsidian
+                </Button>
+              </>
+            ) : null}
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" onClick={onClose} disabled={saving}>
+              Cancel
+            </Button>
+            <Button onClick={submit} disabled={saving || content.trim().length === 0}>
+              {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Save
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

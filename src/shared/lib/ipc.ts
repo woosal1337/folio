@@ -260,6 +260,10 @@ export function rebuildMemoryIndex(): Promise<number> {
   return call<number>("rebuild_memory_index");
 }
 
+export function memoryFilePath(id: string): Promise<string | null> {
+  return call<string | null>("memory_file_path", { id });
+}
+
 // ---- Maintenance -------------------------------------------------------
 
 export function clearRecordingArtifacts(sessionDir: string): Promise<void> {
