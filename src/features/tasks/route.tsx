@@ -198,6 +198,37 @@ export default function Tasks() {
         collisionDetection={closestCorners}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
+        accessibility={{
+          // VoiceOver announcement strings for drag lifecycle.
+          // v2 finding 098 / GET-111.
+          announcements: {
+            onDragStart: ({ active }) => {
+              const t = tasks.find((x) => x.id === String(active.id));
+              return t ? `Picked up task: ${t.title}.` : "Picked up task.";
+            },
+            onDragOver: ({ active, over }) => {
+              const t = tasks.find((x) => x.id === String(active.id));
+              if (!t || !over) return "";
+              return `Task ${t.title} is over column ${over.id}.`;
+            },
+            onDragEnd: ({ active, over }) => {
+              const t = tasks.find((x) => x.id === String(active.id));
+              if (!t) return "Task dropped.";
+              if (over) {
+                return `Task ${t.title} dropped on column ${over.id}.`;
+              }
+              return `Task ${t.title} returned to its original position.`;
+            },
+            onDragCancel: ({ active }) => {
+              const t = tasks.find((x) => x.id === String(active.id));
+              return t ? `Drag of task ${t.title} cancelled.` : "Drag cancelled.";
+            },
+          },
+          screenReaderInstructions: {
+            draggable:
+              "Press space or enter to pick up a task. Use arrow keys to move it between columns, space or enter to drop, escape to cancel.",
+          },
+        }}
       >
         <div className="grid flex-1 grid-cols-1 gap-4 md:grid-cols-3">
           {COLUMNS.map((col) => (

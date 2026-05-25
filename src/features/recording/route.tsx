@@ -69,7 +69,17 @@ export default function Record() {
             Capture system audio and microphone independently.
           </p>
         </div>
-        <div className="flex flex-col items-end gap-1.5">
+        <div
+          className="flex flex-col items-end gap-1.5"
+          role="status"
+          aria-live="polite"
+          aria-atomic="false"
+          aria-label={
+            rec.recording
+              ? `Recording in progress, ${elapsedLabel} elapsed`
+              : "Recording idle"
+          }
+        >
           <StatusPill recording={rec.recording} label={elapsedLabel} />
           <VoiceProcessingBadge />
         </div>
