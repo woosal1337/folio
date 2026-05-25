@@ -20,7 +20,8 @@ import {
   stopRecording as ipcStop,
   transcribeRecording as ipcTranscribe,
 } from "@/shared/lib/ipc";
-import { estimateOpenAITranscribeCost } from "@/shared/lib/cost-estimate";
+import { estimateOpenAITranscribeCost, formatUsd } from "@/shared/lib/cost-estimate";
+import { formatBatteryPct, readPower, shouldDeferOnPower } from "@/shared/lib/power";
 import { useCloudCostConfirmStore } from "@/shared/stores/cloud-cost-confirm-store";
 import { useJobsStore } from "@/shared/stores/jobs-store";
 import { useMemoriesStore } from "@/shared/stores/memories-store";
@@ -274,8 +275,29 @@ export const useRecording = create<RecordingState>((set, get) => {
         0
       );
       const channelCount = result.session_transcript.channels.length;
+
+      // For Local Whisper transcriptions: surface "Local Whisper
+      // saved you $X" so the user feels the dollar value of the
+      // local path. We reuse the same cost estimator the cloud
+      // confirm modal uses (#055). v2 finding 093.
+      let savedHint = "";
+      if (settings?.transcriber === "local_whisper") {
+        const label = basename(sessionDir);
+        const summary = await ipcGetRecording(label).catch(() => null);
+        if (summary) {
+          const est = estimateOpenAITranscribeCost({
+            durationSeconds: Number(summary.duration_seconds ?? 0),
+            micBytes: Number(summary.mic_bytes ?? 0),
+            systemBytes: Number(summary.system_bytes ?? 0),
+          });
+          if (est.estimatedUsd > 0) {
+            savedHint = ` · Local Whisper saved you ${formatUsd(est.estimatedUsd)}.`;
+          }
+        }
+      }
+
       toast.success("Transcription complete", {
-        description: `${segments} segments across ${channelCount} channel${channelCount === 1 ? "" : "s"} saved.`,
+        description: `${segments} segments across ${channelCount} channel${channelCount === 1 ? "" : "s"} saved.${savedHint}`,
       });
       // Chain into auto-summarize, auto-extract-tasks, and
       // auto-extract-memories once the transcript has landed. We
@@ -284,9 +306,30 @@ export const useRecording = create<RecordingState>((set, get) => {
       // page surface progress and results. All three run in
       // parallel: they hit the same provider, but the requests are
       // independent and we'd rather they finish sooner.
-      void maybeAutoSummarize(sessionDir);
-      void maybeAutoExtractTasks(sessionDir);
-      void maybeAutoExtractMemories(sessionDir);
+      //
+      // v2 finding 065: skip the three when the laptop is on
+      // battery + below the low threshold. Surface a toast with a
+      // Run-anyway action so the user can override per-recording.
+      // The check is best-effort (Web Battery API only); on any
+      // ambiguity we run the work.
+      if (await shouldDeferOnPower()) {
+        const power = await readPower();
+        toast.info("Auto-AI deferred", {
+          description: `Battery is ${formatBatteryPct(power.level)} and unplugged. Plug in to enable, or run manually.`,
+          action: {
+            label: "Run anyway",
+            onClick: () => {
+              void maybeAutoSummarize(sessionDir);
+              void maybeAutoExtractTasks(sessionDir);
+              void maybeAutoExtractMemories(sessionDir);
+            },
+          },
+        });
+      } else {
+        void maybeAutoSummarize(sessionDir);
+        void maybeAutoExtractTasks(sessionDir);
+        void maybeAutoExtractMemories(sessionDir);
+      }
     } catch (e) {
       const message = String(e);
       set({

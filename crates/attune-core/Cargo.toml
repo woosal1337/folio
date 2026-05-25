@@ -32,6 +32,7 @@ uuid = { workspace = true }
 rusqlite = { workspace = true }
 sqlite-vec = { workspace = true }
 zerocopy = { workspace = true }
+zstd = { workspace = true }
 
 # HTTP client for the OpenAI Whisper transcription backend, the
 # local-model downloader, and the LLM provider chat calls. Only the
