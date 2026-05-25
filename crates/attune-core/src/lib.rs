@@ -20,6 +20,7 @@
 
 pub mod audio;
 pub mod error;
+pub mod evals;
 pub mod ffi;
 pub mod llm;
 pub mod memory;

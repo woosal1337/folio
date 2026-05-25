@@ -1,0 +1,12 @@
+{
+  "id": "summarize-pricing-sync",
+  "agent_id": "summarize",
+  "transcript": "Lila: Quick sync on Q3 pricing. We need to decide between the $79 one-time and the $9/month tiers by Friday.\nAlex: I lean one-time. Cheaper to support, and our audience is single-purchase friendly.\nLila: Agreed. Let's go one-time. Owner: Alex to update the marketing page. Due: Wednesday.",
+  "expectations": {
+    "must_contain": ["pricing", "Friday", "Alex"],
+    "must_not_contain": ["I cannot", "I'm sorry"],
+    "min_words": 30,
+    "max_words": 400
+  },
+  "notes": "Smoke fixture for the summarize agent. Verifies the agent surfaces the explicit owner/due, calls out the decision, and stays inside a sensible word budget."
+}
