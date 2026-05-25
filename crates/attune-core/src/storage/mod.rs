@@ -7,6 +7,7 @@
 //! macOS). Recording metadata is derived from the session directories the
 //! capture pipeline creates.
 
+pub mod atomic_write;
 pub mod digest;
 pub mod egress_log;
 pub mod fs_io;
