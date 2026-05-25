@@ -2,6 +2,7 @@ import {
   Bot,
   ChevronDown,
   ChevronRight,
+  Eye,
   FileAudio,
   FolderOpen,
   Loader2,
@@ -46,6 +47,13 @@ interface Props {
    * view with the Summarize agent firing on arrival.
    */
   onSummarize?: () => void;
+  /**
+   * Optional "Quick Look" action. When provided, the row exposes an
+   * Eye button in the action bar and a data attribute the Library
+   * page's global Space-key handler hooks into. v2 finding 012 /
+   * GET-46.
+   */
+  onQuickLook?: () => void;
 }
 
 /**
@@ -66,6 +74,7 @@ export function RecordingRow({
   onOpenInEditor,
   onTranscribe,
   onSummarize,
+  onQuickLook,
 }: Props) {
   const canTranscribe = !transcribing && !item.has_transcript && Boolean(onTranscribe);
   const canSummarize = !transcribing && item.has_transcript && Boolean(onSummarize);
@@ -83,7 +92,10 @@ export function RecordingRow({
   const systemPath = item.system_bytes ? `${item.session_dir}/system.wav` : null;
 
   return (
-    <Card className="overflow-hidden">
+    <Card
+      className="overflow-hidden"
+      data-quicklook-session={onQuickLook ? item.session_dir : undefined}
+    >
       <button
         type="button"
         onClick={onToggle}
@@ -150,6 +162,19 @@ export function RecordingRow({
             >
               <Bot className="h-3.5 w-3.5" />
               Summarize
+            </Button>
+          )}
+          {onQuickLook && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-2 text-foreground"
+              onClick={onQuickLook}
+              aria-label="Quick Look preview"
+              title="Quick Look (Space)"
+            >
+              <Eye className="h-3.5 w-3.5" />
+              Preview
             </Button>
           )}
           {onOpenInEditor && (
