@@ -1,13 +1,34 @@
 import * as React from "react";
-import { Headphones, Loader2, Mic, Save, Undo2 } from "lucide-react";
+import {
+  Captions,
+  Download,
+  FileText,
+  Headphones,
+  Loader2,
+  Mic,
+  Save,
+  Search,
+  Undo2,
+  X,
+} from "lucide-react";
+import { save as showSaveDialog } from "@tauri-apps/plugin-dialog";
+import { writeTextFile } from "@tauri-apps/plugin-fs";
 import { toast } from "sonner";
 
 import { Button } from "@/shared/ui/button";
+import { Input } from "@/shared/ui/input";
+import { cn } from "@/shared/lib/utils";
 import { saveTranscript } from "@/shared/lib/ipc";
 import type { ChannelTranscript } from "@/shared/types/ChannelTranscript";
 import type { SessionTranscript } from "@/shared/types/SessionTranscript";
 
 import { SegmentRow } from "./segment-row";
+import {
+  type ExportFormat,
+  extensionFor,
+  renderTranscript,
+  segmentMatches,
+} from "./transcript-export";
 
 interface Props {
   sessionDir: string;
@@ -15,29 +36,57 @@ interface Props {
   onSaved: (next: SessionTranscript) => void;
 }
 
+const EXPORT_FORMATS: Array<{
+  id: ExportFormat;
+  label: string;
+  Icon: React.ComponentType<{ className?: string }>;
+  description: string;
+}> = [
+  {
+    id: "srt",
+    label: "SRT",
+    Icon: Captions,
+    description: "SubRip caption file (.srt)",
+  },
+  {
+    id: "vtt",
+    label: "WebVTT",
+    Icon: Captions,
+    description: "Web Video Text Tracks (.vtt)",
+  },
+  {
+    id: "txt",
+    label: "Plain text",
+    Icon: FileText,
+    description: "Timestamped plain text (.txt)",
+  },
+];
+
 /**
  * Editable multi-channel transcript surface. Each channel ("You",
  * "Others") renders as its own labelled section; segments inside each
  * are individually editable while their timestamps stay anchored.
  *
- * The working copy lives in local state. The dirty flag is recomputed
- * by deep-comparing channels and segments, so Discard cleanly resets
- * to the loaded version. Save writes the whole `SessionTranscript`
- * back via the `save_transcript` Tauri command.
+ * v2 roadmap finding 102 (GET-114) adds:
+ *  - a live search box that filters segments by case-insensitive
+ *    substring match and highlights the match in-line
+ *  - a click-to-seek timestamp on every segment, which fires a
+ *    `attune:seek-audio` window event the AudioPlayer subscribes to
+ *  - SRT / WebVTT / plain-text-timestamps export via a native save
+ *    dialog
  */
 export function TranscriptEditor({ sessionDir, initial, onSaved }: Props) {
   const [working, setWorking] = React.useState<SessionTranscript>(initial);
   const [saving, setSaving] = React.useState(false);
+  const [exporting, setExporting] = React.useState<ExportFormat | null>(null);
+  const [query, setQuery] = React.useState("");
 
-  // Reset the working copy when the upstream baseline changes (e.g. a
-  // re-transcription just landed).
   React.useEffect(() => {
     setWorking(initial);
   }, [initial]);
 
   const dirty = React.useMemo(() => !sameSession(working, initial), [working, initial]);
 
-  // Warn the user about unsaved edits on window close.
   React.useEffect(() => {
     if (!dirty) return;
     const handler = (e: BeforeUnloadEvent) => {
@@ -85,10 +134,48 @@ export function TranscriptEditor({ sessionDir, initial, onSaved }: Props) {
     }
   };
 
+  const handleExport = async (format: ExportFormat) => {
+    if (dirty) {
+      toast.message("Save your edits first", {
+        description: "Export uses the saved transcript on disk.",
+      });
+      return;
+    }
+    setExporting(format);
+    try {
+      const content = renderTranscript(working, format);
+      const ext = extensionFor(format);
+      // Suggest a filename derived from the session directory's leaf
+      // name (the recording label), with the right extension.
+      const leaf = sessionDir.split("/").filter(Boolean).pop() ?? "transcript";
+      const path = await showSaveDialog({
+        defaultPath: `${leaf}.${ext}`,
+        filters: [{ name: format.toUpperCase(), extensions: [ext] }],
+      });
+      if (!path) return; // user cancelled
+      await writeTextFile(path, content);
+      toast.success(`Exported to ${pathLeaf(path)}`);
+    } catch (e) {
+      console.error("export transcript:", e);
+      toast.error("Could not export transcript", { description: String(e) });
+    } finally {
+      setExporting(null);
+    }
+  };
+
   const totalSegments = working.channels.reduce(
     (acc, ch) => acc + ch.segments.length,
     0
   );
+
+  const matchCount = React.useMemo(() => {
+    if (query.trim().length === 0) return 0;
+    return working.channels.reduce(
+      (acc, ch) => acc + ch.segments.filter((s) => segmentMatches(s, query)).length,
+      0
+    );
+  }, [working, query]);
+
   if (totalSegments === 0) {
     return (
       <p className="text-sm text-muted-foreground">
@@ -100,7 +187,7 @@ export function TranscriptEditor({ sessionDir, initial, onSaved }: Props) {
 
   return (
     <div className="flex flex-col gap-5">
-      <header className="flex items-center justify-between">
+      <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
           Transcript
           {dirty && (
@@ -112,17 +199,74 @@ export function TranscriptEditor({ sessionDir, initial, onSaved }: Props) {
             </span>
           )}
         </div>
+        <div className="relative flex w-full max-w-xs items-center">
+          <Search
+            className="pointer-events-none absolute left-2.5 h-3.5 w-3.5 text-muted-foreground"
+            aria-hidden
+          />
+          <Input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search transcript…"
+            aria-label="Search transcript"
+            className="h-8 pl-8 pr-8 text-sm"
+          />
+          {query.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setQuery("")}
+              aria-label="Clear search"
+              className="absolute right-2 inline-flex h-4 w-4 items-center justify-center rounded text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
       </header>
+
+      {query.trim().length > 0 && (
+        <p className="text-2xs tabular-nums text-muted-foreground" aria-live="polite">
+          {matchCount === 0
+            ? "No segments match"
+            : `${matchCount} segment${matchCount === 1 ? "" : "s"} match`}
+        </p>
+      )}
 
       {working.channels.map((channel, ci) => (
         <ChannelEditor
           key={channel.channel}
           channel={channel}
+          query={query}
           onSegmentChange={(si, text) => updateSegment(ci, si, text)}
         />
       ))}
 
-      <footer className="flex items-center justify-end gap-2 border-t border-border pt-3">
+      <footer className="flex flex-wrap items-center justify-end gap-2 border-t border-border pt-3">
+        <div className="mr-auto flex flex-wrap items-center gap-1.5">
+          {EXPORT_FORMATS.map((f) => {
+            const Icon = f.Icon;
+            const busy = exporting === f.id;
+            return (
+              <Button
+                key={f.id}
+                variant="outline"
+                size="sm"
+                disabled={busy || saving}
+                onClick={() => handleExport(f.id)}
+                title={f.description}
+                className="gap-1.5"
+              >
+                {busy ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Icon className="h-3.5 w-3.5" />
+                )}
+                <span className="text-xs">{f.label}</span>
+                {!busy && <Download className="h-3 w-3 opacity-60" />}
+              </Button>
+            );
+          })}
+        </div>
         <Button
           variant="ghost"
           onClick={handleDiscard}
@@ -147,11 +291,22 @@ export function TranscriptEditor({ sessionDir, initial, onSaved }: Props) {
 
 interface ChannelEditorProps {
   channel: ChannelTranscript;
+  query: string;
   onSegmentChange: (segmentIndex: number, text: string) => void;
 }
 
-function ChannelEditor({ channel, onSegmentChange }: ChannelEditorProps) {
+function ChannelEditor({ channel, query, onSegmentChange }: ChannelEditorProps) {
   const meta = channelLabel(channel.channel);
+  const filtered = React.useMemo(() => {
+    if (query.trim().length === 0) {
+      return channel.segments.map((segment, index) => ({ segment, index }));
+    }
+    return channel.segments
+      .map((segment, index) => ({ segment, index }))
+      .filter(({ segment }) => segmentMatches(segment, query));
+  }, [channel.segments, query]);
+
+  const visibleCount = filtered.length;
 
   return (
     <section className="flex flex-col gap-2">
@@ -160,6 +315,18 @@ function ChannelEditor({ channel, onSegmentChange }: ChannelEditorProps) {
           <meta.Icon className="h-3.5 w-3.5 text-muted-foreground" />
           {meta.label}
           <span className="text-2xs font-normal text-muted-foreground">{meta.sub}</span>
+          {query.trim().length > 0 && (
+            <span
+              className={cn(
+                "text-2xs tabular-nums",
+                visibleCount === 0
+                  ? "text-muted-foreground/60"
+                  : "text-muted-foreground"
+              )}
+            >
+              · {visibleCount}/{channel.segments.length}
+            </span>
+          )}
         </div>
         {channel.language && (
           <span className="font-mono text-2xs text-muted-foreground">
@@ -172,14 +339,18 @@ function ChannelEditor({ channel, onSegmentChange }: ChannelEditorProps) {
         <p className="text-2xs text-muted-foreground">
           No speech detected on this channel.
         </p>
+      ) : visibleCount === 0 ? (
+        <p className="text-2xs text-muted-foreground">No segments match.</p>
       ) : (
         <ol className="flex flex-col gap-2">
-          {channel.segments.map((segment, i) => (
+          {filtered.map(({ segment, index }) => (
             <SegmentRow
-              key={`${i}-${segment.start_seconds}`}
+              key={`${index}-${segment.start_seconds}`}
               segment={segment}
-              index={i}
-              onChange={(text) => onSegmentChange(i, text)}
+              index={index}
+              channel={channel.channel}
+              query={query}
+              onChange={(text) => onSegmentChange(index, text)}
             />
           ))}
         </ol>
@@ -223,4 +394,8 @@ function sameChannel(a: ChannelTranscript, b: ChannelTranscript): boolean {
     if (a.segments[i].end_seconds !== b.segments[i].end_seconds) return false;
   }
   return true;
+}
+
+function pathLeaf(path: string): string {
+  return path.split("/").filter(Boolean).pop() ?? path;
 }
