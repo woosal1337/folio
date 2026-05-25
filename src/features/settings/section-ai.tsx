@@ -137,97 +137,7 @@ export function SectionAi({ settings, onChange }: SectionAiProps) {
         </p>
       </header>
 
-      {/* Auto-summarize toggle. Reads from + writes to Settings; the
-          recording-store consults this after each transcription and
-          fires the Summarize agent in the background when on. */}
-      <div className="flex items-start justify-between gap-6 rounded-lg border border-border bg-card p-4">
-        <div className="space-y-1">
-          <Label
-            htmlFor="auto-summarize-toggle"
-            className="flex items-center gap-2 text-sm font-medium"
-          >
-            <Zap className="h-4 w-4 text-muted-foreground" />
-            Auto-summarize after recording
-            <span className="rounded bg-muted px-1.5 py-0.5 text-2xs font-normal text-muted-foreground">
-              Recommended
-            </span>
-          </Label>
-          <p className="max-w-md text-xs text-muted-foreground">
-            When a recording finishes transcribing, run the Summarize agent
-            automatically. The summary appears on the recording&apos;s page and in the
-            AI tab the next time you open them. Skipped if no AI key is set.
-          </p>
-        </div>
-        <Switch
-          id="auto-summarize-toggle"
-          checked={settings.auto_summarize_enabled}
-          onCheckedChange={(checked) => onChange("auto_summarize_enabled", checked)}
-          className="mt-1"
-        />
-      </div>
-
-      {/* Auto-extract-tasks toggle. The Extract Tasks agent uses tool
-          calling to write directly into the kanban, so this fires
-          alongside auto-summarize after each transcription. */}
-      <div className="flex items-start justify-between gap-6 rounded-lg border border-border bg-card p-4">
-        <div className="space-y-1">
-          <Label
-            htmlFor="auto-extract-tasks-toggle"
-            className="flex items-center gap-2 text-sm font-medium"
-          >
-            <Zap className="h-4 w-4 text-muted-foreground" />
-            Auto-extract tasks after recording
-            <span className="rounded bg-muted px-1.5 py-0.5 text-2xs font-normal text-muted-foreground">
-              Recommended
-            </span>
-          </Label>
-          <p className="max-w-md text-xs text-muted-foreground">
-            Run the Extract Tasks agent automatically once a recording is transcribed.
-            Action items the agent finds land directly on your kanban with a link back
-            to the source meeting. Skipped if no AI key is set.
-          </p>
-        </div>
-        <Switch
-          id="auto-extract-tasks-toggle"
-          checked={settings.auto_extract_tasks_enabled}
-          onCheckedChange={(checked) => onChange("auto_extract_tasks_enabled", checked)}
-          className="mt-1"
-        />
-      </div>
-
-      {/* Auto-extract-memories toggle. The Extract Memories agent uses
-          the `remember` tool to capture lasting facts about the user
-          (identity, projects, preferences, people) so future agent
-          runs get them injected as background context. */}
-      <div className="flex items-start justify-between gap-6 rounded-lg border border-border bg-card p-4">
-        <div className="space-y-1">
-          <Label
-            htmlFor="auto-extract-memories-toggle"
-            className="flex items-center gap-2 text-sm font-medium"
-          >
-            <Zap className="h-4 w-4 text-muted-foreground" />
-            Auto-extract memories after recording
-            <span className="rounded bg-muted px-1.5 py-0.5 text-2xs font-normal text-muted-foreground">
-              Recommended
-            </span>
-          </Label>
-          <p className="max-w-md text-xs text-muted-foreground">
-            Run the Extract Memories agent so lasting facts (your role, company,
-            projects, the people you work with, your preferences) land on the Memory
-            page automatically. The next time you run any agent, those facts get
-            injected as background context so it doesn&apos;t re-ask things you&apos;ve
-            already said.
-          </p>
-        </div>
-        <Switch
-          id="auto-extract-memories-toggle"
-          checked={settings.auto_extract_memories_enabled}
-          onCheckedChange={(checked) =>
-            onChange("auto_extract_memories_enabled", checked)
-          }
-          className="mt-1"
-        />
-      </div>
+      <AutoAgentsCard settings={settings} onChange={onChange} />
 
       {providers === null ? (
         <p className="text-sm text-muted-foreground">Loading providers…</p>
@@ -259,6 +169,123 @@ export function SectionAi({ settings, onChange }: SectionAiProps) {
         in your vault.
       </p>
     </section>
+  );
+}
+
+/**
+ * One card for "after a recording, run AI on it" with a master toggle
+ * and a collapsible per-agent disclosure. The master is on when ANY of
+ * the three per-agent flags is on; toggling it cascades. The
+ * disclosure exposes per-agent overrides for users who want, e.g.,
+ * summaries but not auto-task-extraction. v2 roadmap finding R02.
+ */
+function AutoAgentsCard({
+  settings,
+  onChange,
+}: {
+  settings: Settings;
+  onChange: <K extends keyof Settings>(key: K, value: Settings[K]) => void;
+}) {
+  const [showDetails, setShowDetails] = React.useState(false);
+  const masterOn =
+    settings.auto_summarize_enabled ||
+    settings.auto_extract_tasks_enabled ||
+    settings.auto_extract_memories_enabled;
+
+  const setAll = (on: boolean) => {
+    onChange("auto_summarize_enabled", on);
+    onChange("auto_extract_tasks_enabled", on);
+    onChange("auto_extract_memories_enabled", on);
+  };
+
+  return (
+    <div className="space-y-2 rounded-lg border border-border bg-card p-4">
+      <div className="flex items-start justify-between gap-6">
+        <div className="space-y-1">
+          <Label
+            htmlFor="ai-master-toggle"
+            className="flex items-center gap-2 text-sm font-medium"
+          >
+            <Zap className="h-4 w-4 text-muted-foreground" />
+            AI on every recording
+            <span className="rounded bg-muted px-1.5 py-0.5 text-2xs font-normal text-muted-foreground">
+              Recommended
+            </span>
+          </Label>
+          <p className="max-w-md text-xs text-muted-foreground">
+            After each recording, Attune automatically runs the Summarize, Extract
+            Tasks, and Extract Memories agents in parallel. Skipped if no AI key is set.
+            Expand below to disable individual agents.
+          </p>
+        </div>
+        <Switch
+          id="ai-master-toggle"
+          checked={masterOn}
+          onCheckedChange={setAll}
+          className="mt-1"
+        />
+      </div>
+
+      <button
+        type="button"
+        onClick={() => setShowDetails((s) => !s)}
+        className="text-2xs uppercase tracking-wider text-muted-foreground hover:text-foreground"
+      >
+        {showDetails ? "▾" : "▸"} Per-agent overrides
+      </button>
+
+      {showDetails ? (
+        <div className="mt-2 space-y-2 border-t border-border pt-3">
+          <PerAgentRow
+            id="auto-summarize-toggle"
+            label="Summarize"
+            description="One-paragraph summary + bulleted highlights."
+            checked={settings.auto_summarize_enabled}
+            onChange={(v) => onChange("auto_summarize_enabled", v)}
+          />
+          <PerAgentRow
+            id="auto-extract-tasks-toggle"
+            label="Extract tasks"
+            description="Action items land on the kanban, linked back to this recording."
+            checked={settings.auto_extract_tasks_enabled}
+            onChange={(v) => onChange("auto_extract_tasks_enabled", v)}
+          />
+          <PerAgentRow
+            id="auto-extract-memories-toggle"
+            label="Extract memories"
+            description="Lasting facts (your projects, the people you mention) join the Memory page and get injected into future agent runs."
+            checked={settings.auto_extract_memories_enabled}
+            onChange={(v) => onChange("auto_extract_memories_enabled", v)}
+          />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function PerAgentRow({
+  id,
+  label,
+  description,
+  checked,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  description: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-4">
+      <div className="space-y-0.5">
+        <Label htmlFor={id} className="text-xs font-medium">
+          {label}
+        </Label>
+        <p className="max-w-md text-2xs text-muted-foreground">{description}</p>
+      </div>
+      <Switch id={id} checked={checked} onCheckedChange={onChange} className="mt-0.5" />
+    </div>
   );
 }
 

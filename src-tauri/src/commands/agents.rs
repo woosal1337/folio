@@ -123,18 +123,18 @@ pub async fn run_agent(
     let user_message = build_user_message(&transcript_text);
 
     // Snapshot paths from settings (cheap, won't block agent run).
-    let (tasks_path, memory_dir) = {
-        let s = state.settings.lock();
-        (s.tasks_path.clone(), s.memory_dir.clone())
-    };
+    let tasks_path = state.settings.lock().tasks_path.clone();
+    // Shared MemoryStore from AppState — single SQLite connection
+    // reused across this whole agent run (preamble + every tool
+    // dispatch + post-run embedding). v2 finding R14.
+    let memory_store = state.memory_store()?;
 
     // Build the "what's true about the user" preamble before any
     // network call. This runs on a blocking thread because MemoryStore
     // touches SQLite.
     let memory_preamble = {
-        let dir = memory_dir.clone();
+        let store = memory_store.clone();
         tauri::async_runtime::spawn_blocking(move || -> Option<String> {
-            let store = MemoryStore::open(dir).ok()?;
             let memories = store.always_inject_set(5).ok()?;
             if memories.is_empty() {
                 return None;
@@ -240,7 +240,7 @@ pub async fn run_agent(
             let result = dispatch_tool_call(
                 call,
                 &tasks_path,
-                &memory_dir,
+                memory_store.clone(),
                 session_dir.to_string_lossy().as_ref(),
                 session_label.as_deref(),
             );
@@ -280,7 +280,7 @@ pub async fn run_agent(
     // Failures here are non-fatal: the memory still lives in the FTS5
     // index, search just falls back to BM25 for those rows.
     if !memories_created.is_empty() {
-        embed_new_memories(&api_key, &memory_dir, &memories_created).await;
+        embed_new_memories(&api_key, memory_store.clone(), &memories_created).await;
     }
 
     let run = AgentRun {
@@ -486,14 +486,14 @@ struct SearchMemoryArgs {
 fn dispatch_tool_call(
     call: &ToolCall,
     tasks_path: &Path,
-    memory_dir: &Path,
+    memory_store: std::sync::Arc<MemoryStore>,
     session_dir: &str,
     session_label: Option<&str>,
 ) -> ToolResult {
     match call.name.as_str() {
         "create_task" => dispatch_create_task(call, tasks_path, session_dir, session_label),
-        "remember" => dispatch_remember(call, memory_dir, session_dir, session_label),
-        "search_memory" => dispatch_search_memory(call, memory_dir),
+        "remember" => dispatch_remember(call, memory_store, session_dir, session_label),
+        "search_memory" => dispatch_search_memory(call, memory_store),
         other => ToolResult {
             success: false,
             error: Some(format!("unknown tool: {other}")),
@@ -544,7 +544,7 @@ fn dispatch_create_task(
 
 fn dispatch_remember(
     call: &ToolCall,
-    memory_dir: &Path,
+    store: std::sync::Arc<MemoryStore>,
     session_dir: &str,
     session_label: Option<&str>,
 ) -> ToolResult {
@@ -564,16 +564,6 @@ fn dispatch_remember(
             return ToolResult {
                 success: false,
                 error: Some(format!("unknown kind: {}", args.kind)),
-                ..ToolResult::default()
-            }
-        }
-    };
-    let store = match MemoryStore::open(memory_dir.to_path_buf()) {
-        Ok(s) => s,
-        Err(e) => {
-            return ToolResult {
-                success: false,
-                error: Some(format!("could not open memory store: {e}")),
                 ..ToolResult::default()
             }
         }
@@ -605,23 +595,13 @@ fn dispatch_remember(
     }
 }
 
-fn dispatch_search_memory(call: &ToolCall, memory_dir: &Path) -> ToolResult {
+fn dispatch_search_memory(call: &ToolCall, store: std::sync::Arc<MemoryStore>) -> ToolResult {
     let args = match serde_json::from_str::<SearchMemoryArgs>(&call.arguments) {
         Ok(a) => a,
         Err(e) => {
             return ToolResult {
                 success: false,
                 error: Some(format!("could not parse arguments: {e}")),
-                ..ToolResult::default()
-            }
-        }
-    };
-    let store = match MemoryStore::open(memory_dir.to_path_buf()) {
-        Ok(s) => s,
-        Err(e) => {
-            return ToolResult {
-                success: false,
-                error: Some(format!("could not open memory store: {e}")),
                 ..ToolResult::default()
             }
         }
@@ -670,21 +650,18 @@ fn dispatch_search_memory(call: &ToolCall, memory_dir: &Path) -> ToolResult {
 /// the tool loop because embedding is a network call and we don't
 /// want to block tool dispatch on it. Errors are logged, not
 /// surfaced — search still works via BM25.
-async fn embed_new_memories(api_key: &str, memory_dir: &Path, ids: &[String]) {
+async fn embed_new_memories(api_key: &str, store: std::sync::Arc<MemoryStore>, ids: &[String]) {
     let client = EmbeddingClient::new(api_key);
     for id in ids {
-        let dir = memory_dir.to_path_buf();
         let id_owned = id.clone();
-        let store_result = tauri::async_runtime::spawn_blocking(move || {
-            let store = MemoryStore::open(dir).ok()?;
-            store.get(&id_owned).ok().flatten()
+        let store_for_get = store.clone();
+        let memory = tauri::async_runtime::spawn_blocking(move || {
+            store_for_get.get(&id_owned).ok().flatten()
         })
         .await
         .ok()
         .flatten();
-        let Some(memory) = store_result else {
-            continue;
-        };
+        let Some(memory) = memory else { continue };
         let embedding = match client.embed(&memory.content).await {
             Ok(v) => v,
             Err(e) => {
@@ -692,11 +669,10 @@ async fn embed_new_memories(api_key: &str, memory_dir: &Path, ids: &[String]) {
                 continue;
             }
         };
-        let dir = memory_dir.to_path_buf();
+        let store_for_write = store.clone();
         let m = memory.clone();
         let _ = tauri::async_runtime::spawn_blocking(move || -> Result<(), String> {
-            let store = MemoryStore::open(dir).map_err(|e| e.to_string())?;
-            store
+            store_for_write
                 .upsert_with_embedding(&m, &embedding)
                 .map_err(|e| e.to_string())
         })
@@ -838,11 +814,18 @@ mod tests {
         assert!(memories.iter().any(|t| t.name == "search_memory"));
     }
 
+    /// Helper: open a MemoryStore at a tempdir and return the
+    /// `Arc<MemoryStore>` the dispatch helpers now expect.
+    fn arc_store(dir: &std::path::Path) -> std::sync::Arc<MemoryStore> {
+        std::sync::Arc::new(MemoryStore::open(dir).unwrap())
+    }
+
     #[test]
     fn dispatch_create_task_writes_to_store() {
         let dir = TempDir::new().unwrap();
         let tasks_path = dir.path().join("tasks.json");
         let memory_dir = dir.path().join("memory");
+        let store = arc_store(&memory_dir);
         let call = ToolCall {
             id: "call_1".into(),
             name: "create_task".into(),
@@ -851,7 +834,7 @@ mod tests {
         let r = dispatch_tool_call(
             &call,
             &tasks_path,
-            &memory_dir,
+            store,
             "/sessions/abc",
             Some("2026-05-25-team"),
         );
@@ -864,6 +847,7 @@ mod tests {
         let dir = TempDir::new().unwrap();
         let tasks_path = dir.path().join("tasks.json");
         let memory_dir = dir.path().join("memory");
+        let store = arc_store(&memory_dir);
         let call = ToolCall {
             id: "call_m".into(),
             name: "remember".into(),
@@ -872,12 +856,11 @@ mod tests {
         let r = dispatch_tool_call(
             &call,
             &tasks_path,
-            &memory_dir,
+            store.clone(),
             "/sessions/abc",
             Some("2026-05-25"),
         );
         assert!(r.success, "got error: {:?}", r.error);
-        let store = MemoryStore::open(&memory_dir).unwrap();
         let memories = store.list(&Default::default()).unwrap();
         assert_eq!(memories.len(), 1);
         assert_eq!(memories[0].content, "Attune");
@@ -889,8 +872,8 @@ mod tests {
         let dir = TempDir::new().unwrap();
         let tasks_path = dir.path().join("tasks.json");
         let memory_dir = dir.path().join("memory");
+        let store = arc_store(&memory_dir);
         // Seed one memory.
-        let store = MemoryStore::open(&memory_dir).unwrap();
         store
             .create(NewMemory {
                 kind: MemoryKind::Claim,
@@ -904,7 +887,7 @@ mod tests {
             name: "search_memory".into(),
             arguments: r#"{"query":"company","limit":5}"#.into(),
         };
-        let r = dispatch_tool_call(&call, &tasks_path, &memory_dir, "/sessions/abc", None);
+        let r = dispatch_tool_call(&call, &tasks_path, store, "/sessions/abc", None);
         assert!(r.success, "got error: {:?}", r.error);
         let data = r.data.expect("has data");
         let results = data.get("results").and_then(|v| v.as_array()).unwrap();

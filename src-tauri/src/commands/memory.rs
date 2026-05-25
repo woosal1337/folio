@@ -6,8 +6,12 @@
 //! errors (no key, transient), the memory is still persisted to
 //! files + FTS5 — only the vec index slot is empty, which the
 //! hybrid retrieval path falls back from gracefully.
+//!
+//! v2 roadmap finding R14: all commands share a single
+//! [`attune_core::memory::MemoryStore`] cached in [`AppState`] (one
+//! SQLite connection per process), not one open per IPC.
 
-use std::path::PathBuf;
+use std::sync::Arc;
 
 use attune_core::llm::{KeyStore, ProviderId};
 use attune_core::memory::{
@@ -17,11 +21,6 @@ use tauri::State;
 use tracing::{debug, info, warn};
 
 use crate::app::AppState;
-
-/// Snapshot the memory dir from settings without holding the lock.
-fn current_memory_dir(state: &AppState) -> PathBuf {
-    state.settings.lock().memory_dir.clone()
-}
 
 /// Read the OpenAI key from the keyring on a blocking task.
 async fn openai_key_opt() -> Result<Option<String>, String> {
@@ -53,30 +52,30 @@ async fn embed_if_possible(text: &str) -> Option<Vec<f32>> {
     }
 }
 
+/// Resolve the shared memory store handle. Lazy (opens on first
+/// IPC, reused thereafter); reopens if `memory_dir` was edited.
+fn shared_store(state: &AppState) -> Result<Arc<MemoryStore>, String> {
+    state.memory_store()
+}
+
 #[tauri::command]
 pub async fn list_memories(
     state: State<'_, AppState>,
     query: MemoryQuery,
 ) -> Result<Vec<Memory>, String> {
-    let dir = current_memory_dir(&state);
     debug!(?query, "list_memories");
-    tauri::async_runtime::spawn_blocking(move || {
-        let store = MemoryStore::open(dir).map_err(|e| e.to_string())?;
-        store.list(&query).map_err(|e| e.to_string())
-    })
-    .await
-    .map_err(|e| format!("list_memories panicked: {e}"))?
+    let store = shared_store(&state)?;
+    tauri::async_runtime::spawn_blocking(move || store.list(&query).map_err(|e| e.to_string()))
+        .await
+        .map_err(|e| format!("list_memories panicked: {e}"))?
 }
 
 #[tauri::command]
 pub async fn get_memory(state: State<'_, AppState>, id: String) -> Result<Option<Memory>, String> {
-    let dir = current_memory_dir(&state);
-    tauri::async_runtime::spawn_blocking(move || {
-        let store = MemoryStore::open(dir).map_err(|e| e.to_string())?;
-        store.get(&id).map_err(|e| e.to_string())
-    })
-    .await
-    .map_err(|e| format!("get_memory panicked: {e}"))?
+    let store = shared_store(&state)?;
+    tauri::async_runtime::spawn_blocking(move || store.get(&id).map_err(|e| e.to_string()))
+        .await
+        .map_err(|e| format!("get_memory panicked: {e}"))?
 }
 
 #[tauri::command]
@@ -84,16 +83,15 @@ pub async fn create_memory(
     state: State<'_, AppState>,
     memory: NewMemory,
 ) -> Result<Memory, String> {
-    let dir = current_memory_dir(&state);
-    let content_for_embed = memory.content.clone();
     info!(kind = %memory.kind.as_str(), "create_memory");
+    let store = shared_store(&state)?;
+    let content_for_embed = memory.content.clone();
 
-    // First: write through the conflict-resolution path. This may
-    // mutate previously-current rows (supersede).
+    // Write via the shared store; conflict resolution may mutate
+    // previously-current rows (supersede). All on a blocking thread.
     let written = {
-        let dir = dir.clone();
+        let store = store.clone();
         tauri::async_runtime::spawn_blocking(move || {
-            let store = MemoryStore::open(dir).map_err(|e| e.to_string())?;
             store
                 .create(memory)
                 .map(|o| o.into_memory())
@@ -103,13 +101,12 @@ pub async fn create_memory(
         .map_err(|e| format!("create_memory panicked: {e}"))??
     };
 
-    // Second: best-effort embedding upsert so the vec index can serve
-    // future searches. Failure is logged but not fatal.
+    // Best-effort embedding upsert so the vec index can serve future
+    // searches. Failure is logged but not fatal.
     if let Some(embedding) = embed_if_possible(&content_for_embed).await {
-        let dir = dir.clone();
+        let store = store.clone();
         let m = written.clone();
         tauri::async_runtime::spawn_blocking(move || -> Result<(), String> {
-            let store = MemoryStore::open(dir).map_err(|e| e.to_string())?;
             store
                 .upsert_with_embedding(&m, &embedding)
                 .map_err(|e| e.to_string())
@@ -126,14 +123,13 @@ pub async fn update_memory(
     id: String,
     patch: MemoryUpdate,
 ) -> Result<Memory, String> {
-    let dir = current_memory_dir(&state);
     info!(id = %id, "update_memory");
+    let store = shared_store(&state)?;
     let content_changed = patch.content.is_some();
     let updated = {
-        let dir = dir.clone();
+        let store = store.clone();
         let id = id.clone();
         tauri::async_runtime::spawn_blocking(move || {
-            let store = MemoryStore::open(dir).map_err(|e| e.to_string())?;
             store.update(&id, patch).map_err(|e| e.to_string())
         })
         .await
@@ -141,10 +137,9 @@ pub async fn update_memory(
     };
     if content_changed {
         if let Some(embedding) = embed_if_possible(&updated.content).await {
-            let dir = dir.clone();
+            let store = store.clone();
             let m = updated.clone();
             tauri::async_runtime::spawn_blocking(move || -> Result<(), String> {
-                let store = MemoryStore::open(dir).map_err(|e| e.to_string())?;
                 store
                     .upsert_with_embedding(&m, &embedding)
                     .map_err(|e| e.to_string())
@@ -158,26 +153,20 @@ pub async fn update_memory(
 
 #[tauri::command]
 pub async fn delete_memory(state: State<'_, AppState>, id: String) -> Result<Memory, String> {
-    let dir = current_memory_dir(&state);
     info!(id = %id, "delete_memory");
-    tauri::async_runtime::spawn_blocking(move || {
-        let store = MemoryStore::open(dir).map_err(|e| e.to_string())?;
-        store.soft_delete(&id).map_err(|e| e.to_string())
-    })
-    .await
-    .map_err(|e| format!("delete_memory panicked: {e}"))?
+    let store = shared_store(&state)?;
+    tauri::async_runtime::spawn_blocking(move || store.soft_delete(&id).map_err(|e| e.to_string()))
+        .await
+        .map_err(|e| format!("delete_memory panicked: {e}"))?
 }
 
 #[tauri::command]
 pub async fn purge_memory(state: State<'_, AppState>, id: String) -> Result<(), String> {
-    let dir = current_memory_dir(&state);
     info!(id = %id, "purge_memory");
-    tauri::async_runtime::spawn_blocking(move || {
-        let store = MemoryStore::open(dir).map_err(|e| e.to_string())?;
-        store.purge(&id).map_err(|e| e.to_string())
-    })
-    .await
-    .map_err(|e| format!("purge_memory panicked: {e}"))?
+    let store = shared_store(&state)?;
+    tauri::async_runtime::spawn_blocking(move || store.purge(&id).map_err(|e| e.to_string()))
+        .await
+        .map_err(|e| format!("purge_memory panicked: {e}"))?
 }
 
 #[tauri::command]
@@ -186,10 +175,9 @@ pub async fn pin_memory(
     id: String,
     pinned: bool,
 ) -> Result<Memory, String> {
-    let dir = current_memory_dir(&state);
     info!(id = %id, pinned, "pin_memory");
+    let store = shared_store(&state)?;
     tauri::async_runtime::spawn_blocking(move || {
-        let store = MemoryStore::open(dir).map_err(|e| e.to_string())?;
         store
             .update(
                 &id,
@@ -211,11 +199,10 @@ pub async fn search_memories(
     kinds: Vec<MemoryKind>,
     limit: Option<usize>,
 ) -> Result<Vec<Memory>, String> {
-    let dir = current_memory_dir(&state);
+    let store = shared_store(&state)?;
     let embedding = embed_if_possible(&query).await;
     let limit = limit.unwrap_or(10);
     tauri::async_runtime::spawn_blocking(move || {
-        let store = MemoryStore::open(dir).map_err(|e| e.to_string())?;
         store
             .search(&query, embedding.as_deref(), &kinds, limit)
             .map_err(|e| e.to_string())
@@ -234,13 +221,12 @@ pub async fn memory_file_path(
     state: State<'_, AppState>,
     id: String,
 ) -> Result<Option<String>, String> {
-    let dir = current_memory_dir(&state);
+    let store = shared_store(&state)?;
     tauri::async_runtime::spawn_blocking(move || -> Result<Option<String>, String> {
-        let store = MemoryStore::open(&dir).map_err(|e| e.to_string())?;
         let Some(memory) = store.get(&id).map_err(|e| e.to_string())? else {
             return Ok(None);
         };
-        let path = attune_core::memory::path_for(&dir, &memory);
+        let path = attune_core::memory::path_for(store.dir(), &memory);
         if !path.exists() {
             return Ok(None);
         }
@@ -252,10 +238,9 @@ pub async fn memory_file_path(
 
 #[tauri::command]
 pub async fn rebuild_memory_index(state: State<'_, AppState>) -> Result<usize, String> {
-    let dir = current_memory_dir(&state);
     info!("rebuild_memory_index");
+    let store = shared_store(&state)?;
     tauri::async_runtime::spawn_blocking(move || {
-        let store = MemoryStore::open(dir).map_err(|e| e.to_string())?;
         // Embeddings are not refetched during rebuild — they survive
         // only via the .md files (currently we do not write
         // embeddings to disk). After a rebuild, vec rows are empty
