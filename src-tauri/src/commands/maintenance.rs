@@ -9,6 +9,9 @@ use attune_core::llm::AgentRunStore;
 use attune_core::storage::digest::{
     default_digests_dir, generate as generate_digest_impl, DigestPaths, DigestResult,
 };
+use attune_core::storage::fs_io::{
+    archive_inbox_entry as archive_inbox_impl, list_inbox as list_inbox_impl, InboxEntry,
+};
 use attune_core::storage::git_sync::{is_git_repo, sync as git_sync_impl, GitSyncSummary};
 use attune_core::storage::retention::{purge_old_wavs, PurgeSummary};
 use attune_core::storage::share_bundle::{export as export_share_bundle_impl, ShareBundleSummary};
@@ -256,4 +259,31 @@ pub async fn git_vault_is_repo(state: State<'_, AppState>) -> Result<bool, Strin
     })
     .await
     .map_err(|e| format!("git_vault_is_repo task panicked: {e}"))?
+}
+
+/// List pending inbox entries from `<memory_dir>/.attune/inbox/`.
+/// v2 finding 073 / GET-75.
+#[tauri::command]
+pub async fn list_inbox_entries(state: State<'_, AppState>) -> Result<Vec<InboxEntry>, String> {
+    let memory_dir = {
+        let settings = state.settings.lock();
+        settings.memory_dir.clone()
+    };
+    tauri::async_runtime::spawn_blocking(move || -> Result<Vec<InboxEntry>, String> {
+        Ok(list_inbox_impl(&memory_dir))
+    })
+    .await
+    .map_err(|e| format!("list_inbox_entries task panicked: {e}"))?
+}
+
+/// Archive a single inbox entry (rename into .processed/).
+/// v2 finding 073 / GET-75.
+#[tauri::command]
+pub async fn archive_inbox_entry(path: PathBuf) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || -> Result<(), String> {
+        archive_inbox_impl(&path).map_err(|e| e.to_string())?;
+        Ok(())
+    })
+    .await
+    .map_err(|e| format!("archive_inbox_entry task panicked: {e}"))?
 }
