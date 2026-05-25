@@ -113,15 +113,27 @@ export default function Library() {
         </Card>
       ) : recordings.length === 0 ? (
         <Card>
-          <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
-            <FileAudio className="h-7 w-7 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">
-              No recordings yet.{" "}
-              <Link to="/record" className="underline underline-offset-2">
-                Start a session
-              </Link>{" "}
-              to see it here.
+          <CardContent className="flex flex-col items-center gap-3 py-16 text-center">
+            <div className="rounded-full border border-border bg-muted/40 p-3">
+              <FileAudio className="h-6 w-6 text-muted-foreground" />
+            </div>
+            <h2 className="font-serif text-lg font-medium">
+              Your meetings will land here
+            </h2>
+            <p className="max-w-sm text-sm text-muted-foreground">
+              Each recording stores its WAV, transcript, summary, and any agent runs in
+              its own folder under{" "}
+              <code className="rounded bg-muted px-1 py-0.5 text-2xs">
+                ~/Documents/Attune/Recordings/
+              </code>{" "}
+              — yours to keep.
             </p>
+            <Link
+              to="/record"
+              className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90"
+            >
+              Start your first recording
+            </Link>
           </CardContent>
         </Card>
       ) : visible.length === 0 ? (

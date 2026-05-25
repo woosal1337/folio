@@ -116,15 +116,18 @@ export default function Ai() {
         </Card>
       ) : runs.length === 0 ? (
         <Card>
-          <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
-            <Bot className="h-7 w-7 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">
-              No agent runs yet. Open a transcribed recording from the Library and run
-              Summarize, Extract tasks, Find decisions, or QA — they&apos;ll show up
-              here.
+          <CardContent className="flex flex-col items-center gap-3 py-16 text-center">
+            <div className="rounded-full border border-border bg-muted/40 p-3">
+              <Bot className="h-6 w-6 text-muted-foreground" />
+            </div>
+            <h2 className="font-serif text-lg font-medium">Agent runs land here</h2>
+            <p className="max-w-sm text-sm text-muted-foreground">
+              When the auto-AI toggle is on, every recording gets summarized, decisions
+              tracked, tasks extracted, and memories captured — all automatically. Run
+              your first meeting to start.
             </p>
             <Button asChild variant="outline" size="sm" className="mt-2">
-              <Link to="/library">Go to Library</Link>
+              <Link to="/library">Open Library</Link>
             </Button>
           </CardContent>
         </Card>
