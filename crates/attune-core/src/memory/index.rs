@@ -566,6 +566,11 @@ fn row_to_memory(row: &rusqlite::Row<'_>) -> rusqlite::Result<Memory> {
         pinned: row.get::<_, i64>("pinned")? != 0,
         created_at: parse_dt(row.get("created_at")?)?,
         updated_at: parse_dt(row.get("updated_at")?)?,
+        // The SQLite index is a derived projection; the canonical
+        // on-disk markdown file owns the `extras` catch-all. Empty
+        // here is fine — writers always merge in the on-disk extras
+        // before round-tripping the page.
+        extras: std::collections::BTreeMap::new(),
     })
 }
 
@@ -594,6 +599,7 @@ mod tests {
             pinned: false,
             created_at: now,
             updated_at: now,
+            extras: std::collections::BTreeMap::new(),
         }
     }
 

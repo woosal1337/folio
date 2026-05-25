@@ -94,6 +94,13 @@ chrono = { version = "0.4", features = ["serde"] }
 # serialization
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+# YAML parser/serializer for memory-page frontmatter. We use the
+# `serde_norway` fork because the original `serde_yaml` was archived
+# in 2024 and the popular `serde_yml` fork has been advisory-flagged
+# (RUSTSEC-2025-0068, unsound emitter). `serde_norway` is the
+# community-maintained continuation at the same 0.9.x API surface.
+# v2 finding 040 / GET-61.
+serde_norway = "0.9"
 
 # TypeScript binding generation for the Tauri IPC surface. Types in
 # attune-core that cross the IPC boundary derive `TS` and the bindings
