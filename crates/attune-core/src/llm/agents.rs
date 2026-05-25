@@ -30,7 +30,13 @@ pub struct Agent {
 
 /// All default agents, in display order.
 pub fn defaults() -> Vec<Agent> {
-    vec![summarize(), extract_tasks(), find_decisions(), qa()]
+    vec![
+        summarize(),
+        extract_tasks(),
+        extract_memories(),
+        find_decisions(),
+        qa(),
+    ]
 }
 
 /// Look up a default agent by id. Returns `None` if `id` does not
@@ -54,6 +60,17 @@ fn extract_tasks() -> Agent {
         name: "Extract Tasks".to_string(),
         description: "Pull explicit action items out of the meeting.".to_string(),
         system_prompt: EXTRACT_TASKS_PROMPT.to_string(),
+    }
+}
+
+fn extract_memories() -> Agent {
+    Agent {
+        id: "extract-memories".to_string(),
+        name: "Extract Memories".to_string(),
+        description:
+            "Capture lasting facts about the user, their projects, and the people they work with."
+                .to_string(),
+        system_prompt: EXTRACT_MEMORIES_PROMPT.to_string(),
     }
 }
 
@@ -100,6 +117,46 @@ Rules:\n\
   - After all tool calls, finish with a single short sentence summarising what you created (e.g. \"Created 3 tasks.\"). \
 If there are no explicit action items, do not call the tool and reply \"No explicit action items found.\"";
 
+const EXTRACT_MEMORIES_PROMPT: &str = "You are a memory-extraction agent. \
+Read the meeting transcript and capture facts that should still be true the \
+next time the user opens the app. The goal is a small set of high-signal \
+memories, not a wholesale rewrite of the transcript.\n\
+\n\
+Call `remember` once per fact you decide is worth keeping. Each call takes:\n\
+  - kind: one of `claim`, `pref`, `person`, `observe`\n\
+  - key: a dotted handle for `claim`/`pref`/`person` (e.g. `user.company`, \
+`ui.theme`, `person.alice`). Omit for `observe`.\n\
+  - content: the fact in one sentence, present tense, written so a future \
+agent reading it cold understands what's true.\n\
+  - evidence: a short quoted snippet from the transcript that supports it.\n\
+  - confidence: 0.0-1.0; under 0.6 means \"plausible but I'm unsure\".\n\
+  - tags: 1-4 short lowercase tags for browsability (e.g. `identity`, \
+`engineering`, `company`).\n\
+\n\
+Use the kinds like this:\n\
+  - `claim` for facts about the user or their projects (`user.company`, \
+`user.role`, `project.attune.status`, `project.attune.next-deadline`).\n\
+  - `pref` for stated preferences (`ui.theme`, `comms.style`, \
+`meetings.format`).\n\
+  - `person` for someone the user works with — key is the canonical handle \
+(e.g. `person.alice`), content names their role + any relevant context \
+(\"engineering lead on Attune, prefers async\").\n\
+  - `observe` for free-form context that has no obvious key but seems \
+worth keeping (\"user is preparing a launch demo for next week\").\n\
+\n\
+Rules:\n\
+  - Skip transient facts (meeting agenda, today's blockers, \
+small-talk).\n\
+  - Skip facts already implied by the transcript's structure (\"this is a \
+meeting\", \"the user is speaking\").\n\
+  - Conflicting facts are fine — call `remember` with the new value and the \
+system will supersede the old one automatically.\n\
+  - If nothing is worth keeping, do not call `remember` at all. Reply with \
+\"No new memories extracted.\"\n\
+\n\
+After all calls, finish with a one-sentence summary of what you remembered \
+(e.g. \"Captured 4 memories: company, role, and two preferences.\").";
+
 const FIND_DECISIONS_PROMPT: &str = "You are a decision-tracker. \
 Read the meeting transcript and list every decision the participants \
 agreed on.\n\
@@ -127,13 +184,19 @@ mod tests {
     use super::*;
 
     #[test]
-    fn four_defaults_in_known_order() {
+    fn five_defaults_in_known_order() {
         let agents = defaults();
-        assert_eq!(agents.len(), 4);
+        assert_eq!(agents.len(), 5);
         let ids: Vec<&str> = agents.iter().map(|a| a.id.as_str()).collect();
         assert_eq!(
             ids,
-            vec!["summarize", "extract-tasks", "find-decisions", "qa"]
+            vec![
+                "summarize",
+                "extract-tasks",
+                "extract-memories",
+                "find-decisions",
+                "qa",
+            ]
         );
     }
 
@@ -141,6 +204,7 @@ mod tests {
     fn by_id_lookup_works() {
         assert_eq!(by_id("summarize").unwrap().name, "Summarize");
         assert_eq!(by_id("extract-tasks").unwrap().name, "Extract Tasks");
+        assert_eq!(by_id("extract-memories").unwrap().name, "Extract Memories");
         assert!(by_id("nonexistent").is_none());
     }
 

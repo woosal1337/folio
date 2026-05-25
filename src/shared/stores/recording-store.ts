@@ -20,6 +20,7 @@ import {
   transcribeRecording as ipcTranscribe,
 } from "@/shared/lib/ipc";
 import { useJobsStore } from "@/shared/stores/jobs-store";
+import { useMemoriesStore } from "@/shared/stores/memories-store";
 import { useSettingsStore } from "@/shared/stores/settings-store";
 import { useTasksStore } from "@/shared/stores/tasks-store";
 
@@ -141,6 +142,39 @@ export const useRecording = create<RecordingState>((set, get) => {
     }
   };
 
+  // Try to auto-run the Extract Memories agent after a transcription
+  // completes. Same gating + job-pill pattern as auto-summarize/tasks.
+  // Memories the agent writes via the `remember` tool land on the
+  // Memory page; on success we refresh the memories store so the UI
+  // updates immediately if the user has /memory open.
+  const maybeAutoExtractMemories = async (sessionDir: string) => {
+    const settings = useSettingsStore.getState().settings;
+    if (!settings) return;
+    if (!settings.auto_extract_memories_enabled) return;
+    if (!settings.openai_api_key || settings.openai_api_key.trim().length === 0) {
+      return;
+    }
+    const jobId = `agent:extract-memories:${sessionDir}`;
+    useJobsStore.getState().push({
+      id: jobId,
+      kind: "agent",
+      label: `Capturing memories from ${basename(sessionDir)}`,
+      detail: "auto",
+      sessionDir,
+      recordingLabel: basename(sessionDir),
+    });
+    try {
+      await ipcRunAgent(sessionDir, "extract-memories");
+      void useMemoriesStore.getState().refresh();
+      toast.success("Memories captured", { description: basename(sessionDir) });
+    } catch (e) {
+      console.error("auto-extract-memories failed:", e);
+      toast.error("Auto-extract memories failed", { description: String(e) });
+    } finally {
+      useJobsStore.getState().pop(jobId);
+    }
+  };
+
   // Try to auto-run the Extract Tasks agent after a transcription
   // completes. Same gating as auto-summarize: opt-in via settings, no
   // toast on the skipped path. The agent writes via the `create_task`
@@ -213,14 +247,16 @@ export const useRecording = create<RecordingState>((set, get) => {
       toast.success("Transcription complete", {
         description: `${segments} segments across ${channelCount} channel${channelCount === 1 ? "" : "s"} saved.`,
       });
-      // Chain into auto-summarize and auto-extract-tasks once the
-      // transcript has landed. We don't await — `runTranscription`'s
-      // caller doesn't care about the post-processing outcome; the
-      // jobs strip + the editor page surface progress and results.
-      // Both run in parallel: they hit the same provider, but the
-      // requests are independent and we'd rather they finish sooner.
+      // Chain into auto-summarize, auto-extract-tasks, and
+      // auto-extract-memories once the transcript has landed. We
+      // don't await — `runTranscription`'s caller doesn't care about
+      // the post-processing outcome; the jobs strip + the editor
+      // page surface progress and results. All three run in
+      // parallel: they hit the same provider, but the requests are
+      // independent and we'd rather they finish sooner.
       void maybeAutoSummarize(sessionDir);
       void maybeAutoExtractTasks(sessionDir);
+      void maybeAutoExtractMemories(sessionDir);
     } catch (e) {
       const message = String(e);
       set({

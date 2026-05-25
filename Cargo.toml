@@ -37,16 +37,35 @@ clap = { version = "4.5", features = ["derive"] }
 rodio = { version = "0.20", default-features = false, features = ["wav"] }
 
 # IDs and time
-uuid = { version = "1.10", features = ["v4", "serde"] }
+uuid = { version = "1.10", features = ["v4", "v7", "serde"] }
+
+# Memory layer: SQLite with the bundled C library (no host
+# libsqlite3 required) + sqlite-vec for vector search alongside
+# FTS5. `bundled` ships our SQLite version so users without
+# Apple's system libsqlite3 still get the FTS5 + vec extensions
+# we depend on. `load_extension` is needed so `sqlite-vec`'s
+# `sqlite3_vec_init` can be registered at connection time.
+rusqlite = { version = "0.32", features = ["bundled", "load_extension"] }
+sqlite-vec = "0.1"
+zerocopy = { version = "0.7", features = ["derive"] }
 
 # HTTP client for cloud transcription
-reqwest = { version = "0.12", default-features = false, features = ["blocking", "multipart", "json", "rustls-tls"] }
+reqwest = { version = "0.12", default-features = false, features = [
+  "blocking",
+  "multipart",
+  "json",
+  "rustls-tls",
+] }
 
 # LLM provider plumbing (phase 1 of ai-chat-multi-provider plan in the
 # vault under projects/attune/plan/). `keyring` stores API keys in the
 # macOS Keychain. `async-trait` lets the LlmProvider trait declare
 # async methods.
-keyring = { version = "3", features = ["apple-native", "linux-native", "windows-native"] }
+keyring = { version = "3", features = [
+  "apple-native",
+  "linux-native",
+  "windows-native",
+] }
 async-trait = "0.1"
 
 # Apple Voice Processing IO AudioUnit. Used by the macOS-only AEC +
@@ -55,7 +74,9 @@ async-trait = "0.1"
 # `coreaudio-rs` wraps the high-level AudioUnit API; `coreaudio-sys`
 # is the FFI source for VPIO property constants that the high-level
 # wrapper does not re-export.
-coreaudio-rs = { version = "0.14", default-features = false, features = ["audio_unit"] }
+coreaudio-rs = { version = "0.14", default-features = false, features = [
+  "audio_unit",
+] }
 coreaudio-sys = "0.2"
 
 # time

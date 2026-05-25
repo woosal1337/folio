@@ -22,6 +22,7 @@ pub mod audio;
 pub mod error;
 pub mod ffi;
 pub mod llm;
+pub mod memory;
 pub mod storage;
 pub mod transcription;
 

@@ -3,6 +3,7 @@ import { NavLink, useLocation } from "react-router-dom";
 import {
   AudioLines,
   Bot,
+  Brain,
   KanbanSquare,
   Library,
   Moon,
@@ -33,6 +34,7 @@ const items: NavItem[] = [
   { to: "/library", label: "Library", icon: Library, alsoActiveOn: ["/editor"] },
   { to: "/ai", label: "AI", icon: Bot },
   { to: "/tasks", label: "Tasks", icon: KanbanSquare },
+  { to: "/memory", label: "Memory", icon: Brain },
 ];
 
 interface SidebarProps {
