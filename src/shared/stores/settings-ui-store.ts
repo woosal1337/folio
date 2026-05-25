@@ -19,6 +19,7 @@ export type SettingsSection =
   | "ai"
   | "storage"
   | "webhooks"
+  | "usage"
   | "appearance";
 
 interface SettingsUiState {
