@@ -35,6 +35,7 @@ import type { NewTask } from "@/shared/types/NewTask";
 import type { Settings } from "@/shared/types/Settings";
 import type { SessionTranscript } from "@/shared/types/SessionTranscript";
 import type { DigestResult } from "@/shared/types/DigestResult";
+import type { GitSyncSummary } from "@/shared/types/GitSyncSummary";
 import type { PurgeSummary } from "@/shared/types/PurgeSummary";
 import type { ShareBundleSummary } from "@/shared/types/ShareBundleSummary";
 import type { SnapshotSummary } from "@/shared/types/SnapshotSummary";
@@ -322,6 +323,16 @@ export function openCaptionsWindow(): Promise<void> {
 
 export function closeCaptionsWindow(): Promise<void> {
   return call<void>("close_captions_window");
+}
+
+// ---- Git sync (v2 #070 / GET-72) ---------------------------------------
+
+export function gitSyncVault(): Promise<GitSyncSummary> {
+  return call<GitSyncSummary>("git_sync_vault");
+}
+
+export function gitVaultIsRepo(): Promise<boolean> {
+  return call<boolean>("git_vault_is_repo");
 }
 
 // ---- Webhooks ----------------------------------------------------------

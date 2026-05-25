@@ -95,6 +95,8 @@ pub fn run() {
             commands::maintenance::export_share_bundle,
             commands::captions::open_captions_window,
             commands::captions::close_captions_window,
+            commands::maintenance::git_sync_vault,
+            commands::maintenance::git_vault_is_repo,
             commands::webhooks::list_webhooks,
             commands::webhooks::save_webhook,
             commands::webhooks::delete_webhook,

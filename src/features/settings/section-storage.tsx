@@ -1,5 +1,13 @@
 import * as React from "react";
-import { Archive, CalendarRange, Download, Loader2, Trash2 } from "lucide-react";
+import {
+  Archive,
+  CalendarRange,
+  Download,
+  GitBranch,
+  Loader2,
+  RefreshCw,
+  Trash2,
+} from "lucide-react";
 import { save as showSaveDialog } from "@tauri-apps/plugin-dialog";
 import { toast } from "sonner";
 
@@ -8,6 +16,8 @@ import { Input } from "@/shared/ui/input";
 import {
   exportVaultSnapshot,
   generateWeeklyDigest,
+  gitSyncVault,
+  gitVaultIsRepo,
   purgeOldWavFiles,
 } from "@/shared/lib/ipc";
 import { formatBytes } from "@/shared/lib/utils";
@@ -38,6 +48,43 @@ export function SectionStorage({ settings, onChange }: Props) {
   const [exporting, setExporting] = React.useState(false);
   const [purging, setPurging] = React.useState(false);
   const [digesting, setDigesting] = React.useState(false);
+  const [isRepo, setIsRepo] = React.useState<boolean | null>(null);
+  const [syncing, setSyncing] = React.useState(false);
+  React.useEffect(() => {
+    gitVaultIsRepo()
+      .then(setIsRepo)
+      .catch((e) => {
+        console.error("git_vault_is_repo:", e);
+        setIsRepo(false);
+      });
+  }, []);
+  const handleSync = async () => {
+    setSyncing(true);
+    try {
+      const summary = await gitSyncVault();
+      if (!summary.is_repo) {
+        toast.info("Vault is not a git repository", {
+          description: "Run `git init` in the vault dir to enable sync.",
+        });
+        return;
+      }
+      if (summary.ok) {
+        toast.success(
+          `Vault synced on ${summary.branch}${summary.committed ? " (commit pushed)" : " (no local changes)"}`
+        );
+      } else {
+        toast.error("Git sync failed", {
+          description:
+            (summary.pull_log || summary.push_log).slice(0, 200) || "see logs",
+        });
+      }
+    } catch (e) {
+      console.error("git_sync_vault:", e);
+      toast.error("Could not sync vault", { description: String(e) });
+    } finally {
+      setSyncing(false);
+    }
+  };
   const handleDigest = async () => {
     setDigesting(true);
     try {
@@ -174,6 +221,39 @@ export function SectionStorage({ settings, onChange }: Props) {
               </Button>
             </div>
           </div>
+        </div>
+      </section>
+
+      <section
+        aria-label="Git vault sync"
+        className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4"
+      >
+        <div className="flex items-start gap-3">
+          <GitBranch className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+          <div className="flex-1">
+            <p className="text-sm font-medium">Multi-machine sync via git</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {isRepo
+                ? "Your memory dir is a git repo. Sync runs git pull --rebase, commits any local changes, and pushes — no Attune cloud."
+                : "Your memory dir is not (yet) a git repo. Run `git init` + add a remote inside it to enable sync."}
+            </p>
+          </div>
+        </div>
+        <div className="flex justify-end">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={syncing || !isRepo}
+            onClick={handleSync}
+            className="gap-2"
+          >
+            {syncing ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <RefreshCw className="h-3.5 w-3.5" />
+            )}
+            {syncing ? "Syncing…" : "Sync now"}
+          </Button>
         </div>
       </section>
 
