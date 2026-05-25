@@ -5,6 +5,7 @@ import { Toaster } from "sonner";
 import { Sidebar } from "@/chrome/sidebar";
 import { DragStrip } from "@/chrome/drag-strip";
 import { JobStrip } from "@/chrome/job-strip";
+import { CloudCostConfirmDialog } from "@/chrome/cloud-cost-confirm-dialog";
 import Record from "@/features/recording/route";
 import Library from "@/features/library/route";
 import Editor from "@/features/editor/route";
@@ -68,6 +69,7 @@ export default function App() {
             </main>
           </div>
           <SettingsModal open={settingsOpen} onOpenChange={setSettingsOpen} />
+          <CloudCostConfirmDialog />
         </div>
         <Toaster position="bottom-right" richColors closeButton />
       </HashRouter>

@@ -41,6 +41,19 @@ const DEFAULT_OPENAI_MODEL: &str = "gpt-4o-mini";
 const TRANSCRIPT_CHAR_CAP: usize = 100_000;
 const MAX_TOOL_ITERATIONS: usize = 5;
 
+/// Trailer appended to every agent's system prompt so the model
+/// responds in the meeting's language rather than the prompt's
+/// language. Closes v2 roadmap finding R09 / implements 097. We do
+/// not auto-detect from the transcript here — gpt-4o-mini is good
+/// enough at picking the dominant script from the user message that
+/// a single instruction suffices.
+const LANGUAGE_AWARE_TRAILER: &str = "\n\n\
+LANGUAGE: Always reply in the same language as the meeting transcript, \
+not the language of these instructions. If the transcript is mixed, \
+default to the dominant language. For tool calls, write `title`, \
+`content`, `notes`, and any other free-text fields in the meeting's \
+language; structural fields (kind, key, status) stay in English.";
+
 /// Agents that receive the `create_task` tool.
 const TASK_TOOL_AGENTS: &[&str] = &["extract-tasks"];
 
@@ -153,13 +166,20 @@ pub async fn run_agent(
     let tools = tools_for_agent(&agent.id);
     let session_label = session_label_from_dir(&session_dir);
 
-    // Compose system prompt: memory preamble (if any) then the agent's
-    // own prompt. The preamble sits ABOVE the agent prompt so the
-    // model treats it as background context, not a task instruction.
-    let system_prompt = match memory_preamble {
+    // Compose system prompt:
+    //   1. Memory preamble (if any) — background facts about the user
+    //   2. The agent's own prompt — task instructions
+    //   3. Language trailer — keeps output in the meeting's language
+    //
+    // The preamble is ABOVE the agent prompt so the model treats it as
+    // background context, and the language rule is BELOW so it's the
+    // last thing the model reads before responding (the strongest
+    // position in a system prompt for behavioural overrides).
+    let base = match memory_preamble {
         Some(preamble) => format!("{preamble}\n\n{}", agent.system_prompt),
         None => agent.system_prompt.clone(),
     };
+    let system_prompt = format!("{base}{LANGUAGE_AWARE_TRAILER}");
 
     let mut messages: Vec<ChatMessage> = vec![ChatMessage {
         role: ChatRole::User,

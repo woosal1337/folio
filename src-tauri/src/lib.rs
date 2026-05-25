@@ -62,6 +62,7 @@ pub fn run() {
             commands::memory::purge_memory,
             commands::memory::pin_memory,
             commands::memory::search_memories,
+            commands::memory::memory_file_path,
             commands::memory::rebuild_memory_index,
             commands::maintenance::clear_recording_artifacts,
         ])

@@ -33,6 +33,7 @@ import {
   CheckCircle2,
   Circle,
   CircleDashed,
+  Copy,
   KanbanSquare,
   Loader2,
   Plus,
@@ -55,6 +56,7 @@ import {
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
 import { cn } from "@/shared/lib/utils";
+import { copyToClipboard, taskToMarkdown } from "@/shared/lib/share";
 import { useTasksStore } from "@/shared/stores/tasks-store";
 import type { NewTask } from "@/shared/types/NewTask";
 import type { Task } from "@/shared/types/Task";
@@ -567,14 +569,31 @@ function EditTaskDialog({ task, onClose, onSave }: EditTaskDialogProps) {
             </div>
           )}
         </div>
-        <DialogFooter>
-          <Button variant="ghost" onClick={onClose} disabled={saving}>
-            Cancel
-          </Button>
-          <Button onClick={submit} disabled={saving || title.trim().length === 0}>
-            {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-            Save
-          </Button>
+        <DialogFooter className="sm:justify-between">
+          <div className="flex items-center gap-1">
+            {task ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() =>
+                  task && copyToClipboard(taskToMarkdown(task), "Markdown copied")
+                }
+                title="Copy as Markdown checkbox"
+              >
+                <Copy className="mr-1.5 h-3.5 w-3.5" />
+                Copy MD
+              </Button>
+            ) : null}
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" onClick={onClose} disabled={saving}>
+              Cancel
+            </Button>
+            <Button onClick={submit} disabled={saving || title.trim().length === 0}>
+              {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Save
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
