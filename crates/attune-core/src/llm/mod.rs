@@ -26,5 +26,5 @@ pub use provider::{LlmProvider, ProviderId};
 pub use providers::openai::OpenAiProvider;
 pub use types::{
     ChatMessage, ChatRequest, ChatResponse, ChatRole, FinishReason, ModelInfo, ProviderConfig,
-    ProviderStatus,
+    ProviderStatus, ToolCall, ToolDef,
 };

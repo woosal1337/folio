@@ -58,6 +58,14 @@ pub struct Settings {
     /// they come back. Falls back to a no-op when no AI key is set.
     #[serde(default = "default_auto_summarize_enabled")]
     pub auto_summarize_enabled: bool,
+    /// When true and an AI provider key is configured, the app
+    /// automatically runs the `extract-tasks` agent after a
+    /// transcription completes. The agent uses the `create_task`
+    /// tool to populate the kanban directly, so the user can stop a
+    /// meeting and come back to a populated to-do board. Skipped
+    /// silently if no AI key is set.
+    #[serde(default = "default_auto_extract_tasks_enabled")]
+    pub auto_extract_tasks_enabled: bool,
 }
 
 fn default_theme() -> String {
@@ -81,6 +89,9 @@ fn default_auto_transcribe_enabled() -> bool {
 fn default_auto_summarize_enabled() -> bool {
     true
 }
+fn default_auto_extract_tasks_enabled() -> bool {
+    true
+}
 
 impl Default for Settings {
     fn default() -> Self {
@@ -101,6 +112,7 @@ impl Default for Settings {
             voice_processing_enabled: default_voice_processing_enabled(),
             auto_transcribe_enabled: default_auto_transcribe_enabled(),
             auto_summarize_enabled: default_auto_summarize_enabled(),
+            auto_extract_tasks_enabled: default_auto_extract_tasks_enabled(),
         }
     }
 }

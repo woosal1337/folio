@@ -52,5 +52,8 @@ parking_lot = { workspace = true }
 # Used by the library scan to read WAV headers for duration + sample rate
 hound = { workspace = true }
 
+[dev-dependencies]
+tempfile = "3.10"
+
 [lints]
 workspace = true

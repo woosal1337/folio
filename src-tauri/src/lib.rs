@@ -49,6 +49,11 @@ pub fn run() {
             commands::agents::run_agent,
             commands::agents::list_agent_runs,
             commands::agents::delete_agent_run,
+            commands::tasks::list_tasks,
+            commands::tasks::create_task,
+            commands::tasks::update_task,
+            commands::tasks::delete_task,
+            commands::tasks::set_task_status,
             commands::maintenance::clear_recording_artifacts,
         ])
         .run(tauri::generate_context!())

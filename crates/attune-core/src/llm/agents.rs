@@ -85,14 +85,20 @@ Do not invent content not in the transcript. \
 If the transcript is too short or noisy to summarise, say so.";
 
 const EXTRACT_TASKS_PROMPT: &str = "You are a task-extraction agent. \
-Read the meeting transcript and list every explicit action item.\n\
+Read the meeting transcript and identify every explicit action item.\n\
 \n\
-Format each task as a markdown checkbox:\n\
-- [ ] <task description> — <owner if known> (due <date if mentioned>)\n\
+For each action item, call the `create_task` tool exactly once. Pass:\n\
+  - title: short imperative phrase (e.g. \"Send revised contract to legal\")\n\
+  - owner: the person responsible if named (e.g. \"Ege\"); omit if not stated\n\
+  - due: any date or timeframe mentioned (e.g. \"Friday\", \"next sprint\", \"2026-06-01\"); omit if not stated\n\
+  - notes: at most one sentence of context only if it materially helps a future reader\n\
 \n\
-Action items must be explicit commitments. Do not infer tasks that no one \
-actually agreed to do. If no action items exist, say \"No explicit action \
-items found.\"";
+Rules:\n\
+  - Only create tasks for explicit commitments. Do not infer tasks that no one agreed to do.\n\
+  - One tool call per action item. Do not bundle multiple tasks into one call.\n\
+  - Do not deduplicate against existing tasks — the caller handles that.\n\
+  - After all tool calls, finish with a single short sentence summarising what you created (e.g. \"Created 3 tasks.\"). \
+If there are no explicit action items, do not call the tool and reply \"No explicit action items found.\"";
 
 const FIND_DECISIONS_PROMPT: &str = "You are a decision-tracker. \
 Read the meeting transcript and list every decision the participants \
