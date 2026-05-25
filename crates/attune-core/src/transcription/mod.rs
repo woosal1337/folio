@@ -4,6 +4,7 @@
 //! implementations live in submodules: [`openai`] for the hosted Whisper
 //! API and [`stub`] for tests and offline use.
 
+pub mod adaptive;
 pub mod hallucination_filter;
 pub mod local;
 pub mod models;
