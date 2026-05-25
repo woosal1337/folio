@@ -34,6 +34,7 @@ import type { NewMemory } from "@/shared/types/NewMemory";
 import type { NewTask } from "@/shared/types/NewTask";
 import type { Settings } from "@/shared/types/Settings";
 import type { SessionTranscript } from "@/shared/types/SessionTranscript";
+import type { SnapshotSummary } from "@/shared/types/SnapshotSummary";
 import type { Task } from "@/shared/types/Task";
 import type { TaskStatus } from "@/shared/types/TaskStatus";
 import type { TaskUpdate } from "@/shared/types/TaskUpdate";
@@ -268,4 +269,13 @@ export function memoryFilePath(id: string): Promise<string | null> {
 
 export function clearRecordingArtifacts(sessionDir: string): Promise<void> {
   return call<void>("clear_recording_artifacts", { sessionDir });
+}
+
+/**
+ * Build a vault-snapshot zip at the chosen destination. Returns a
+ * summary describing how many files were bundled and the resulting
+ * zip size. v2 finding 057 / GET-92.
+ */
+export function exportVaultSnapshot(destination: string): Promise<SnapshotSummary> {
+  return call<SnapshotSummary>("export_vault_snapshot", { destination });
 }

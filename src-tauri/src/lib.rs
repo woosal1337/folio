@@ -87,6 +87,7 @@ pub fn run() {
             commands::memory::memory_file_path,
             commands::memory::rebuild_memory_index,
             commands::maintenance::clear_recording_artifacts,
+            commands::maintenance::export_vault_snapshot,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
