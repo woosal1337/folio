@@ -5,19 +5,64 @@
 //! its wiki pages). The frontmatter is the machine-readable contract;
 //! the body is human-readable and git-diffable.
 //!
-//! We hand-roll a tiny YAML serializer rather than pulling in
-//! `serde_yaml`. The frontmatter shape is fixed and tiny (~10 scalar
-//! fields + two string lists), and we want byte-identical output
-//! across writes so git diffs stay clean. `serde_yaml`'s key
-//! ordering is not stable across versions.
+//! Parsing goes through `serde_norway` deserializing into the typed
+//! `MemoryFrontmatter` struct below. Unknown keys are caught by a
+//! `#[serde(flatten)]` extras map so a user who hand-edits a page and
+//! adds their own field doesn't see it disappear on the next round-
+//! trip — the writer emits the extras at the end of the frontmatter
+//! block in sorted order. v2 finding 040 / GET-61.
+//!
+//! Rendering uses a small hand-rolled writer rather than
+//! `serde_norway::to_string` so the byte output is stable across
+//! versions and round-trips produce clean git diffs.
 
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 
 use crate::error::{AttuneError, Result};
 use crate::memory::types::{Memory, MemoryKind};
+
+/// Typed mirror of the on-disk frontmatter. Every known field is
+/// reified as a strongly-typed property; everything else is caught by
+/// the `#[serde(flatten)]` extras map so it can be re-emitted on write.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct MemoryFrontmatter {
+    id: String,
+    kind: String,
+    #[serde(default)]
+    key: Option<String>,
+    #[serde(default)]
+    evidence: Option<String>,
+    #[serde(default = "default_confidence")]
+    confidence: f32,
+    #[serde(default)]
+    tags: Vec<String>,
+    #[serde(default)]
+    source_session_dir: Option<String>,
+    #[serde(default)]
+    source_session_label: Option<String>,
+    valid_from: String,
+    #[serde(default)]
+    valid_until: Option<String>,
+    #[serde(default)]
+    supersedes_id: Option<String>,
+    #[serde(default)]
+    pinned: bool,
+    created_at: String,
+    updated_at: String,
+    /// Catch-all for user-added frontmatter keys. Preserved on
+    /// round-trip.
+    #[serde(flatten)]
+    extras: BTreeMap<String, serde_norway::Value>,
+}
+
+fn default_confidence() -> f32 {
+    1.0
+}
 
 /// Trailing path component of `dir` for a given memory id. Filename
 /// format is `<kind>_<short-uuid>.md` — we don't include the key in
@@ -103,7 +148,10 @@ pub fn read_dir_pages(dir: &Path) -> Vec<Memory> {
     out
 }
 
-/// Render a memory as its markdown page (frontmatter + body).
+/// Render a memory as its markdown page (frontmatter + body). The
+/// frontmatter is emitted in a fixed order so git diffs stay clean;
+/// any user-added unknown keys (carried through `Memory::extras`) are
+/// appended at the end in BTree-sorted order.
 pub fn render_page(memory: &Memory) -> String {
     let mut out = String::new();
     out.push_str("---\n");
@@ -137,6 +185,24 @@ pub fn render_page(memory: &Memory) -> String {
     push_bool(&mut out, "pinned", memory.pinned);
     push_str(&mut out, "created_at", &memory.created_at.to_rfc3339());
     push_str(&mut out, "updated_at", &memory.updated_at.to_rfc3339());
+
+    // User-added unknown keys, sorted for stable diffs. Emitted via
+    // serde_norway so nested structures (lists, maps) survive a round-trip.
+    for (k, v) in &memory.extras {
+        // Skip any extras that happen to shadow a known field — the
+        // known field takes precedence, and re-emitting the extra would
+        // produce a duplicate key.
+        if is_known_key(k) {
+            continue;
+        }
+        match render_extra(k, v) {
+            Ok(line) => out.push_str(&line),
+            Err(e) => {
+                tracing::warn!(key = %k, error = %e, "could not render memory extra; dropping");
+            }
+        }
+    }
+
     out.push_str("---\n\n");
 
     // Body: heading is the key (or "Observation" for keyless),
@@ -160,97 +226,32 @@ pub fn parse_page(raw: &str) -> std::result::Result<Memory, String> {
     let end = rest
         .find("\n---")
         .ok_or_else(|| "missing trailing frontmatter delimiter".to_string())?;
-    let frontmatter = &rest[..end];
+    let frontmatter_yaml = &rest[..end];
 
-    let mut id: Option<String> = None;
-    let mut kind: Option<MemoryKind> = None;
-    let mut key: Option<String> = None;
-    let mut content_line: Option<String> = None;
-    let mut evidence: Option<String> = None;
-    let mut confidence: f32 = 1.0;
-    let mut tags: Vec<String> = Vec::new();
-    let mut source_session_dir: Option<String> = None;
-    let mut source_session_label: Option<String> = None;
-    let mut valid_from: Option<DateTime<Utc>> = None;
-    let mut valid_until: Option<DateTime<Utc>> = None;
-    let mut supersedes_id: Option<String> = None;
-    let mut pinned: bool = false;
-    let mut created_at: Option<DateTime<Utc>> = None;
-    let mut updated_at: Option<DateTime<Utc>> = None;
+    let fm: MemoryFrontmatter = serde_norway::from_str(frontmatter_yaml)
+        .map_err(|e| format!("frontmatter parse error: {e}"))?;
 
-    for line in frontmatter.lines() {
-        if line.trim().is_empty() {
-            continue;
-        }
-        let (k, v) = line
-            .split_once(':')
-            .ok_or_else(|| format!("frontmatter line missing colon: {line}"))?;
-        let k = k.trim();
-        let v = v.trim();
-        match k {
-            "id" => id = Some(unquote(v)),
-            "kind" => {
-                let kind_str = unquote(v);
-                kind = MemoryKind::parse(&kind_str)
-                    .ok_or_else(|| format!("unknown kind: {v}"))
-                    .map(Some)?
-            }
-            "key" => key = parse_opt_string(v),
-            "evidence" => evidence = parse_opt_string(v),
-            "confidence" => {
-                confidence = v
-                    .parse::<f32>()
-                    .map_err(|e| format!("bad confidence: {e}"))?
-            }
-            "tags" => tags = parse_string_list(v),
-            "source_session_dir" => source_session_dir = parse_opt_string(v),
-            "source_session_label" => source_session_label = parse_opt_string(v),
-            "valid_from" => {
-                let s = unquote(v);
-                valid_from = Some(
-                    DateTime::parse_from_rfc3339(&s)
-                        .map_err(|e| format!("bad valid_from: {e}"))?
-                        .with_timezone(&Utc),
-                )
-            }
-            "valid_until" => {
-                valid_until = parse_opt_string(v)
-                    .map(|s| {
-                        DateTime::parse_from_rfc3339(&s)
-                            .map(|d| d.with_timezone(&Utc))
-                            .map_err(|e| format!("bad valid_until: {e}"))
-                    })
-                    .transpose()?
-            }
-            "supersedes_id" => supersedes_id = parse_opt_string(v),
-            "pinned" => pinned = v == "true",
-            "created_at" => {
-                let s = unquote(v);
-                created_at = Some(
-                    DateTime::parse_from_rfc3339(&s)
-                        .map_err(|e| format!("bad created_at: {e}"))?
-                        .with_timezone(&Utc),
-                )
-            }
-            "updated_at" => {
-                let s = unquote(v);
-                updated_at = Some(
-                    DateTime::parse_from_rfc3339(&s)
-                        .map_err(|e| format!("bad updated_at: {e}"))?
-                        .with_timezone(&Utc),
-                )
-            }
-            _ => {
-                // Unknown keys are ignored so future fields stay
-                // backwards-compatible with older files.
-            }
-        }
-    }
+    let kind = MemoryKind::parse(&fm.kind).ok_or_else(|| format!("unknown kind: {}", fm.kind))?;
 
-    // Body is after the trailing `---`. We extract the line that
-    // begins with `**Current:**` as the canonical content, which keeps
-    // hand-edited bodies sane (users can write any prose after it).
+    let parse_dt = |label: &str, s: &str| -> std::result::Result<DateTime<Utc>, String> {
+        DateTime::parse_from_rfc3339(s)
+            .map(|d| d.with_timezone(&Utc))
+            .map_err(|e| format!("bad {label}: {e}"))
+    };
+
+    let valid_from = parse_dt("valid_from", &fm.valid_from)?;
+    let valid_until = fm
+        .valid_until
+        .as_deref()
+        .map(|s| parse_dt("valid_until", s))
+        .transpose()?;
+    let created_at = parse_dt("created_at", &fm.created_at)?;
+    let updated_at = parse_dt("updated_at", &fm.updated_at)?;
+
+    // Body: pull the `**Current:**` line as the canonical content so
+    // hand-edited prose around it is ignored.
     let body = rest[end..].trim_start_matches("\n---").trim_start();
+    let mut content_line: Option<String> = None;
     for line in body.lines() {
         if let Some(rest) = line.strip_prefix("**Current:**") {
             content_line = Some(rest.trim().to_string());
@@ -259,25 +260,26 @@ pub fn parse_page(raw: &str) -> std::result::Result<Memory, String> {
     }
 
     Ok(Memory {
-        id: id.ok_or_else(|| "missing id".to_string())?,
-        kind: kind.ok_or_else(|| "missing kind".to_string())?,
-        key,
+        id: fm.id,
+        kind,
+        key: fm.key,
         content: content_line.unwrap_or_default(),
-        evidence,
-        confidence,
-        tags,
-        source_session_dir,
-        source_session_label,
-        valid_from: valid_from.ok_or_else(|| "missing valid_from".to_string())?,
+        evidence: fm.evidence,
+        confidence: fm.confidence,
+        tags: fm.tags,
+        source_session_dir: fm.source_session_dir,
+        source_session_label: fm.source_session_label,
+        valid_from,
         valid_until,
-        supersedes_id,
-        pinned,
-        created_at: created_at.ok_or_else(|| "missing created_at".to_string())?,
-        updated_at: updated_at.ok_or_else(|| "missing updated_at".to_string())?,
+        supersedes_id: fm.supersedes_id,
+        pinned: fm.pinned,
+        created_at,
+        updated_at,
+        extras: fm.extras,
     })
 }
 
-// ---- tiny YAML emit/parse helpers --------------------------------
+// ---- frontmatter render helpers ----------------------------------
 
 fn push_str(out: &mut String, k: &str, v: &str) {
     out.push_str(&format!("{}: {}\n", k, quote_if_needed(v)));
@@ -307,6 +309,51 @@ fn push_string_list(out: &mut String, k: &str, items: &[String]) {
     out.push_str(&format!("{}: [{}]\n", k, inner.join(", ")));
 }
 
+/// Emit a single extra `key: value` line. Scalars round-trip through
+/// `quote_if_needed`; non-scalars defer to `serde_norway`'s default
+/// serializer with the YAML document markers stripped.
+fn render_extra(key: &str, value: &serde_norway::Value) -> std::result::Result<String, String> {
+    match value {
+        serde_norway::Value::Null => Ok(format!("{}: null\n", key)),
+        serde_norway::Value::Bool(b) => Ok(format!("{}: {}\n", key, b)),
+        serde_norway::Value::Number(n) => Ok(format!("{}: {}\n", key, n)),
+        serde_norway::Value::String(s) => Ok(format!("{}: {}\n", key, quote_if_needed(s))),
+        other => {
+            // Sequences and mappings — let serde_norway render them but
+            // strip the document-start `---\n` marker so we don't get
+            // nested document syntax.
+            let rendered = serde_norway::to_string(&serde_norway::Value::Mapping({
+                let mut m = serde_norway::Mapping::new();
+                m.insert(serde_norway::Value::String(key.to_string()), other.clone());
+                m
+            }))
+            .map_err(|e| e.to_string())?;
+            Ok(rendered)
+        }
+    }
+}
+
+/// Known frontmatter keys — used to drop any catch-all that happens to
+/// duplicate a typed field so the rendered page can't grow duplicates.
+fn is_known_key(k: &str) -> bool {
+    matches!(
+        k,
+        "id" | "kind"
+            | "key"
+            | "evidence"
+            | "confidence"
+            | "tags"
+            | "source_session_dir"
+            | "source_session_label"
+            | "valid_from"
+            | "valid_until"
+            | "supersedes_id"
+            | "pinned"
+            | "created_at"
+            | "updated_at"
+    )
+}
+
 /// Quote strings that contain YAML-special characters. Everything
 /// else round-trips bare for readable frontmatter.
 fn quote_if_needed(s: &str) -> String {
@@ -323,60 +370,6 @@ fn quote_if_needed(s: &str) -> String {
     } else {
         s.to_string()
     }
-}
-
-/// Strip surrounding quotes and undo the `\\` + `\"` escaping
-/// `quote_if_needed` applies. Returns owned String because the
-/// unescape path needs to mutate.
-fn unquote(v: &str) -> String {
-    let v = v.trim();
-    let is_quoted = v.len() >= 2
-        && ((v.starts_with('"') && v.ends_with('"')) || (v.starts_with('\'') && v.ends_with('\'')));
-    if !is_quoted {
-        return v.to_string();
-    }
-    let inner = &v[1..v.len() - 1];
-    let mut out = String::with_capacity(inner.len());
-    let mut chars = inner.chars().peekable();
-    while let Some(c) = chars.next() {
-        if c == '\\' {
-            match chars.next() {
-                Some('"') => out.push('"'),
-                Some('\\') => out.push('\\'),
-                Some('n') => out.push('\n'),
-                Some(other) => {
-                    out.push('\\');
-                    out.push(other);
-                }
-                None => out.push('\\'),
-            }
-        } else {
-            out.push(c);
-        }
-    }
-    out
-}
-
-fn parse_opt_string(v: &str) -> Option<String> {
-    let v = v.trim();
-    if v == "null" || v.is_empty() {
-        None
-    } else {
-        Some(unquote(v))
-    }
-}
-
-fn parse_string_list(v: &str) -> Vec<String> {
-    let v = v.trim();
-    if v == "[]" || v.is_empty() {
-        return Vec::new();
-    }
-    let inner = v.trim_start_matches('[').trim_end_matches(']');
-    inner
-        .split(',')
-        .map(|s| unquote(s.trim()))
-        .filter(|s| !s.is_empty())
-        .collect()
 }
 
 #[cfg(test)]
@@ -402,6 +395,7 @@ mod tests {
             pinned: false,
             created_at: Utc.with_ymd_and_hms(2026, 5, 25, 14, 0, 0).unwrap(),
             updated_at: Utc.with_ymd_and_hms(2026, 5, 25, 14, 0, 0).unwrap(),
+            extras: BTreeMap::new(),
         }
     }
 
@@ -483,5 +477,52 @@ mod tests {
         delete_page(dir.path(), &m).unwrap();
         delete_page(dir.path(), &m).unwrap();
         assert!(read_dir_pages(dir.path()).is_empty());
+    }
+
+    #[test]
+    fn parse_preserves_unknown_extras_in_round_trip() {
+        // Build a page on disk by hand, including an unknown user
+        // field. The first parse-then-render cycle should put the
+        // extra into Memory::extras and re-emit it; the second parse
+        // should see the same extras.
+        let raw = "---
+id: 01H9XABCDEFGHIJKLMNOPQRST
+kind: claim
+key: user.company
+evidence: null
+confidence: 1.000
+tags: []
+source_session_dir: null
+source_session_label: null
+valid_from: 2026-05-25T14:00:00+00:00
+valid_until: null
+supersedes_id: null
+pinned: false
+created_at: 2026-05-25T14:00:00+00:00
+updated_at: 2026-05-25T14:00:00+00:00
+custom_field: hello
+priority: 7
+---
+
+# user.company
+
+**Current:** Attune.
+";
+        let parsed = parse_page(raw).expect("parse");
+        assert_eq!(
+            parsed.extras.get("custom_field").and_then(|v| v.as_str()),
+            Some("hello"),
+        );
+        assert_eq!(
+            parsed.extras.get("priority").and_then(|v| v.as_i64()),
+            Some(7),
+        );
+
+        let rendered = render_page(&parsed);
+        assert!(rendered.contains("custom_field: hello"));
+        assert!(rendered.contains("priority: 7"));
+
+        let reparsed = parse_page(&rendered).expect("reparse");
+        assert_eq!(reparsed.extras, parsed.extras);
     }
 }

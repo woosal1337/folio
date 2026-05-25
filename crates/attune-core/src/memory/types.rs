@@ -1,5 +1,7 @@
 //! Public types crossing the IPC boundary into the React frontend.
 
+use std::collections::BTreeMap;
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
@@ -104,6 +106,16 @@ pub struct Memory {
     pub pinned: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    /// Unknown frontmatter keys preserved from the on-disk file so a
+    /// user who hand-edits a memory page with extra fields doesn't see
+    /// them silently disappear on the next round-trip. Populated by
+    /// the page reader and re-emitted by the page writer; never crosses
+    /// the IPC boundary into the frontend. The `serde(skip)` and
+    /// `ts(skip)` annotations together exclude it from both JSON and
+    /// the TypeScript binding. v2 finding 040 / GET-61.
+    #[serde(skip)]
+    #[ts(skip)]
+    pub extras: BTreeMap<String, serde_norway::Value>,
 }
 
 impl Memory {

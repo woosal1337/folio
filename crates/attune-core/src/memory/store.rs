@@ -194,6 +194,7 @@ impl MemoryStore {
             pinned: false,
             created_at: now,
             updated_at: now,
+            extras: std::collections::BTreeMap::new(),
         };
         // Empty content is a strong signal of model junk; reject so
         // the agent loop's `tasks_created`-style counter doesn't tick.
