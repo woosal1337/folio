@@ -25,6 +25,8 @@ use tracing::{debug, error, info};
 use crate::audio::resampler::StreamingResampler;
 use crate::audio::wav_writer::AudioWavWriter;
 use crate::error::{AttuneError, Result};
+#[cfg(target_os = "macos")]
+use crate::qos::{set_thread_qos, QosClass};
 
 #[cfg(target_os = "macos")]
 pub use macos_impl::SystemCapture;
@@ -63,12 +65,25 @@ mod macos_impl {
         resampler: Arc<Mutex<StreamingResampler>>,
     }
 
+    thread_local! {
+        /// Set once per SCK callback thread; pthread_set_qos_class_self_np
+        /// is per-thread so we tag on the first sample frame and skip
+        /// the libc syscall every subsequent frame. v2 finding 064 / GET-99.
+        static QOS_TAGGED: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+    }
+
     impl SCStreamOutputTrait for AudioOutput {
         fn did_output_sample_buffer(
             &self,
             sample_buffer: CMSampleBuffer,
             of_type: SCStreamOutputType,
         ) {
+            QOS_TAGGED.with(|cell| {
+                if !cell.get() {
+                    set_thread_qos(QosClass::UserInteractive);
+                    cell.set(true);
+                }
+            });
             if of_type != SCStreamOutputType::Audio {
                 return;
             }

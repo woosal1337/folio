@@ -83,6 +83,11 @@ coreaudio-rs = { version = "0.14", default-features = false, features = [
 ] }
 coreaudio-sys = "0.2"
 
+# libc bindings — used on macOS for pthread_set_qos_class_self_np so
+# audio capture / whisper / background jobs cooperate with the
+# scheduler's P-core / E-core dispatch (v2 finding 064 / GET-99).
+libc = "0.2"
+
 # time
 chrono = { version = "0.4", features = ["serde"] }
 

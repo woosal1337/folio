@@ -21,6 +21,9 @@ extend-ignore-identifiers-re = [
 abl = "abl"
 # `ege` is the maintainer's name in the LICENSE.
 ege = "ege"
+# `MIS` is a proper-noun acronym in the Whisper glossary
+# (Management Information Systems), not a misspelling of MISS/MIST.
+MIS = "MIS"
 
 [files]
 extend-exclude = [

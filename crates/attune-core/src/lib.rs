@@ -23,6 +23,7 @@ pub mod error;
 pub mod ffi;
 pub mod llm;
 pub mod memory;
+pub mod qos;
 pub mod storage;
 pub mod transcription;
 

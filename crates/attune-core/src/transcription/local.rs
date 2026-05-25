@@ -15,6 +15,7 @@ use whisper_rs::{FullParams, SamplingStrategy, WhisperContext, WhisperContextPar
 
 use crate::audio::resampler::StreamingResampler;
 use crate::error::{AttuneError, Result};
+use crate::qos::{set_thread_qos, QosClass};
 use crate::transcription::hallucination_filter::filter_segments;
 use crate::transcription::{Transcriber, Transcript, TranscriptSegment};
 
@@ -59,6 +60,13 @@ impl LocalWhisperTranscriber {
 
 impl Transcriber for LocalWhisperTranscriber {
     fn transcribe(&self, audio_path: &Path, language_hint: Option<&str>) -> Result<Transcript> {
+        // Tag this thread as USER_INITIATED so the macOS scheduler can
+        // dispatch the heavy whisper work to the E-cores when system
+        // load allows — keeps the P-cores cool for the UI + capture
+        // callbacks while transcoding still finishes in foreground
+        // time. Stub on non-macOS. v2 finding 064 / GET-99.
+        set_thread_qos(QosClass::UserInitiated);
+
         if !self.model_path.is_file() {
             return Err(AttuneError::Transcription(format!(
                 "whisper model not found at {} — download it from Settings → Transcription",
