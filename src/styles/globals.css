@@ -7,6 +7,17 @@
 @import "@fontsource/spectral/400-italic.css";
 @import "@fontsource/spectral/500.css";
 
+/* Bundled reading fonts for the Settings → Appearance → Reading
+   controls (v2 finding 100 / GET-113). One weight each to keep the
+   bundle small — these only get applied when the user opts in via the
+   data-reading-font attribute. */
+@import "@fontsource/fraunces/400.css";
+@import "@fontsource/fraunces/500.css";
+@import "@fontsource/atkinson-hyperlegible/400.css";
+@import "@fontsource/atkinson-hyperlegible/700.css";
+@import "@fontsource/opendyslexic/400.css";
+@import "@fontsource/opendyslexic/700.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -163,6 +174,46 @@
    preferences. Static cross-fades survive at 1ms — they don't trigger
    vestibular symptoms but keep tooltips / popovers from popping in
    abruptly. */
+/* Reading controls (v2 finding 100 / GET-113). The three data
+   attributes on <html> are set by `useReadingControls`; the rules
+   below translate them to font-family / font-size / letter-spacing
+   on the root. Scaling the root font-size lets every Tailwind rem
+   size (text-sm, text-base, text-lg, …) ride the same multiplier
+   without having to override every utility. */
+html[data-reading-font="fraunces"] body {
+  font-family: "Fraunces", "Spectral", Georgia, ui-serif, serif;
+}
+html[data-reading-font="atkinson-hyperlegible"] body {
+  font-family: "Atkinson Hyperlegible", "Inter", system-ui, sans-serif;
+}
+html[data-reading-font="opendyslexic"] body {
+  font-family: "OpenDyslexic", "Atkinson Hyperlegible", "Inter", system-ui, sans-serif;
+}
+html[data-reading-size="s"] {
+  font-size: 14px;
+}
+html[data-reading-size="m"] {
+  font-size: 16px;
+}
+html[data-reading-size="l"] {
+  font-size: 17px;
+}
+html[data-reading-size="xl"] {
+  font-size: 18px;
+}
+html[data-reading-spacing="tight"] body {
+  letter-spacing: -0.012em;
+}
+html[data-reading-spacing="normal"] body {
+  letter-spacing: 0;
+}
+html[data-reading-spacing="wide"] body {
+  letter-spacing: 0.02em;
+}
+html[data-reading-spacing="wider"] body {
+  letter-spacing: 0.04em;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
