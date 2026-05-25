@@ -9,6 +9,7 @@ use attune_core::llm::AgentRunStore;
 use attune_core::storage::digest::{
     default_digests_dir, generate as generate_digest_impl, DigestPaths, DigestResult,
 };
+use attune_core::storage::git_sync::{is_git_repo, sync as git_sync_impl, GitSyncSummary};
 use attune_core::storage::retention::{purge_old_wavs, PurgeSummary};
 use attune_core::storage::share_bundle::{export as export_share_bundle_impl, ShareBundleSummary};
 use attune_core::storage::snapshot::{
@@ -214,4 +215,45 @@ pub async fn export_share_bundle(
     })
     .await
     .map_err(|e| format!("export_share_bundle task panicked: {e}"))?
+}
+
+/// Sync the user's vault (memory dir) via the system git binary.
+/// v2 finding 070 / GET-72. Pulls with rebase + autostash, commits
+/// any local changes with a generic 'attune sync' message, then
+/// pushes. Returns the structured summary so the UI can render the
+/// outcome without parsing git output.
+#[tauri::command]
+pub async fn git_sync_vault(state: State<'_, AppState>) -> Result<GitSyncSummary, String> {
+    let vault_dir = {
+        let settings = state.settings.lock();
+        settings.memory_dir.clone()
+    };
+    tauri::async_runtime::spawn_blocking(move || -> Result<GitSyncSummary, String> {
+        let summary = git_sync_impl(&vault_dir);
+        info!(
+            dir = %vault_dir.display(),
+            is_repo = summary.is_repo,
+            committed = summary.committed,
+            ok = summary.ok,
+            "git sync attempt"
+        );
+        Ok(summary)
+    })
+    .await
+    .map_err(|e| format!("git_sync_vault task panicked: {e}"))?
+}
+
+/// Cheap check: is the vault dir under version control? UI uses
+/// this to decide whether to surface the Sync card.
+#[tauri::command]
+pub async fn git_vault_is_repo(state: State<'_, AppState>) -> Result<bool, String> {
+    let vault_dir = {
+        let settings = state.settings.lock();
+        settings.memory_dir.clone()
+    };
+    tauri::async_runtime::spawn_blocking(move || -> Result<bool, String> {
+        Ok(is_git_repo(&vault_dir))
+    })
+    .await
+    .map_err(|e| format!("git_vault_is_repo task panicked: {e}"))?
 }
