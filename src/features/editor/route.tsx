@@ -21,6 +21,7 @@ import type { RecordingSummary } from "@/shared/types/RecordingSummary";
 import type { SessionTranscript } from "@/shared/types/SessionTranscript";
 
 import { AgentPanel, type AgentPanelHandle } from "./agent-panel";
+import { ParticipantCards } from "./participant-cards";
 import { TranscriptEditor } from "./transcript-editor";
 
 interface LocationState {
@@ -257,6 +258,8 @@ export default function Editor() {
           {systemPath && <AudioPlayer filePath={systemPath} label="System" />}
         </CardContent>
       </Card>
+
+      {transcript ? <ParticipantCards transcript={transcript} /> : null}
 
       {isLegacyTranscript ? (
         <Card className="border-amber-500/40 bg-amber-500/5">
