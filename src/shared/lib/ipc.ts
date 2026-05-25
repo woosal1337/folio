@@ -314,6 +314,16 @@ export function exportShareBundle(
   });
 }
 
+// ---- Captions window (v2 #103 / GET-115) -------------------------------
+
+export function openCaptionsWindow(): Promise<void> {
+  return call<void>("open_captions_window");
+}
+
+export function closeCaptionsWindow(): Promise<void> {
+  return call<void>("close_captions_window");
+}
+
 // ---- Webhooks ----------------------------------------------------------
 
 export function listWebhooks(): Promise<WebhookSubscription[]> {

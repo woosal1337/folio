@@ -22,6 +22,7 @@ const Tasks = React.lazy(() => import("@/features/tasks/route"));
 // subsumed by the editor's run-cards. The route still resolves to a
 // redirect into /library so prior deep-links don't 404.
 const MemoryRoute = React.lazy(() => import("@/features/memory/route"));
+const CaptionsRoute = React.lazy(() => import("@/features/captions/route"));
 const SettingsModal = React.lazy(() =>
   import("@/features/settings/route").then((m) => ({ default: m.SettingsModal }))
 );
@@ -77,6 +78,7 @@ export default function App() {
                   <Route path="/ai" element={<Navigate to="/library" replace />} />
                   <Route path="/tasks" element={<Tasks />} />
                   <Route path="/memory" element={<MemoryRoute />} />
+                  <Route path="/captions" element={<CaptionsRoute />} />
                   <Route path="*" element={<HomeRedirect />} />
                 </Routes>
               </React.Suspense>
