@@ -44,6 +44,22 @@
     ],
     "category": "Productivity",
     "shortDescription": "Local-first meeting transcription",
-    "longDescription": "Capture system audio and microphone, transcribe locally or via OpenAI Whisper, and keep every meeting searchable."
+    "longDescription": "Capture system audio and microphone, transcribe locally or via OpenAI Whisper, and keep every meeting searchable.",
+    "fileAssociations": [
+      {
+        "ext": ["wav", "m4a", "mp3"],
+        "name": "Audio Recording",
+        "description": "Audio file Attune can transcribe",
+        "role": "Editor",
+        "rank": "Alternate"
+      }
+    ]
+  },
+  "plugins": {
+    "deep-link": {
+      "desktop": {
+        "schemes": ["attune"]
+      }
+    }
   }
 }

@@ -16,11 +16,33 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
+        // v2 finding 081 / GET-103: registers the `attune://` URL
+        // scheme + the .wav/.m4a/.mp3 file associations declared in
+        // tauri.conf.json. The frontend subscribes via
+        // `@tauri-apps/plugin-deep-link` and the plugin emits a
+        // `deep-link://new-url` event for every received URL or file
+        // path the OS forwards to the running app.
+        .plugin(tauri_plugin_deep_link::init())
         .manage(AppState::new_default())
-        .setup(|_app| {
+        .setup(|app| {
             // Dev builds launch as raw binaries without a .app bundle, so
             // macOS would otherwise show a blank Dock icon. Set it here.
             app::dock_icon::set_dock_icon();
+
+            // On Linux/Windows we also need to register the URL scheme
+            // at runtime so the OS knows to forward `attune://...` URLs
+            // back to this process. macOS reads the bundle's Info.plist
+            // and does not need the runtime call. Failure to register
+            // is non-fatal — deep-link receive still works inside the
+            // same instance — so we log and continue.
+            #[cfg(any(target_os = "linux", target_os = "windows"))]
+            {
+                use tauri_plugin_deep_link::DeepLinkExt;
+                if let Err(e) = app.deep_link().register_all() {
+                    tracing::warn!(error = %e, "deep-link register_all failed");
+                }
+            }
+            let _ = app;
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

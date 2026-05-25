@@ -6,6 +6,7 @@ import { Sidebar } from "@/chrome/sidebar";
 import { DragStrip } from "@/chrome/drag-strip";
 import { JobStrip } from "@/chrome/job-strip";
 import { CloudCostConfirmDialog } from "@/chrome/cloud-cost-confirm-dialog";
+import { DeepLinkHandler } from "@/chrome/deep-link-handler";
 import { HomeRedirect } from "@/chrome/home-redirect";
 import Record from "@/features/recording/route";
 import Library from "@/features/library/route";
@@ -71,6 +72,7 @@ export default function App() {
           </div>
           <SettingsModal open={settingsOpen} onOpenChange={setSettingsOpen} />
           <CloudCostConfirmDialog />
+          <DeepLinkHandler />
         </div>
         <Toaster position="bottom-right" richColors closeButton />
       </HashRouter>
