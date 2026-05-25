@@ -383,13 +383,18 @@ function AgentResult({
         )}
         <Sparkles className="h-3 w-3 shrink-0 text-muted-foreground" />
         <span className="text-sm font-medium">{agent.name}</span>
-        <span className="text-2xs text-muted-foreground">·</span>
+        <span aria-hidden="true" className="text-2xs text-muted-foreground">
+          ·
+        </span>
         <span className="truncate text-2xs text-muted-foreground">{run.model}</span>
-        <span className="text-2xs text-muted-foreground">·</span>
+        <span aria-hidden="true" className="text-2xs text-muted-foreground">
+          ·
+        </span>
         <span className="shrink-0 text-2xs text-muted-foreground">{finishedAgo}</span>
         {run.prompt_tokens !== null || run.completion_tokens !== null ? (
-          <span className="ml-auto shrink-0 font-mono text-2xs text-muted-foreground">
-            {run.prompt_tokens ?? "?"} in · {run.completion_tokens ?? "?"} out
+          <span className="ml-auto shrink-0 font-mono text-2xs tabular-nums text-muted-foreground">
+            {run.prompt_tokens ?? "?"} in <span aria-hidden="true">·</span>{" "}
+            {run.completion_tokens ?? "?"} out
           </span>
         ) : (
           <span className="ml-auto" />

@@ -134,3 +134,24 @@
     -webkit-app-region: no-drag;
   }
 }
+
+/* v2 roadmap finding 101: honor prefers-reduced-motion globally.
+   Tailwind v4 ships motion-safe:/motion-reduce: variants for opt-in
+   per-element control, but most of our motion comes from Tailwind's
+   built-in transition/animation utility classes that don't gate on
+   user preference. This blanket rule collapses every transition,
+   animation, and scroll-behaviour to a near-instant no-op when the
+   user has set Reduce Motion in macOS / iOS / Windows accessibility
+   preferences. Static cross-fades survive at 1ms — they don't trigger
+   vestibular symptoms but keep tooltips / popovers from popping in
+   abruptly. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

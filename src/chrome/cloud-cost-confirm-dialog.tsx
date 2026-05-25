@@ -7,10 +7,10 @@
  * (see cost-estimate.ts). Includes a tip for switching to Local
  * Whisper as the way to avoid future prompts on big meetings.
  *
- * v2 roadmap finding 055.
+ * v2 roadmap finding 055. Reference layout for `<MetaList>` adopted
+ * across the rest of the app in batch 3.
  */
 
-import * as React from "react";
 import { CloudUpload, Cpu, DollarSign, HardDrive, Clock } from "lucide-react";
 
 import {
@@ -22,6 +22,7 @@ import {
   DialogTitle,
 } from "@/shared/ui/dialog";
 import { Button } from "@/shared/ui/button";
+import { MetaList, MetaRow } from "@/shared/ui/meta-list";
 import { formatBytes, formatDuration, formatUsd } from "@/shared/lib/cost-estimate";
 import { useCloudCostConfirmStore } from "@/shared/stores/cloud-cost-confirm-store";
 
@@ -50,29 +51,30 @@ export function CloudCostConfirmDialog() {
         </DialogHeader>
 
         {payload ? (
-          <div className="grid gap-3 rounded-lg border border-border bg-secondary/40 p-3 text-sm">
-            <Row
+          <MetaList>
+            <MetaRow
               icon={<HardDrive className="h-4 w-4" />}
               label="Recording"
               value={payload.recordingLabel}
+              mono={false}
             />
-            <Row
+            <MetaRow
               icon={<Clock className="h-4 w-4" />}
               label="Duration"
               value={formatDuration(payload.estimate.durationMinutes)}
             />
-            <Row
+            <MetaRow
               icon={<CloudUpload className="h-4 w-4" />}
               label="Upload size"
               value={formatBytes(payload.estimate.totalBytes)}
             />
-            <Row
+            <MetaRow
               icon={<DollarSign className="h-4 w-4" />}
               label="Estimated cost"
               value={formatUsd(payload.estimate.estimatedUsd)}
               hint="charged to your OpenAI key"
             />
-          </div>
+          </MetaList>
         ) : null}
 
         <p className="rounded-md bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
@@ -92,32 +94,5 @@ export function CloudCostConfirmDialog() {
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
-}
-
-function Row({
-  icon,
-  label,
-  value,
-  hint,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  hint?: string;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <span className="flex items-center gap-2 text-muted-foreground">
-        {icon}
-        {label}
-      </span>
-      <span className="text-right">
-        <span className="font-mono text-sm">{value}</span>
-        {hint ? (
-          <span className="ml-1 text-2xs text-muted-foreground">{hint}</span>
-        ) : null}
-      </span>
-    </div>
   );
 }

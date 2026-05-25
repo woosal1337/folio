@@ -13,7 +13,10 @@ interface Props {
  */
 export function StatusPill({ recording, label }: Props) {
   return (
-    <Badge variant="outline" className="gap-2 px-3 py-1 font-mono tracking-tight">
+    <Badge
+      variant="outline"
+      className="gap-2 px-3 py-1 font-mono tabular-nums tracking-tight"
+    >
       <span
         className={cn(
           "inline-block h-2 w-2 rounded-full",
@@ -23,7 +26,7 @@ export function StatusPill({ recording, label }: Props) {
         )}
       />
       <span>{recording ? "recording" : "idle"}</span>
-      <span>·</span>
+      <span aria-hidden="true">·</span>
       <span>{label}</span>
     </Badge>
   );
