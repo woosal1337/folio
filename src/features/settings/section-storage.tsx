@@ -1,15 +1,17 @@
 import * as React from "react";
-import { Archive, Download, Loader2 } from "lucide-react";
+import { Archive, Download, Loader2, Trash2 } from "lucide-react";
 import { save as showSaveDialog } from "@tauri-apps/plugin-dialog";
 import { toast } from "sonner";
 
 import { Button } from "@/shared/ui/button";
-import { exportVaultSnapshot } from "@/shared/lib/ipc";
+import { Input } from "@/shared/ui/input";
+import { exportVaultSnapshot, purgeOldWavFiles } from "@/shared/lib/ipc";
 import { formatBytes } from "@/shared/lib/utils";
 import type { Settings } from "@/shared/types/Settings";
 
 interface Props {
   settings: Settings;
+  onChange: <K extends keyof Settings>(key: K, value: Settings[K]) => void;
 }
 
 function defaultSnapshotName(): string {
@@ -21,7 +23,7 @@ function defaultSnapshotName(): string {
   return `attune-snapshot-${stamp}.zip`;
 }
 
-export function SectionStorage({ settings }: Props) {
+export function SectionStorage({ settings, onChange }: Props) {
   const rows = [
     { label: "Recordings", value: settings.output_dir },
     { label: "Notes", value: settings.notes_dir },
@@ -30,6 +32,44 @@ export function SectionStorage({ settings }: Props) {
   ];
 
   const [exporting, setExporting] = React.useState(false);
+  const [purging, setPurging] = React.useState(false);
+  const retentionDays = settings.wav_retention_days ?? null;
+  const handleRetentionChange = (raw: string) => {
+    const n = parseInt(raw, 10);
+    if (raw.trim() === "" || Number.isNaN(n) || n <= 0) {
+      onChange("wav_retention_days", null);
+    } else {
+      onChange("wav_retention_days", Math.min(n, 3650));
+    }
+  };
+  const handlePurge = async () => {
+    const days = retentionDays;
+    if (!days || days <= 0) {
+      toast.info("Set a retention threshold first", {
+        description: "Enter the number of days WAVs may live after transcription.",
+      });
+      return;
+    }
+    if (
+      !window.confirm(
+        `Delete mic.wav + system.wav from every transcribed recording older than ${days} day${days === 1 ? "" : "s"}? Transcripts and agent runs stay.`
+      )
+    ) {
+      return;
+    }
+    setPurging(true);
+    try {
+      const summary = await purgeOldWavFiles(days);
+      toast.success("WAV purge complete", {
+        description: `${summary.wavs_deleted} files · ${formatBytes(Number(summary.bytes_freed ?? 0))} freed`,
+      });
+    } catch (e) {
+      console.error("purge_old_wav_files:", e);
+      toast.error("Could not purge WAVs", { description: String(e) });
+    } finally {
+      setPurging(false);
+    }
+  };
 
   const handleExport = async () => {
     setExporting(true);
@@ -72,6 +112,51 @@ export function SectionStorage({ settings }: Props) {
           </div>
         ))}
       </div>
+
+      <section
+        aria-label="WAV retention"
+        className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4"
+      >
+        <div className="flex items-start gap-3">
+          <Trash2 className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+          <div className="flex-1">
+            <p className="text-sm font-medium">WAV retention</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Delete the source mic + system WAV files once a transcript exists and the
+              audio is at least this many days old. Transcripts and agent runs stay
+              forever. Leave blank to keep every WAV until you delete the recording
+              yourself. A daily-meeting user accumulates ~87 GB of WAVs per year — this
+              is the biggest disk-saving knob the app exposes.
+            </p>
+            <div className="mt-3 flex items-center gap-2">
+              <Input
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={retentionDays === null ? "" : String(retentionDays)}
+                onChange={(e) => handleRetentionChange(e.target.value)}
+                placeholder="14"
+                className="h-8 w-24 tabular-nums"
+                aria-label="Retention days"
+              />
+              <span className="text-xs text-muted-foreground">days</span>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={purging || !retentionDays}
+                onClick={handlePurge}
+                className="ml-auto gap-2"
+              >
+                {purging ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Trash2 className="h-3.5 w-3.5" />
+                )}
+                {purging ? "Purging…" : "Purge now"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      </section>
 
       <section
         aria-label="Vault snapshot"

@@ -6,6 +6,7 @@
 use std::path::PathBuf;
 
 use attune_core::llm::AgentRunStore;
+use attune_core::storage::retention::{purge_old_wavs, PurgeSummary};
 use attune_core::storage::snapshot::{
     export as export_snapshot_impl, SnapshotPaths, SnapshotSummary,
 };
@@ -114,4 +115,45 @@ pub async fn export_vault_snapshot(
     })
     .await
     .map_err(|e| format!("export_vault_snapshot task panicked: {e}"))?
+}
+
+/// Walk every session under `recordings_dir` and delete mic.wav +
+/// system.wav from sessions where the source audio is at least
+/// `older_than_days` old AND a transcript is already on disk. v2
+/// finding 063 / GET-98. When `older_than_days` is None we read the
+/// retention from the active settings; when both are missing the
+/// command returns a zero-summary so the UI's 'Purge now' button
+/// can fire safely on any configuration.
+#[tauri::command]
+pub async fn purge_old_wav_files(
+    state: State<'_, AppState>,
+    older_than_days: Option<u32>,
+) -> Result<PurgeSummary, String> {
+    let (recordings_dir, effective_days) = {
+        let settings = state.settings.lock();
+        let days = older_than_days.or(settings.wav_retention_days).unwrap_or(0);
+        (settings.output_dir.clone(), days)
+    };
+    if effective_days == 0 {
+        return Ok(PurgeSummary {
+            sessions_inspected: 0,
+            wavs_deleted: 0,
+            bytes_freed: 0,
+            failed: Vec::new(),
+        });
+    }
+    tauri::async_runtime::spawn_blocking(move || -> Result<PurgeSummary, String> {
+        let summary = purge_old_wavs(&recordings_dir, effective_days);
+        info!(
+            recordings = %recordings_dir.display(),
+            older_than_days = effective_days,
+            inspected = summary.sessions_inspected,
+            deleted = summary.wavs_deleted,
+            bytes = summary.bytes_freed,
+            "wav retention sweep complete"
+        );
+        Ok(summary)
+    })
+    .await
+    .map_err(|e| format!("purge_old_wav_files task panicked: {e}"))?
 }

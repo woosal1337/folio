@@ -90,6 +90,7 @@ pub fn run() {
             commands::memory::rebuild_memory_index,
             commands::maintenance::clear_recording_artifacts,
             commands::maintenance::export_vault_snapshot,
+            commands::maintenance::purge_old_wav_files,
             commands::webhooks::list_webhooks,
             commands::webhooks::save_webhook,
             commands::webhooks::delete_webhook,

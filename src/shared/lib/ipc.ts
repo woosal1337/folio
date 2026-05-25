@@ -34,6 +34,7 @@ import type { NewMemory } from "@/shared/types/NewMemory";
 import type { NewTask } from "@/shared/types/NewTask";
 import type { Settings } from "@/shared/types/Settings";
 import type { SessionTranscript } from "@/shared/types/SessionTranscript";
+import type { PurgeSummary } from "@/shared/types/PurgeSummary";
 import type { SnapshotSummary } from "@/shared/types/SnapshotSummary";
 import type { Task } from "@/shared/types/Task";
 import type { WebhookSubscription } from "@/shared/types/WebhookSubscription";
@@ -279,6 +280,18 @@ export function clearRecordingArtifacts(sessionDir: string): Promise<void> {
  */
 export function exportVaultSnapshot(destination: string): Promise<SnapshotSummary> {
   return call<SnapshotSummary>("export_vault_snapshot", { destination });
+}
+
+/**
+ * Walk every session and delete mic.wav + system.wav from sessions
+ * where the transcript exists AND the audio is older than the given
+ * threshold. Reads the threshold from settings when `olderThanDays`
+ * is null. v2 finding 063 / GET-98.
+ */
+export function purgeOldWavFiles(olderThanDays: number | null): Promise<PurgeSummary> {
+  return call<PurgeSummary>("purge_old_wav_files", {
+    olderThanDays,
+  });
 }
 
 // ---- Webhooks ----------------------------------------------------------
