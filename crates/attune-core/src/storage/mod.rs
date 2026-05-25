@@ -11,6 +11,7 @@ pub mod digest;
 pub mod retention;
 pub mod session;
 pub mod settings;
+pub mod share_bundle;
 pub mod snapshot;
 pub mod tasks;
 
