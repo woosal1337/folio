@@ -65,6 +65,11 @@ pub struct Settings {
     /// key is set.
     #[serde(default = "default_auto_extract_memories_enabled")]
     pub auto_extract_memories_enabled: bool,
+    /// When true, the app plays short synthesised tones on the
+    /// recording lifecycle (start, stop, agent success, error).
+    /// Default off — users opt in via Settings. v2 finding 019.
+    #[serde(default = "default_feedback_sounds_enabled")]
+    pub feedback_sounds_enabled: bool,
     /// When true and an AI provider key is configured, the app
     /// automatically runs the `summarize` agent immediately after a
     /// transcription completes. Lets the user stop a meeting and walk
@@ -108,6 +113,9 @@ fn default_auto_extract_tasks_enabled() -> bool {
 }
 fn default_auto_extract_memories_enabled() -> bool {
     true
+}
+fn default_feedback_sounds_enabled() -> bool {
+    false
 }
 /// Resolve the default memory directory.
 ///
@@ -154,6 +162,7 @@ impl Default for Settings {
             auto_transcribe_enabled: default_auto_transcribe_enabled(),
             memory_dir: default_memory_dir(),
             auto_extract_memories_enabled: default_auto_extract_memories_enabled(),
+            feedback_sounds_enabled: default_feedback_sounds_enabled(),
             auto_summarize_enabled: default_auto_summarize_enabled(),
             auto_extract_tasks_enabled: default_auto_extract_tasks_enabled(),
         }

@@ -42,6 +42,12 @@ memory_dir: string,
  */
 auto_extract_memories_enabled: boolean,
 /**
+ * When true, the app plays short synthesised tones on the
+ * recording lifecycle (start, stop, agent success, error).
+ * Default off — users opt in via Settings. v2 finding 019.
+ */
+feedback_sounds_enabled: boolean,
+/**
  * When true and an AI provider key is configured, the app
  * automatically runs the `summarize` agent immediately after a
  * transcription completes. Lets the user stop a meeting and walk
