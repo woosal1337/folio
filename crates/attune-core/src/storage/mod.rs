@@ -17,6 +17,7 @@ pub mod share_bundle;
 pub mod showcase;
 pub mod snapshot;
 pub mod tasks;
+pub mod vault_layout;
 
 pub use session::{scan_recordings, RecordingSummary};
 pub use settings::{Settings, SettingsStore};
