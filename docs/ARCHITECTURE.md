@@ -2,9 +2,9 @@
 
 This is the on-disk architecture of the repository. For the higher-level
 product design (why we capture mic and system audio separately, why the
-v0 transcription path uses OpenAI Whisper rather than local
-`whisper.cpp`, the future Swift app shell, etc.) see the design vault
-referenced from `README.md`.
+default transcription path is local Whisper rather than OpenAI's API,
+the planned Swift app shell, etc.) see the design vault referenced from
+`README.md`.
 
 ## Top-level layout
 
@@ -18,8 +18,14 @@ attune/
 ├── eslint.config.js                 # flat ESLint config
 ├── .prettierrc.json, .prettierignore
 ├── .pre-commit-config.yaml          # local CI mirror
+├── docs/
+│   ├── ARCHITECTURE.md              # this document
+│   └── guidelines/                  # Rust + Tauri + frontend deep-dives
+├── scripts/
+│   ├── check-no-telemetry.sh        # CI guard: no Sentry/Mixpanel/etc. in lock files
+│   └── rasterize-icon.mjs           # icon prep for the app bundle
 ├── .github/
-│   ├── workflows/ci.yml             # rust + frontend + deny + typos
+│   ├── workflows/ci.yml             # rust + frontend + deny + typos + no-telemetry
 │   ├── ISSUE_TEMPLATE/, PULL_REQUEST_TEMPLATE.md
 │   ├── CODEOWNERS, dependabot.yml
 ├── crates/
@@ -31,8 +37,10 @@ attune/
 
 ## attune-core (`crates/attune-core/`)
 
-The framework-agnostic library. Talks to the OS for audio; produces
-WAV files on disk; will talk to OpenAI for transcription. Designed to be
+The framework-agnostic library. Talks to the OS for audio capture;
+produces WAV files on disk; runs local Whisper for transcription;
+owns the agent + memory + task stores; talks to OpenAI for cloud
+transcription, chat completions, and embeddings. Designed to be
 embedded by either the Tauri desktop app, the CLI test harness, or a
 future Swift app via UniFFI.
 
@@ -44,17 +52,37 @@ src/
 │   ├── mod.rs            # Channel + CaptureConfig
 │   ├── capture.rs        # CaptureSession orchestrator + RecordingStatus/Result
 │   ├── devices.rs        # list_input_devices, DeviceInfo
-│   ├── mic.rs            # MicCapture (cpal)
+│   ├── mic.rs            # MicCapture (cpal + VPIO)
 │   ├── system.rs         # SystemCapture (ScreenCaptureKit, macOS only)
 │   ├── resampler.rs      # StreamingResampler (rubato polyphase)
 │   └── wav_writer.rs     # AudioWavWriter (hound, mono 16-bit PCM)
-├── storage/              # persistence
+├── llm/                  # AI providers + agents + chat plumbing
+│   ├── mod.rs            # ProviderId, public re-exports
+│   ├── types.rs          # ChatRequest / ChatResponse / ChatMessage / ToolDef / ToolCall
+│   ├── provider.rs       # LlmProvider trait
+│   ├── providers/
+│   │   └── openai.rs     # OpenAiProvider (chat + tool calling + embeddings)
+│   ├── keystore.rs       # macOS Keychain via `keyring` crate
+│   ├── agents.rs         # baked-in Agent definitions (5 agents)
+│   └── agent_run.rs      # AgentRun + AgentRunStore (per-session JSON files)
+├── memory/               # Camp-2 context-substrate memory layer
+│   ├── mod.rs            # public re-exports
+│   ├── types.rs          # Memory / MemoryKind / NewMemory / MemoryUpdate / MemoryQuery
+│   ├── page.rs           # markdown page format + parser (frontmatter + body)
+│   ├── index.rs          # SQLite FTS5 + sqlite-vec virtual table + hybrid retrieval
+│   ├── store.rs          # MemoryStore — two-phase write + conflict resolution
+│   └── embed.rs          # EmbeddingClient (text-embedding-3-large, 3072 dims)
+├── storage/              # persistence (settings, sessions, tasks)
 │   ├── mod.rs            # re-exports
 │   ├── settings.rs       # Settings + SettingsStore (atomic JSON)
-│   └── session.rs        # RecordingSummary + scan_recordings
+│   ├── session.rs        # RecordingSummary + scan_recordings
+│   └── tasks.rs          # Task + TaskStore + TaskStatus (atomic JSON list)
 ├── transcription/        # pluggable STT backends
-│   ├── mod.rs            # Transcriber trait + Transcript + TranscriptSegment
-│   ├── openai.rs         # OpenAiTranscriber (scaffold)
+│   ├── mod.rs            # Transcriber trait + Transcript + zstd read/write
+│   ├── openai.rs         # OpenAiTranscriber
+│   ├── local.rs          # LocalWhisperTranscriber (whisper-rs + Metal)
+│   ├── models.rs         # WhisperModel + downloader + status
+│   ├── hallucination_filter.rs
 │   └── stub.rs           # StubTranscriber (no-op for tests)
 └── ffi/                  # UniFFI surface (placeholder)
     └── mod.rs
@@ -72,6 +100,11 @@ src/
 - Types that cross the Tauri IPC boundary derive `ts_rs::TS` with
   `#[ts(export, export_to = "../../../src/shared/types/")]`. `cargo
 test` regenerates the bindings; CI catches drift.
+- Two-phase write for any file-backed store: write the canonical
+  on-disk file first (`.md` for memory, `.json` for tasks), update
+  the derived index second. Index is rebuildable from files.
+- New deps land in `[workspace.dependencies]` first (`Cargo.toml`),
+  then crates reference them with `{ workspace = true }`.
 
 ## src-tauri (`src-tauri/`)
 
@@ -85,39 +118,40 @@ src/
 ├── lib.rs                # tauri::Builder setup: plugins, state, invoke_handler
 ├── app/
 │   ├── mod.rs
-│   ├── state.rs          # AppState (settings + SettingsStore + session + timer)
+│   ├── state.rs          # AppState (settings + SettingsStore + session + timer + shared MemoryStore)
 │   └── dock_icon.rs      # macOS Dock icon helper (uses cocoa, marked deprecated)
 └── commands/             # one module per domain
     ├── mod.rs
     ├── health.rs         # ping
     ├── devices.rs        # list_input_devices
-    ├── settings.rs       # get_settings, save_settings (persists via SettingsStore)
+    ├── settings.rs       # get_settings, save_settings
     ├── recording.rs      # recording_status, start_recording, stop_recording
-    └── library.rs        # list_recordings, delete_recording, reveal_in_finder
+    ├── library.rs        # list_recordings, get_recording, delete_recording, reveal_in_finder
+    ├── transcription.rs  # transcribe_recording, read_transcript, save_transcript, whisper_model_*
+    ├── llm.rs            # list_providers, set_provider_key, delete_provider_key, test_provider, list_provider_models
+    ├── agents.rs         # list_agents, run_agent (multi-tool dispatcher), list_agent_runs, delete_agent_run
+    ├── tasks.rs          # list_tasks, create_task, update_task, delete_task, set_task_status
+    ├── memory.rs         # list/get/create/update/delete/purge/pin/search/file_path/rebuild_index
+    └── maintenance.rs    # clear_recording_artifacts
 ```
+
+### Capabilities
+
+`src-tauri/capabilities/default.json` is the security boundary
+between the WebView and the host. URL schemes that the frontend can
+ask the OS to open must be allow-listed via the `opener:allow-open-url`
+permission. Add new schemes there, not in JS.
 
 ### IPC contract
 
 Every `#[tauri::command]` is the contract with the frontend. Command
 names and argument shapes are stable; renaming one is a breaking
 change. Argument and return types are defined in `attune-core` and
-generated as TypeScript by `ts-rs`:
+generated as TypeScript by `ts-rs`. Browse `src/shared/lib/ipc.ts`
+for the authoritative list; `cargo test` regenerates the bindings.
 
-| Command              | Args                 | Returns                      |
-| -------------------- | -------------------- | ---------------------------- |
-| `ping`               | `name?: string`      | `string`                     |
-| `list_input_devices` | —                    | `DeviceInfo[]`               |
-| `get_settings`       | —                    | `Settings`                   |
-| `save_settings`      | `settings: Settings` | `void` (persists atomically) |
-| `recording_status`   | —                    | `RecordingStatus`            |
-| `start_recording`    | —                    | `RecordingStatus`            |
-| `stop_recording`     | —                    | `RecordingResult`            |
-| `list_recordings`    | —                    | `RecordingSummary[]`         |
-| `delete_recording`   | `sessionDir: string` | `void`                       |
-| `reveal_in_finder`   | `path: string`       | `void`                       |
-
-Errors flow back as JSON strings on the `Err` side of the Result. The
-frontend wraps them in `IpcError` for transport failures; domain
+Errors flow back as JSON strings on the `Err` side of the Result.
+The frontend wraps them in `IpcError` for transport failures; domain
 errors come through as strings.
 
 ## src/ (React frontend)
@@ -126,30 +160,46 @@ Feature-based layout.
 
 ```
 src/
-├── App.tsx               # router + providers (ErrorBoundary, Toaster)
+├── App.tsx               # router + providers (ErrorBoundary, Toaster, modals)
 ├── main.tsx              # React mount, applyInitialTheme before paint
 ├── error-boundary.tsx    # root render-error fallback
 ├── shared/
-│   ├── ui/               # shadcn primitives (button, dialog, …)
+│   ├── ui/               # shadcn primitives (button, dialog, meta-list, switch, …)
 │   ├── lib/
 │   │   ├── ipc.ts        # typed wrappers around invoke() + IpcError
-│   │   └── utils.ts      # cn, formatDuration, formatBytes
-│   ├── stores/
-│   │   ├── recording-store.ts  # Zustand: session state + timer
-│   │   └── settings-store.ts   # Zustand: cached Settings
+│   │   ├── utils.ts      # cn, formatDuration, formatBytes
+│   │   ├── share.ts      # memoryToMarkdown, taskToMarkdown, obsidianHref, openInObsidian, copyToClipboard
+│   │   ├── cost-estimate.ts  # Whisper $ + size estimator (used by cost-confirm modal)
+│   │   ├── feedback.ts   # Web Audio synthesised lifecycle sounds
+│   │   └── power.ts      # Web Battery API helpers
+│   ├── stores/                   # Zustand
+│   │   ├── recording-store.ts    # session state + timer + post-transcription chain
+│   │   ├── settings-store.ts     # cached Settings
+│   │   ├── settings-ui-store.ts  # Settings modal open/section state
+│   │   ├── tasks-store.ts        # kanban data + optimistic CRUD
+│   │   ├── memories-store.ts     # /memory page data + filters
+│   │   ├── jobs-store.ts         # cross-cutting "in-flight job" pills
+│   │   └── cloud-cost-confirm-store.ts  # promise-based confirm dialog
 │   ├── hooks/
-│   │   ├── use-theme.ts        # light/dark + localStorage
-│   │   └── use-window-drag.ts  # Tauri window drag/maximize handlers
-│   └── types/                  # GENERATED by ts-rs — do not hand-edit
+│   │   ├── use-theme.ts          # light/dark + localStorage
+│   │   └── use-window-drag.ts    # Tauri window drag/maximize handlers
+│   └── types/                    # GENERATED by ts-rs — do not hand-edit
 ├── features/
-│   ├── recording/        # Record page + audio player + recording row
-│   ├── library/          # placeholder route
-│   ├── editor/           # placeholder route
-│   ├── tasks/            # placeholder route
-│   └── settings/         # modal route + 4 section components
-├── chrome/               # window chrome (sidebar, drag-strip)
+│   ├── recording/        # Record page + StatusPill + AudioPlayer + RecordingRow
+│   ├── library/          # Library list + filters + stats strip
+│   ├── editor/           # Per-recording editor: transcript + audio + agents + participants
+│   ├── ai/               # Cross-recording agent-runs page (slated for Inbox redesign — #016)
+│   ├── tasks/            # Kanban with @dnd-kit + inline composer + edit dialog
+│   ├── memory/           # /memory page: cards by kind, search, pin/archive, edit dialog
+│   └── settings/         # Modal route + 5 section components (general/audio/transcription/ai/storage)
+├── chrome/               # window chrome
+│   ├── sidebar.tsx
+│   ├── drag-strip.tsx
+│   ├── job-strip.tsx
+│   ├── cloud-cost-confirm-dialog.tsx
+│   └── home-redirect.tsx # `/` → /library when recordings exist
 └── styles/
-    └── globals.css       # Tailwind layers + CSS-variable theme tokens
+    └── globals.css       # Tailwind layers + CSS-variable theme tokens + prefers-reduced-motion
 ```
 
 ### Rules
@@ -161,6 +211,14 @@ src/
   Page-local state stays in `useState` inside the feature.
 - Tauri calls go through `shared/lib/ipc.ts`. Components never call
   `invoke` directly.
+- For Zustand selectors, subscribe to raw fields and `useMemo` derived
+  values inside the consumer — returning a new array/object reference
+  from the selector triggers React's "Maximum update depth exceeded"
+  guard. Use `useShallow` only for object selectors with stable keys.
+- Sounds, motion, and confirm-dialog patterns route through their
+  shared `lib/` helpers + Zustand stores so they can be triggered
+  from any layer (recording-store, settings, agent panel) without
+  prop drilling.
 - The error boundary in `error-boundary.tsx` catches render errors;
   the `sonner` Toaster mounted in `App.tsx` surfaces non-fatal IPC
   failures with a description.
@@ -182,11 +240,11 @@ src/
                      ▼
 ┌─────────────────────────────────────────────────────────┐
 │              attune-core                                │
-│  audio:: — storage:: — transcription:: — ffi::          │
+│  audio:: — llm:: — memory:: — storage:: — transcription:: │
 └────────────────────┬────────────────────────────────────┘
-                     │ OS APIs (CoreAudio, ScreenCaptureKit, fs)
+                     │ OS APIs + OpenAI + whisper.cpp + SQLite
                      ▼
-                  Disk + Hardware
+                  Disk + Hardware + Network
 ```
 
 ## CI
@@ -200,14 +258,181 @@ against `main`. Jobs (all required):
   `cargo test --workspace --lib --bins`
 - `rust-deny` — `cargo deny check`
 - `typos` — `crate-ci/typos`
+- `no-telemetry` — `scripts/check-no-telemetry.sh` (v2 R11)
 - `frontend` — `bun run lint`, `bun run typecheck`,
   `bun run format:check`, `bun run test`
 
 `.pre-commit-config.yaml` mirrors most of these locally so the same
 gates run on every commit, well before CI sees the branch.
 
+## Workflow — Linear + GitHub + Obsidian
+
+This project tracks work in three places that round-trip:
+
+| Layer                                                                                                 | What lives there                                                                              |
+| ----------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| **Linear** ([Attune v2 Roadmap](https://linear.app/getattune/project/attune-v2-roadmap-2157bd3be9d8)) | Status, priority, assignment. The live source of truth. Issues are `GET-<n>` (e.g. `GET-29`). |
+| **Obsidian vault** (`projects/attune/plan/`)                                                          | Long-form rationale, lens citations, conflicts, prose. Stable canonical write-up.             |
+| **GitHub** (`woosal1337/attune`)                                                                      | Code. PRs link back to Linear via the `GET-<n>` identifier.                                   |
+
+### Workflow for a new feature
+
+1. **Pick a Linear issue** from the backlog (sort by priority desc, size asc within a tier).
+2. **Move it to In Progress** with `mcp__linear-server__save_issue` (state: `In Progress`).
+3. **Branch** from `main`: `feat/<linear-id>-<slug>` or `fix/<linear-id>-<slug>`
+   (e.g. `feat/get-49-collapsible-sidebar`).
+4. **Implement.** Follow the guideline doc for the area you're touching:
+   - Rust changes — `docs/guidelines/rust-architecture.md`, `rust-error-handling.md`, `rust-async.md`
+   - Tauri commands — `docs/guidelines/tauri-architecture.md`
+   - Audio callback paths — `docs/guidelines/audio-pipeline.md` (**§1 is non-negotiable**)
+   - React frontend — `docs/guidelines/frontend-architecture.md`
+5. **Run gates locally** before commit: `bun run typecheck && bun run lint && bun run test && cargo test --workspace && cargo clippy --workspace --all-targets -- -D warnings`.
+6. **Commit signed**: `git -c commit.gpgsign=true commit -m "<type>: <linear-id> — <one-line>"`. Do NOT include `Co-Authored-By` trailers.
+7. **Push + open PR**. Title format: `<type>(<linear-id>): <summary>`. Body references the Linear issue: `Closes GET-<n>` so Linear auto-resolves.
+8. **Merge** with `gh pr merge --merge --delete-branch` once gates are green.
+9. **Mark issue Done** in Linear with the PR URL attached via `mcp__linear-server__save_issue` `links: [{ url, title }]`.
+
+### Commit message format
+
+```
+<type>(<linear-id>): <one-line summary in present tense, lowercase>
+
+<optional body explaining WHY, not WHAT — the diff explains what.
+Wrap at 72 chars. Reference design docs / prior PRs / Linear issue
+ids as needed.>
+```
+
+Types: `feat`, `fix`, `refactor`, `chore`, `docs`, `test`, `perf`,
+`style`, `build`, `ci`.
+
+Linear id is optional for code that doesn't map to a roadmap item
+(e.g. `chore: bump dependencies`), but include it whenever there is
+a corresponding issue.
+
+**No `Co-Authored-By` trailers.** This is explicit user policy.
+
+### PR description template
+
+```markdown
+## Summary
+
+Closes [GET-<n>](https://linear.app/getattune/issue/GET-<n>).
+
+<1-3 bullets summarising the change>
+
+## Test plan
+
+- [ ] Reproducible test step 1
+- [ ] Reproducible test step 2
+      …
+
+## Gates
+
+- cargo test + clippy + fmt
+- bun typecheck + lint + test + format:check
+- pre-commit hooks (taplo-lint excepted if upstream broken)
+```
+
+## Code styling — quick reference
+
+For the full source-cited guidance see `docs/guidelines/`. This is the
+condensed cheat sheet.
+
+### Rust
+
+- **Format**: `cargo fmt` (rustfmt config in `rustfmt.toml`). Run
+  before every commit; pre-commit hook enforces.
+- **Lint**: `cargo clippy --workspace --all-targets -- -D warnings`.
+  Treat warnings as errors. Use `#[allow(clippy::name)]` with a
+  one-line comment explaining why, never workspace-wide unless
+  there's a known false positive.
+- **Errors**: return `Result<T, AttuneError>`. New error categories
+  go on the public enum in `attune-core/src/error.rs`; never invent
+  per-module error types.
+- **Async**: prefer `tauri::async_runtime::spawn_blocking` for any
+  IPC command that touches the filesystem, SQLite, or whisper.cpp —
+  keeps the Tauri runtime free. See `rust-async.md`.
+- **Locks**: `parking_lot::Mutex` for sync code; `tokio::sync::Mutex`
+  only when held across `.await`. Never hold either across a network
+  call.
+- **Naming**: `snake_case` for modules / functions / variables,
+  `PascalCase` for types / enums / traits, `SCREAMING_SNAKE` for
+  consts.
+- **Visibility**: prefer `pub(crate)` over `pub` unless the symbol
+  is part of the external API. New `pub` types crossing the IPC
+  boundary must derive `Serialize`, `Deserialize`, and `ts_rs::TS`.
+- **Tests**: every public function gets at least a round-trip /
+  happy-path test in the same module under `#[cfg(test)]`.
+  Integration tests in `tests/`. CI runs `cargo test --workspace
+--lib --bins` — the `--lib --bins` part is intentional (no doctests
+  in CI; they go in `cargo test --doc` locally).
+- **Doc comments**: `///` on every `pub` item. First line is a
+  noun phrase. Body explains WHY when non-obvious, never just WHAT.
+
+### TypeScript / React
+
+- **Format**: `bun x prettier --write`. The pre-commit hook runs
+  prettier on the staged files.
+- **Lint**: `bun run lint` (`eslint src --max-warnings 0`). Same
+  zero-warning policy as Rust.
+- **Files**: `kebab-case.tsx` / `kebab-case.ts`. Components export
+  one default per file when the file IS the component; named exports
+  for utilities.
+- **Imports**: order — React/3rd party → lucide-react → shadcn UI →
+  `@/shared/...` → `@/features/...` → relative. Prettier import-
+  sort runs automatically.
+- **State**: Zustand for cross-route state, `useState` for local.
+  Selectors return primitives (or stable references); derive arrays
+  - objects with `useMemo` inside the component.
+- **IPC**: only `src/shared/lib/ipc.ts` imports
+  `@tauri-apps/api/core`. Every command goes through a typed
+  wrapper there.
+- **Types**: never hand-edit `@/shared/types/*` — those are
+  generated by `ts-rs`. Add the type to the Rust crate, run
+  `cargo test`, the binding regenerates.
+- **Styling**: Tailwind utilities + CSS variables in
+  `globals.css`. No hard-coded hex colours in components. Use
+  `text-foreground`, `bg-card`, etc.
+- **Motion**: honour `prefers-reduced-motion`. Globals handle it
+  for built-in Tailwind transitions; explicit `framer-motion` or
+  `@dnd-kit` motion goes through the `motion-safe:` / `motion-reduce:`
+  Tailwind variants.
+
+### Markdown
+
+- Vault docs (`projects/attune/plan/*.md`) use YAML frontmatter with
+  `project / type / status / date / tags`. See `tools/templates/`.
+- Code comments in `.md` use fenced blocks with language tags
+  (`rust`, `tsx`, `bash`, `json`).
+- Em-dash + en-dash usage: vault docs allow them, but the user's
+  global writing-style preference is "dots and commas only" for
+  social/tweet content. Inside this repo we use whichever reads
+  best; PR descriptions stay terse.
+
+## Adding a new feature — checklist
+
+Use this when starting work on any Linear issue.
+
+```
+[ ] Linear issue: GET-<n> moved Todo → In Progress (mcp__linear-server__save_issue)
+[ ] Read the relevant docs/guidelines/*.md
+[ ] Branch from main: <type>/get-<n>-<slug>
+[ ] If the type crosses IPC: add to attune-core with ts_rs derive; run `cargo test`
+[ ] If the type adds a Tauri command: register it in src-tauri/src/lib.rs invoke_handler
+[ ] Add a typed wrapper in src/shared/lib/ipc.ts
+[ ] Component / store / hook lives under shared/ or features/ per FSD
+[ ] New deps: workspace-level Cargo.toml first, then `{ workspace = true }` in the crate
+[ ] CSS variables only — no hex literals in JSX
+[ ] Tests: at minimum a round-trip + an error-path test
+[ ] Run all gates locally (see Workflow §5)
+[ ] Signed commit, no Co-Authored-By
+[ ] PR title: <type>(get-<n>): <summary>; body has Closes GET-<n>
+[ ] Merge with --merge --delete-branch
+[ ] Linear issue → Done with PR url attached as a link
+```
+
 ## Conventions
 
-See `AGENTS.md` for Rust-specific rules, `CONTRIBUTING.md` for the
-human-facing setup and PR flow, and `SECURITY.md` for vulnerability
-reporting.
+See `docs/guidelines/` for the deep-dives, `AGENTS.md` for Rust-
+specific rules, `CONTRIBUTING.md` for the human-facing setup and PR
+flow, and `SECURITY.md` for vulnerability reporting.
