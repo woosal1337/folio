@@ -6,6 +6,7 @@ import { Sidebar } from "@/chrome/sidebar";
 import { DragStrip } from "@/chrome/drag-strip";
 import { JobStrip } from "@/chrome/job-strip";
 import { CloudCostConfirmDialog } from "@/chrome/cloud-cost-confirm-dialog";
+import { HomeRedirect } from "@/chrome/home-redirect";
 import Record from "@/features/recording/route";
 import Library from "@/features/library/route";
 import Editor from "@/features/editor/route";
@@ -56,7 +57,7 @@ export default function App() {
             <Sidebar onOpenSettings={() => openSettings()} />
             <main className="flex-1 overflow-y-auto">
               <Routes>
-                <Route path="/" element={<Navigate to="/record" replace />} />
+                <Route path="/" element={<HomeRedirect />} />
                 <Route path="/record" element={<Record />} />
                 <Route path="/library" element={<Library />} />
                 <Route path="/editor" element={<Navigate to="/library" replace />} />
@@ -64,7 +65,7 @@ export default function App() {
                 <Route path="/ai" element={<Ai />} />
                 <Route path="/tasks" element={<Tasks />} />
                 <Route path="/memory" element={<MemoryRoute />} />
-                <Route path="*" element={<Navigate to="/record" replace />} />
+                <Route path="*" element={<HomeRedirect />} />
               </Routes>
             </main>
           </div>
