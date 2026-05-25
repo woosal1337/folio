@@ -1,3 +1,4 @@
+import type * as React from "react";
 import {
   Bot,
   ChevronDown,
@@ -92,10 +93,25 @@ export function RecordingRow({
   const micPath = item.mic_bytes ? `${item.session_dir}/mic.wav` : null;
   const systemPath = item.system_bytes ? `${item.session_dir}/system.wav` : null;
 
+  // v2 finding 013 / GET-47. HTML5 drag-out: copy the session
+  // directory as both a file:// URI (so drops into Mail and Notes
+  // attach the folder) and a plain-text fallback (so drops into
+  // any text field paste the path). NSFilePromiseProvider gives
+  // native Finder-aware drag-out and arrives in the follow-up.
+  const handleDragStart = (e: React.DragEvent<HTMLDivElement>) => {
+    if (!item.session_dir) return;
+    const uri = `file://${item.session_dir}`;
+    e.dataTransfer.setData("text/uri-list", uri);
+    e.dataTransfer.setData("text/plain", item.session_dir);
+    e.dataTransfer.effectAllowed = "copy";
+  };
+
   return (
     <Card
       className="overflow-hidden"
       data-quicklook-session={onQuickLook ? item.session_dir : undefined}
+      draggable
+      onDragStart={handleDragStart}
     >
       <button
         type="button"
