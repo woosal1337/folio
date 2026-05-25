@@ -59,6 +59,13 @@ zstd = "0.13"
 # already incompressible.
 zip = { version = "2", default-features = false, features = ["deflate"] }
 
+# HMAC-SHA256 for the webhook signed event stream (v2 finding 079 /
+# GET-101). The MAC accompanies every outbound POST so subscribers
+# can verify Attune sent it without a shared cleartext token.
+hmac = "0.12"
+sha2 = "0.10"
+hex = "0.4"
+
 # HTTP client for cloud transcription
 reqwest = { version = "0.12", default-features = false, features = [
   "blocking",

@@ -18,6 +18,7 @@ export type SettingsSection =
   | "transcription"
   | "ai"
   | "storage"
+  | "webhooks"
   | "appearance";
 
 interface SettingsUiState {

@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Bot, Folder, Mic, Palette, Sparkles, Waves } from "lucide-react";
+import { Bot, Folder, Mic, Palette, Plug, Sparkles, Waves } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -28,6 +28,7 @@ import { SectionAudio } from "./section-audio";
 import { SectionGeneral } from "./section-general";
 import { SectionStorage } from "./section-storage";
 import { SectionTranscription } from "./section-transcription";
+import { SectionWebhooks } from "./section-webhooks";
 
 type Section = SettingsSection;
 
@@ -42,6 +43,7 @@ const NAV: { id: Section; label: string; icon: typeof Mic }[] = [
   { id: "transcription", label: "Transcription", icon: Sparkles },
   { id: "ai", label: "AI", icon: Bot },
   { id: "storage", label: "Storage", icon: Folder },
+  { id: "webhooks", label: "Webhooks", icon: Plug },
   { id: "appearance", label: "Appearance", icon: Palette },
 ];
 
@@ -171,6 +173,8 @@ export function SettingsModal({ open, onOpenChange }: Props) {
                 <SectionAi settings={settings} onChange={update} />
               ) : section === "storage" ? (
                 <SectionStorage settings={settings} />
+              ) : section === "webhooks" ? (
+                <SectionWebhooks />
               ) : (
                 <SectionAppearance
                   theme={(settings.theme === "dark" ? "dark" : "light") as Theme}

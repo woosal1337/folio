@@ -36,6 +36,7 @@ import type { Settings } from "@/shared/types/Settings";
 import type { SessionTranscript } from "@/shared/types/SessionTranscript";
 import type { SnapshotSummary } from "@/shared/types/SnapshotSummary";
 import type { Task } from "@/shared/types/Task";
+import type { WebhookSubscription } from "@/shared/types/WebhookSubscription";
 import type { TaskStatus } from "@/shared/types/TaskStatus";
 import type { TaskUpdate } from "@/shared/types/TaskUpdate";
 import type { TranscriptionResult } from "@/shared/types/TranscriptionResult";
@@ -278,4 +279,24 @@ export function clearRecordingArtifacts(sessionDir: string): Promise<void> {
  */
 export function exportVaultSnapshot(destination: string): Promise<SnapshotSummary> {
   return call<SnapshotSummary>("export_vault_snapshot", { destination });
+}
+
+// ---- Webhooks ----------------------------------------------------------
+
+export function listWebhooks(): Promise<WebhookSubscription[]> {
+  return call<WebhookSubscription[]>("list_webhooks");
+}
+
+export function saveWebhook(
+  subscription: WebhookSubscription
+): Promise<WebhookSubscription> {
+  return call<WebhookSubscription>("save_webhook", { subscription });
+}
+
+export function deleteWebhook(id: string): Promise<void> {
+  return call<void>("delete_webhook", { id });
+}
+
+export function testWebhook(id: string): Promise<string> {
+  return call<string>("test_webhook", { id });
 }
