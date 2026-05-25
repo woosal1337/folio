@@ -166,6 +166,35 @@ export function SectionAi({ settings, onChange }: SectionAiProps) {
         />
       </div>
 
+      {/* Auto-extract-tasks toggle. The Extract Tasks agent uses tool
+          calling to write directly into the kanban, so this fires
+          alongside auto-summarize after each transcription. */}
+      <div className="flex items-start justify-between gap-6 rounded-lg border border-border bg-card p-4">
+        <div className="space-y-1">
+          <Label
+            htmlFor="auto-extract-tasks-toggle"
+            className="flex items-center gap-2 text-sm font-medium"
+          >
+            <Zap className="h-4 w-4 text-muted-foreground" />
+            Auto-extract tasks after recording
+            <span className="rounded bg-muted px-1.5 py-0.5 text-2xs font-normal text-muted-foreground">
+              Recommended
+            </span>
+          </Label>
+          <p className="max-w-md text-xs text-muted-foreground">
+            Run the Extract Tasks agent automatically once a recording is transcribed.
+            Action items the agent finds land directly on your kanban with a link back
+            to the source meeting. Skipped if no AI key is set.
+          </p>
+        </div>
+        <Switch
+          id="auto-extract-tasks-toggle"
+          checked={settings.auto_extract_tasks_enabled}
+          onCheckedChange={(checked) => onChange("auto_extract_tasks_enabled", checked)}
+          className="mt-1"
+        />
+      </div>
+
       {providers === null ? (
         <p className="text-sm text-muted-foreground">Loading providers…</p>
       ) : (

@@ -9,6 +9,8 @@
 
 pub mod session;
 pub mod settings;
+pub mod tasks;
 
 pub use session::{scan_recordings, RecordingSummary};
 pub use settings::{Settings, SettingsStore};
+pub use tasks::{NewTask, Task, TaskStatus, TaskStore, TaskUpdate};

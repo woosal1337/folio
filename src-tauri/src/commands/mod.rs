@@ -13,4 +13,5 @@ pub mod llm;
 pub mod maintenance;
 pub mod recording;
 pub mod settings;
+pub mod tasks;
 pub mod transcription;

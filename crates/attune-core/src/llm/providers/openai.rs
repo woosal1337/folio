@@ -11,7 +11,7 @@ use tracing::debug;
 use crate::error::{AttuneError, Result};
 use crate::llm::provider::{LlmProvider, ProviderId};
 use crate::llm::types::{
-    ChatMessage, ChatRequest, ChatResponse, ChatRole, FinishReason, ModelInfo,
+    ChatMessage, ChatRequest, ChatResponse, ChatRole, FinishReason, ModelInfo, ToolCall,
 };
 
 const DEFAULT_BASE_URL: &str = "https://api.openai.com/v1";
@@ -139,11 +139,23 @@ impl LlmProvider for OpenAiProvider {
         let choice = parsed.choices.into_iter().next().ok_or_else(|| {
             AttuneError::Llm("openai /chat/completions returned zero choices".to_string())
         })?;
+        let tool_calls: Vec<ToolCall> = choice
+            .message
+            .tool_calls
+            .unwrap_or_default()
+            .into_iter()
+            .map(|c| ToolCall {
+                id: c.id,
+                name: c.function.name,
+                arguments: c.function.arguments,
+            })
+            .collect();
         Ok(ChatResponse {
             text: choice.message.content.unwrap_or_default(),
             finish_reason: parse_finish_reason(choice.finish_reason.as_deref()),
             prompt_tokens: parsed.usage.as_ref().map(|u| u.prompt_tokens),
             completion_tokens: parsed.usage.as_ref().map(|u| u.completion_tokens),
+            tool_calls,
         })
     }
 }
@@ -154,19 +166,54 @@ fn build_chat_request_body(req: &ChatRequest) -> ChatCompletionRequestBody {
         messages.push(OpenAiMessage {
             role: "system".to_string(),
             content: Some(req.system_prompt.clone()),
+            tool_calls: None,
+            tool_call_id: None,
         });
     }
     for m in &req.messages {
         messages.push(OpenAiMessage {
             role: role_to_str(m.role).to_string(),
-            content: Some(m.content.clone()),
+            content: if m.content.is_empty() && m.tool_calls.is_some() {
+                // Assistant turn that was purely tool calls: OpenAI's
+                // schema permits content == null in that case.
+                None
+            } else {
+                Some(m.content.clone())
+            },
+            tool_calls: m.tool_calls.as_ref().map(|calls| {
+                calls
+                    .iter()
+                    .map(|c| OpenAiToolCall {
+                        id: c.id.clone(),
+                        kind: "function".to_string(),
+                        function: OpenAiToolCallFunction {
+                            name: c.name.clone(),
+                            arguments: c.arguments.clone(),
+                        },
+                    })
+                    .collect()
+            }),
+            tool_call_id: m.tool_call_id.clone(),
         });
     }
+    let tools = req.tools.as_ref().map(|defs| {
+        defs.iter()
+            .map(|t| OpenAiToolDef {
+                kind: "function".to_string(),
+                function: OpenAiToolDefFunction {
+                    name: t.name.clone(),
+                    description: t.description.clone(),
+                    parameters: t.parameters.clone(),
+                },
+            })
+            .collect()
+    });
     ChatCompletionRequestBody {
         model: req.model.clone(),
         messages,
         temperature: req.temperature,
         max_tokens: req.max_tokens,
+        tools,
     }
 }
 
@@ -175,6 +222,7 @@ fn role_to_str(role: ChatRole) -> &'static str {
         ChatRole::System => "system",
         ChatRole::User => "user",
         ChatRole::Assistant => "assistant",
+        ChatRole::Tool => "tool",
     }
 }
 
@@ -203,6 +251,8 @@ struct ChatCompletionRequestBody {
     temperature: Option<f32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     max_tokens: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tools: Option<Vec<OpenAiToolDef>>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -210,6 +260,38 @@ struct OpenAiMessage {
     role: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     content: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    tool_calls: Option<Vec<OpenAiToolCall>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    tool_call_id: Option<String>,
+}
+
+#[derive(Serialize, Deserialize)]
+struct OpenAiToolCall {
+    id: String,
+    #[serde(rename = "type")]
+    kind: String,
+    function: OpenAiToolCallFunction,
+}
+
+#[derive(Serialize, Deserialize)]
+struct OpenAiToolCallFunction {
+    name: String,
+    arguments: String,
+}
+
+#[derive(Serialize)]
+struct OpenAiToolDef {
+    #[serde(rename = "type")]
+    kind: String,
+    function: OpenAiToolDefFunction,
+}
+
+#[derive(Serialize)]
+struct OpenAiToolDefFunction {
+    name: String,
+    description: String,
+    parameters: serde_json::Value,
 }
 
 #[derive(Deserialize)]
@@ -248,6 +330,8 @@ impl From<&ChatMessage> for OpenAiMessage {
         OpenAiMessage {
             role: role_to_str(m.role).to_string(),
             content: Some(m.content.clone()),
+            tool_calls: None,
+            tool_call_id: None,
         }
     }
 }
@@ -255,19 +339,27 @@ impl From<&ChatMessage> for OpenAiMessage {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::llm::types::{ChatMessage, ChatRequest, ChatRole};
+    use crate::llm::types::{ChatMessage, ChatRequest, ChatRole, ToolDef};
+    use serde_json::json;
+
+    fn user(text: &str) -> ChatMessage {
+        ChatMessage {
+            role: ChatRole::User,
+            content: text.to_string(),
+            tool_calls: None,
+            tool_call_id: None,
+        }
+    }
 
     #[test]
     fn build_request_body_prepends_system_prompt() {
         let req = ChatRequest {
             model: "gpt-5".to_string(),
             system_prompt: "you are a test".to_string(),
-            messages: vec![ChatMessage {
-                role: ChatRole::User,
-                content: "hi".to_string(),
-            }],
+            messages: vec![user("hi")],
             temperature: Some(0.2),
             max_tokens: Some(64),
+            tools: None,
         };
         let body = build_chat_request_body(&req);
         assert_eq!(body.model, "gpt-5");
@@ -278,6 +370,7 @@ mod tests {
         assert_eq!(body.messages[1].content.as_deref(), Some("hi"));
         assert_eq!(body.temperature, Some(0.2));
         assert_eq!(body.max_tokens, Some(64));
+        assert!(body.tools.is_none());
     }
 
     #[test]
@@ -285,16 +378,41 @@ mod tests {
         let req = ChatRequest {
             model: "gpt-5".to_string(),
             system_prompt: "".to_string(),
-            messages: vec![ChatMessage {
-                role: ChatRole::User,
-                content: "hi".to_string(),
-            }],
+            messages: vec![user("hi")],
             temperature: None,
             max_tokens: None,
+            tools: None,
         };
         let body = build_chat_request_body(&req);
         assert_eq!(body.messages.len(), 1);
         assert_eq!(body.messages[0].role, "user");
+    }
+
+    #[test]
+    fn build_request_body_serialises_tools() {
+        let req = ChatRequest {
+            model: "gpt-5".to_string(),
+            system_prompt: "".to_string(),
+            messages: vec![user("extract action items")],
+            temperature: None,
+            max_tokens: None,
+            tools: Some(vec![ToolDef {
+                name: "create_task".to_string(),
+                description: "Create a new to-do item.".to_string(),
+                parameters: json!({
+                    "type": "object",
+                    "properties": {
+                        "title": { "type": "string" },
+                    },
+                    "required": ["title"],
+                }),
+            }]),
+        };
+        let body = build_chat_request_body(&req);
+        let tools = body.tools.expect("tools should serialise");
+        assert_eq!(tools.len(), 1);
+        assert_eq!(tools[0].kind, "function");
+        assert_eq!(tools[0].function.name, "create_task");
     }
 
     #[test]

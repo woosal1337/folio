@@ -21,6 +21,7 @@ import {
 } from "@/shared/lib/ipc";
 import { useJobsStore } from "@/shared/stores/jobs-store";
 import { useSettingsStore } from "@/shared/stores/settings-store";
+import { useTasksStore } from "@/shared/stores/tasks-store";
 
 interface RecordingState {
   recording: boolean;
@@ -140,6 +141,41 @@ export const useRecording = create<RecordingState>((set, get) => {
     }
   };
 
+  // Try to auto-run the Extract Tasks agent after a transcription
+  // completes. Same gating as auto-summarize: opt-in via settings, no
+  // toast on the skipped path. The agent writes via the `create_task`
+  // tool, so success here means new cards appear on the kanban —
+  // refresh the tasks store so they show up wherever the user is.
+  const maybeAutoExtractTasks = async (sessionDir: string) => {
+    const settings = useSettingsStore.getState().settings;
+    if (!settings) return;
+    if (!settings.auto_extract_tasks_enabled) return;
+    if (!settings.openai_api_key || settings.openai_api_key.trim().length === 0) {
+      return;
+    }
+    const jobId = `agent:extract-tasks:${sessionDir}`;
+    useJobsStore.getState().push({
+      id: jobId,
+      kind: "agent",
+      label: `Extracting tasks from ${basename(sessionDir)}`,
+      detail: "auto",
+      sessionDir,
+      recordingLabel: basename(sessionDir),
+    });
+    try {
+      await ipcRunAgent(sessionDir, "extract-tasks");
+      // Refresh so the Tasks page picks up the new cards immediately
+      // if the user happens to be looking at it.
+      void useTasksStore.getState().refresh();
+      toast.success("Tasks ready", { description: basename(sessionDir) });
+    } catch (e) {
+      console.error("auto-extract-tasks failed:", e);
+      toast.error("Auto-extract tasks failed", { description: String(e) });
+    } finally {
+      useJobsStore.getState().pop(jobId);
+    }
+  };
+
   // Self-contained transcription routine so both `stop` (auto) and an
   // explicit `transcribe(...)` call route through the same lifecycle.
   const runTranscription = async (sessionDir: string) => {
@@ -177,11 +213,14 @@ export const useRecording = create<RecordingState>((set, get) => {
       toast.success("Transcription complete", {
         description: `${segments} segments across ${channelCount} channel${channelCount === 1 ? "" : "s"} saved.`,
       });
-      // Chain into auto-summarize once the transcript has landed. We
-      // don't await — `runTranscription`'s caller doesn't care about
-      // the summary's outcome; the jobs strip + the editor page show
-      // the summary's progress and result.
+      // Chain into auto-summarize and auto-extract-tasks once the
+      // transcript has landed. We don't await — `runTranscription`'s
+      // caller doesn't care about the post-processing outcome; the
+      // jobs strip + the editor page surface progress and results.
+      // Both run in parallel: they hit the same provider, but the
+      // requests are independent and we'd rather they finish sooner.
       void maybeAutoSummarize(sessionDir);
+      void maybeAutoExtractTasks(sessionDir);
     } catch (e) {
       const message = String(e);
       set({

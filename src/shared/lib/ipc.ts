@@ -26,8 +26,12 @@ import type { ProviderStatus } from "@/shared/types/ProviderStatus";
 import type { RecordingResult } from "@/shared/types/RecordingResult";
 import type { RecordingStatus } from "@/shared/types/RecordingStatus";
 import type { RecordingSummary } from "@/shared/types/RecordingSummary";
+import type { NewTask } from "@/shared/types/NewTask";
 import type { Settings } from "@/shared/types/Settings";
 import type { SessionTranscript } from "@/shared/types/SessionTranscript";
+import type { Task } from "@/shared/types/Task";
+import type { TaskStatus } from "@/shared/types/TaskStatus";
+import type { TaskUpdate } from "@/shared/types/TaskUpdate";
 import type { TranscriptionResult } from "@/shared/types/TranscriptionResult";
 import type { WhisperModel } from "@/shared/types/WhisperModel";
 import type { WhisperModelStatus } from "@/shared/types/WhisperModelStatus";
@@ -185,6 +189,28 @@ export function listAgentRuns(sessionDir: string): Promise<AgentRun[]> {
 
 export function deleteAgentRun(sessionDir: string, agentId: string): Promise<void> {
   return call<void>("delete_agent_run", { sessionDir, agentId });
+}
+
+// ---- Tasks -------------------------------------------------------------
+
+export function listTasks(): Promise<Task[]> {
+  return call<Task[]>("list_tasks");
+}
+
+export function createTask(task: NewTask): Promise<Task> {
+  return call<Task>("create_task", { task });
+}
+
+export function updateTask(id: string, patch: TaskUpdate): Promise<Task> {
+  return call<Task>("update_task", { id, patch });
+}
+
+export function deleteTask(id: string): Promise<void> {
+  return call<void>("delete_task", { id });
+}
+
+export function setTaskStatus(id: string, status: TaskStatus): Promise<Task> {
+  return call<Task>("set_task_status", { id, status });
 }
 
 // ---- Maintenance -------------------------------------------------------

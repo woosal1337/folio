@@ -32,4 +32,13 @@ auto_transcribe_enabled: boolean,
  * away knowing the summary will be on the recording's page when
  * they come back. Falls back to a no-op when no AI key is set.
  */
-auto_summarize_enabled: boolean, };
+auto_summarize_enabled: boolean,
+/**
+ * When true and an AI provider key is configured, the app
+ * automatically runs the `extract-tasks` agent after a
+ * transcription completes. The agent uses the `create_task`
+ * tool to populate the kanban directly, so the user can stop a
+ * meeting and come back to a populated to-do board. Skipped
+ * silently if no AI key is set.
+ */
+auto_extract_tasks_enabled: boolean, };
