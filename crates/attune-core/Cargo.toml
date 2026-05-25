@@ -55,6 +55,13 @@ core-foundation = "0.9"
 core-media-rs = "0.3"
 core-audio-types-rs = "0.3"
 
+# libc — used for pthread_set_qos_class_self_np in the QoS module
+# (v2 finding 064 / GET-99). Audio callbacks tag themselves
+# USER_INTERACTIVE; whisper threads tag themselves USER_INITIATED so
+# the scheduler keeps capture on the P-cores while batch transcoding
+# can land on the E-cores when system load allows.
+libc = { workspace = true }
+
 # Apple Voice Processing IO AudioUnit for the AEC + NS + AGC mic
 # capture path. See vault plan: projects/attune/plan/voice-processing-io.md
 coreaudio-rs = { workspace = true }

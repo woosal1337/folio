@@ -19,6 +19,24 @@ use tracing::{debug, error, info, warn};
 use crate::audio::resampler::StreamingResampler;
 use crate::audio::wav_writer::AudioWavWriter;
 use crate::error::{AttuneError, Result};
+use crate::qos::{set_thread_qos, QosClass};
+
+thread_local! {
+    /// Set once per cpal callback thread; `pthread_set_qos_class_self_np`
+    /// is per-thread, so we only need to tag the thread the first time
+    /// it serves a sample frame. v2 finding 064 / GET-99.
+    static QOS_TAGGED: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+#[inline]
+fn ensure_capture_qos() {
+    QOS_TAGGED.with(|cell| {
+        if !cell.get() {
+            set_thread_qos(QosClass::UserInteractive);
+            cell.set(true);
+        }
+    });
+}
 
 pub struct MicCapture {
     stream: Option<Stream>,
@@ -191,6 +209,7 @@ fn handle_samples(
     resampler: &Arc<Mutex<StreamingResampler>>,
     stopped: &Arc<AtomicBool>,
 ) {
+    ensure_capture_qos();
     if stopped.load(Ordering::SeqCst) {
         return;
     }
