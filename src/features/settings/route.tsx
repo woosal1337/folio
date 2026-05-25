@@ -174,7 +174,7 @@ export function SettingsModal({ open, onOpenChange }: Props) {
               ) : section === "ai" ? (
                 <SectionAi settings={settings} onChange={update} />
               ) : section === "storage" ? (
-                <SectionStorage settings={settings} />
+                <SectionStorage settings={settings} onChange={update} />
               ) : section === "webhooks" ? (
                 <SectionWebhooks />
               ) : section === "usage" ? (

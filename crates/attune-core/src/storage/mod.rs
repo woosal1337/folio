@@ -7,6 +7,7 @@
 //! macOS). Recording metadata is derived from the session directories the
 //! capture pipeline creates.
 
+pub mod retention;
 pub mod session;
 pub mod settings;
 pub mod snapshot;

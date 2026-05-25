@@ -73,4 +73,16 @@ auto_extract_tasks_enabled: boolean,
  * surfaces the title in RecordingSummary so the UI can render
  * it without any extra IPC roundtrips. v2 finding 024 / GET-37.
  */
-auto_name_enabled: boolean, };
+auto_name_enabled: boolean,
+/**
+ * Optional retention policy for the source WAV files inside each
+ * session directory. None / 0 leaves WAVs in place forever; a
+ * positive value N tells `purge_old_wavs` to delete mic.wav +
+ * system.wav once a transcript exists AND the session's most
+ * recent modification is older than N days. Audio recordings
+ * grow fast (~87GB/yr for a daily-meeting user); this setting
+ * plus the manual 'Purge now' button in Settings → Storage
+ * lets the user keep transcripts but drop the source audio.
+ * v2 finding 063 / GET-98.
+ */
+wav_retention_days: number | null, };

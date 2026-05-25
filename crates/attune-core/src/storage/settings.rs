@@ -94,6 +94,17 @@ pub struct Settings {
     /// it without any extra IPC roundtrips. v2 finding 024 / GET-37.
     #[serde(default = "default_auto_name_enabled")]
     pub auto_name_enabled: bool,
+    /// Optional retention policy for the source WAV files inside each
+    /// session directory. None / 0 leaves WAVs in place forever; a
+    /// positive value N tells `purge_old_wavs` to delete mic.wav +
+    /// system.wav once a transcript exists AND the session's most
+    /// recent modification is older than N days. Audio recordings
+    /// grow fast (~87GB/yr for a daily-meeting user); this setting
+    /// plus the manual 'Purge now' button in Settings → Storage
+    /// lets the user keep transcripts but drop the source audio.
+    /// v2 finding 063 / GET-98.
+    #[serde(default)]
+    pub wav_retention_days: Option<u32>,
 }
 
 fn default_theme() -> String {
@@ -178,6 +189,7 @@ impl Default for Settings {
             auto_summarize_enabled: default_auto_summarize_enabled(),
             auto_extract_tasks_enabled: default_auto_extract_tasks_enabled(),
             auto_name_enabled: default_auto_name_enabled(),
+            wav_retention_days: None,
         }
     }
 }
