@@ -6,6 +6,7 @@
 //! frontend.
 
 pub mod agents;
+pub mod captions;
 pub mod devices;
 pub mod health;
 pub mod library;
