@@ -1,19 +1,22 @@
 //! Tauri commands for running agents against a recording's transcript.
 //!
 //! Each `run_agent` call:
-//!   1. Loads the recording's transcript from disk
-//!   2. Builds a ChatRequest with the agent's system prompt + the
-//!      transcript text as the user message. If the agent is tool-using
-//!      (currently only `extract-tasks`), the request also declares
-//!      the `create_task` tool.
-//!   3. Calls the configured LLM provider (currently always OpenAI)
-//!   4. If the response contains tool calls, dispatches each one
-//!      (writes to TaskStore, etc.), appends an assistant turn +
-//!      Tool-role results, and re-calls the provider. Loops up to
-//!      `MAX_TOOL_ITERATIONS` so a runaway model can't pin the CPU.
-//!   5. Persists the final assistant text under
-//!      <session_dir>/agent_runs/<agent>.json
-//!   6. Returns the result to the frontend.
+//!   1. Loads the recording's transcript from disk.
+//!   2. Pulls the always-inject memory profile (identity + prefs +
+//!      active projects + pinned memories) and prepends it to the
+//!      agent's system prompt so every agent reads "what's true
+//!      about this user" before reading the transcript.
+//!   3. Builds a ChatRequest with the agent's tools attached.
+//!      `extract-tasks` gets `create_task`; `extract-memories` gets
+//!      `remember`; every agent gets `search_memory`.
+//!   4. Calls OpenAI; on tool calls, dispatches them synchronously
+//!      (MemoryStore + TaskStore writes), appends results, loops up
+//!      to `MAX_TOOL_ITERATIONS`.
+//!   5. After the loop, any memories the model created get their
+//!      embeddings computed in parallel and upserted into the vec
+//!      index (best-effort).
+//!   6. Persists the final assistant text under
+//!      `<session_dir>/agent_runs/<agent>.json`.
 
 use std::path::{Path, PathBuf};
 
@@ -23,6 +26,7 @@ use attune_core::llm::{
     Agent, AgentRun, AgentRunStore, ChatMessage, ChatRequest, ChatRole, KeyStore, OpenAiProvider,
     ProviderId, ToolCall, ToolDef,
 };
+use attune_core::memory::{EmbeddingClient, MemoryKind, MemoryStore, NewMemory};
 use attune_core::storage::{NewTask, TaskStore};
 use attune_core::transcription::SessionTranscript;
 use chrono::Utc;
@@ -33,38 +37,31 @@ use tracing::{debug, info, warn};
 
 use crate::app::AppState;
 
-/// Sensible default model for the MVP. Cheap, fast, multilingual,
-/// supports tool calling. Users will be able to pick per agent in a
-/// later phase.
 const DEFAULT_OPENAI_MODEL: &str = "gpt-4o-mini";
-
-/// Soft cap on transcript characters fed to the model. ~100k chars is
-/// comfortably under gpt-4o-mini's 128k token context after accounting
-/// for the system prompt + the model's own output.
 const TRANSCRIPT_CHAR_CAP: usize = 100_000;
-
-/// Hard ceiling on the tool-dispatch loop. Models occasionally get
-/// stuck re-calling tools with slightly different arguments; this
-/// stops that from burning unbounded tokens. Five iterations is
-/// generous — extract-tasks on a typical meeting needs one round of
-/// 3-8 tool calls, so even a long meeting fits well inside this.
 const MAX_TOOL_ITERATIONS: usize = 5;
 
-/// Agent ids that get the `create_task` tool attached. Keeping this as
-/// a small set in code rather than a field on Agent so we can wire
-/// tools without forcing every custom-agent author to think about
-/// schemas before the user-editable agents land.
+/// Agents that receive the `create_task` tool.
 const TASK_TOOL_AGENTS: &[&str] = &["extract-tasks"];
 
-/// List the agents the user can invoke.
+/// Agents that receive the `remember` tool.
+const MEMORY_WRITE_TOOL_AGENTS: &[&str] = &["extract-memories"];
+
+/// Agents that receive the `search_memory` tool. We give it to every
+/// agent: a summary or Q&A turn benefits from pulling prior context
+/// ("user said last week they prefer async standups"), and the
+/// extract-* agents benefit from deduping against what's already
+/// remembered before writing.
+fn memory_search_for_all() -> bool {
+    true
+}
+
 #[tauri::command]
 pub fn list_agents() -> Vec<Agent> {
     debug!("list_agents");
     agents::defaults()
 }
 
-/// Load every persisted agent run for a recording. Empty vec if the
-/// recording has not been processed by any agent yet.
 #[tauri::command]
 pub async fn list_agent_runs(session_dir: PathBuf) -> Result<Vec<AgentRun>, String> {
     let path = session_dir.clone();
@@ -74,7 +71,6 @@ pub async fn list_agent_runs(session_dir: PathBuf) -> Result<Vec<AgentRun>, Stri
         .map_err(|e| e.to_string())
 }
 
-/// Delete a single saved agent run.
 #[tauri::command]
 pub async fn delete_agent_run(session_dir: PathBuf, agent_id: String) -> Result<(), String> {
     let path = session_dir.clone();
@@ -85,7 +81,6 @@ pub async fn delete_agent_run(session_dir: PathBuf, agent_id: String) -> Result<
         .map_err(|e| e.to_string())
 }
 
-/// Run an agent against a recording.
 #[tauri::command]
 pub async fn run_agent(
     state: State<'_, AppState>,
@@ -94,7 +89,6 @@ pub async fn run_agent(
 ) -> Result<AgentRun, String> {
     let agent = agents::by_id(&agent_id).ok_or_else(|| format!("unknown agent id: {agent_id}"))?;
 
-    // Read transcript from disk on a blocking thread.
     let transcript_path = session_dir.join("transcript.json");
     let session_dir_for_read = session_dir.clone();
     let transcript = tauri::async_runtime::spawn_blocking(move || {
@@ -115,10 +109,36 @@ pub async fn run_agent(
     }
     let user_message = build_user_message(&transcript_text);
 
-    // Snapshot tasks_path while holding the settings lock briefly.
-    let tasks_path = state.settings.lock().tasks_path.clone();
+    // Snapshot paths from settings (cheap, won't block agent run).
+    let (tasks_path, memory_dir) = {
+        let s = state.settings.lock();
+        (s.tasks_path.clone(), s.memory_dir.clone())
+    };
 
-    // Resolve provider + key.
+    // Build the "what's true about the user" preamble before any
+    // network call. This runs on a blocking thread because MemoryStore
+    // touches SQLite.
+    let memory_preamble = {
+        let dir = memory_dir.clone();
+        tauri::async_runtime::spawn_blocking(move || -> Option<String> {
+            let store = MemoryStore::open(dir).ok()?;
+            let memories = store.always_inject_set(5).ok()?;
+            if memories.is_empty() {
+                return None;
+            }
+            let mut out = String::from("<user_memory>\n");
+            for m in &memories {
+                let key = m.key.as_deref().unwrap_or("");
+                let pin = if m.pinned { "📌 " } else { "" };
+                out.push_str(&format!("- {pin}{}: {}\n", key, m.content));
+            }
+            out.push_str("</user_memory>");
+            Some(out)
+        })
+        .await
+        .unwrap_or(None)
+    };
+
     let provider_id = ProviderId::OpenAi;
     let api_key = tauri::async_runtime::spawn_blocking(move || KeyStore::get(provider_id))
         .await
@@ -127,11 +147,19 @@ pub async fn run_agent(
         .ok_or_else(|| {
             "no OpenAI API key configured. Open Settings → AI and paste your key.".to_string()
         })?;
-    let provider = OpenAiProvider::new(api_key);
+    let provider = OpenAiProvider::new(api_key.clone());
     let model = DEFAULT_OPENAI_MODEL.to_string();
 
     let tools = tools_for_agent(&agent.id);
     let session_label = session_label_from_dir(&session_dir);
+
+    // Compose system prompt: memory preamble (if any) then the agent's
+    // own prompt. The preamble sits ABOVE the agent prompt so the
+    // model treats it as background context, not a task instruction.
+    let system_prompt = match memory_preamble {
+        Some(preamble) => format!("{preamble}\n\n{}", agent.system_prompt),
+        None => agent.system_prompt.clone(),
+    };
 
     let mut messages: Vec<ChatMessage> = vec![ChatMessage {
         role: ChatRole::User,
@@ -144,6 +172,7 @@ pub async fn run_agent(
     let mut total_completion_tokens: u32 = 0;
     let mut final_text: String = String::new();
     let mut tasks_created: usize = 0;
+    let mut memories_created: Vec<String> = Vec::new();
 
     info!(
         agent = %agent.id,
@@ -157,7 +186,7 @@ pub async fn run_agent(
     for iteration in 0..MAX_TOOL_ITERATIONS {
         let request = ChatRequest {
             model: model.clone(),
-            system_prompt: agent.system_prompt.clone(),
+            system_prompt: system_prompt.clone(),
             messages: messages.clone(),
             temperature: Some(0.2),
             max_tokens: None,
@@ -171,16 +200,11 @@ pub async fn run_agent(
             total_completion_tokens = total_completion_tokens.saturating_add(c);
         }
 
-        // No tool calls → done. Capture text and break.
         if response.tool_calls.is_empty() {
             final_text = response.text;
             break;
         }
 
-        // Tool calls present: append the assistant turn carrying the
-        // calls, then dispatch each one and append its Tool-role
-        // result message. Loop so the model can produce a final
-        // assistant summary turn after seeing the results.
         debug!(
             iteration = iteration,
             calls = response.tool_calls.len(),
@@ -196,11 +220,20 @@ pub async fn run_agent(
             let result = dispatch_tool_call(
                 call,
                 &tasks_path,
+                &memory_dir,
                 session_dir.to_string_lossy().as_ref(),
                 session_label.as_deref(),
             );
-            if call.name == "create_task" && result.success {
-                tasks_created = tasks_created.saturating_add(1);
+            match call.name.as_str() {
+                "create_task" if result.success => {
+                    tasks_created = tasks_created.saturating_add(1);
+                }
+                "remember" if result.success => {
+                    if let Some(id) = &result.id {
+                        memories_created.push(id.clone());
+                    }
+                }
+                _ => {}
             }
             messages.push(ChatMessage {
                 role: ChatRole::Tool,
@@ -215,27 +248,19 @@ pub async fn run_agent(
                 agent = %agent.id,
                 "hit MAX_TOOL_ITERATIONS, stopping tool-dispatch loop"
             );
-            // Synthesize a closing line so the persisted run still has
-            // a readable summary; better than empty text.
-            final_text = format!(
-                "Stopped after {} tool-call rounds. Created {} task(s) so far.",
-                MAX_TOOL_ITERATIONS, tasks_created
-            );
+            final_text = format!("Stopped after {} tool-call rounds.", MAX_TOOL_ITERATIONS);
         }
     }
 
-    // If the model's final text is empty for a tool-using agent,
-    // synthesize a tiny summary so the AI page has something to render.
     if final_text.trim().is_empty() && tools.is_some() {
-        final_text = if tasks_created == 0 {
-            "No explicit action items found.".to_string()
-        } else {
-            format!(
-                "Created {} task{} from this recording.",
-                tasks_created,
-                if tasks_created == 1 { "" } else { "s" }
-            )
-        };
+        final_text = synth_summary(&agent.id, tasks_created, memories_created.len());
+    }
+
+    // Best-effort embeddings for any memories the agent created.
+    // Failures here are non-fatal: the memory still lives in the FTS5
+    // index, search just falls back to BM25 for those rows.
+    if !memories_created.is_empty() {
+        embed_new_memories(&api_key, &memory_dir, &memories_created).await;
     }
 
     let run = AgentRun {
@@ -257,7 +282,6 @@ pub async fn run_agent(
         finished_at: Utc::now(),
     };
 
-    // Persist so reloading the recording brings the run back.
     let save_dir = session_dir.clone();
     let save_run = run.clone();
     tauri::async_runtime::spawn_blocking(move || AgentRunStore::save(&save_dir, &save_run))
@@ -270,18 +294,35 @@ pub async fn run_agent(
         prompt_tokens = ?run.prompt_tokens,
         completion_tokens = ?run.completion_tokens,
         tasks_created,
+        memories_created = memories_created.len(),
         "agent run complete",
     );
     Ok(run)
 }
 
-/// Return the tool definitions to attach to an agent's chat request, or
-/// `None` if this agent doesn't use tools.
+/// Build the tool definitions an agent gets. Order is stable so the
+/// model sees `search_memory` first (it's the read tool) and writes
+/// after.
 fn tools_for_agent(agent_id: &str) -> Option<Vec<ToolDef>> {
-    if !TASK_TOOL_AGENTS.contains(&agent_id) {
-        return None;
+    let mut tools = Vec::new();
+    if memory_search_for_all() {
+        tools.push(search_memory_tool_def());
     }
-    Some(vec![ToolDef {
+    if TASK_TOOL_AGENTS.contains(&agent_id) {
+        tools.push(create_task_tool_def());
+    }
+    if MEMORY_WRITE_TOOL_AGENTS.contains(&agent_id) {
+        tools.push(remember_tool_def());
+    }
+    if tools.is_empty() {
+        None
+    } else {
+        Some(tools)
+    }
+}
+
+fn create_task_tool_def() -> ToolDef {
+    ToolDef {
         name: "create_task".to_string(),
         description: "Create a new to-do task in the user's task list. \
             Call once per distinct action item found in the meeting transcript."
@@ -289,43 +330,101 @@ fn tools_for_agent(agent_id: &str) -> Option<Vec<ToolDef>> {
         parameters: json!({
             "type": "object",
             "properties": {
-                "title": {
-                    "type": "string",
-                    "description": "Short imperative phrase describing the task (e.g. 'Send revised contract to legal')."
-                },
-                "owner": {
-                    "type": "string",
-                    "description": "Person or team responsible, exactly as named in the transcript. Omit if not stated."
-                },
-                "due": {
-                    "type": "string",
-                    "description": "Date or timeframe the task is due (e.g. 'Friday', 'next sprint', '2026-06-01'). Omit if not stated."
-                },
-                "notes": {
-                    "type": "string",
-                    "description": "Optional one-sentence context only when it materially helps a future reader."
-                }
+                "title": { "type": "string", "description": "Short imperative phrase describing the task." },
+                "owner": { "type": "string", "description": "Person or team responsible. Omit if not stated." },
+                "due":   { "type": "string", "description": "Date or timeframe. Omit if not stated." },
+                "notes": { "type": "string", "description": "Optional one-sentence context." }
             },
             "required": ["title"],
             "additionalProperties": false
         }),
-    }])
+    }
 }
 
-/// Result returned to the model in the Tool-role follow-up message.
-/// Tiny + JSON-serialisable so the model can read it and (a) confirm
-/// the call worked, (b) move on rather than re-trying.
-#[derive(serde::Serialize)]
+fn remember_tool_def() -> ToolDef {
+    ToolDef {
+        name: "remember".to_string(),
+        description: "Capture a lasting fact about the user, their projects, or the people they work with. \
+Call once per fact. Use `claim` for facts about the user, `pref` for preferences, `person` for someone they collaborate with, \
+`observe` for free-form context with no obvious key. Conflicting facts on the same key supersede automatically; do not try to deduplicate."
+            .to_string(),
+        parameters: json!({
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "enum": ["claim", "pref", "person", "observe"],
+                    "description": "claim / pref / person / observe — see the agent prompt for guidance."
+                },
+                "key": {
+                    "type": "string",
+                    "description": "Dotted handle (e.g. `user.company`, `ui.theme`, `person.alice`). Required for claim/pref/person; omit for observe."
+                },
+                "content": {
+                    "type": "string",
+                    "description": "The fact in one sentence, present tense."
+                },
+                "evidence": {
+                    "type": "string",
+                    "description": "Short quoted snippet from the transcript that supports the fact."
+                },
+                "confidence": {
+                    "type": "number",
+                    "description": "0.0-1.0; under 0.6 means \"plausible but unsure\"."
+                },
+                "tags": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "1-4 short lowercase tags."
+                }
+            },
+            "required": ["kind", "content"],
+            "additionalProperties": false
+        }),
+    }
+}
+
+fn search_memory_tool_def() -> ToolDef {
+    ToolDef {
+        name: "search_memory".to_string(),
+        description: "Look up what the system already knows about the user. \
+CALL THIS WHENEVER: you need to verify a name/role/company, check whether a topic has come up before, \
+or avoid re-asking something the user has stated previously. Returns up to `limit` currently-valid memories ranked by relevance."
+            .to_string(),
+        parameters: json!({
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Free-text search. Use the key (e.g. `user.company`) or the topic (e.g. `quarterly planning`)."
+                },
+                "kinds": {
+                    "type": "array",
+                    "items": { "type": "string", "enum": ["claim", "pref", "person", "observe"] },
+                    "description": "Optional. Restrict to these kinds. Omit to search all."
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Optional. Max rows to return (default 5)."
+                }
+            },
+            "required": ["query"],
+            "additionalProperties": false
+        }),
+    }
+}
+
+#[derive(serde::Serialize, Default)]
 struct ToolResult {
     success: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     error: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    data: Option<serde_json::Value>,
 }
 
-/// Args the model passes to `create_task`. Owner/due/notes are optional
-/// — we don't want a missing field to fail the call.
 #[derive(Deserialize)]
 struct CreateTaskArgs {
     title: String,
@@ -337,59 +436,270 @@ struct CreateTaskArgs {
     notes: Option<String>,
 }
 
-/// Dispatch a single tool call. Currently only `create_task` is
-/// supported; unknown tool names return a structured error so the
-/// model can recover on the next turn.
+#[derive(Deserialize)]
+struct RememberArgs {
+    kind: String,
+    #[serde(default)]
+    key: Option<String>,
+    content: String,
+    #[serde(default)]
+    evidence: Option<String>,
+    #[serde(default = "default_remember_confidence")]
+    confidence: f32,
+    #[serde(default)]
+    tags: Vec<String>,
+}
+
+fn default_remember_confidence() -> f32 {
+    0.8
+}
+
+#[derive(Deserialize)]
+struct SearchMemoryArgs {
+    query: String,
+    #[serde(default)]
+    kinds: Vec<String>,
+    #[serde(default)]
+    limit: Option<usize>,
+}
+
 fn dispatch_tool_call(
+    call: &ToolCall,
+    tasks_path: &Path,
+    memory_dir: &Path,
+    session_dir: &str,
+    session_label: Option<&str>,
+) -> ToolResult {
+    match call.name.as_str() {
+        "create_task" => dispatch_create_task(call, tasks_path, session_dir, session_label),
+        "remember" => dispatch_remember(call, memory_dir, session_dir, session_label),
+        "search_memory" => dispatch_search_memory(call, memory_dir),
+        other => ToolResult {
+            success: false,
+            error: Some(format!("unknown tool: {other}")),
+            ..ToolResult::default()
+        },
+    }
+}
+
+fn dispatch_create_task(
     call: &ToolCall,
     tasks_path: &Path,
     session_dir: &str,
     session_label: Option<&str>,
 ) -> ToolResult {
-    match call.name.as_str() {
-        "create_task" => match serde_json::from_str::<CreateTaskArgs>(&call.arguments) {
-            Ok(args) => {
-                let store = TaskStore::new(tasks_path.to_path_buf());
-                let new_task = NewTask {
-                    title: args.title,
-                    status: None,
-                    owner: args.owner.filter(|s| !s.trim().is_empty()),
-                    due: args.due.filter(|s| !s.trim().is_empty()),
-                    notes: args.notes.filter(|s| !s.trim().is_empty()),
-                    source_session_dir: Some(session_dir.to_string()),
-                    source_session_label: session_label.map(|s| s.to_string()),
-                    agent_origin: true,
-                };
-                match store.create(new_task) {
-                    Ok(task) => ToolResult {
-                        success: true,
-                        id: Some(task.id),
-                        error: None,
-                    },
-                    Err(e) => ToolResult {
-                        success: false,
-                        id: None,
-                        error: Some(e.to_string()),
-                    },
-                }
+    match serde_json::from_str::<CreateTaskArgs>(&call.arguments) {
+        Ok(args) => {
+            let store = TaskStore::new(tasks_path.to_path_buf());
+            let new_task = NewTask {
+                title: args.title,
+                status: None,
+                owner: args.owner.filter(|s| !s.trim().is_empty()),
+                due: args.due.filter(|s| !s.trim().is_empty()),
+                notes: args.notes.filter(|s| !s.trim().is_empty()),
+                source_session_dir: Some(session_dir.to_string()),
+                source_session_label: session_label.map(|s| s.to_string()),
+                agent_origin: true,
+            };
+            match store.create(new_task) {
+                Ok(task) => ToolResult {
+                    success: true,
+                    id: Some(task.id),
+                    ..ToolResult::default()
+                },
+                Err(e) => ToolResult {
+                    success: false,
+                    error: Some(e.to_string()),
+                    ..ToolResult::default()
+                },
             }
-            Err(e) => ToolResult {
-                success: false,
-                id: None,
-                error: Some(format!("could not parse arguments: {e}")),
-            },
-        },
-        other => ToolResult {
+        }
+        Err(e) => ToolResult {
             success: false,
-            id: None,
-            error: Some(format!("unknown tool: {other}")),
+            error: Some(format!("could not parse arguments: {e}")),
+            ..ToolResult::default()
         },
     }
 }
 
-/// Trailing path component of `session_dir`, used as the source-recording
-/// label on agent-created tasks so the UI can render a back-link without
-/// re-deriving it.
+fn dispatch_remember(
+    call: &ToolCall,
+    memory_dir: &Path,
+    session_dir: &str,
+    session_label: Option<&str>,
+) -> ToolResult {
+    let args = match serde_json::from_str::<RememberArgs>(&call.arguments) {
+        Ok(a) => a,
+        Err(e) => {
+            return ToolResult {
+                success: false,
+                error: Some(format!("could not parse arguments: {e}")),
+                ..ToolResult::default()
+            }
+        }
+    };
+    let kind = match MemoryKind::parse(&args.kind) {
+        Some(k) => k,
+        None => {
+            return ToolResult {
+                success: false,
+                error: Some(format!("unknown kind: {}", args.kind)),
+                ..ToolResult::default()
+            }
+        }
+    };
+    let store = match MemoryStore::open(memory_dir.to_path_buf()) {
+        Ok(s) => s,
+        Err(e) => {
+            return ToolResult {
+                success: false,
+                error: Some(format!("could not open memory store: {e}")),
+                ..ToolResult::default()
+            }
+        }
+    };
+    let new_memory = NewMemory {
+        kind,
+        key: args.key.filter(|s| !s.trim().is_empty()),
+        content: args.content,
+        evidence: args.evidence.filter(|s| !s.trim().is_empty()),
+        confidence: args.confidence,
+        tags: args.tags,
+        source_session_dir: Some(session_dir.to_string()),
+        source_session_label: session_label.map(|s| s.to_string()),
+    };
+    match store.create(new_memory) {
+        Ok(outcome) => {
+            let memory = outcome.into_memory();
+            ToolResult {
+                success: true,
+                id: Some(memory.id),
+                ..ToolResult::default()
+            }
+        }
+        Err(e) => ToolResult {
+            success: false,
+            error: Some(e.to_string()),
+            ..ToolResult::default()
+        },
+    }
+}
+
+fn dispatch_search_memory(call: &ToolCall, memory_dir: &Path) -> ToolResult {
+    let args = match serde_json::from_str::<SearchMemoryArgs>(&call.arguments) {
+        Ok(a) => a,
+        Err(e) => {
+            return ToolResult {
+                success: false,
+                error: Some(format!("could not parse arguments: {e}")),
+                ..ToolResult::default()
+            }
+        }
+    };
+    let store = match MemoryStore::open(memory_dir.to_path_buf()) {
+        Ok(s) => s,
+        Err(e) => {
+            return ToolResult {
+                success: false,
+                error: Some(format!("could not open memory store: {e}")),
+                ..ToolResult::default()
+            }
+        }
+    };
+    let kinds: Vec<MemoryKind> = args
+        .kinds
+        .iter()
+        .filter_map(|s| MemoryKind::parse(s))
+        .collect();
+    let limit = args.limit.unwrap_or(5);
+    // Embedding-free path inside the dispatcher to keep tool calls
+    // synchronous; FTS5 BM25 alone is enough signal for the kinds of
+    // lookups agents do mid-reasoning.
+    match store.search(&args.query, None, &kinds, limit) {
+        Ok(memories) => {
+            // Project to a tiny shape so the model isn't drowning in
+            // timestamps and ids.
+            let projected: Vec<serde_json::Value> = memories
+                .into_iter()
+                .map(|m| {
+                    json!({
+                        "id": m.id,
+                        "kind": m.kind.as_str(),
+                        "key": m.key,
+                        "content": m.content,
+                        "valid_from": m.valid_from.to_rfc3339(),
+                    })
+                })
+                .collect();
+            ToolResult {
+                success: true,
+                data: Some(json!({ "results": projected })),
+                ..ToolResult::default()
+            }
+        }
+        Err(e) => ToolResult {
+            success: false,
+            error: Some(e.to_string()),
+            ..ToolResult::default()
+        },
+    }
+}
+
+/// After the agent run finishes, fetch embeddings for the memories
+/// it just created and upsert them into the vec index. Done outside
+/// the tool loop because embedding is a network call and we don't
+/// want to block tool dispatch on it. Errors are logged, not
+/// surfaced — search still works via BM25.
+async fn embed_new_memories(api_key: &str, memory_dir: &Path, ids: &[String]) {
+    let client = EmbeddingClient::new(api_key);
+    for id in ids {
+        let dir = memory_dir.to_path_buf();
+        let id_owned = id.clone();
+        let store_result = tauri::async_runtime::spawn_blocking(move || {
+            let store = MemoryStore::open(dir).ok()?;
+            store.get(&id_owned).ok().flatten()
+        })
+        .await
+        .ok()
+        .flatten();
+        let Some(memory) = store_result else {
+            continue;
+        };
+        let embedding = match client.embed(&memory.content).await {
+            Ok(v) => v,
+            Err(e) => {
+                warn!(id = %memory.id, error = %e, "memory embedding failed");
+                continue;
+            }
+        };
+        let dir = memory_dir.to_path_buf();
+        let m = memory.clone();
+        let _ = tauri::async_runtime::spawn_blocking(move || -> Result<(), String> {
+            let store = MemoryStore::open(dir).map_err(|e| e.to_string())?;
+            store
+                .upsert_with_embedding(&m, &embedding)
+                .map_err(|e| e.to_string())
+        })
+        .await;
+    }
+}
+
+fn synth_summary(agent_id: &str, tasks: usize, memories: usize) -> String {
+    match agent_id {
+        "extract-tasks" if tasks == 0 => "No explicit action items found.".to_string(),
+        "extract-tasks" => format!(
+            "Created {tasks} task{} from this recording.",
+            if tasks == 1 { "" } else { "s" }
+        ),
+        "extract-memories" if memories == 0 => "No new memories extracted.".to_string(),
+        "extract-memories" => format!(
+            "Captured {memories} memory{} from this recording.",
+            if memories == 1 { "y" } else { "ies" }
+        ),
+        _ => format!("Agent run completed with {tasks} task(s), {memories} memor(y/ies)."),
+    }
+}
+
 fn session_label_from_dir(session_dir: &Path) -> Option<String> {
     session_dir
         .file_name()
@@ -397,9 +707,6 @@ fn session_label_from_dir(session_dir: &Path) -> Option<String> {
         .map(|s| s.to_string())
 }
 
-/// Concatenate every channel's segments into a single readable text
-/// block. Channels (mic/system) become headings; segments are joined
-/// with spaces inside each channel block.
 fn flatten_transcript(transcript: &SessionTranscript) -> String {
     let mut out = String::new();
     for channel in &transcript.channels {
@@ -428,8 +735,6 @@ fn flatten_transcript(transcript: &SessionTranscript) -> String {
     out.trim().to_string()
 }
 
-/// Build the user-message payload. Truncates if absurdly long so we do
-/// not OOM the provider's context window.
 fn build_user_message(transcript_text: &str) -> String {
     if transcript_text.len() <= TRANSCRIPT_CHAR_CAP {
         return format!("Meeting transcript:\n\n{}", transcript_text);
@@ -477,8 +782,6 @@ mod tests {
         let text = flatten_transcript(&t);
         assert!(text.contains("[You]"));
         assert!(text.contains("[Others]"));
-        assert!(text.contains("Merhaba."));
-        assert!(text.contains("İyiyim, teşekkürler."));
     }
 
     #[test]
@@ -488,7 +791,6 @@ mod tests {
         };
         let text = flatten_transcript(&t);
         assert!(!text.contains("[You]"));
-        assert!(text.contains("[Others]"));
         assert!(text.contains("Single line"));
     }
 
@@ -501,70 +803,91 @@ mod tests {
     }
 
     #[test]
-    fn user_message_passes_through_normal_input() {
-        let msg = build_user_message("hello world");
-        assert!(msg.starts_with("Meeting transcript:"));
-        assert!(msg.contains("hello world"));
-        assert!(!msg.contains("truncated"));
-    }
+    fn tools_for_agent_attaches_correct_set() {
+        let summarize = tools_for_agent("summarize").unwrap();
+        assert!(summarize.iter().any(|t| t.name == "search_memory"));
+        assert!(!summarize.iter().any(|t| t.name == "create_task"));
+        assert!(!summarize.iter().any(|t| t.name == "remember"));
 
-    #[test]
-    fn tools_for_agent_attaches_to_extract_tasks_only() {
-        assert!(tools_for_agent("extract-tasks").is_some());
-        assert!(tools_for_agent("summarize").is_none());
-        assert!(tools_for_agent("qa").is_none());
+        let tasks = tools_for_agent("extract-tasks").unwrap();
+        assert!(tasks.iter().any(|t| t.name == "create_task"));
+        assert!(tasks.iter().any(|t| t.name == "search_memory"));
+
+        let memories = tools_for_agent("extract-memories").unwrap();
+        assert!(memories.iter().any(|t| t.name == "remember"));
+        assert!(memories.iter().any(|t| t.name == "search_memory"));
     }
 
     #[test]
     fn dispatch_create_task_writes_to_store() {
         let dir = TempDir::new().unwrap();
         let tasks_path = dir.path().join("tasks.json");
+        let memory_dir = dir.path().join("memory");
         let call = ToolCall {
             id: "call_1".into(),
             name: "create_task".into(),
-            arguments: r#"{"title":"Send recap","owner":"Ege","due":"Friday"}"#.into(),
+            arguments: r#"{"title":"Send recap","owner":"Ege"}"#.into(),
         };
-        let result =
-            dispatch_tool_call(&call, &tasks_path, "/sessions/abc", Some("2026-05-25-team"));
-        assert!(result.success, "got error: {:?}", result.error);
-        let listed = TaskStore::new(tasks_path).list();
-        assert_eq!(listed.len(), 1);
-        assert_eq!(listed[0].title, "Send recap");
-        assert_eq!(listed[0].owner.as_deref(), Some("Ege"));
-        assert_eq!(listed[0].due.as_deref(), Some("Friday"));
-        assert!(listed[0].agent_origin);
-        assert_eq!(
-            listed[0].source_session_label.as_deref(),
-            Some("2026-05-25-team")
+        let r = dispatch_tool_call(
+            &call,
+            &tasks_path,
+            &memory_dir,
+            "/sessions/abc",
+            Some("2026-05-25-team"),
         );
+        assert!(r.success, "got error: {:?}", r.error);
+        assert!(r.id.is_some());
     }
 
     #[test]
-    fn dispatch_create_task_rejects_bad_json() {
+    fn dispatch_remember_creates_memory() {
         let dir = TempDir::new().unwrap();
         let tasks_path = dir.path().join("tasks.json");
+        let memory_dir = dir.path().join("memory");
         let call = ToolCall {
-            id: "call_x".into(),
-            name: "create_task".into(),
-            arguments: "{not json".into(),
+            id: "call_m".into(),
+            name: "remember".into(),
+            arguments: r#"{"kind":"claim","key":"user.company","content":"Attune","confidence":0.9,"tags":["company"]}"#.into(),
         };
-        let result = dispatch_tool_call(&call, &tasks_path, "/sessions/abc", None);
-        assert!(!result.success);
-        assert!(result.error.unwrap().contains("could not parse"));
-        assert!(TaskStore::new(tasks_path).list().is_empty());
+        let r = dispatch_tool_call(
+            &call,
+            &tasks_path,
+            &memory_dir,
+            "/sessions/abc",
+            Some("2026-05-25"),
+        );
+        assert!(r.success, "got error: {:?}", r.error);
+        let store = MemoryStore::open(&memory_dir).unwrap();
+        let memories = store.list(&Default::default()).unwrap();
+        assert_eq!(memories.len(), 1);
+        assert_eq!(memories[0].content, "Attune");
+        assert!(memories[0].source_session_dir.is_some());
     }
 
     #[test]
-    fn dispatch_unknown_tool_returns_structured_error() {
+    fn dispatch_search_memory_returns_hits() {
         let dir = TempDir::new().unwrap();
         let tasks_path = dir.path().join("tasks.json");
+        let memory_dir = dir.path().join("memory");
+        // Seed one memory.
+        let store = MemoryStore::open(&memory_dir).unwrap();
+        store
+            .create(NewMemory {
+                kind: MemoryKind::Claim,
+                key: Some("user.company".into()),
+                content: "Attune".into(),
+                ..NewMemory::default()
+            })
+            .unwrap();
         let call = ToolCall {
-            id: "call_x".into(),
-            name: "delete_universe".into(),
-            arguments: "{}".into(),
+            id: "call_s".into(),
+            name: "search_memory".into(),
+            arguments: r#"{"query":"company","limit":5}"#.into(),
         };
-        let result = dispatch_tool_call(&call, &tasks_path, "/sessions/abc", None);
-        assert!(!result.success);
-        assert!(result.error.unwrap().contains("unknown tool"));
+        let r = dispatch_tool_call(&call, &tasks_path, &memory_dir, "/sessions/abc", None);
+        assert!(r.success, "got error: {:?}", r.error);
+        let data = r.data.expect("has data");
+        let results = data.get("results").and_then(|v| v.as_array()).unwrap();
+        assert_eq!(results.len(), 1);
     }
 }

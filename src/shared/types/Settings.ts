@@ -26,6 +26,22 @@ voice_processing_enabled: boolean,
  */
 auto_transcribe_enabled: boolean,
 /**
+ * Root directory for the local memory layer. Defaults to a
+ * subtree of the user's Obsidian vault per the
+ * `ai-chat-multi-provider.md` plan; falls back to
+ * `~/Documents/Attune/Memory/` when the vault parent does not
+ * exist. The `MemoryStore` creates this directory on first
+ * write — callers should not assume it exists.
+ */
+memory_dir: string,
+/**
+ * When true, runs the `extract-memories` agent automatically
+ * after every transcription. Mirrors `auto_summarize_enabled`
+ * and `auto_extract_tasks_enabled`. Skipped silently if no AI
+ * key is set.
+ */
+auto_extract_memories_enabled: boolean,
+/**
  * When true and an AI provider key is configured, the app
  * automatically runs the `summarize` agent immediately after a
  * transcription completes. Lets the user stop a meeting and walk

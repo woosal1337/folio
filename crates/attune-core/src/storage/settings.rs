@@ -51,6 +51,20 @@ pub struct Settings {
     /// user transcribes manually from the Library row.
     #[serde(default = "default_auto_transcribe_enabled")]
     pub auto_transcribe_enabled: bool,
+    /// Root directory for the local memory layer. Defaults to a
+    /// subtree of the user's Obsidian vault per the
+    /// `ai-chat-multi-provider.md` plan; falls back to
+    /// `~/Documents/Attune/Memory/` when the vault parent does not
+    /// exist. The `MemoryStore` creates this directory on first
+    /// write — callers should not assume it exists.
+    #[serde(default = "default_memory_dir")]
+    pub memory_dir: PathBuf,
+    /// When true, runs the `extract-memories` agent automatically
+    /// after every transcription. Mirrors `auto_summarize_enabled`
+    /// and `auto_extract_tasks_enabled`. Skipped silently if no AI
+    /// key is set.
+    #[serde(default = "default_auto_extract_memories_enabled")]
+    pub auto_extract_memories_enabled: bool,
     /// When true and an AI provider key is configured, the app
     /// automatically runs the `summarize` agent immediately after a
     /// transcription completes. Lets the user stop a meeting and walk
@@ -92,6 +106,33 @@ fn default_auto_summarize_enabled() -> bool {
 fn default_auto_extract_tasks_enabled() -> bool {
     true
 }
+fn default_auto_extract_memories_enabled() -> bool {
+    true
+}
+/// Resolve the default memory directory.
+///
+/// We try the Obsidian-vault subtree first (the canonical SSOT per the
+/// vault's `ai-chat-multi-provider.md` plan): everything Attune
+/// produces — recordings, tasks, memories — should be `git push`-able
+/// together. If the vault's parent (`me/`) does not exist, the user
+/// either has not cloned the vault or runs Attune standalone; fall
+/// back to a vault-free path under their home directory so the app
+/// still works.
+fn default_memory_dir() -> PathBuf {
+    let home = std::env::var_os("HOME")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("."));
+    let vault_root = home
+        .join("Documents")
+        .join("GitHub")
+        .join("obsidian.md")
+        .join("me");
+    if vault_root.is_dir() {
+        vault_root.join("meetings").join(".attune").join("memory")
+    } else {
+        home.join("Documents").join("Attune").join("Memory")
+    }
+}
 
 impl Default for Settings {
     fn default() -> Self {
@@ -111,6 +152,8 @@ impl Default for Settings {
             local_whisper_model: default_local_whisper_model(),
             voice_processing_enabled: default_voice_processing_enabled(),
             auto_transcribe_enabled: default_auto_transcribe_enabled(),
+            memory_dir: default_memory_dir(),
+            auto_extract_memories_enabled: default_auto_extract_memories_enabled(),
             auto_summarize_enabled: default_auto_summarize_enabled(),
             auto_extract_tasks_enabled: default_auto_extract_tasks_enabled(),
         }

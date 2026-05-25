@@ -54,6 +54,15 @@ pub fn run() {
             commands::tasks::update_task,
             commands::tasks::delete_task,
             commands::tasks::set_task_status,
+            commands::memory::list_memories,
+            commands::memory::get_memory,
+            commands::memory::create_memory,
+            commands::memory::update_memory,
+            commands::memory::delete_memory,
+            commands::memory::purge_memory,
+            commands::memory::pin_memory,
+            commands::memory::search_memories,
+            commands::memory::rebuild_memory_index,
             commands::maintenance::clear_recording_artifacts,
         ])
         .run(tauri::generate_context!())

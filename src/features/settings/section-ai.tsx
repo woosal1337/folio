@@ -195,6 +195,40 @@ export function SectionAi({ settings, onChange }: SectionAiProps) {
         />
       </div>
 
+      {/* Auto-extract-memories toggle. The Extract Memories agent uses
+          the `remember` tool to capture lasting facts about the user
+          (identity, projects, preferences, people) so future agent
+          runs get them injected as background context. */}
+      <div className="flex items-start justify-between gap-6 rounded-lg border border-border bg-card p-4">
+        <div className="space-y-1">
+          <Label
+            htmlFor="auto-extract-memories-toggle"
+            className="flex items-center gap-2 text-sm font-medium"
+          >
+            <Zap className="h-4 w-4 text-muted-foreground" />
+            Auto-extract memories after recording
+            <span className="rounded bg-muted px-1.5 py-0.5 text-2xs font-normal text-muted-foreground">
+              Recommended
+            </span>
+          </Label>
+          <p className="max-w-md text-xs text-muted-foreground">
+            Run the Extract Memories agent so lasting facts (your role, company,
+            projects, the people you work with, your preferences) land on the Memory
+            page automatically. The next time you run any agent, those facts get
+            injected as background context so it doesn&apos;t re-ask things you&apos;ve
+            already said.
+          </p>
+        </div>
+        <Switch
+          id="auto-extract-memories-toggle"
+          checked={settings.auto_extract_memories_enabled}
+          onCheckedChange={(checked) =>
+            onChange("auto_extract_memories_enabled", checked)
+          }
+          className="mt-1"
+        />
+      </div>
+
       {providers === null ? (
         <p className="text-sm text-muted-foreground">Loading providers…</p>
       ) : (

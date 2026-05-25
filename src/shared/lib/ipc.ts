@@ -26,6 +26,11 @@ import type { ProviderStatus } from "@/shared/types/ProviderStatus";
 import type { RecordingResult } from "@/shared/types/RecordingResult";
 import type { RecordingStatus } from "@/shared/types/RecordingStatus";
 import type { RecordingSummary } from "@/shared/types/RecordingSummary";
+import type { Memory } from "@/shared/types/Memory";
+import type { MemoryKind } from "@/shared/types/MemoryKind";
+import type { MemoryQuery } from "@/shared/types/MemoryQuery";
+import type { MemoryUpdate } from "@/shared/types/MemoryUpdate";
+import type { NewMemory } from "@/shared/types/NewMemory";
 import type { NewTask } from "@/shared/types/NewTask";
 import type { Settings } from "@/shared/types/Settings";
 import type { SessionTranscript } from "@/shared/types/SessionTranscript";
@@ -211,6 +216,48 @@ export function deleteTask(id: string): Promise<void> {
 
 export function setTaskStatus(id: string, status: TaskStatus): Promise<Task> {
   return call<Task>("set_task_status", { id, status });
+}
+
+// ---- Memory ------------------------------------------------------------
+
+export function listMemories(query: MemoryQuery): Promise<Memory[]> {
+  return call<Memory[]>("list_memories", { query });
+}
+
+export function getMemory(id: string): Promise<Memory | null> {
+  return call<Memory | null>("get_memory", { id });
+}
+
+export function createMemory(memory: NewMemory): Promise<Memory> {
+  return call<Memory>("create_memory", { memory });
+}
+
+export function updateMemory(id: string, patch: MemoryUpdate): Promise<Memory> {
+  return call<Memory>("update_memory", { id, patch });
+}
+
+export function deleteMemory(id: string): Promise<Memory> {
+  return call<Memory>("delete_memory", { id });
+}
+
+export function purgeMemory(id: string): Promise<void> {
+  return call<void>("purge_memory", { id });
+}
+
+export function pinMemory(id: string, pinned: boolean): Promise<Memory> {
+  return call<Memory>("pin_memory", { id, pinned });
+}
+
+export function searchMemories(
+  query: string,
+  kinds: MemoryKind[],
+  limit?: number
+): Promise<Memory[]> {
+  return call<Memory[]>("search_memories", { query, kinds, limit });
+}
+
+export function rebuildMemoryIndex(): Promise<number> {
+  return call<number>("rebuild_memory_index");
 }
 
 // ---- Maintenance -------------------------------------------------------

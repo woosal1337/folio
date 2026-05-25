@@ -10,6 +10,7 @@ import Library from "@/features/library/route";
 import Editor from "@/features/editor/route";
 import Tasks from "@/features/tasks/route";
 import Ai from "@/features/ai/route";
+import MemoryRoute from "@/features/memory/route";
 import { SettingsModal } from "@/features/settings/route";
 import { ErrorBoundary } from "@/error-boundary";
 import { useWindowDoubleClick, useWindowDrag } from "@/shared/hooks/use-window-drag";
@@ -61,6 +62,7 @@ export default function App() {
                 <Route path="/editor/:label" element={<Editor />} />
                 <Route path="/ai" element={<Ai />} />
                 <Route path="/tasks" element={<Tasks />} />
+                <Route path="/memory" element={<MemoryRoute />} />
                 <Route path="*" element={<Navigate to="/record" replace />} />
               </Routes>
             </main>
