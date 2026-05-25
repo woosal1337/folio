@@ -88,6 +88,10 @@ pub fn run() {
             commands::memory::rebuild_memory_index,
             commands::maintenance::clear_recording_artifacts,
             commands::maintenance::export_vault_snapshot,
+            commands::webhooks::list_webhooks,
+            commands::webhooks::save_webhook,
+            commands::webhooks::delete_webhook,
+            commands::webhooks::test_webhook,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

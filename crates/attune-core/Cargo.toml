@@ -38,6 +38,12 @@ zstd = { workspace = true }
 # Zip writer for the vault snapshot export (v2 finding 057 / GET-92).
 zip = { workspace = true }
 
+# HMAC-SHA256 for the webhook signed event stream (v2 finding 079 /
+# GET-101).
+hmac = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
+
 # HTTP client for the OpenAI Whisper transcription backend, the
 # local-model downloader, and the LLM provider chat calls. Only the
 # rustls TLS stack is enabled; openssl is denied by deny.toml.

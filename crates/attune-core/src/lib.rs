@@ -26,5 +26,6 @@ pub mod memory;
 pub mod qos;
 pub mod storage;
 pub mod transcription;
+pub mod webhooks;
 
 pub use error::{AttuneError, Result};
