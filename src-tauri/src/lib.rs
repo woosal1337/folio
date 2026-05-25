@@ -91,6 +91,7 @@ pub fn run() {
             commands::maintenance::clear_recording_artifacts,
             commands::maintenance::export_vault_snapshot,
             commands::maintenance::purge_old_wav_files,
+            commands::maintenance::generate_weekly_digest,
             commands::webhooks::list_webhooks,
             commands::webhooks::save_webhook,
             commands::webhooks::delete_webhook,

@@ -34,6 +34,7 @@ import type { NewMemory } from "@/shared/types/NewMemory";
 import type { NewTask } from "@/shared/types/NewTask";
 import type { Settings } from "@/shared/types/Settings";
 import type { SessionTranscript } from "@/shared/types/SessionTranscript";
+import type { DigestResult } from "@/shared/types/DigestResult";
 import type { PurgeSummary } from "@/shared/types/PurgeSummary";
 import type { SnapshotSummary } from "@/shared/types/SnapshotSummary";
 import type { Task } from "@/shared/types/Task";
@@ -292,6 +293,12 @@ export function purgeOldWavFiles(olderThanDays: number | null): Promise<PurgeSum
   return call<PurgeSummary>("purge_old_wav_files", {
     olderThanDays,
   });
+}
+
+/** Generate a weekly digest markdown file under
+ *  `~/Documents/Attune/Digests/YYYY-MM-DD.md`. v2 finding 082 / GET-80. */
+export function generateWeeklyDigest(): Promise<DigestResult> {
+  return call<DigestResult>("generate_weekly_digest");
 }
 
 // ---- Webhooks ----------------------------------------------------------
