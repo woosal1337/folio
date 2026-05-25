@@ -123,6 +123,13 @@ pub struct Settings {
     /// non-empty value flips the tier.
     #[serde(default)]
     pub pro_license_key: String,
+    /// RFC-3339 timestamp the user started the 14-day Pro trial.
+    /// Empty string = trial never started. The UI computes
+    /// remaining days client-side and locks Pro features when more
+    /// than 14 days have elapsed without a license_key. v2 finding
+    /// 094 / GET-109.
+    #[serde(default)]
+    pub pro_trial_started_at: String,
 }
 
 fn default_theme() -> String {
@@ -210,6 +217,7 @@ impl Default for Settings {
             wav_retention_days: None,
             share_aggregate_stats: false,
             pro_license_key: String::new(),
+            pro_trial_started_at: String::new(),
         }
     }
 }
