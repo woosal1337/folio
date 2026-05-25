@@ -4,8 +4,17 @@ import { setMessages } from "@/shared/lib/i18n";
 import { messages } from "@/shared/lib/messages.en";
 import { messagesTr } from "@/shared/lib/messages.tr";
 
-export type Locale = "en" | "tr";
-export const LOCALES: Locale[] = ["en", "tr"];
+export type Locale = "en" | "tr" | "ar" | "he";
+export const LOCALES: Locale[] = ["en", "tr", "ar", "he"];
+
+/** Reading direction for a locale. Hebrew + Arabic are right-to-left;
+ *  every other locale we currently ship is left-to-right. Used by
+ *  applyInitialLocale to set document.documentElement.dir so flexbox
+ *  / grid layouts mirror automatically (the chrome already uses
+ *  logical properties via Tailwind). v2 finding 099 / GET-112. */
+export function dirFor(locale: Locale): "ltr" | "rtl" {
+  return locale === "ar" || locale === "he" ? "rtl" : "ltr";
+}
 
 const STORAGE_KEY = "attune.locale";
 
@@ -22,7 +31,10 @@ function tableFor(locale: Locale): Record<string, string> {
 function readStored(): Locale {
   if (typeof window === "undefined") return "en";
   const raw = window.localStorage.getItem(STORAGE_KEY);
-  return raw === "tr" ? "tr" : "en";
+  if (raw === "tr" || raw === "ar" || raw === "he" || raw === "en") {
+    return raw;
+  }
+  return "en";
 }
 
 /**
@@ -40,6 +52,7 @@ export function useLocale() {
     setMessages(tableFor(locale));
     window.localStorage.setItem(STORAGE_KEY, locale);
     document.documentElement.lang = locale;
+    document.documentElement.dir = dirFor(locale);
   }, [locale]);
 
   return { locale, setLocale: setLocaleState };
@@ -52,5 +65,6 @@ export function applyInitialLocale() {
   setMessages(tableFor(locale));
   if (typeof document !== "undefined") {
     document.documentElement.lang = locale;
+    document.documentElement.dir = dirFor(locale);
   }
 }

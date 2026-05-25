@@ -315,6 +315,7 @@ function TaskCard({ task, onOpen, onDelete, dragging }: TaskCardProps) {
             onOpen();
           }}
           className="flex-1 text-left text-sm font-medium leading-snug"
+          dir="auto"
         >
           {task.title}
         </button>
