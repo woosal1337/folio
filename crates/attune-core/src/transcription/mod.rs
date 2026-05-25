@@ -9,6 +9,7 @@ pub mod local;
 pub mod models;
 pub mod openai;
 pub mod stub;
+pub mod vad;
 
 use std::path::{Path, PathBuf};
 
