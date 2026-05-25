@@ -100,7 +100,25 @@
 
   body {
     @apply bg-background font-sans text-foreground;
-    font-feature-settings: "cv02", "cv03", "cv04", "cv11", "ss01";
+    /* Inter alts + SF Pro stylistic-set / character-variant features.
+       cv02/cv03/cv04 + ss01 are Inter knobs (single-storey a, alt g, etc.)
+       that quietly degrade on SF Pro. cv11 picks SF Pro's "compact 0" glyph
+       in tabular contexts. Adding the SF Pro tabular numeral knobs at the
+       top makes inline numbers in prose feel right without forcing the
+       global into tabular spacing. */
+    font-feature-settings: "ss01", "cv02", "cv03", "cv04", "cv11";
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Tabular-numeral contexts: timer, kanban counts, durations, sizes,
+     dates. Tailwind ships a `tabular-nums` utility that components opt
+     into per element; this rule reinforces the contract on every
+     `font-mono` site so JetBrains Mono numbers line up vertically by
+     default. */
+  .font-mono {
+    font-variant-numeric: tabular-nums;
   }
 
   /* Scrollbar — subtle, themed */

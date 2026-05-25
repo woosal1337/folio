@@ -168,7 +168,7 @@ export default function Tasks() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-xs text-muted-foreground">
+          <span className="text-xs tabular-nums text-muted-foreground">
             {tasks.length === 0
               ? "No tasks yet"
               : `${tasks.length} task${tasks.length === 1 ? "" : "s"}`}
@@ -260,7 +260,7 @@ function Column({ column, tasks, onCreate, onOpen, onDelete }: ColumnProps) {
         <div className="flex items-center gap-2">
           <Icon className={cn("h-4 w-4", column.accent)} />
           <h2 className="text-sm font-medium">{column.label}</h2>
-          <Badge variant="outline" className="text-2xs">
+          <Badge variant="outline" className="text-2xs tabular-nums">
             {tasks.length}
           </Badge>
         </div>

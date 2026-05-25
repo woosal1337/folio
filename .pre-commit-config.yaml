@@ -107,7 +107,7 @@ repos:
 
       - id: eslint
         name: eslint
-        entry: bun x eslint --max-warnings 0 --fix
+        entry: bun x eslint --max-warnings 0 --fix --no-warn-ignored
         language: system
         types_or: [ts, tsx]
         exclude: ^(dist/.*|src-tauri/.*|src/shared/types/.*)$
