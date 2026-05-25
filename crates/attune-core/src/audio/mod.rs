@@ -7,6 +7,7 @@
 
 pub mod capture;
 pub mod devices;
+pub mod inflight;
 pub mod mic;
 pub mod resampler;
 pub mod system;
