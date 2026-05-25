@@ -8,6 +8,12 @@ import {
   type ReadingSpacing,
   useReadingControls,
 } from "@/shared/hooks/use-reading-controls";
+import { type Locale, useLocale } from "@/shared/hooks/use-locale";
+
+const LOCALE_OPTIONS: { id: Locale; label: string; sample: string }[] = [
+  { id: "en", label: "English", sample: "Settings" },
+  { id: "tr", label: "Türkçe", sample: "Ayarlar" },
+];
 
 interface Props {
   theme: Theme;
@@ -41,6 +47,7 @@ const SPACING_OPTIONS: { id: ReadingSpacing; label: string }[] = [
 
 export function SectionAppearance({ theme, onChange }: Props) {
   const reading = useReadingControls();
+  const { locale, setLocale } = useLocale();
   return (
     <div className="flex flex-col gap-10">
       <section className="flex flex-col gap-5">
@@ -173,6 +180,39 @@ export function SectionAppearance({ theme, onChange }: Props) {
           The quick brown fox jumps over the lazy dog — 0123456789. Sample text reflects
           your current selection.
         </p>
+      </section>
+
+      <section className="flex flex-col gap-5">
+        <div>
+          <h2 className="font-serif text-2xl font-medium">Language</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Pick the locale for error messages and dialog copy. The bundles are local —
+            switching takes effect immediately and persists across launches. v2 finding
+            085 (Türkçe ships first; DE / FR / ES extend the same scaffold).
+          </p>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          {LOCALE_OPTIONS.map((opt) => {
+            const selected = locale === opt.id;
+            return (
+              <button
+                type="button"
+                key={opt.id}
+                onClick={() => setLocale(opt.id)}
+                aria-pressed={selected}
+                className={cn(
+                  "flex flex-col items-start gap-1 rounded-lg border px-4 py-3 text-left transition-colors",
+                  selected
+                    ? "border-primary bg-accent"
+                    : "border-border bg-card hover:bg-secondary"
+                )}
+              >
+                <span className="text-sm font-medium">{opt.label}</span>
+                <span className="text-2xs text-muted-foreground">{opt.sample}</span>
+              </button>
+            );
+          })}
+        </div>
       </section>
     </div>
   );
