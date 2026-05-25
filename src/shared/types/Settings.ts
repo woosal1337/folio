@@ -96,4 +96,13 @@ wav_retention_days: number | null,
  * the follow-up PR; this setting ships the consent surface so
  * adding the upload later is a zero-UI change.
  */
-share_aggregate_stats: boolean, };
+share_aggregate_stats: boolean,
+/**
+ * Attune Pro license key (v2 finding 092 / GET-108). Empty
+ * string = Free tier. Non-empty = Pro — gates auto-record,
+ * multi-window, marketplace install, and other paid features
+ * downstream PRs will wire. The actual signature-verification
+ * of the key is a follow-up; for now the presence of a
+ * non-empty value flips the tier.
+ */
+pro_license_key: string, };

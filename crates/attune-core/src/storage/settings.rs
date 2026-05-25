@@ -115,6 +115,14 @@ pub struct Settings {
     /// adding the upload later is a zero-UI change.
     #[serde(default)]
     pub share_aggregate_stats: bool,
+    /// Attune Pro license key (v2 finding 092 / GET-108). Empty
+    /// string = Free tier. Non-empty = Pro — gates auto-record,
+    /// multi-window, marketplace install, and other paid features
+    /// downstream PRs will wire. The actual signature-verification
+    /// of the key is a follow-up; for now the presence of a
+    /// non-empty value flips the tier.
+    #[serde(default)]
+    pub pro_license_key: String,
 }
 
 fn default_theme() -> String {
@@ -201,6 +209,7 @@ impl Default for Settings {
             auto_name_enabled: default_auto_name_enabled(),
             wav_retention_days: None,
             share_aggregate_stats: false,
+            pro_license_key: String::new(),
         }
     }
 }
