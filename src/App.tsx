@@ -18,9 +18,11 @@ const Record = React.lazy(() => import("@/features/recording/route"));
 const Library = React.lazy(() => import("@/features/library/route"));
 const Editor = React.lazy(() => import("@/features/editor/route"));
 const Tasks = React.lazy(() => import("@/features/tasks/route"));
-// /ai route was retired by GET-120 — the flat agent-runs page is
-// subsumed by the editor's run-cards. The route still resolves to a
-// redirect into /library so prior deep-links don't 404.
+// /ai was retired by GET-120 (flat agent-runs page) and is fully
+// replaced by /inbox per GET-50 — today's open actions, fresh memories,
+// and recent agent run-cards. /ai still redirects so old deep-links
+// land somewhere useful.
+const Inbox = React.lazy(() => import("@/features/inbox/route"));
 const MemoryRoute = React.lazy(() => import("@/features/memory/route"));
 const CaptionsRoute = React.lazy(() => import("@/features/captions/route"));
 const SettingsModal = React.lazy(() =>
@@ -75,7 +77,8 @@ export default function App() {
                   <Route path="/library" element={<Library />} />
                   <Route path="/editor" element={<Navigate to="/library" replace />} />
                   <Route path="/editor/:label" element={<Editor />} />
-                  <Route path="/ai" element={<Navigate to="/library" replace />} />
+                  <Route path="/inbox" element={<Inbox />} />
+                  <Route path="/ai" element={<Navigate to="/inbox" replace />} />
                   <Route path="/tasks" element={<Tasks />} />
                   <Route path="/memory" element={<MemoryRoute />} />
                   <Route path="/captions" element={<CaptionsRoute />} />
