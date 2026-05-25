@@ -18,7 +18,9 @@ const Record = React.lazy(() => import("@/features/recording/route"));
 const Library = React.lazy(() => import("@/features/library/route"));
 const Editor = React.lazy(() => import("@/features/editor/route"));
 const Tasks = React.lazy(() => import("@/features/tasks/route"));
-const Ai = React.lazy(() => import("@/features/ai/route"));
+// /ai route was retired by GET-120 — the flat agent-runs page is
+// subsumed by the editor's run-cards. The route still resolves to a
+// redirect into /library so prior deep-links don't 404.
 const MemoryRoute = React.lazy(() => import("@/features/memory/route"));
 const SettingsModal = React.lazy(() =>
   import("@/features/settings/route").then((m) => ({ default: m.SettingsModal }))
@@ -72,7 +74,7 @@ export default function App() {
                   <Route path="/library" element={<Library />} />
                   <Route path="/editor" element={<Navigate to="/library" replace />} />
                   <Route path="/editor/:label" element={<Editor />} />
-                  <Route path="/ai" element={<Ai />} />
+                  <Route path="/ai" element={<Navigate to="/library" replace />} />
                   <Route path="/tasks" element={<Tasks />} />
                   <Route path="/memory" element={<MemoryRoute />} />
                   <Route path="*" element={<HomeRedirect />} />

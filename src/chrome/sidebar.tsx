@@ -2,7 +2,6 @@ import * as React from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
   AudioLines,
-  Bot,
   Brain,
   KanbanSquare,
   Library,
@@ -35,7 +34,12 @@ interface NavItem {
 const items: NavItem[] = [
   { to: "/record", label: "Record", icon: AudioLines },
   { to: "/library", label: "Library", icon: Library, alsoActiveOn: ["/editor"] },
-  { to: "/ai", label: "AI", icon: Bot },
+  // /ai (the flat reverse-chronological agent-runs page) was retired
+  // by v2 finding R03 / GET-120 because the agent panel inside the
+  // editor (the run-cards inbox) subsumed it and /Chat will take its
+  // slot when #021 ships. The route stays alive for now redirecting
+  // to /library, so deep-links from prior versions still land
+  // somewhere useful.
   { to: "/tasks", label: "Tasks", icon: KanbanSquare },
   { to: "/memory", label: "Memory", icon: Brain },
 ];
