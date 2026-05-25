@@ -42,6 +42,13 @@ pub struct RecordingSummary {
     /// `suggested_title`. v2 finding 024 / GET-37.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub suggested_subtitle: Option<String>,
+    /// Per-recording language override from
+    /// `<session_dir>/language.txt`, if present. Used by the Library
+    /// row's language chip to indicate when an explicit language is
+    /// pinned for this recording. Empty / missing file → None.
+    /// v2 finding 046 / GET-89.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub language_override: Option<String>,
 }
 
 /// Scan `output_dir` for recording sessions and return one summary per
@@ -94,6 +101,7 @@ pub fn scan_recordings(output_dir: &Path) -> Vec<RecordingSummary> {
             });
         let has_transcript = path.join(TRANSCRIPT_FILENAME).is_file();
         let autoname = read_autoname_run(&path);
+        let language_override = read_language_override(&path);
         out.push(RecordingSummary {
             session_dir: path,
             label,
@@ -122,6 +130,7 @@ pub fn scan_recordings(output_dir: &Path) -> Vec<RecordingSummary> {
                     Some(n.subtitle.clone())
                 }
             }),
+            language_override,
         });
     }
     // Newest first. Recordings that have a created_at sort by that;
@@ -139,6 +148,22 @@ pub fn scan_recordings(output_dir: &Path) -> Vec<RecordingSummary> {
 
 fn wav_sample_rate(path: &Path) -> Option<u32> {
     Some(hound::WavReader::open(path).ok()?.spec().sample_rate)
+}
+
+/// Read `<session_dir>/language.txt` and return the trimmed first
+/// line if non-empty. Mirrors the per-recording-override loader in
+/// `src-tauri/src/commands/transcription.rs` (we duplicate the tiny
+/// helper rather than depend on the Tauri crate from attune-core).
+/// v2 finding 046 / GET-89.
+fn read_language_override(session_dir: &Path) -> Option<String> {
+    let path = session_dir.join("language.txt");
+    let raw = std::fs::read_to_string(&path).ok()?;
+    let trimmed = raw.lines().next()?.trim();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed.to_string())
+    }
 }
 
 /// Lightweight mirror of the `autoname` agent's JSON response. We

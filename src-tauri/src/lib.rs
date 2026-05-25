@@ -62,6 +62,8 @@ pub fn run() {
             commands::transcription::save_transcript,
             commands::transcription::whisper_model_status,
             commands::transcription::ensure_whisper_model,
+            commands::transcription::get_recording_language,
+            commands::transcription::set_recording_language,
             commands::llm::list_providers,
             commands::llm::set_provider_key,
             commands::llm::delete_provider_key,

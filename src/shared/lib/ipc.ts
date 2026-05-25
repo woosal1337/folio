@@ -300,3 +300,16 @@ export function deleteWebhook(id: string): Promise<void> {
 export function testWebhook(id: string): Promise<string> {
   return call<string>("test_webhook", { id });
 }
+
+// ---- Per-recording language override (v2 #046 / GET-89) ----------
+
+export function getRecordingLanguage(sessionDir: string): Promise<string | null> {
+  return call<string | null>("get_recording_language", { sessionDir });
+}
+
+export function setRecordingLanguage(
+  sessionDir: string,
+  language: string | null
+): Promise<void> {
+  return call<void>("set_recording_language", { sessionDir, language });
+}
