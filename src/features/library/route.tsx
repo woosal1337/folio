@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/shared/ui/card";
 import { RecordingRow } from "@/features/recording/recording-row";
 import { useRecording } from "@/shared/stores/recording-store";
 import { deleteRecording, listRecordings, revealInFinder } from "@/shared/lib/ipc";
+import { t } from "@/shared/lib/i18n";
 import type { RecordingSummary } from "@/shared/types/RecordingSummary";
 
 import {
@@ -44,7 +45,7 @@ export default function Library() {
       setRecordings(list);
     } catch (e) {
       console.error("list_recordings:", e);
-      toast.error("Could not load recordings", { description: String(e) });
+      toast.error(t("errors.recordings.load"), { description: String(e) });
     } finally {
       setLoading(false);
     }
@@ -214,7 +215,7 @@ export default function Library() {
               onReveal={() => {
                 revealInFinder(item.session_dir).catch((e) => {
                   console.error("reveal_in_finder:", e);
-                  toast.error("Could not open Finder", {
+                  toast.error(t("errors.recording.reveal"), {
                     description: String(e),
                   });
                 });
@@ -231,7 +232,7 @@ export default function Library() {
                   toast.success("Recording deleted", { description: item.label });
                 } catch (e) {
                   console.error("delete_recording:", e);
-                  toast.error("Could not delete recording", {
+                  toast.error(t("errors.recording.delete"), {
                     description: String(e),
                   });
                 }
@@ -253,7 +254,7 @@ export default function Library() {
         onReveal={(r) => {
           revealInFinder(r.session_dir).catch((e) => {
             console.error("reveal_in_finder:", e);
-            toast.error("Could not open Finder", { description: String(e) });
+            toast.error(t("errors.recording.reveal"), { description: String(e) });
           });
         }}
       />
