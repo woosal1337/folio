@@ -27,4 +27,12 @@ suggested_tags: Array<string>,
  * One-line subtitle from the `autoname` agent. Same source as
  * `suggested_title`. v2 finding 024 / GET-37.
  */
-suggested_subtitle: string | null, };
+suggested_subtitle: string | null,
+/**
+ * Per-recording language override from
+ * `<session_dir>/language.txt`, if present. Used by the Library
+ * row's language chip to indicate when an explicit language is
+ * pinned for this recording. Empty / missing file → None.
+ * v2 finding 046 / GET-89.
+ */
+language_override: string | null, };

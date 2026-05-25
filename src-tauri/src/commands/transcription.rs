@@ -43,7 +43,7 @@ pub async fn transcribe_recording(
     state: State<'_, AppState>,
     session_dir: PathBuf,
 ) -> Result<TranscriptionResult, String> {
-    let (transcriber_kind, api_key, language, local_model) = {
+    let (transcriber_kind, api_key, settings_language, local_model) = {
         let settings = state.settings.lock();
         (
             settings.transcriber.clone(),
@@ -52,6 +52,13 @@ pub async fn transcribe_recording(
             settings.local_whisper_model.clone(),
         )
     };
+
+    // Per-recording language override (v2 finding 046 / GET-89). When
+    // `<session_dir>/language.txt` exists and is non-empty, its first
+    // line wins over the global setting. The file is written by the
+    // `set_recording_language` command below from the Library UI's
+    // language picker; an empty file means "fall back to global".
+    let language = read_session_language_override(&session_dir).unwrap_or(settings_language);
 
     // Resolve the local model up front so both channels see the same
     // resolved path — keeps error messages consistent across channels.
@@ -368,4 +375,64 @@ pub async fn read_transcript(
     })
     .await
     .map_err(|e| format!("read_transcript task panicked: {e}"))?
+}
+
+const LANGUAGE_OVERRIDE_FILE: &str = "language.txt";
+
+/// Read `<session_dir>/language.txt` if present and return a trimmed,
+/// non-empty language code. Treats missing / empty files as 'no
+/// override' so the caller falls through to the global setting.
+/// v2 finding 046 / GET-89.
+fn read_session_language_override(session_dir: &Path) -> Option<String> {
+    let path = session_dir.join(LANGUAGE_OVERRIDE_FILE);
+    let raw = std::fs::read_to_string(&path).ok()?;
+    let trimmed = raw.lines().next()?.trim();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed.to_string())
+    }
+}
+
+/// Read the per-recording language override the UI displays under the
+/// Library row's language chip. Returns `None` when no override file
+/// exists.
+#[tauri::command]
+pub async fn get_recording_language(session_dir: PathBuf) -> Result<Option<String>, String> {
+    tauri::async_runtime::spawn_blocking(move || Ok(read_session_language_override(&session_dir)))
+        .await
+        .map_err(|e| format!("get_recording_language task panicked: {e}"))?
+}
+
+/// Set or clear the per-recording language override. Empty / null
+/// `language` deletes the override file so the global setting wins
+/// again. v2 finding 046 / GET-89.
+#[tauri::command]
+pub async fn set_recording_language(
+    session_dir: PathBuf,
+    language: Option<String>,
+) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || -> Result<(), String> {
+        let path = session_dir.join(LANGUAGE_OVERRIDE_FILE);
+        match language.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+            Some(code) => {
+                std::fs::write(&path, format!("{code}\n"))
+                    .map_err(|e| format!("could not write {}: {e}", path.display()))?;
+                info!(path = %path.display(), language = %code, "session language override saved");
+            }
+            None => match std::fs::remove_file(&path) {
+                Ok(()) => info!(path = %path.display(), "session language override cleared"),
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+                Err(e) => {
+                    return Err(format!(
+                        "could not clear override at {}: {e}",
+                        path.display()
+                    ))
+                }
+            },
+        }
+        Ok(())
+    })
+    .await
+    .map_err(|e| format!("set_recording_language task panicked: {e}"))?
 }
