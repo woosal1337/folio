@@ -37,6 +37,70 @@ pub enum Command {
     /// behind the `voice_processing_enabled` setting.
     #[cfg(target_os = "macos")]
     VpioSmoke(VpioSmokeArgs),
+    /// List recording sessions under a directory. JSON by default so
+    /// the output pipes cleanly into jq / Hammerspoon / RTK.
+    /// v2 finding 072 / GET-74.
+    Sessions(SessionsArgs),
+    /// List tasks from a tasks.json file. JSON by default.
+    /// v2 finding 072 / GET-74.
+    Tasks(TasksArgs),
+    /// Search the local memory store. JSON by default.
+    /// v2 finding 072 / GET-74.
+    MemorySearch(MemorySearchArgs),
+}
+
+#[derive(Parser, Debug)]
+pub struct SessionsArgs {
+    /// Recordings directory to scan. Defaults to ./recordings to match
+    /// the `record` subcommand's default.
+    #[arg(long, default_value = "./recordings")]
+    pub output: PathBuf,
+
+    /// Print a table to stdout instead of newline-delimited JSON.
+    #[arg(long, default_value_t = false)]
+    pub table: bool,
+
+    /// Limit to N most-recent sessions. 0 = no limit.
+    #[arg(long, default_value_t = 0)]
+    pub limit: usize,
+}
+
+#[derive(Parser, Debug)]
+pub struct TasksArgs {
+    /// Path to the tasks.json file. Defaults to ./tasks/tasks.json.
+    #[arg(long, default_value = "./tasks/tasks.json")]
+    pub path: PathBuf,
+
+    /// Filter to only this status. Empty = all.
+    #[arg(long)]
+    pub status: Option<String>,
+
+    /// Print a one-line-per-task table instead of JSON.
+    #[arg(long, default_value_t = false)]
+    pub table: bool,
+}
+
+#[derive(Parser, Debug)]
+pub struct MemorySearchArgs {
+    /// Memory directory to scan. Defaults to ./memory.
+    #[arg(long, default_value = "./memory")]
+    pub dir: PathBuf,
+
+    /// Free-text query. Matches against the memory's content + key,
+    /// case-insensitive substring.
+    pub query: String,
+
+    /// Restrict by memory kind (observe / claim / pref / person).
+    #[arg(long)]
+    pub kind: Option<String>,
+
+    /// Max rows returned. 0 = no limit.
+    #[arg(long, default_value_t = 20)]
+    pub limit: usize,
+
+    /// Print a table instead of JSON.
+    #[arg(long, default_value_t = false)]
+    pub table: bool,
 }
 
 #[cfg(target_os = "macos")]

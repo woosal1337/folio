@@ -5,7 +5,10 @@
 //! function here.
 
 pub mod devices;
+pub mod memory_search;
 pub mod record;
+pub mod sessions;
+pub mod tasks;
 pub mod transcribe;
 
 #[cfg(target_os = "macos")]

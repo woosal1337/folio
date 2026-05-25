@@ -345,6 +345,8 @@ dependencies = [
  "chrono",
  "clap",
  "hound",
+ "serde",
+ "serde_json",
  "tokio",
  "tracing",
  "tracing-subscriber",

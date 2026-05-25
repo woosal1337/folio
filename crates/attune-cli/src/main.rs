@@ -20,5 +20,8 @@ fn main() -> Result<()> {
         Command::Transcribe(args) => commands::transcribe::run(args),
         #[cfg(target_os = "macos")]
         Command::VpioSmoke(args) => commands::vpio_smoke::run(args),
+        Command::Sessions(args) => commands::sessions::run(args),
+        Command::Tasks(args) => commands::tasks::run(args),
+        Command::MemorySearch(args) => commands::memory_search::run(args),
     }
 }
