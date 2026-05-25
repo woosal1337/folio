@@ -26,6 +26,22 @@ pub struct RecordingSummary {
     /// True iff `<session_dir>/transcript.json` exists. Used by the UI
     /// to mark previously transcribed sessions in the library list.
     pub has_transcript: bool,
+    /// Title proposed by the `autoname` agent if its run is on disk
+    /// (`<session_dir>/agent_runs/autoname.json`). Surfaced in the UI
+    /// as a subtle suggestion under the recording's label; the user
+    /// can accept it (a future PR) or ignore it. `None` when no
+    /// autoname run exists or the run's JSON could not be parsed.
+    /// v2 finding 024 / GET-37.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub suggested_title: Option<String>,
+    /// 1-3 lowercase tags from the `autoname` agent, same source as
+    /// `suggested_title`. v2 finding 024 / GET-37.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub suggested_tags: Vec<String>,
+    /// One-line subtitle from the `autoname` agent. Same source as
+    /// `suggested_title`. v2 finding 024 / GET-37.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub suggested_subtitle: Option<String>,
 }
 
 /// Scan `output_dir` for recording sessions and return one summary per
@@ -77,6 +93,7 @@ pub fn scan_recordings(output_dir: &Path) -> Vec<RecordingSummary> {
                 dt.with_timezone(&Utc)
             });
         let has_transcript = path.join(TRANSCRIPT_FILENAME).is_file();
+        let autoname = read_autoname_run(&path);
         out.push(RecordingSummary {
             session_dir: path,
             label,
@@ -87,6 +104,24 @@ pub fn scan_recordings(output_dir: &Path) -> Vec<RecordingSummary> {
             system_sample_rate,
             created_at,
             has_transcript,
+            suggested_title: autoname.as_ref().and_then(|n| {
+                if n.title.trim().is_empty() {
+                    None
+                } else {
+                    Some(n.title.clone())
+                }
+            }),
+            suggested_tags: autoname
+                .as_ref()
+                .map(|n| n.tags.clone())
+                .unwrap_or_default(),
+            suggested_subtitle: autoname.as_ref().and_then(|n| {
+                if n.subtitle.trim().is_empty() {
+                    None
+                } else {
+                    Some(n.subtitle.clone())
+                }
+            }),
         });
     }
     // Newest first. Recordings that have a created_at sort by that;
@@ -104,6 +139,74 @@ pub fn scan_recordings(output_dir: &Path) -> Vec<RecordingSummary> {
 
 fn wav_sample_rate(path: &Path) -> Option<u32> {
     Some(hound::WavReader::open(path).ok()?.spec().sample_rate)
+}
+
+/// Lightweight mirror of the `autoname` agent's JSON response. We
+/// parse only the three fields the library list needs; missing or
+/// malformed runs return None and the caller falls back to empty
+/// suggestions. v2 finding 024 / GET-37.
+#[derive(Debug, Clone, Deserialize)]
+struct AutonameRun {
+    #[serde(default)]
+    title: String,
+    #[serde(default)]
+    tags: Vec<String>,
+    #[serde(default)]
+    subtitle: String,
+}
+
+fn read_autoname_run(session_dir: &Path) -> Option<AutonameRun> {
+    let path = session_dir.join("agent_runs").join("autoname.json");
+    let raw = std::fs::read_to_string(&path).ok()?;
+    // The AgentRunStore wraps the model's reply in an AgentRun struct
+    // with a `response` field. The autoname prompt insists on JSON-
+    // only output, so the response itself is parseable as the inner
+    // shape. We tolerate prose around the JSON by extracting the
+    // first {..} block — keeps us robust to the occasional model
+    // that ignores "no prose" instructions.
+    #[derive(Deserialize)]
+    struct OuterRun {
+        response: String,
+    }
+    let outer: OuterRun = serde_json::from_str(&raw).ok()?;
+    let response = outer.response;
+    let json_slice = extract_json_object(&response)?;
+    serde_json::from_str::<AutonameRun>(json_slice).ok()
+}
+
+/// Find the first balanced `{...}` JSON object inside a string. Used
+/// to defend against the occasional model that wraps the JSON in
+/// prose / markdown fences despite explicit instructions otherwise.
+fn extract_json_object(text: &str) -> Option<&str> {
+    let start = text.find('{')?;
+    let bytes = text.as_bytes();
+    let mut depth = 0_i32;
+    let mut in_string = false;
+    let mut escaped = false;
+    for (i, &b) in bytes.iter().enumerate().skip(start) {
+        if in_string {
+            if escaped {
+                escaped = false;
+            } else if b == b'\\' {
+                escaped = true;
+            } else if b == b'"' {
+                in_string = false;
+            }
+            continue;
+        }
+        match b {
+            b'"' => in_string = true,
+            b'{' => depth += 1,
+            b'}' => {
+                depth -= 1;
+                if depth == 0 {
+                    return Some(&text[start..=i]);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
 }
 
 fn wav_duration_seconds(path: &Path) -> Option<i64> {
@@ -184,5 +287,89 @@ mod tests {
         let mut writer = hound::WavWriter::create(path, spec).unwrap();
         writer.write_sample(0i16).unwrap();
         writer.finalize().unwrap();
+    }
+
+    #[test]
+    fn scan_lifts_autoname_suggestion_into_summary() {
+        let dir = TempDir::new().unwrap();
+        let session = dir.path().join("2026-05-25-pricing");
+        std::fs::create_dir(&session).unwrap();
+        write_minimal_wav(&session.join("mic.wav"));
+        let runs = session.join("agent_runs");
+        std::fs::create_dir_all(&runs).unwrap();
+        let run_json = r#"{
+            "agent_id": "autoname",
+            "agent_name": "Auto-name",
+            "provider": "openai",
+            "model": "gpt-4o-mini",
+            "response": "{\"title\":\"Pricing sync with Lila\",\"tags\":[\"pricing\",\"sales\"],\"subtitle\":\"Q3 packaging review\"}",
+            "prompt_tokens": null,
+            "completion_tokens": null,
+            "finished_at": "2026-05-25T14:00:00Z"
+        }"#;
+        std::fs::write(runs.join("autoname.json"), run_json).unwrap();
+        let result = scan_recordings(dir.path());
+        assert_eq!(result.len(), 1);
+        let s = &result[0];
+        assert_eq!(s.suggested_title.as_deref(), Some("Pricing sync with Lila"));
+        assert_eq!(
+            s.suggested_tags,
+            vec!["pricing".to_string(), "sales".to_string()]
+        );
+        assert_eq!(s.suggested_subtitle.as_deref(), Some("Q3 packaging review"));
+    }
+
+    #[test]
+    fn scan_tolerates_autoname_wrapped_in_prose() {
+        let dir = TempDir::new().unwrap();
+        let session = dir.path().join("noisy-model");
+        std::fs::create_dir(&session).unwrap();
+        write_minimal_wav(&session.join("mic.wav"));
+        let runs = session.join("agent_runs");
+        std::fs::create_dir_all(&runs).unwrap();
+        // Some models prepend a markdown fence despite our instructions.
+        // The extractor should still recover the inner JSON.
+        let response_text = "Sure, here's the JSON:\n```json\n{\"title\":\"Standup\",\"tags\":[\"sync\"],\"subtitle\":\"Daily kickoff\"}\n```";
+        let run_json = serde_json::json!({
+            "agent_id": "autoname",
+            "agent_name": "Auto-name",
+            "provider": "openai",
+            "model": "gpt-4o-mini",
+            "response": response_text,
+            "prompt_tokens": null,
+            "completion_tokens": null,
+            "finished_at": "2026-05-25T14:00:00Z",
+        });
+        std::fs::write(runs.join("autoname.json"), run_json.to_string()).unwrap();
+        let result = scan_recordings(dir.path());
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].suggested_title.as_deref(), Some("Standup"));
+        assert_eq!(result[0].suggested_tags, vec!["sync".to_string()]);
+    }
+
+    #[test]
+    fn scan_drops_empty_title_suggestion() {
+        let dir = TempDir::new().unwrap();
+        let session = dir.path().join("too-short");
+        std::fs::create_dir(&session).unwrap();
+        write_minimal_wav(&session.join("mic.wav"));
+        let runs = session.join("agent_runs");
+        std::fs::create_dir_all(&runs).unwrap();
+        let run_json = serde_json::json!({
+            "agent_id": "autoname",
+            "agent_name": "Auto-name",
+            "provider": "openai",
+            "model": "gpt-4o-mini",
+            "response": "{\"title\":\"\",\"tags\":[],\"subtitle\":\"\"}",
+            "prompt_tokens": null,
+            "completion_tokens": null,
+            "finished_at": "2026-05-25T14:00:00Z",
+        });
+        std::fs::write(runs.join("autoname.json"), run_json.to_string()).unwrap();
+        let result = scan_recordings(dir.path());
+        assert_eq!(result.len(), 1);
+        assert!(result[0].suggested_title.is_none());
+        assert!(result[0].suggested_subtitle.is_none());
+        assert!(result[0].suggested_tags.is_empty());
     }
 }

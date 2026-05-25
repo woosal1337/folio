@@ -190,12 +190,14 @@ function AutoAgentsCard({
   const masterOn =
     settings.auto_summarize_enabled ||
     settings.auto_extract_tasks_enabled ||
-    settings.auto_extract_memories_enabled;
+    settings.auto_extract_memories_enabled ||
+    settings.auto_name_enabled;
 
   const setAll = (on: boolean) => {
     onChange("auto_summarize_enabled", on);
     onChange("auto_extract_tasks_enabled", on);
     onChange("auto_extract_memories_enabled", on);
+    onChange("auto_name_enabled", on);
   };
 
   return (
@@ -256,6 +258,13 @@ function AutoAgentsCard({
             description="Lasting facts (your projects, the people you mention) join the Memory page and get injected into future agent runs."
             checked={settings.auto_extract_memories_enabled}
             onChange={(v) => onChange("auto_extract_memories_enabled", v)}
+          />
+          <PerAgentRow
+            id="auto-name-toggle"
+            label="Auto-name"
+            description="Propose a short title, 1-3 tags, and a one-line subtitle on every recording. Shown as a hint under the row in the Library."
+            checked={settings.auto_name_enabled}
+            onChange={(v) => onChange("auto_name_enabled", v)}
           />
         </div>
       ) : null}
