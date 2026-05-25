@@ -29,6 +29,7 @@ tauri = { workspace = true }
 tauri-plugin-dialog = { workspace = true }
 tauri-plugin-fs = { workspace = true }
 tauri-plugin-opener = { workspace = true }
+tauri-plugin-deep-link = { workspace = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 # Used to set the Dock icon at runtime for dev binaries that aren't

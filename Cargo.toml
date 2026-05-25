@@ -119,6 +119,10 @@ tauri-build = { version = "2", features = [] }
 tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
 tauri-plugin-opener = "2"
+# Deep-link plugin: registers the attune:// URL scheme and forwards
+# OS file-open events (drag-drop on the dock icon, double-click in
+# Finder) to the running app. v2 finding 081 / GET-103.
+tauri-plugin-deep-link = "2"
 
 [workspace.metadata]
 description = "Local-first meeting transcription, cross-platform via Tauri 2"
