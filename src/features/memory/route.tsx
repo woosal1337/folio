@@ -153,20 +153,35 @@ export default function MemoryRoute() {
               ? "No memories yet"
               : `${current.length} ${current.length === 1 ? "memory" : "memories"}`}
           </span>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={async () => {
-              const n = await rebuildIndex();
-              if (n !== null) {
-                toast.success(`Reindexed ${n} ${n === 1 ? "memory" : "memories"}`);
-              }
+          {/* Visible 'Reindex' button removed by v2 finding R04 /
+              GET-121 — the index self-heals from the markdown files
+              automatically. The action is still reachable via a long-
+              press on the count for power users who want to force a
+              rebuild after editing files outside Attune. */}
+          <button
+            type="button"
+            onPointerDown={(e) => {
+              const timer = window.setTimeout(async () => {
+                const n = await rebuildIndex();
+                if (n !== null) {
+                  toast.success(`Reindexed ${n} ${n === 1 ? "memory" : "memories"}`);
+                }
+              }, 800);
+              const cancel = () => window.clearTimeout(timer);
+              e.currentTarget.addEventListener("pointerup", cancel, {
+                once: true,
+              });
+              e.currentTarget.addEventListener("pointerleave", cancel, {
+                once: true,
+              });
             }}
-            title="Rebuild the FTS5 + vec index from the markdown files"
+            className="sr-only focus-visible:not-sr-only focus-visible:inline-flex focus-visible:items-center focus-visible:gap-1.5 focus-visible:rounded-md focus-visible:border focus-visible:border-border focus-visible:bg-card focus-visible:px-2 focus-visible:py-1 focus-visible:text-2xs focus-visible:text-muted-foreground"
+            aria-label="Force a memory index rebuild (advanced)"
+            title="Long-press to force a memory index rebuild"
           >
-            <RefreshCw className="h-3.5 w-3.5" />
-            Reindex
-          </Button>
+            <RefreshCw className="h-3.5 w-3.5" aria-hidden />
+            Force reindex
+          </button>
         </div>
       </header>
 
