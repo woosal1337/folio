@@ -49,6 +49,10 @@ rusqlite = { version = "0.32", features = ["bundled", "load_extension"] }
 sqlite-vec = "0.1"
 zerocopy = { version = "0.7", features = ["derive"] }
 
+# zstd compression for on-disk transcripts (v2 finding 066). The
+# `zstd-safe` API is unstable; pin a recent stable release.
+zstd = "0.13"
+
 # HTTP client for cloud transcription
 reqwest = { version = "0.12", default-features = false, features = [
   "blocking",
