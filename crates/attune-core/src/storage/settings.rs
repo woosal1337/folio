@@ -130,6 +130,17 @@ pub struct Settings {
     /// 094 / GET-109.
     #[serde(default)]
     pub pro_trial_started_at: String,
+    /// Apple Reminders two-way sync — when enabled, kanban tasks
+    /// publish to the named Reminders list and #attune-tagged
+    /// reminders pull into the kanban inbox column. Default OFF;
+    /// requires the user to grant Reminders permission on first
+    /// run. v2 finding 076 / GET-78.
+    #[serde(default)]
+    pub reminders_sync_enabled: bool,
+    /// Reminders list name to mirror to/from. Defaults to "Attune"
+    /// (we create the list on first sync if it doesn't exist).
+    #[serde(default = "default_reminders_list")]
+    pub reminders_list_name: String,
 }
 
 fn default_theme() -> String {
@@ -161,6 +172,9 @@ fn default_auto_extract_memories_enabled() -> bool {
 }
 fn default_auto_name_enabled() -> bool {
     true
+}
+fn default_reminders_list() -> String {
+    "Attune".into()
 }
 fn default_feedback_sounds_enabled() -> bool {
     false
@@ -218,6 +232,8 @@ impl Default for Settings {
             share_aggregate_stats: false,
             pro_license_key: String::new(),
             pro_trial_started_at: String::new(),
+            reminders_sync_enabled: false,
+            reminders_list_name: default_reminders_list(),
         }
     }
 }

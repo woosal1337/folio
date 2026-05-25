@@ -113,4 +113,17 @@ pro_license_key: string,
  * than 14 days have elapsed without a license_key. v2 finding
  * 094 / GET-109.
  */
-pro_trial_started_at: string, };
+pro_trial_started_at: string, 
+/**
+ * Apple Reminders two-way sync — when enabled, kanban tasks
+ * publish to the named Reminders list and #attune-tagged
+ * reminders pull into the kanban inbox column. Default OFF;
+ * requires the user to grant Reminders permission on first
+ * run. v2 finding 076 / GET-78.
+ */
+reminders_sync_enabled: boolean, 
+/**
+ * Reminders list name to mirror to/from. Defaults to "Attune"
+ * (we create the list on first sync if it doesn't exist).
+ */
+reminders_list_name: string, };
