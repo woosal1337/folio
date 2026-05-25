@@ -8,6 +8,7 @@
 //! capture pipeline creates.
 
 pub mod digest;
+pub mod egress_log;
 pub mod fs_io;
 pub mod git_sync;
 pub mod retention;
