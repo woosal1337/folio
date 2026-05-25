@@ -10,6 +10,7 @@ use attune_core::storage::digest::{
     default_digests_dir, generate as generate_digest_impl, DigestPaths, DigestResult,
 };
 use attune_core::storage::retention::{purge_old_wavs, PurgeSummary};
+use attune_core::storage::share_bundle::{export as export_share_bundle_impl, ShareBundleSummary};
 use attune_core::storage::snapshot::{
     export as export_snapshot_impl, SnapshotPaths, SnapshotSummary,
 };
@@ -189,4 +190,28 @@ pub async fn generate_weekly_digest(state: State<'_, AppState>) -> Result<Digest
     })
     .await
     .map_err(|e| format!("generate_weekly_digest task panicked: {e}"))?
+}
+
+/// Export a single recording as a sealed .attune-share zip with a
+/// manifest carrying SHA-256 hashes of every file inside. v2 finding
+/// 052 / GET-69.
+#[tauri::command]
+pub async fn export_share_bundle(
+    session_dir: PathBuf,
+    destination: PathBuf,
+) -> Result<ShareBundleSummary, String> {
+    tauri::async_runtime::spawn_blocking(move || -> Result<ShareBundleSummary, String> {
+        let summary =
+            export_share_bundle_impl(&session_dir, &destination).map_err(|e| e.to_string())?;
+        info!(
+            destination = %summary.destination.display(),
+            files = summary.files,
+            bytes = summary.bytes,
+            manifest = %summary.manifest_sha256,
+            "share bundle exported"
+        );
+        Ok(summary)
+    })
+    .await
+    .map_err(|e| format!("export_share_bundle task panicked: {e}"))?
 }

@@ -92,6 +92,7 @@ pub fn run() {
             commands::maintenance::export_vault_snapshot,
             commands::maintenance::purge_old_wav_files,
             commands::maintenance::generate_weekly_digest,
+            commands::maintenance::export_share_bundle,
             commands::webhooks::list_webhooks,
             commands::webhooks::save_webhook,
             commands::webhooks::delete_webhook,

@@ -3,11 +3,14 @@ import {
   FileAudio,
   FolderOpen,
   Loader2,
+  Lock,
   Pencil,
   Share2,
   Sparkles,
   X,
 } from "lucide-react";
+import { save as showSaveDialog } from "@tauri-apps/plugin-dialog";
+import { exportShareBundle } from "@/shared/lib/ipc";
 import { toast } from "sonner";
 
 import { AudioPlayer } from "@/features/recording/audio-player";
@@ -126,6 +129,8 @@ export function QuickLookSheet({
       .slice(0, TRANSCRIPT_PREVIEW_SEGMENTS);
   }, [transcript]);
 
+  const [sealing, setSealing] = React.useState(false);
+
   if (!recording) return null;
 
   const micPath = recording.mic_bytes ? `${recording.session_dir}/mic.wav` : null;
@@ -135,6 +140,27 @@ export function QuickLookSheet({
   const totalBytes =
     Number(recording.mic_bytes ?? 0n) + Number(recording.system_bytes ?? 0n);
 
+  const handleSealedBundle = async () => {
+    if (!recording) return;
+    setSealing(true);
+    try {
+      const leaf = recording.label || "recording";
+      const dest = await showSaveDialog({
+        defaultPath: `${leaf}.attune-share`,
+        filters: [{ name: "Attune share", extensions: ["attune-share"] }],
+      });
+      if (!dest) return;
+      const summary = await exportShareBundle(recording.session_dir, dest);
+      toast.success("Sealed bundle exported", {
+        description: `${summary.files} files · sha256 ${summary.manifest_sha256.slice(0, 12)}…`,
+      });
+    } catch (e) {
+      console.error("export_share_bundle:", e);
+      toast.error("Could not export sealed bundle", { description: String(e) });
+    } finally {
+      setSealing(false);
+    }
+  };
   const handleShare = async () => {
     const header = `${recording.label}  ·  ${formatDuration(Number(recording.duration_seconds))}  ·  ${formatBytes(totalBytes)}`;
     const body = previewSegments
@@ -264,6 +290,22 @@ export function QuickLookSheet({
             >
               <Share2 className="h-3.5 w-3.5" />
               Share
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleSealedBundle}
+              disabled={sealing}
+              className="gap-2"
+              aria-label="Export a sealed share bundle"
+              title="Export the recording as a signed .attune-share zip"
+            >
+              {sealing ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Lock className="h-3.5 w-3.5" />
+              )}
+              Seal
             </Button>
             <Button
               variant="ghost"
