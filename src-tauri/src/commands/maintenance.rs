@@ -6,6 +6,9 @@
 use std::path::PathBuf;
 
 use attune_core::llm::AgentRunStore;
+use attune_core::storage::digest::{
+    default_digests_dir, generate as generate_digest_impl, DigestPaths, DigestResult,
+};
 use attune_core::storage::retention::{purge_old_wavs, PurgeSummary};
 use attune_core::storage::snapshot::{
     export as export_snapshot_impl, SnapshotPaths, SnapshotSummary,
@@ -156,4 +159,34 @@ pub async fn purge_old_wav_files(
     })
     .await
     .map_err(|e| format!("purge_old_wav_files task panicked: {e}"))?
+}
+
+/// Generate a weekly digest markdown file and return where it landed.
+/// v2 finding 082 / GET-80. Reads the current settings to resolve
+/// recordings/memory/tasks paths; the digest itself goes to
+/// `~/Documents/Attune/Digests/` by default.
+#[tauri::command]
+pub async fn generate_weekly_digest(state: State<'_, AppState>) -> Result<DigestResult, String> {
+    let paths = {
+        let settings = state.settings.lock();
+        DigestPaths {
+            recordings_dir: settings.output_dir.clone(),
+            memory_dir: settings.memory_dir.clone(),
+            tasks_path: settings.tasks_path.clone(),
+            digests_dir: default_digests_dir(),
+        }
+    };
+    tauri::async_runtime::spawn_blocking(move || -> Result<DigestResult, String> {
+        let result = generate_digest_impl(&paths).map_err(|e| e.to_string())?;
+        info!(
+            path = %result.path.display(),
+            recordings = result.recordings,
+            aged_tasks = result.aged_tasks,
+            new_memories = result.new_memories,
+            "weekly digest generated"
+        );
+        Ok(result)
+    })
+    .await
+    .map_err(|e| format!("generate_weekly_digest task panicked: {e}"))?
 }

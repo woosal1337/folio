@@ -1,11 +1,15 @@
 import * as React from "react";
-import { Archive, Download, Loader2, Trash2 } from "lucide-react";
+import { Archive, CalendarRange, Download, Loader2, Trash2 } from "lucide-react";
 import { save as showSaveDialog } from "@tauri-apps/plugin-dialog";
 import { toast } from "sonner";
 
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
-import { exportVaultSnapshot, purgeOldWavFiles } from "@/shared/lib/ipc";
+import {
+  exportVaultSnapshot,
+  generateWeeklyDigest,
+  purgeOldWavFiles,
+} from "@/shared/lib/ipc";
 import { formatBytes } from "@/shared/lib/utils";
 import type { Settings } from "@/shared/types/Settings";
 
@@ -33,6 +37,21 @@ export function SectionStorage({ settings, onChange }: Props) {
 
   const [exporting, setExporting] = React.useState(false);
   const [purging, setPurging] = React.useState(false);
+  const [digesting, setDigesting] = React.useState(false);
+  const handleDigest = async () => {
+    setDigesting(true);
+    try {
+      const result = await generateWeeklyDigest();
+      toast.success("Digest generated", {
+        description: `${result.recordings} recordings · ${result.aged_tasks} aged tasks · ${result.new_memories} new memories`,
+      });
+    } catch (e) {
+      console.error("generate_weekly_digest:", e);
+      toast.error("Could not generate digest", { description: String(e) });
+    } finally {
+      setDigesting(false);
+    }
+  };
   const retentionDays = settings.wav_retention_days ?? null;
   const handleRetentionChange = (raw: string) => {
     const n = parseInt(raw, 10);
@@ -155,6 +174,43 @@ export function SectionStorage({ settings, onChange }: Props) {
               </Button>
             </div>
           </div>
+        </div>
+      </section>
+
+      <section
+        aria-label="Weekly digest"
+        className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4"
+      >
+        <div className="flex items-start gap-3">
+          <CalendarRange className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+          <div className="flex-1">
+            <p className="text-sm font-medium">Weekly digest</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Writes a markdown summary of the last 7 days to{" "}
+              <code className="rounded bg-muted px-1 py-0.5 text-2xs">
+                ~/Documents/Attune/Digests/
+              </code>
+              : meetings, tasks aging more than a week, and new memories. Designed to
+              drop into Obsidian or skim from your dock. Background scheduling (Sunday
+              6pm) is a follow-up.
+            </p>
+          </div>
+        </div>
+        <div className="flex justify-end">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={digesting}
+            onClick={handleDigest}
+            className="gap-2"
+          >
+            {digesting ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <CalendarRange className="h-3.5 w-3.5" />
+            )}
+            {digesting ? "Generating…" : "Generate digest"}
+          </Button>
         </div>
       </section>
 
