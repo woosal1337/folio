@@ -7,6 +7,7 @@ import {
   RefreshCw,
   Sparkles,
   Trash2,
+  Wand2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -432,8 +433,90 @@ function AgentResult({
       {!collapsed ? (
         <div className="border-t border-border px-4 py-4">
           <Markdown>{run.response}</Markdown>
+          <RefineRow run={run} />
         </div>
       ) : null}
+    </div>
+  );
+}
+
+/** Conversational-repair affordance (v2 finding 035 / GET-87).
+ *
+ *  The user types a refinement instruction → we copy a prompt
+ *  template to the clipboard that wraps the prior agent response in
+ *  a quote and prepends the refinement text. The user pastes into
+ *  the Q&A agent (or any chat-style agent) to get a corrected
+ *  output. Full tool-calling refinement that re-emits via the
+ *  agent's create_* path stays as the next-PR target — this surface
+ *  ships the affordance today and exercises the UX the deeper
+ *  version will reuse. */
+function RefineRow({ run }: { run: AgentRun }) {
+  const [open, setOpen] = React.useState(false);
+  const [instruction, setInstruction] = React.useState("");
+  const handleCopy = async () => {
+    const payload = [
+      `Please refine the following ${run.agent_name} output.`,
+      "",
+      "Original:",
+      ...run.response.split("\n").map((line) => `> ${line}`),
+      "",
+      `Refinement: ${instruction.trim()}`,
+    ].join("\n");
+    await navigator.clipboard.writeText(payload).catch((e) => {
+      console.error("clipboard.writeText:", e);
+    });
+    toast.success("Refinement copied", {
+      description: "Paste into the Q&A agent (or any chat) to apply.",
+    });
+    setOpen(false);
+    setInstruction("");
+  };
+  if (!open) {
+    return (
+      <div className="mt-3 flex justify-end">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="gap-1.5 text-2xs text-muted-foreground hover:text-foreground"
+          onClick={() => setOpen(true)}
+          aria-label="Refine this result"
+        >
+          <Wand2 className="h-3 w-3" />
+          Refine
+        </Button>
+      </div>
+    );
+  }
+  return (
+    <div className="mt-3 flex flex-col gap-2 rounded-md border border-border bg-secondary/40 p-2">
+      <textarea
+        value={instruction}
+        onChange={(e) => setInstruction(e.target.value)}
+        placeholder="e.g. 'Drop the action items section and keep only the decision summary.'"
+        rows={2}
+        className="w-full resize-none rounded bg-transparent text-xs leading-relaxed outline-none placeholder:text-muted-foreground"
+      />
+      <div className="flex justify-end gap-1.5">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-2xs"
+          onClick={() => {
+            setOpen(false);
+            setInstruction("");
+          }}
+        >
+          Cancel
+        </Button>
+        <Button
+          size="sm"
+          className="text-2xs"
+          onClick={handleCopy}
+          disabled={instruction.trim().length === 0}
+        >
+          Copy refinement
+        </Button>
+      </div>
     </div>
   );
 }
