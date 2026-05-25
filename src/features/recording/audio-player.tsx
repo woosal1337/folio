@@ -3,6 +3,7 @@ import { convertFileSrc } from "@tauri-apps/api/core";
 import { Pause, Play } from "lucide-react";
 
 import { cn, formatDuration } from "@/shared/lib/utils";
+import { onSeekAudio } from "@/features/editor/seek-audio";
 
 /** Module-level coordination so kicking off one player pauses every other
  *  audio element currently rendered in the app. */
@@ -19,10 +20,17 @@ interface AudioPlayerProps {
   filePath: string;
   /** Optional small label rendered to the left of the scrubber. */
   label?: string;
+  /**
+   * Channel id ("mic" / "system"). When set, this player subscribes to
+   * the `attune:seek-audio` event and jumps + plays whenever a matching
+   * detail.channel arrives. Used by the transcript editor's click-to-
+   * seek timestamps (v2 finding 102 / GET-114).
+   */
+  channel?: string;
   className?: string;
 }
 
-export function AudioPlayer({ filePath, label, className }: AudioPlayerProps) {
+export function AudioPlayer({ filePath, label, channel, className }: AudioPlayerProps) {
   const audioRef = React.useRef<HTMLAudioElement>(null);
   const [playing, setPlaying] = React.useState(false);
   const [duration, setDuration] = React.useState(0);
@@ -108,6 +116,23 @@ export function AudioPlayer({ filePath, label, className }: AudioPlayerProps) {
     },
     [duration]
   );
+
+  // Subscribe to the editor's click-to-seek event when this player is
+  // bound to a transcript channel. Seek + play so the user hears the
+  // segment they clicked.
+  React.useEffect(() => {
+    if (!channel) return;
+    return onSeekAudio((detail) => {
+      if (detail.channel !== channel) return;
+      const audio = audioRef.current;
+      if (!audio) return;
+      audio.currentTime = Math.max(0, detail.seconds);
+      takeFocus(audio);
+      audio.play().catch((e) => {
+        console.error("audio.play() after seek-event:", e);
+      });
+    });
+  }, [channel]);
 
   return (
     <div className={cn("flex items-center gap-3", className)}>

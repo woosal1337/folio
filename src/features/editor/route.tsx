@@ -250,12 +250,14 @@ export default function Editor() {
       <Card>
         <CardContent className="flex flex-col gap-4 py-5">
           {micPath ? (
-            <AudioPlayer filePath={micPath} label="Mic" />
+            <AudioPlayer filePath={micPath} label="Mic" channel="mic" />
           ) : (
             <p className="text-xs text-muted-foreground">No mic track.</p>
           )}
           {systemPath && <Separator />}
-          {systemPath && <AudioPlayer filePath={systemPath} label="System" />}
+          {systemPath && (
+            <AudioPlayer filePath={systemPath} label="System" channel="system" />
+          )}
         </CardContent>
       </Card>
 
