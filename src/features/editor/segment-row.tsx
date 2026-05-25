@@ -81,6 +81,7 @@ export function SegmentRow({ segment, index, channel, query, onChange }: Props) 
           onChange={(e) => onChange(e.target.value)}
           rows={1}
           spellCheck
+          dir="auto"
           aria-label={`Segment ${index + 1} text`}
           className={cn(
             "relative w-full resize-none bg-transparent text-sm leading-relaxed outline-none",
