@@ -1,11 +1,18 @@
 //! One-off maintenance commands the frontend calls when the user wants
 //! to undo work and start over on a recording. Today: clearing
-//! transcripts so they can be regenerated against the latest pipeline.
+//! transcripts so they can be regenerated against the latest pipeline,
+//! plus building a vault-snapshot zip (v2 finding 057 / GET-92).
 
 use std::path::PathBuf;
 
 use attune_core::llm::AgentRunStore;
+use attune_core::storage::snapshot::{
+    export as export_snapshot_impl, SnapshotPaths, SnapshotSummary,
+};
+use tauri::State;
 use tracing::info;
+
+use crate::app::AppState;
 
 const TRANSCRIPT_FILENAME: &str = "transcript.json";
 
@@ -66,4 +73,45 @@ pub async fn clear_recording_artifacts(session_dir: PathBuf) -> Result<(), Strin
     })
     .await
     .map_err(|e| format!("clear_recording_artifacts task panicked: {e}"))?
+}
+
+/// Build a vault-snapshot zip at `destination`. The destination is
+/// chosen by the user via the native save dialog on the frontend; we
+/// accept it here as an absolute path. The snapshot bundles the
+/// current settings, tasks file, recordings tree, and memory tree —
+/// see `attune_core::storage::snapshot` for the on-disk layout.
+///
+/// v2 finding 057 / GET-92. Restore + scheduled drops are tracked as
+/// follow-ups; this command lands the export half of the contract so
+/// the user can already drag the resulting zip into iCloud / Dropbox.
+#[tauri::command]
+pub async fn export_vault_snapshot(
+    destination: PathBuf,
+    state: State<'_, AppState>,
+) -> Result<SnapshotSummary, String> {
+    // Capture every path off the AppState's settings + store before
+    // the spawn_blocking jump so we don't hold the lock across the
+    // worker boundary.
+    let paths = {
+        let settings = state.settings.lock();
+        SnapshotPaths {
+            recordings_dir: settings.output_dir.clone(),
+            memory_dir: settings.memory_dir.clone(),
+            tasks_path: settings.tasks_path.clone(),
+            settings_path: state.settings_store.path().to_path_buf(),
+        }
+    };
+
+    tauri::async_runtime::spawn_blocking(move || -> Result<SnapshotSummary, String> {
+        let summary = export_snapshot_impl(&destination, &paths).map_err(|e| e.to_string())?;
+        info!(
+            destination = %summary.destination.display(),
+            files = summary.files,
+            bytes = summary.bytes,
+            "vault snapshot exported"
+        );
+        Ok(summary)
+    })
+    .await
+    .map_err(|e| format!("export_vault_snapshot task panicked: {e}"))?
 }

@@ -9,6 +9,7 @@
 
 pub mod session;
 pub mod settings;
+pub mod snapshot;
 pub mod tasks;
 
 pub use session::{scan_recordings, RecordingSummary};
