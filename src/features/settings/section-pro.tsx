@@ -74,17 +74,23 @@ export function SectionPro({ settings, onChange }: Props) {
         </div>
         <span
           className={
-            isPro
-              ? "rounded-full border border-primary bg-accent px-3 py-1 text-xs font-medium tabular-nums text-accent-foreground"
-              : "rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium tabular-nums text-muted-foreground"
+            "shrink-0 whitespace-nowrap rounded-full border px-3 py-1 text-xs font-medium tabular-nums " +
+            (isPro
+              ? "border-primary bg-accent text-accent-foreground"
+              : "border-border bg-muted text-muted-foreground")
+          }
+          title={
+            trialActive
+              ? `${daysLeft} day${daysLeft === 1 ? "" : "s"} left on your trial`
+              : undefined
           }
         >
           {hasLicense
             ? "Pro"
             : trialActive
-              ? `Trial · ${daysLeft}d left`
+              ? `Trial · ${daysLeft}d`
               : trialExpired
-                ? "Trial expired"
+                ? "Trial ended"
                 : "Free"}
         </span>
       </div>
