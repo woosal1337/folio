@@ -89,15 +89,12 @@ function isEnabled(): boolean {
   return true;
 }
 
-export function playFeedback(kind: FeedbackKind): void {
-  if (!isEnabled()) return;
-  const audio = context();
-  if (!audio) return;
-  // Resume the context if Safari/WebKit suspended it (auto-suspend
-  // happens after a few seconds of silence).
-  if (audio.state === "suspended") {
-    void audio.resume();
-  }
+/**
+ * Schedule one feedback sequence on an already-running context.
+ * Pulled out so the suspended-context branch can call the same code
+ * after the async resume() resolves.
+ */
+function schedule(audio: AudioContext, kind: FeedbackKind): void {
   const now = audio.currentTime;
   for (const part of SEQUENCES[kind]) {
     const osc = audio.createOscillator();
@@ -113,4 +110,26 @@ export function playFeedback(kind: FeedbackKind): void {
     osc.start(now + part.start);
     osc.stop(now + part.start + part.duration + 0.01);
   }
+}
+
+export function playFeedback(kind: FeedbackKind): void {
+  if (!isEnabled()) return;
+  const audio = context();
+  if (!audio) return;
+  // Safari/WebKit (and Tauri's wkwebview) auto-suspend the
+  // AudioContext until a user gesture resumes it. The previous code
+  // fired-and-forgot `audio.resume()` and immediately scheduled
+  // oscillators against `audio.currentTime` — which was still
+  // frozen, so the events landed in the past and produced silence.
+  // Wait for resume to actually flip the state, THEN schedule.
+  if (audio.state === "suspended") {
+    audio
+      .resume()
+      .then(() => schedule(audio, kind))
+      .catch((e) => {
+        console.warn("AudioContext resume failed:", e);
+      });
+    return;
+  }
+  schedule(audio, kind);
 }
