@@ -180,6 +180,42 @@ export const useRecording = create<RecordingState>((set, get) => {
     }
   };
 
+  // Try to auto-run the Auto-name agent after a transcription
+  // completes. Same gating + job-pill pattern as the other auto-fires.
+  // The agent's response is a JSON object with title / tags /
+  // subtitle; we don't surface a toast on success because the
+  // suggestion shows up directly in the Library list — that's the UX
+  // the v2 finding 024 calls for. Errors are still toasted so the
+  // user can see when the auto-fire silently broke.
+  const maybeAutoName = async (sessionDir: string) => {
+    const settings = useSettingsStore.getState().settings;
+    if (!settings) return;
+    if (!settings.auto_name_enabled) return;
+    if (!settings.openai_api_key || settings.openai_api_key.trim().length === 0) {
+      return;
+    }
+    const jobId = `agent:autoname:${sessionDir}`;
+    useJobsStore.getState().push({
+      id: jobId,
+      kind: "agent",
+      label: `Naming ${basename(sessionDir)}`,
+      detail: "auto",
+      sessionDir,
+      recordingLabel: basename(sessionDir),
+    });
+    try {
+      await ipcRunAgent(sessionDir, "autoname");
+      // No success toast — the suggestion appears in the Library row
+      // on the next list refresh, which is the UX the v2 finding
+      // explicitly asks for ("apply silently").
+    } catch (e) {
+      console.error("auto-name failed:", e);
+      toast.error("Auto-name failed", { description: String(e) });
+    } finally {
+      useJobsStore.getState().pop(jobId);
+    }
+  };
+
   // Try to auto-run the Extract Tasks agent after a transcription
   // completes. Same gating as auto-summarize: opt-in via settings, no
   // toast on the skipped path. The agent writes via the `create_task`
@@ -324,6 +360,7 @@ export const useRecording = create<RecordingState>((set, get) => {
               void maybeAutoSummarize(sessionDir);
               void maybeAutoExtractTasks(sessionDir);
               void maybeAutoExtractMemories(sessionDir);
+              void maybeAutoName(sessionDir);
             },
           },
         });
@@ -331,6 +368,7 @@ export const useRecording = create<RecordingState>((set, get) => {
         void maybeAutoSummarize(sessionDir);
         void maybeAutoExtractTasks(sessionDir);
         void maybeAutoExtractMemories(sessionDir);
+        void maybeAutoName(sessionDir);
       }
     } catch (e) {
       const message = String(e);

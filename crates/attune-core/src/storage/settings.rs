@@ -85,6 +85,15 @@ pub struct Settings {
     /// silently if no AI key is set.
     #[serde(default = "default_auto_extract_tasks_enabled")]
     pub auto_extract_tasks_enabled: bool,
+    /// When true and an AI provider key is configured, fires the
+    /// `autoname` agent right after transcription completes so the
+    /// library row shows a suggested human-readable title + tags +
+    /// subtitle. The result is stored as a normal AgentRun under
+    /// `<session_dir>/agent_runs/autoname.json`; the library scan
+    /// surfaces the title in RecordingSummary so the UI can render
+    /// it without any extra IPC roundtrips. v2 finding 024 / GET-37.
+    #[serde(default = "default_auto_name_enabled")]
+    pub auto_name_enabled: bool,
 }
 
 fn default_theme() -> String {
@@ -112,6 +121,9 @@ fn default_auto_extract_tasks_enabled() -> bool {
     true
 }
 fn default_auto_extract_memories_enabled() -> bool {
+    true
+}
+fn default_auto_name_enabled() -> bool {
     true
 }
 fn default_feedback_sounds_enabled() -> bool {
@@ -165,6 +177,7 @@ impl Default for Settings {
             feedback_sounds_enabled: default_feedback_sounds_enabled(),
             auto_summarize_enabled: default_auto_summarize_enabled(),
             auto_extract_tasks_enabled: default_auto_extract_tasks_enabled(),
+            auto_name_enabled: default_auto_name_enabled(),
         }
     }
 }

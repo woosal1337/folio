@@ -63,4 +63,14 @@ auto_summarize_enabled: boolean,
  * meeting and come back to a populated to-do board. Skipped
  * silently if no AI key is set.
  */
-auto_extract_tasks_enabled: boolean, };
+auto_extract_tasks_enabled: boolean,
+/**
+ * When true and an AI provider key is configured, fires the
+ * `autoname` agent right after transcription completes so the
+ * library row shows a suggested human-readable title + tags +
+ * subtitle. The result is stored as a normal AgentRun under
+ * `<session_dir>/agent_runs/autoname.json`; the library scan
+ * surfaces the title in RecordingSummary so the UI can render
+ * it without any extra IPC roundtrips. v2 finding 024 / GET-37.
+ */
+auto_name_enabled: boolean, };

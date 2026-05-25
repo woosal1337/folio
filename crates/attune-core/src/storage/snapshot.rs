@@ -215,8 +215,7 @@ fn copy_tree_into_zip<W: Write + std::io::Seek>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    #[allow(unused_imports)]
-    use std::io::Read as _;
+    use std::io::Read;
     use zip::ZipArchive;
 
     #[test]

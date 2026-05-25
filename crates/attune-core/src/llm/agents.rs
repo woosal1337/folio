@@ -36,6 +36,7 @@ pub fn defaults() -> Vec<Agent> {
         extract_memories(),
         find_decisions(),
         qa(),
+        autoname(),
     ]
 }
 
@@ -89,6 +90,15 @@ fn qa() -> Agent {
         name: "Q&A".to_string(),
         description: "Open-ended question answering over the transcript.".to_string(),
         system_prompt: QA_PROMPT.to_string(),
+    }
+}
+
+fn autoname() -> Agent {
+    Agent {
+        id: "autoname".to_string(),
+        name: "Auto-name".to_string(),
+        description: "Propose a short title, 1-3 tags, and a one-line subtitle.".to_string(),
+        system_prompt: AUTONAME_PROMPT.to_string(),
     }
 }
 
@@ -179,14 +189,36 @@ guess or hallucinate.\n\
 \n\
 Be concise. Cite a quoted snippet from the transcript when helpful.";
 
+const AUTONAME_PROMPT: &str = "You are a meeting auto-namer. Read the \
+transcript and propose a short title, 1-3 tags, and a one-line \
+subtitle the user can quickly recognise weeks later.\n\
+\n\
+Respond with ONLY a JSON object — no prose, no markdown fences, no \
+comments — matching this exact shape:\n\
+\n\
+{\n\
+  \"title\": \"short title under 60 characters\",\n\
+  \"tags\": [\"lowercase\", \"single-word-or-hyphenated\"],\n\
+  \"subtitle\": \"one-line context under 80 characters\"\n\
+}\n\
+\n\
+Rules:\n\
+  - title is concrete and specific. \"Pricing sync with Lila\" beats \"Meeting\".\n\
+  - tags is 1 to 3 lowercase tokens, each <=20 chars. Prefer recurring topics \
+(\"pricing\", \"onboarding\", \"hiring\") over one-off proper nouns.\n\
+  - subtitle adds one sentence of context. No emojis, no hashtags.\n\
+  - All strings are in the language of the transcript (do not translate).\n\
+  - When the transcript is too short or noisy to name reliably, return \
+{\"title\":\"\",\"tags\":[],\"subtitle\":\"\"}.";
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn five_defaults_in_known_order() {
+    fn six_defaults_in_known_order() {
         let agents = defaults();
-        assert_eq!(agents.len(), 5);
+        assert_eq!(agents.len(), 6);
         let ids: Vec<&str> = agents.iter().map(|a| a.id.as_str()).collect();
         assert_eq!(
             ids,
@@ -196,6 +228,7 @@ mod tests {
                 "extract-memories",
                 "find-decisions",
                 "qa",
+                "autoname",
             ]
         );
     }
@@ -205,6 +238,7 @@ mod tests {
         assert_eq!(by_id("summarize").unwrap().name, "Summarize");
         assert_eq!(by_id("extract-tasks").unwrap().name, "Extract Tasks");
         assert_eq!(by_id("extract-memories").unwrap().name, "Extract Memories");
+        assert_eq!(by_id("autoname").unwrap().name, "Auto-name");
         assert!(by_id("nonexistent").is_none());
     }
 

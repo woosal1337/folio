@@ -9,6 +9,7 @@ import {
   Pencil,
   Sparkles,
   Trash2,
+  Wand2,
 } from "lucide-react";
 
 import { AudioPlayer } from "@/features/recording/audio-player";
@@ -110,6 +111,24 @@ export function RecordingRow({
         <FileAudio className="h-4 w-4 shrink-0 text-muted-foreground" />
         <div className="flex min-w-0 flex-1 flex-col">
           <span className="truncate font-mono text-sm">{item.label}</span>
+          {item.suggested_title && (
+            <span
+              className="mt-0.5 flex min-w-0 items-center gap-1.5 truncate text-xs text-muted-foreground"
+              title={
+                item.suggested_subtitle
+                  ? `Auto-named · ${item.suggested_subtitle}`
+                  : "Auto-named suggestion"
+              }
+            >
+              <Wand2 className="h-3 w-3 shrink-0 opacity-70" aria-hidden />
+              <span className="truncate">{item.suggested_title}</span>
+              {item.suggested_tags && item.suggested_tags.length > 0 && (
+                <span className="shrink-0 truncate text-2xs uppercase tracking-wider opacity-70">
+                  · {item.suggested_tags.slice(0, 3).join(" · ")}
+                </span>
+              )}
+            </span>
+          )}
           <span className="font-mono text-2xs text-muted-foreground">
             {parts.join("  ·  ")}
           </span>

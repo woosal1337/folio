@@ -3,9 +3,28 @@
 /**
  * Metadata about a saved recording session, as discovered on disk.
  */
-export type RecordingSummary = { session_dir: string, label: string, duration_seconds: bigint, mic_bytes: bigint | null, system_bytes: bigint | null, mic_sample_rate: number | null, system_sample_rate: number | null, created_at: string | null, 
+export type RecordingSummary = { session_dir: string, label: string, duration_seconds: bigint, mic_bytes: bigint | null, system_bytes: bigint | null, mic_sample_rate: number | null, system_sample_rate: number | null, created_at: string | null,
 /**
  * True iff `<session_dir>/transcript.json` exists. Used by the UI
  * to mark previously transcribed sessions in the library list.
  */
-has_transcript: boolean, };
+has_transcript: boolean,
+/**
+ * Title proposed by the `autoname` agent if its run is on disk
+ * (`<session_dir>/agent_runs/autoname.json`). Surfaced in the UI
+ * as a subtle suggestion under the recording's label; the user
+ * can accept it (a future PR) or ignore it. `None` when no
+ * autoname run exists or the run's JSON could not be parsed.
+ * v2 finding 024 / GET-37.
+ */
+suggested_title: string | null,
+/**
+ * 1-3 lowercase tags from the `autoname` agent, same source as
+ * `suggested_title`. v2 finding 024 / GET-37.
+ */
+suggested_tags: Array<string>,
+/**
+ * One-line subtitle from the `autoname` agent. Same source as
+ * `suggested_title`. v2 finding 024 / GET-37.
+ */
+suggested_subtitle: string | null, };
