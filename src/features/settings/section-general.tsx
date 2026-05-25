@@ -1,6 +1,10 @@
+import { Volume2 } from "lucide-react";
+
+import { Button } from "@/shared/ui/button";
 import { Label } from "@/shared/ui/label";
 import { Separator } from "@/shared/ui/separator";
 import { Switch } from "@/shared/ui/switch";
+import { playFeedback } from "@/shared/lib/feedback";
 import type { DeviceInfo } from "@/shared/types/DeviceInfo";
 import type { Settings } from "@/shared/types/Settings";
 
@@ -54,6 +58,46 @@ export function SectionGeneral({ settings, devices, onChange }: Props) {
           checked={settings.system_audio_enabled}
           onCheckedChange={(v) => onChange("system_audio_enabled", v)}
         />
+      </section>
+
+      <Separator />
+
+      <section className="space-y-3">
+        <div className="flex items-start justify-between gap-6">
+          <div>
+            <h3 className="flex items-center gap-2 font-medium">
+              <Volume2 className="h-4 w-4 text-muted-foreground" />
+              Feedback sounds
+            </h3>
+            <p className="mt-1 max-w-md text-xs text-muted-foreground">
+              Tiny synthesised tones on recording start / stop and when an agent
+              finishes. Off by default. Suppressed when the OS reports Reduce Motion.
+            </p>
+          </div>
+          <Switch
+            checked={settings.feedback_sounds_enabled}
+            onCheckedChange={(v) => onChange("feedback_sounds_enabled", v)}
+          />
+        </div>
+        {settings.feedback_sounds_enabled ? (
+          <div className="flex flex-wrap items-center gap-1.5 pt-1">
+            <span className="text-2xs uppercase tracking-wider text-muted-foreground">
+              Preview
+            </span>
+            {(["start", "stop", "success", "dismiss", "error"] as const).map((k) => (
+              <Button
+                key={k}
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="h-6 px-2 text-2xs"
+                onClick={() => playFeedback(k)}
+              >
+                {k}
+              </Button>
+            ))}
+          </div>
+        ) : null}
       </section>
     </div>
   );

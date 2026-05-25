@@ -21,6 +21,7 @@ import {
   transcribeRecording as ipcTranscribe,
 } from "@/shared/lib/ipc";
 import { estimateOpenAITranscribeCost, formatUsd } from "@/shared/lib/cost-estimate";
+import { playFeedback } from "@/shared/lib/feedback";
 import { formatBatteryPct, readPower, shouldDeferOnPower } from "@/shared/lib/power";
 import { useCloudCostConfirmStore } from "@/shared/stores/cloud-cost-confirm-store";
 import { useJobsStore } from "@/shared/stores/jobs-store";
@@ -296,6 +297,7 @@ export const useRecording = create<RecordingState>((set, get) => {
         }
       }
 
+      playFeedback("success");
       toast.success("Transcription complete", {
         description: `${segments} segments across ${channelCount} channel${channelCount === 1 ? "" : "s"} saved.${savedHint}`,
       });
@@ -393,6 +395,7 @@ export const useRecording = create<RecordingState>((set, get) => {
         });
         installTicker();
         const count = status.channels.length;
+        playFeedback("start");
         toast.success("Recording started", {
           description:
             count === 0
@@ -402,6 +405,7 @@ export const useRecording = create<RecordingState>((set, get) => {
       } catch (e) {
         const message = String(e);
         set({ error: message });
+        playFeedback("error");
         toast.error("Could not start recording", { description: message });
       } finally {
         set({ busy: false });
@@ -425,12 +429,14 @@ export const useRecording = create<RecordingState>((set, get) => {
           channels: [],
           lastSavedDir: sessionDir,
         });
+        playFeedback("stop");
         toast.success("Recording saved", {
           description: `${formatDurationSeconds(elapsedAtStop)} · ${basename(sessionDir)}`,
         });
       } catch (e) {
         const message = String(e);
         set({ error: message });
+        playFeedback("error");
         toast.error("Could not stop recording", { description: message });
       } finally {
         set({ busy: false });
