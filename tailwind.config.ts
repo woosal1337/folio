@@ -58,12 +58,42 @@ const config: Config = {
         sm: "calc(var(--radius) - 4px)",
       },
       fontFamily: {
-        sans: ["Inter", "system-ui", "-apple-system", "sans-serif"],
+        // SF Pro Text first so macOS users get the system face automatically.
+        // Inter remains as the bundled fallback for non-Apple builds and
+        // anywhere the system stack misses (e.g. embedded WebViews on Linux).
+        sans: [
+          "-apple-system",
+          "BlinkMacSystemFont",
+          "SF Pro Text",
+          "Inter",
+          "system-ui",
+          "sans-serif",
+        ],
+        // Display face for large headings (SF Pro Display variant on macOS).
+        display: [
+          "-apple-system",
+          "BlinkMacSystemFont",
+          "SF Pro Display",
+          "Inter",
+          "system-ui",
+          "sans-serif",
+        ],
         serif: ["Spectral", "Georgia", "ui-serif", "serif"],
         mono: ["JetBrains Mono", "ui-monospace", "monospace"],
       },
       fontSize: {
-        "2xs": ["0.6875rem", { lineHeight: "1rem" }],
+        // Modular scale from v2 roadmap finding 017. Defaults stay at the
+        // Tailwind 12/14/16/18/... grid to avoid mass layout shifts. These
+        // named ms-* steps add the Apple HIG 11/13/15/17/22/28/34/45 scale
+        // as opt-in tokens.
+        "2xs": ["0.6875rem", { lineHeight: "1rem" }], // 11 — caption
+        "ms-13": ["0.8125rem", { lineHeight: "1.125rem" }],
+        "ms-15": ["0.9375rem", { lineHeight: "1.375rem" }],
+        "ms-17": ["1.0625rem", { lineHeight: "1.5rem" }],
+        "ms-22": ["1.375rem", { lineHeight: "1.75rem" }],
+        "ms-28": ["1.75rem", { lineHeight: "2.125rem" }],
+        "ms-34": ["2.125rem", { lineHeight: "2.5rem" }],
+        "ms-45": ["2.8125rem", { lineHeight: "3.25rem" }],
       },
       keyframes: {
         "accordion-down": {
