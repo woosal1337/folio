@@ -8,13 +8,21 @@ import { JobStrip } from "@/chrome/job-strip";
 import { CloudCostConfirmDialog } from "@/chrome/cloud-cost-confirm-dialog";
 import { DeepLinkHandler } from "@/chrome/deep-link-handler";
 import { HomeRedirect } from "@/chrome/home-redirect";
-import Record from "@/features/recording/route";
-import Library from "@/features/library/route";
-import Editor from "@/features/editor/route";
-import Tasks from "@/features/tasks/route";
-import Ai from "@/features/ai/route";
-import MemoryRoute from "@/features/memory/route";
-import { SettingsModal } from "@/features/settings/route";
+// Route components are React.lazy-loaded so the Record page (the
+// dock-click landing) stays inside the cold-start budget: 400ms on
+// M1, 800ms on Intel per v2 finding 058. Editor, Tasks, AI, Memory,
+// and the Settings modal each ride into their own chunk and only
+// arrive when the user navigates to them. The static fallback below
+// renders a near-empty frame so the route swap stays visually quiet.
+const Record = React.lazy(() => import("@/features/recording/route"));
+const Library = React.lazy(() => import("@/features/library/route"));
+const Editor = React.lazy(() => import("@/features/editor/route"));
+const Tasks = React.lazy(() => import("@/features/tasks/route"));
+const Ai = React.lazy(() => import("@/features/ai/route"));
+const MemoryRoute = React.lazy(() => import("@/features/memory/route"));
+const SettingsModal = React.lazy(() =>
+  import("@/features/settings/route").then((m) => ({ default: m.SettingsModal }))
+);
 import { ErrorBoundary } from "@/error-boundary";
 import { useWindowDoubleClick, useWindowDrag } from "@/shared/hooks/use-window-drag";
 import { useSettingsStore } from "@/shared/stores/settings-store";
@@ -57,25 +65,49 @@ export default function App() {
           <div className="flex flex-1 overflow-hidden">
             <Sidebar onOpenSettings={() => openSettings()} />
             <main className="flex-1 overflow-y-auto">
-              <Routes>
-                <Route path="/" element={<HomeRedirect />} />
-                <Route path="/record" element={<Record />} />
-                <Route path="/library" element={<Library />} />
-                <Route path="/editor" element={<Navigate to="/library" replace />} />
-                <Route path="/editor/:label" element={<Editor />} />
-                <Route path="/ai" element={<Ai />} />
-                <Route path="/tasks" element={<Tasks />} />
-                <Route path="/memory" element={<MemoryRoute />} />
-                <Route path="*" element={<HomeRedirect />} />
-              </Routes>
+              <React.Suspense fallback={<RouteLoading />}>
+                <Routes>
+                  <Route path="/" element={<HomeRedirect />} />
+                  <Route path="/record" element={<Record />} />
+                  <Route path="/library" element={<Library />} />
+                  <Route path="/editor" element={<Navigate to="/library" replace />} />
+                  <Route path="/editor/:label" element={<Editor />} />
+                  <Route path="/ai" element={<Ai />} />
+                  <Route path="/tasks" element={<Tasks />} />
+                  <Route path="/memory" element={<MemoryRoute />} />
+                  <Route path="*" element={<HomeRedirect />} />
+                </Routes>
+              </React.Suspense>
             </main>
           </div>
-          <SettingsModal open={settingsOpen} onOpenChange={setSettingsOpen} />
+          <React.Suspense fallback={null}>
+            <SettingsModal open={settingsOpen} onOpenChange={setSettingsOpen} />
+          </React.Suspense>
           <CloudCostConfirmDialog />
           <DeepLinkHandler />
         </div>
         <Toaster position="bottom-right" richColors closeButton />
       </HashRouter>
     </ErrorBoundary>
+  );
+}
+
+/** Quiet fallback while a route's chunk is loading. Renders nothing
+ *  for the first 120ms so a fast cache hit doesn't flash a spinner,
+ *  then surfaces a centred subtle hint. v2 finding 058 / GET-93. */
+function RouteLoading() {
+  const [showHint, setShowHint] = React.useState(false);
+  React.useEffect(() => {
+    const t = window.setTimeout(() => setShowHint(true), 120);
+    return () => window.clearTimeout(t);
+  }, []);
+  return (
+    <div
+      className="flex h-full w-full items-center justify-center text-xs text-muted-foreground"
+      role="status"
+      aria-live="polite"
+    >
+      {showHint ? "Loading…" : null}
+    </div>
   );
 }
