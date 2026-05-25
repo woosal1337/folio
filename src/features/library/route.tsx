@@ -15,6 +15,7 @@ import {
   type SortOrder,
   type TranscriptFilter,
 } from "./library-filters";
+import { QuickLookSheet } from "./quick-look-sheet";
 import { StatsStrip } from "./stats-strip";
 
 export default function Library() {
@@ -30,6 +31,11 @@ export default function Library() {
   const [query, setQuery] = React.useState("");
   const [filter, setFilter] = React.useState<TranscriptFilter>("all");
   const [sort, setSort] = React.useState<SortOrder>("newest");
+  /** v2 finding 012 / GET-46: when non-null, render the Quick Look
+   * sheet for this recording. Driven by a per-row Eye button and a
+   * global Space-key handler that opens the row currently containing
+   * document.activeElement. */
+  const [quickLook, setQuickLook] = React.useState<RecordingSummary | null>(null);
 
   const refresh = React.useCallback(async () => {
     setLoading(true);
@@ -50,6 +56,40 @@ export default function Library() {
   React.useEffect(() => {
     refresh();
   }, [refresh, lastSavedDir, lastTranscriptPath]);
+
+  // Global Space-key handler. When the user has tabbed/clicked onto
+  // a Library row card (any focusable element inside the card carries
+  // the row's session_dir via the data-quicklook-session attribute on
+  // the Card root), pressing Space opens the Quick Look sheet for
+  // that recording. We ignore presses inside text inputs so the
+  // search field still receives spaces.
+  React.useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== " ") return;
+      if (quickLook) return; // sheet owns Space while it's open
+      const active = document.activeElement;
+      if (
+        active instanceof HTMLInputElement ||
+        active instanceof HTMLTextAreaElement ||
+        (active instanceof HTMLElement && active.isContentEditable)
+      ) {
+        return;
+      }
+      const card =
+        active instanceof HTMLElement
+          ? active.closest("[data-quicklook-session]")
+          : null;
+      if (!(card instanceof HTMLElement)) return;
+      const sessionDir = card.dataset.quicklookSession;
+      if (!sessionDir) return;
+      const hit = recordings.find((r) => r.session_dir === sessionDir);
+      if (!hit) return;
+      e.preventDefault();
+      setQuickLook(hit);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [recordings, quickLook]);
 
   const visible = React.useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -160,6 +200,7 @@ export default function Library() {
                   state: { recording: item },
                 })
               }
+              onQuickLook={() => setQuickLook(item)}
               onTranscribe={() => {
                 // Fire-and-forget; the store flips `transcribingDir`
                 // for the spinner and toasts on success/failure.
@@ -199,6 +240,23 @@ export default function Library() {
           ))}
         </div>
       )}
+
+      <QuickLookSheet
+        recording={quickLook}
+        onClose={() => setQuickLook(null)}
+        onOpenInEditor={(r) => {
+          setQuickLook(null);
+          navigate(`/editor/${encodeURIComponent(r.label)}`, {
+            state: { recording: r },
+          });
+        }}
+        onReveal={(r) => {
+          revealInFinder(r.session_dir).catch((e) => {
+            console.error("reveal_in_finder:", e);
+            toast.error("Could not open Finder", { description: String(e) });
+          });
+        }}
+      />
     </div>
   );
 }
