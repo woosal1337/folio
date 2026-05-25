@@ -3,11 +3,11 @@
 /**
  * Result of a successful export.
  */
-export type SnapshotSummary = { destination: string,
+export type SnapshotSummary = { destination: string, 
 /**
  * Number of files inside the zip (not counting `manifest.json`).
  */
-files: number,
+files: number, 
 /**
  * Compressed size of the resulting zip in bytes.
  */

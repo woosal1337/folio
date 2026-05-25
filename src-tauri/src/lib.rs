@@ -99,6 +99,8 @@ pub fn run() {
             commands::maintenance::git_vault_is_repo,
             commands::maintenance::list_inbox_entries,
             commands::maintenance::archive_inbox_entry,
+            commands::maintenance::get_showcase,
+            commands::maintenance::save_showcase,
             commands::webhooks::list_webhooks,
             commands::webhooks::save_webhook,
             commands::webhooks::delete_webhook,
