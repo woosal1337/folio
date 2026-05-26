@@ -34,6 +34,7 @@ pub mod mcp_client;
 pub mod mcp_server;
 pub mod memory;
 pub mod onboarding;
+pub mod paths;
 pub mod permissions;
 pub mod qos;
 pub mod share_page;

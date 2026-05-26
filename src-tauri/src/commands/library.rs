@@ -120,19 +120,25 @@ pub async fn get_recording(
 /// quick but we run it on a blocking task for consistency with the
 /// other library commands.
 #[tauri::command]
-pub async fn reveal_in_finder(path: PathBuf) -> Result<(), String> {
+pub async fn reveal_in_finder(
+    state: State<'_, AppState>,
+    path: PathBuf,
+) -> Result<(), String> {
+    let output_dir = state.settings.lock().output_dir.clone();
     tauri::async_runtime::spawn_blocking(move || -> Result<(), String> {
+        let canon = attune_core::paths::canonicalize_under(&output_dir, &path)
+            .map_err(|e| e.to_string())?;
         #[cfg(target_os = "macos")]
         {
             std::process::Command::new("open")
-                .arg(&path)
+                .arg(&canon)
                 .spawn()
                 .map(|_| ())
                 .map_err(|e| e.to_string())
         }
         #[cfg(not(target_os = "macos"))]
         {
-            let _ = path;
+            let _ = canon;
             warn!("reveal_in_finder not implemented on this platform");
             Ok(())
         }
@@ -187,13 +193,17 @@ pub async fn save_debrief(
 /// finding 010 / GET-34 — AirDrop, Messages, Mail, Notes, third-party
 /// share extensions for free, with zero per-target plumbing.
 #[tauri::command]
-pub async fn share_paths(paths: Vec<PathBuf>) -> Result<(), String> {
+pub async fn share_paths(
+    state: State<'_, AppState>,
+    paths: Vec<PathBuf>,
+) -> Result<(), String> {
     info!("share_paths: {} item(s)", paths.len());
-    // The NSSharingServicePicker call must happen on the main thread —
-    // it touches NSApp's key window. tauri::async_runtime::spawn_blocking
-    // moves onto a worker thread, so we dispatch back to main via a
-    // run_on_main_thread call. For simplicity we just call directly
-    // (Tauri commands already execute on the main thread by default
-    // when not awaited inside spawn_blocking).
-    crate::app::share_sheet::share_paths(&paths)
+    let output_dir = state.settings.lock().output_dir.clone();
+    let mut canon_paths: Vec<PathBuf> = Vec::with_capacity(paths.len());
+    for p in &paths {
+        let canon = attune_core::paths::canonicalize_under(&output_dir, p)
+            .map_err(|e| e.to_string())?;
+        canon_paths.push(canon);
+    }
+    crate::app::share_sheet::share_paths(&canon_paths)
 }
