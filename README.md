@@ -103,7 +103,7 @@ bun run test
 
 ## Contributing
 
-See [`CONTRIBUTING.md`](./CONTRIBUTING.md). Security issues go through [`SECURITY.md`](./SECURITY.md).
+See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for setup and the workflow. The authoritative code-style contract is [`docs/CODE_STYLE.md`](./docs/CODE_STYLE.md). Security issues go through [`SECURITY.md`](./SECURITY.md).
 
 ## License
 
