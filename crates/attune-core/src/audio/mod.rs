@@ -11,6 +11,7 @@ pub mod inflight;
 pub mod mic;
 pub mod resampler;
 pub mod system;
+pub mod vad;
 pub mod vad_filter;
 #[cfg(target_os = "macos")]
 pub mod voice_processing_capture;

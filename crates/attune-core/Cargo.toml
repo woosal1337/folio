@@ -19,6 +19,7 @@ tracing = { workspace = true }
 cpal = { workspace = true }
 hound = { workspace = true }
 rubato = { workspace = true }
+voice_activity_detector = { workspace = true }
 crossbeam-queue = { workspace = true }
 crossbeam-channel = { workspace = true }
 parking_lot = { workspace = true }
