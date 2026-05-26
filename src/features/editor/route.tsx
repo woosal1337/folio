@@ -70,25 +70,21 @@ export default function Editor() {
     }
     let cancelled = false;
     setRecordingLoading(true);
-    getRecording(label)
-      .then((r) => {
+    (async () => {
+      try {
+        const r = await getRecording(label);
         if (cancelled) return;
-        if (r) {
-          setRecording(r);
-        } else {
-          setNotFound(true);
-        }
-      })
-      .catch((e) => {
+        if (r) setRecording(r);
+        else setNotFound(true);
+      } catch (e) {
         if (cancelled) return;
         console.error("get_recording:", e);
         toast.error("Could not load recording", { description: String(e) });
         setNotFound(true);
-      })
-      .finally(() => {
-        if (cancelled) return;
-        setRecordingLoading(false);
-      });
+      } finally {
+        if (!cancelled) setRecordingLoading(false);
+      }
+    })();
     return () => {
       cancelled = true;
     };
@@ -121,11 +117,18 @@ export default function Editor() {
   // this session — flips has_transcript so the editor renders.
   React.useEffect(() => {
     if (!label || !lastTranscriptPath) return;
-    getRecording(label)
-      .then((r) => {
-        if (r) setRecording(r);
-      })
-      .catch((e) => console.error("get_recording on transcript complete:", e));
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await getRecording(label);
+        if (!cancelled && r) setRecording(r);
+      } catch (e) {
+        if (!cancelled) console.error("get_recording on transcript complete:", e);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [label, lastTranscriptPath]);
 
   const [agentRuns, setAgentRuns] = React.useState<AgentRun[]>([]);
@@ -135,11 +138,14 @@ export default function Editor() {
       return;
     }
     let cancelled = false;
-    listAgentRuns(recording.session_dir)
-      .then((runs) => {
+    (async () => {
+      try {
+        const runs = await listAgentRuns(recording.session_dir);
         if (!cancelled) setAgentRuns(runs);
-      })
-      .catch((e) => console.error("list_agent_runs:", e));
+      } catch (e) {
+        if (!cancelled) console.error("list_agent_runs:", e);
+      }
+    })();
     return () => {
       cancelled = true;
     };

@@ -31,17 +31,26 @@ export function SectionPermissions() {
   const [rows, setRows] = React.useState<PermissionRow[]>([]);
   const [loading, setLoading] = React.useState(true);
 
-  const refresh = React.useCallback(() => {
-    setLoading(true);
-    listPermissions()
-      .then(setRows)
-      .catch((e) => console.error("list_permissions:", e))
-      .finally(() => setLoading(false));
-  }, []);
-
   React.useEffect(() => {
-    refresh();
-  }, [refresh]);
+    let cancelled = false;
+    (async () => {
+      try {
+        const next = await listPermissions();
+        if (!cancelled) {
+          setRows(next);
+          setLoading(false);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          console.error("list_permissions:", e);
+          setLoading(false);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="flex flex-col gap-7">

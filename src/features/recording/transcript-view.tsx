@@ -24,19 +24,16 @@ export function TranscriptView({ sessionDir }: Props) {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    readTranscript(sessionDir)
-      .then((t) => {
-        if (cancelled) return;
-        setTranscript(t);
-      })
-      .catch((e) => {
-        if (cancelled) return;
-        setError(String(e));
-      })
-      .finally(() => {
-        if (cancelled) return;
-        setLoading(false);
-      });
+    (async () => {
+      try {
+        const t = await readTranscript(sessionDir);
+        if (!cancelled) setTranscript(t);
+      } catch (e) {
+        if (!cancelled) setError(String(e));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
     return () => {
       cancelled = true;
     };
