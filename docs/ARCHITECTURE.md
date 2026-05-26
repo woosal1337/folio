@@ -48,44 +48,41 @@ future Swift app via UniFFI.
 src/
 ├── lib.rs                # crate root, module declarations + re-exports
 ├── error.rs              # AttuneError — the single public error enum
-├── audio/                # capture pipeline
-│   ├── mod.rs            # Channel + CaptureConfig
-│   ├── capture.rs        # CaptureSession orchestrator + RecordingStatus/Result
-│   ├── devices.rs        # list_input_devices, DeviceInfo
-│   ├── mic.rs            # MicCapture (cpal + VPIO)
-│   ├── system.rs         # SystemCapture (ScreenCaptureKit, macOS only)
-│   ├── resampler.rs      # StreamingResampler (rubato polyphase)
-│   └── wav_writer.rs     # AudioWavWriter (hound, mono 16-bit PCM)
+├── ask_attune.rs         # cross-library RAG citation contract (#021 / GET-27)
+├── audio/                # capture pipeline (cpal + VPIO + ScreenCaptureKit)
+├── calendar.rs           # EventKit + conference-URL helpers (#068 / GET-29)
+├── cloud_guard.rs        # Privacy-Mode airgap toggle (#048 / GET-42)
+├── encryption.rs         # AES-256-GCM + Argon2id (#051 / GET-68)
+├── evals.rs              # transcription quality eval helpers
+├── ffi/                  # UniFFI surface (placeholder)
+├── highlight_reel.rs     # decision-dense MP4 picker (#084 / GET-104)
+├── import.rs             # Granola / Otter / Fathom switcher import (#004 / GET-44)
+├── live_notes.rs         # /action /decision /question parser (#009 / GET-33)
 ├── llm/                  # AI providers + agents + chat plumbing
-│   ├── mod.rs            # ProviderId, public re-exports
-│   ├── types.rs          # ChatRequest / ChatResponse / ChatMessage / ToolDef / ToolCall
-│   ├── provider.rs       # LlmProvider trait
-│   ├── providers/
-│   │   └── openai.rs     # OpenAiProvider (chat + tool calling + embeddings)
-│   ├── keystore.rs       # macOS Keychain via `keyring` crate
-│   ├── agents.rs         # baked-in Agent definitions (5 agents)
-│   └── agent_run.rs      # AgentRun + AgentRunStore (per-session JSON files)
+│   ├── agent_run.rs / agent_toml.rs / agents.rs / confidence.rs
+│   ├── keystore.rs / live_agent.rs / local_llm.rs / marketplace.rs
+│   ├── provider.rs / providers/openai.rs / rate_limit.rs / router.rs
+│   ├── run_card.rs / skills.rs / templates.rs / types.rs
+├── mcp_client.rs         # .attune/mcp.toml client config (#071 / GET-73)
+├── mcp_server.rs         # attune-mcp tool surface (#067 / GET-28)
 ├── memory/               # Camp-2 context-substrate memory layer
-│   ├── mod.rs            # public re-exports
-│   ├── types.rs          # Memory / MemoryKind / NewMemory / MemoryUpdate / MemoryQuery
-│   ├── page.rs           # markdown page format + parser (frontmatter + body)
-│   ├── index.rs          # SQLite FTS5 + sqlite-vec virtual table + hybrid retrieval
-│   ├── store.rs          # MemoryStore — two-phase write + conflict resolution
-│   └── embed.rs          # EmbeddingClient (text-embedding-3-large, 3072 dims)
-├── storage/              # persistence (settings, sessions, tasks)
-│   ├── mod.rs            # re-exports
-│   ├── settings.rs       # Settings + SettingsStore (atomic JSON)
-│   ├── session.rs        # RecordingSummary + scan_recordings
-│   └── tasks.rs          # Task + TaskStore + TaskStatus (atomic JSON list)
-├── transcription/        # pluggable STT backends
-│   ├── mod.rs            # Transcriber trait + Transcript + zstd read/write
-│   ├── openai.rs         # OpenAiTranscriber
-│   ├── local.rs          # LocalWhisperTranscriber (whisper-rs + Metal)
-│   ├── models.rs         # WhisperModel + downloader + status
-│   ├── hallucination_filter.rs
-│   └── stub.rs           # StubTranscriber (no-op for tests)
-└── ffi/                  # UniFFI surface (placeholder)
-    └── mod.rs
+│   ├── dream_loop.rs / embed.rs / embedding_cache.rs / embedding_provider.rs
+│   ├── git_commit.rs / index.rs / page.rs / store.rs / types.rs / watcher.rs
+├── onboarding.rs         # canned-demo bundle (#002 / GET-30)
+├── paths.rs              # canonicalize_under helper (§8.1)
+├── permissions.rs        # TCC walkthrough types (#003 / GET-31)
+├── qos.rs                # macOS QoS class hints
+├── share_page.rs         # public share-page payload (#083 / GET-81)
+├── storage/              # persistence (settings, sessions, tasks, …)
+│   ├── atomic_write.rs / decisions.rs / digest.rs / egress_log.rs
+│   ├── fs_io.rs / git_sync.rs / retention.rs / session.rs / settings.rs
+│   ├── share_bundle.rs / showcase.rs / snapshot.rs / spotlight.rs
+│   ├── tasks.rs / vault_layout.rs
+├── transcription/        # pluggable STT backends + chunking
+│   ├── adaptive.rs / chunker.rs / hallucination_filter.rs / local.rs
+│   ├── locate.rs / models.rs / model_lru.rs / openai.rs / stub.rs
+│   ├── upload_state.rs / vad.rs
+└── webhooks.rs           # signed outbound webhooks (#089 / GET-105)
 ```
 
 ### Rules
@@ -117,30 +114,39 @@ src/
 ├── main.rs               # binary entry, prevents the Windows console window
 ├── lib.rs                # tauri::Builder setup: plugins, state, invoke_handler
 ├── app/
-│   ├── mod.rs
-│   ├── state.rs          # AppState (settings + SettingsStore + session + timer + shared MemoryStore)
-│   └── dock_icon.rs      # macOS Dock icon helper (uses cocoa, marked deprecated)
+│   ├── mod.rs / state.rs
+│   ├── dock_icon.rs      # macOS Dock icon helper (cocoa)
+│   ├── share_sheet.rs    # NSSharingServicePicker (GET-34)
+│   ├── tray.rs           # menu-bar tray icon (GET-25)
+│   └── vibrancy.rs       # NSVisualEffectView (GET-45)
 └── commands/             # one module per domain
-    ├── mod.rs
-    ├── health.rs         # ping
-    ├── devices.rs        # list_input_devices
-    ├── settings.rs       # get_settings, save_settings
-    ├── recording.rs      # recording_status, start_recording, stop_recording
-    ├── library.rs        # list_recordings, get_recording, delete_recording, reveal_in_finder
-    ├── transcription.rs  # transcribe_recording, read_transcript, save_transcript, whisper_model_*
-    ├── llm.rs            # list_providers, set_provider_key, delete_provider_key, test_provider, list_provider_models
-    ├── agents.rs         # list_agents, run_agent (multi-tool dispatcher), list_agent_runs, delete_agent_run
-    ├── tasks.rs          # list_tasks, create_task, update_task, delete_task, set_task_status
-    ├── memory.rs         # list/get/create/update/delete/purge/pin/search/file_path/rebuild_index
-    └── maintenance.rs    # clear_recording_artifacts
+    ├── mod.rs / health.rs / devices.rs / settings.rs / recording.rs
+    ├── library.rs        # list / get / delete / reveal_in_finder / share_paths / save_debrief
+    ├── transcription.rs  # transcribe / read / save / locate_span / whisper_model_*
+    ├── llm.rs            # list_providers / set_provider_key / test_provider / list_provider_models
+    ├── agents.rs         # list / run / list_runs / delete_run
+    ├── tasks.rs / memory.rs / maintenance.rs / captions.rs / webhooks.rs
+    ├── permissions.rs    # list_permissions / open_permission_settings (GET-31)
+    ├── preferences.rs    # open_preferences_window (GET-86)
+    ├── tray.rs           # set_tray_recording bridge (GET-25)
+    └── windows.rs        # open_record_window / open_library_window / open_editor_window (GET-48)
 ```
 
 ### Capabilities
 
-`src-tauri/capabilities/default.json` is the security boundary
-between the WebView and the host. URL schemes that the frontend can
-ask the OS to open must be allow-listed via the `opener:allow-open-url`
-permission. Add new schemes there, not in JS.
+`src-tauri/capabilities/` holds **one capability file per window class** per
+`docs/CODE_STYLE.md` §8.4:
+
+- `default.json` — main window only. Narrowed: no recursive `$HOME` fs grants;
+  opener allowlist is per-host, not blanket `https://*`.
+- `captions.json` — captions window. Renderer only; no fs / opener grants.
+- `preferences.json` — Cmd-, NSWindow. No fs (everything funnels through
+  canonicalised Tauri commands); opener limited to docs + Apple system settings.
+- `secondary.json` — record-*, library-standalone, editor-* secondary windows
+  from GET-48. Same surface as main minus the home-recursive fs grants.
+
+Add new URL schemes via the relevant capability file's
+`opener:allow-open-url` allowlist — never in JS.
 
 ### IPC contract
 
@@ -185,19 +191,22 @@ src/
 │   │   └── use-window-drag.ts    # Tauri window drag/maximize handlers
 │   └── types/                    # GENERATED by ts-rs — do not hand-edit
 ├── features/
-│   ├── recording/        # Record page + StatusPill + AudioPlayer + RecordingRow
-│   ├── library/          # Library list + filters + stats strip
-│   ├── editor/           # Per-recording editor: transcript + audio + agents + participants
-│   ├── ai/               # Cross-recording agent-runs page (slated for Inbox redesign — #016)
-│   ├── tasks/            # Kanban with @dnd-kit + inline composer + edit dialog
-│   ├── memory/           # /memory page: cards by kind, search, pin/archive, edit dialog
-│   └── settings/         # Modal route + 5 section components (general/audio/transcription/ai/storage)
-├── chrome/               # window chrome
-│   ├── sidebar.tsx
-│   ├── drag-strip.tsx
-│   ├── job-strip.tsx
+│   ├── recording/             # Record page + StatusPill + AudioPlayer + RecordingRow + voice-debrief
+│   ├── library/               # Library list + filters + stats strip + quick-look sheet
+│   ├── editor/                # Per-recording editor: transcript + audio + agents + briefing-card
+│   ├── inbox/                 # /inbox — today's open actions + run-cards (GET-50)
+│   ├── tasks/                 # Kanban with @dnd-kit + inline composer + edit dialog
+│   ├── memory/                # /memory cards by kind, search, pin/archive
+│   ├── captions/              # borderless caption window (GET-86 captions)
+│   ├── onboarding/            # one-screen first-run conductor (GET-24)
+│   ├── preferences-window/    # /preferences-window route for the Cmd-, NSWindow (GET-86)
+│   └── settings/              # in-app modal route (legacy; staged for removal via R10/GET-116)
+├── chrome/                    # window chrome
+│   ├── sidebar.tsx / drag-strip.tsx / job-strip.tsx
+│   ├── cheatsheet-overlay.tsx / command-palette.tsx (GET-26)
+│   ├── deep-link-handler.tsx / global-shortcuts.tsx (GET-32)
 │   ├── cloud-cost-confirm-dialog.tsx
-│   └── home-redirect.tsx # `/` → /library when recordings exist
+│   └── home-redirect.tsx      # `/` → /library when recordings exist
 └── styles/
     └── globals.css       # Tailwind layers + CSS-variable theme tokens + prefers-reduced-motion
 ```
