@@ -1,0 +1,13 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "captions",
+  "description": "Captions window — read-only caption renderer. Per docs/CODE_STYLE.md §8.4 (minimum-per-class), this window holds neither fs:* nor opener:* grants. It receives caption text from the main window via emit/listen events and renders.",
+  "windows": ["captions"],
+  "permissions": [
+    "core:default",
+    "core:window:default",
+    "core:window:allow-start-dragging",
+    "core:window:allow-set-title",
+    "core:window:allow-close"
+  ]
+}
