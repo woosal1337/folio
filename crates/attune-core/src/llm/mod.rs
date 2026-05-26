@@ -13,6 +13,7 @@
 //! Anthropic and DeepSeek arrive in phase 2 and share the same trait.
 
 pub mod agent_run;
+pub mod agent_toml;
 pub mod agents;
 pub mod confidence;
 pub mod keystore;
