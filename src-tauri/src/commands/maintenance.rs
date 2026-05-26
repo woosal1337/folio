@@ -39,9 +39,14 @@ const TRANSCRIPT_FILENAME: &str = "transcript.json";
 /// Audio files (`mic.wav`, `system.wav`) are intentionally left
 /// alone. This command never touches the source recording.
 #[tauri::command]
-pub async fn clear_recording_artifacts(session_dir: PathBuf) -> Result<(), String> {
-    let dir = session_dir.clone();
+pub async fn clear_recording_artifacts(
+    state: State<'_, AppState>,
+    session_dir: PathBuf,
+) -> Result<(), String> {
+    let output_dir = state.settings.lock().output_dir.clone();
     tauri::async_runtime::spawn_blocking(move || -> Result<(), String> {
+        let dir = attune_core::paths::canonicalize_under(&output_dir, &session_dir)
+            .map_err(|e| e.to_string())?;
         for filename in [TRANSCRIPT_FILENAME, "transcript.json.zst"] {
             let transcript_path = dir.join(filename);
             match std::fs::remove_file(&transcript_path) {
