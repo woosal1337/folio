@@ -55,7 +55,7 @@ uuid = { version = "1.10", features = ["v4", "v7", "serde"] }
 # `sqlite3_vec_init` can be registered at connection time.
 rusqlite = { version = "0.32", features = ["bundled", "load_extension"] }
 sqlite-vec = "0.1"
-zerocopy = { version = "0.7", features = ["derive"] }
+zerocopy = { version = "0.8", features = ["derive"] }
 
 # zstd compression for on-disk transcripts (v2 finding 066). The
 # `zstd-safe` API is unstable; pin a recent stable release.
