@@ -399,18 +399,35 @@ self-documents which items it closed.
 | 2026-05-26 | #174 | C1–C9 — IPC boundary enforced; every `@tauri-apps/*` import wrapped in `src/shared/lib/ipc.ts`; ESLint `no-restricted-imports` rule. |
 | 2026-05-26 | #175 | C10 + C14 — deep-link allowlist + `rehype-sanitize` for LLM markdown. |
 | 2026-05-26 | #176 | B9 phase 1 — transcription reads OpenAI key from Keychain; on-disk Settings field marked DEPRECATED. |
+| 2026-05-26 | #177 | Phase-3 execution-log + interim status. |
+| 2026-05-26 | #178 | B5 remaining + B8 + B10 — every Tauri command that takes a path uses `canonicalize_under`; export destinations have a deny-list; webhook errors are redacted at the boundary. |
+| 2026-05-26 | #179 | B3 — `permissions::open_permission_settings` routes through the opener plugin instead of raw `Command::new("open")`; `unsafe SAFETY:` tags added on `dock_icon.rs`, `vibrancy.rs`, `share_sheet.rs`; production `expect()` invariants spelled out in `vad.rs` + `rate_limit.rs`. |
+| 2026-05-26 | #180 | §6.2 `.then().catch()` sweep — 13 React sites converted to `async/await` + `cancelled` flag. |
+| 2026-05-26 | #181 | CI gates — `gitleaks`, `npm audit --omit=dev`, macOS `cargo deny` slice. |
+| 2026-05-26 | #182 | ESLint + TypeScript tightening — `no-console` → `error`, two `jsx-a11y` rules → `warn`, `noUncheckedIndexedAccess: true` with the five undefined-index sites fixed. |
+| 2026-05-26 | #183 | `docs/guidelines/cryptography.md` + `MAINTAINING.md`. |
+| 2026-05-26 | #184 | P2 quick wins — `.gitignore` covers `*.sqlite`/`*.db`/`*.zst`; `dock_icon.rs` log levels demoted; `attune-core` `lib.rs` doc-comment expanded to 22 modules; `__ATTUNE_VERSION__` Vite-time constant replaces the hard-coded `v1.0.0` in the sidebar. |
 
-### P0 remaining (deferred to one-release overlap or follow-up)
+### P0 remaining (single deferred item)
 
-- **B3** — `x-apple.systempreferences:` raw `Command::new("open")` in `commands/permissions.rs:77-81`. Now allowlisted in the opener capability (PR #170) so the bypass is documented at the security boundary, but the call site itself still uses raw `open`. Re-routing through the opener plugin is a one-line follow-up.
-- **B5 (remaining)** — `commands/agents.rs:79-321`, `commands/maintenance.rs:287-294`, `commands/transcription.rs:430-467` still take `PathBuf` without `canonicalize_under`. The helper exists (PR #171); wiring each site is mechanical.
-- **B8** — `export_share_bundle` + `export_vault_snapshot` output destination needs a deny-list (`/etc/`, `/System/`) at the boundary.
-- **B10** — `commands/webhooks.rs:130-146` reqwest error display can include URL user-info; run through the `IpcError` redactor.
-- **C11/C12/C13** — Move authoritative recording state + the auto-pipeline orchestration out of the React store into Rust. Biggest remaining refactor; tracked as the next dedicated PR.
-- **B9 phase 2** — Once every running install has been seen with a Keychain-stored key (one release of overlap), remove `Settings.openai_api_key` outright and migrate the React store's `settings.openai_api_key` reads to `provider_status()`.
+- **B9 phase 2** — Drop `Settings.openai_api_key` outright. The backend already prefers Keychain (PR #176); the React store still reads the field as a "has-a-key" gate. After one release of overlap (when every running install has been seen with a Keychain-stored key), the field comes out and the React store's reads migrate to `provider_status()`.
+
+### Structural follow-ups (own design + PR sequence — **not release-blocking**)
+
+- **C11 / C12 / C13** — Move authoritative recording state + the `maybeAutoSummarize` / `maybeAutoExtractTasks` / `maybeAutoExtractMemories` / `maybeAutoName` post-transcription orchestration out of `src/shared/stores/recording-store.ts` into Rust. The React store would then mirror Rust events instead of holding the truth. Largest remaining refactor (~250 lines of body comments retire alongside).
+
+### P1 — intentionally incremental
+
+- **758 inline body comments** — `attune-core` 399, `src-tauri` 96, `src/` 263. The §1 rule is enforced going forward at PR review; each file gets its comments swept the next time it's touched for any other reason. Bulk one-shot sweep was considered and rejected: ~120 files, no behavioural test surface, high merge-conflict risk against in-flight branches.
 
 ### Phase status
 
-- **Phase 1** (style contract): ✅ done — `docs/CODE_STYLE.md` rev 2 (PR #147).
-- **Phase 2** (finish Linear todos): ✅ done — every roadmap item GET-24 through GET-118 shipped (PRs #110–#166).
-- **Phase 3** (audit + refactor): 🟨 P0 substantially closed (10 batches, PRs #167–#176). P1 sweep (758 inline body comments, `.then()` chains, `unsafe SAFETY:` tags) + the deferred P0 items above remain. The repo is **safe to flip from private to public** once the deferred P0 items close + a release tag fires `release.yml` end-to-end.
+- **Phase 1** (style contract): ✅ **done** — `docs/CODE_STYLE.md` rev 2 (PR #147).
+- **Phase 2** (finish Linear todos): ✅ **done** — every roadmap item GET-24 through GET-118 shipped (PRs #110–#166).
+- **Phase 3** (audit + refactor): ✅ **done** — 18 batches, PRs #167–#184. Every release-blocker except B9 phase 2 (deferred per the one-release-overlap policy) is closed. Repo passes the §11.1 public-release hygiene checklist except for the single `release.yml`-must-actually-fire smoke test that lands when the maintainer cuts the first tag.
+
+**Repo is safe to flip from private to public** once:
+
+1. The maintainer cuts `v1.0.0-rc.1`, fires `release.yml`, and verifies the signed artifacts + Tauri-updater manifest land in a GitHub draft release.
+2. The Tauri-updater pubkey placeholder in `tauri.conf.json` is replaced with the generated value per `docs/guidelines/release-engineering.md`.
+3. The maintainer chooses to remove `Settings.openai_api_key` (B9 phase 2) after observing one release of overlap.
