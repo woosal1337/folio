@@ -30,6 +30,7 @@ pub mod import;
 pub mod live_notes;
 pub mod llm;
 pub mod mcp_client;
+pub mod mcp_server;
 pub mod memory;
 pub mod onboarding;
 pub mod permissions;
