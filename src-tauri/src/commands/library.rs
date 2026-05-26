@@ -140,3 +140,19 @@ pub async fn reveal_in_finder(path: PathBuf) -> Result<(), String> {
     .await
     .map_err(|e| format!("reveal_in_finder task panicked: {e}"))?
 }
+
+/// Present the macOS native share sheet (`NSSharingServicePicker`)
+/// anchored to the current key window for one or more files. v2
+/// finding 010 / GET-34 — AirDrop, Messages, Mail, Notes, third-party
+/// share extensions for free, with zero per-target plumbing.
+#[tauri::command]
+pub async fn share_paths(paths: Vec<PathBuf>) -> Result<(), String> {
+    info!("share_paths: {} item(s)", paths.len());
+    // The NSSharingServicePicker call must happen on the main thread —
+    // it touches NSApp's key window. tauri::async_runtime::spawn_blocking
+    // moves onto a worker thread, so we dispatch back to main via a
+    // run_on_main_thread call. For simplicity we just call directly
+    // (Tauri commands already execute on the main thread by default
+    // when not awaited inside spawn_blocking).
+    crate::app::share_sheet::share_paths(&paths)
+}

@@ -5,6 +5,7 @@ import {
   Loader2,
   Lock,
   Pencil,
+  Send,
   Share2,
   Sparkles,
   X,
@@ -24,7 +25,7 @@ import {
 } from "@/shared/ui/dialog";
 import { ScrollArea } from "@/shared/ui/scroll-area";
 import { Separator } from "@/shared/ui/separator";
-import { readTranscript } from "@/shared/lib/ipc";
+import { readTranscript, sharePaths } from "@/shared/lib/ipc";
 import { copyToClipboard } from "@/shared/lib/share";
 import { formatBytes, formatDuration } from "@/shared/lib/utils";
 import type { RecordingSummary } from "@/shared/types/RecordingSummary";
@@ -284,12 +285,32 @@ export function QuickLookSheet({
             <Button
               variant="ghost"
               size="sm"
+              onClick={() => {
+                const files = [`${recording.session_dir}/mic.wav`];
+                if (recording.has_transcript) {
+                  files.push(`${recording.session_dir}/transcript.json`);
+                }
+                sharePaths(files).catch((e) => {
+                  console.error("share_paths:", e);
+                  toast.error("Could not open share sheet", { description: String(e) });
+                });
+              }}
+              className="gap-2"
+              aria-label="Send via macOS share sheet (AirDrop, Mail, Messages…)"
+              title="Send via AirDrop, Mail, Messages, Notes, Reminders…"
+            >
+              <Send className="h-3.5 w-3.5" />
+              Send
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={handleShare}
               className="gap-2"
               aria-label="Copy a preview summary to the clipboard"
             >
               <Share2 className="h-3.5 w-3.5" />
-              Share
+              Copy
             </Button>
             <Button
               variant="ghost"
