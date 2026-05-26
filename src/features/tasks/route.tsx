@@ -628,4 +628,3 @@ function EditTaskDialog({ task, onClose, onSave }: EditTaskDialogProps) {
     </Dialog>
   );
 }
-
