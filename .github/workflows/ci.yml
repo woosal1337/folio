@@ -40,7 +40,20 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: cargo build --workspace --all-targets
-      - run: cargo test --workspace --lib --bins
+      - run: cargo test --workspace --all-targets
+      - name: ts-rs generated types are in sync
+        run: |
+          git diff --exit-code src/shared/types/ \
+            || (echo "::error::ts-rs regeneration produced a non-zero diff. Run 'cargo test --workspace' locally and commit src/shared/types/." && exit 1)
+
+  rust-audit:
+    name: cargo audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: rustsec/audit-check@v1.4.1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
   rust-deny:
     name: cargo deny

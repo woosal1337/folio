@@ -60,6 +60,12 @@
       "desktop": {
         "schemes": ["attune"]
       }
+    },
+    "updater": {
+      "active": true,
+      "endpoints": ["https://attune.app/releases/latest.json"],
+      "dialog": true,
+      "pubkey": "REPLACE_AT_RELEASE_TIME_WITH_GENERATED_PUBLIC_KEY"
     }
   }
 }

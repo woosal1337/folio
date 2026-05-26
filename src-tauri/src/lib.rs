@@ -24,6 +24,7 @@ pub fn run() {
         // `deep-link://new-url` event for every received URL or file
         // path the OS forwards to the running app.
         .plugin(tauri_plugin_deep_link::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(AppState::new_default())
         .setup(|app| {
             // Dev builds launch as raw binaries without a .app bundle, so
