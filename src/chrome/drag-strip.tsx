@@ -1,9 +1,8 @@
 import * as React from "react";
-import { getCurrentWindow } from "@tauri-apps/api/window";
-import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { ShieldCheck } from "lucide-react";
 
 import { cn } from "@/shared/lib/utils";
+import { onPrivacyModeChanged, startWindowDrag, toggleWindowMaximize } from "@/shared/lib/ipc";
 import { useSettingsStore } from "@/shared/stores/settings-store";
 
 /** A full-width drag handle that lives at the top of the window. macOS
@@ -23,9 +22,9 @@ export function DragStrip({ className }: { className?: string }) {
         return;
       }
       try {
-        await getCurrentWindow().startDragging();
+        await startWindowDrag();
       } catch (err) {
-        console.error("startDragging:", err);
+        console.error("startWindowDrag:", err);
       }
     },
     []
@@ -33,12 +32,9 @@ export function DragStrip({ className }: { className?: string }) {
 
   const handleDoubleClick = React.useCallback(async () => {
     try {
-      const win = getCurrentWindow();
-      const maximized = await win.isMaximized();
-      if (maximized) await win.unmaximize();
-      else await win.maximize();
+      await toggleWindowMaximize();
     } catch (err) {
-      console.error("toggle maximize:", err);
+      console.error("toggleWindowMaximize:", err);
     }
   }, []);
 
@@ -49,13 +45,15 @@ export function DragStrip({ className }: { className?: string }) {
   const privacyMode = useSettingsStore((s) => s.settings?.privacy_mode ?? false);
   const [eventMode, setEventMode] = React.useState<boolean | null>(null);
   React.useEffect(() => {
-    let off: UnlistenFn | undefined;
-    listen<boolean>("privacy-mode-changed", (ev) => {
-      setEventMode(ev.payload);
-    }).then((unlisten) => {
-      off = unlisten;
-    });
+    let off: (() => void) | undefined;
+    let cancelled = false;
+    (async () => {
+      const unlisten = await onPrivacyModeChanged((enabled) => setEventMode(enabled));
+      if (cancelled) unlisten();
+      else off = unlisten;
+    })();
     return () => {
+      cancelled = true;
       off?.();
     };
   }, []);

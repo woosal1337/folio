@@ -5,6 +5,10 @@ vi.mock("@/shared/lib/ipc", () => ({
   recordingStatus: vi.fn(),
   startRecording: vi.fn(),
   stopRecording: vi.fn(),
+  setTrayRecording: vi.fn(),
+  getRecording: vi.fn(),
+  runAgent: vi.fn(),
+  transcribeRecording: vi.fn(),
 }));
 
 import { recordingStatus, startRecording, stopRecording } from "@/shared/lib/ipc";

@@ -1,5 +1,5 @@
 import * as React from "react";
-import { onOpenUrl, getCurrent } from "@tauri-apps/plugin-deep-link";
+import { getInitialDeepLink, onDeepLink } from "@/shared/lib/ipc";
 import { toast } from "sonner";
 
 /**
@@ -30,7 +30,7 @@ export function DeepLinkHandler() {
 
     (async () => {
       try {
-        const initial = await getCurrent();
+        const initial = await getInitialDeepLink();
         if (initial && initial.length > 0) {
           handle(initial);
         }
@@ -39,7 +39,7 @@ export function DeepLinkHandler() {
       }
 
       try {
-        const off = await onOpenUrl((urls) => handle(urls));
+        const off = await onDeepLink((urls) => handle(urls));
         unlisten = off;
       } catch (e) {
         console.warn("deep-link onOpenUrl subscribe failed:", e);

@@ -1,5 +1,6 @@
 import * as React from "react";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+
+import { startWindowDrag, toggleWindowMaximize } from "@/shared/lib/ipc";
 
 /** A root-level `onMouseDown` handler that turns any element marked with
  *  `data-drag` into a window drag handle. Interactive elements inside a
@@ -32,9 +33,9 @@ export function useWindowDrag() {
 
     e.preventDefault();
     try {
-      await getCurrentWindow().startDragging();
+      await startWindowDrag();
     } catch (err) {
-      console.error("startDragging failed:", err);
+      console.error("startWindowDrag failed:", err);
     }
   }, []);
 }
@@ -55,12 +56,9 @@ export function useWindowDoubleClick() {
       return;
     }
     try {
-      const win = getCurrentWindow();
-      const maximized = await win.isMaximized();
-      if (maximized) await win.unmaximize();
-      else await win.maximize();
+      await toggleWindowMaximize();
     } catch (err) {
-      console.error("toggle maximize failed:", err);
+      console.error("toggleWindowMaximize failed:", err);
     }
   }, []);
 }

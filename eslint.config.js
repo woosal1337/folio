@@ -115,6 +115,26 @@ export default [
       "prefer-const": "error",
       "no-var": "error",
       "object-shorthand": ["error", "always"],
+
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["@tauri-apps/api/*", "@tauri-apps/plugin-*"],
+              message:
+                "Import Tauri primitives only from '@/shared/lib/ipc'. The IPC boundary lives there per docs/CODE_STYLE.md §9.4.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+
+  {
+    files: ["src/shared/lib/ipc.ts", "src/**/*.test.ts", "src/**/*.test.tsx"],
+    rules: {
+      "no-restricted-imports": "off",
     },
   },
 ];

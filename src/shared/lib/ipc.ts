@@ -15,7 +15,16 @@
  * inside the result type.
  */
 
-import { invoke, type InvokeArgs } from "@tauri-apps/api/core";
+import { convertFileSrc, invoke, type InvokeArgs } from "@tauri-apps/api/core";
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import { save as platformShowSaveDialog, type SaveDialogOptions } from "@tauri-apps/plugin-dialog";
+import { writeTextFile } from "@tauri-apps/plugin-fs";
+import { openUrl as platformOpenUrl } from "@tauri-apps/plugin-opener";
+import {
+  getCurrent as platformGetInitialDeepLink,
+  onOpenUrl as platformOnDeepLink,
+} from "@tauri-apps/plugin-deep-link";
 
 import type { Agent } from "@/shared/types/Agent";
 import type { AgentRun } from "@/shared/types/AgentRun";
@@ -457,4 +466,74 @@ export function locateTranscriptSpan(
   span: string
 ): Promise<TranscriptHit | null> {
   return call<TranscriptHit | null>("locate_transcript_span", { sessionDir, span });
+}
+
+/**
+ * Centralised wrappers around every `@tauri-apps/*` direct import.
+ * `docs/CODE_STYLE.md` §9.4 requires that **only this file** imports
+ * `@tauri-apps/api/*` or `@tauri-apps/plugin-*`. Components consume
+ * these typed wrappers; an ESLint `no-restricted-imports` rule
+ * enforces the boundary.
+ */
+
+export const PRIVACY_MODE_CHANGED_EVENT = "privacy-mode-changed";
+
+export function assetUrl(path: string): string {
+  return convertFileSrc(path);
+}
+
+export async function startWindowDrag(): Promise<void> {
+  await getCurrentWindow().startDragging();
+}
+
+export async function isWindowMaximized(): Promise<boolean> {
+  return getCurrentWindow().isMaximized();
+}
+
+export async function toggleWindowMaximize(): Promise<void> {
+  const win = getCurrentWindow();
+  const maximized = await win.isMaximized();
+  if (maximized) await win.unmaximize();
+  else await win.maximize();
+}
+
+export async function onPrivacyModeChanged(
+  handler: (enabled: boolean) => void
+): Promise<UnlistenFn> {
+  return listen<boolean>(PRIVACY_MODE_CHANGED_EVENT, (event) => handler(event.payload));
+}
+
+export async function onWhisperDownloadProgress<T = WhisperDownloadProgress>(
+  handler: (payload: T) => void
+): Promise<UnlistenFn> {
+  return listen<T>(WHISPER_DOWNLOAD_PROGRESS_EVENT, (event) => handler(event.payload));
+}
+
+export async function onDeepLink(handler: (urls: string[]) => void): Promise<UnlistenFn> {
+  return platformOnDeepLink(handler);
+}
+
+export async function getInitialDeepLink(): Promise<string[] | null> {
+  return platformGetInitialDeepLink();
+}
+
+export async function openExternalUrl(url: string): Promise<void> {
+  await platformOpenUrl(url);
+}
+
+export async function showSaveDialog(options: SaveDialogOptions): Promise<string | null> {
+  return platformShowSaveDialog(options);
+}
+
+/**
+ * Write a UTF-8 text file to `path`. NOTE: §9.1 says the React layer
+ * "MUST NOT perform direct filesystem access via the browser" — this
+ * wrapper exists so the single remaining call site (transcript export
+ * after a user-picked save dialog) stays on the typed surface, and so
+ * the ESLint boundary rule can flag any new direct fs callers. Folding
+ * this through a Tauri command is tracked under
+ * `docs/refactor/PHASE-3-PUNCH-LIST.md` (C8 follow-up).
+ */
+export async function writeTextFileFromBrowser(path: string, contents: string): Promise<void> {
+  await writeTextFile(path, contents);
 }

@@ -1,6 +1,6 @@
 import * as React from "react";
 import { Crown, ExternalLink } from "lucide-react";
-import { openUrl } from "@tauri-apps/plugin-opener";
+import { openExternalUrl } from "@/shared/lib/ipc";
 
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
@@ -54,7 +54,7 @@ export function SectionPro({ settings, onChange }: Props) {
   const handleBuy = async () => {
     const url = `https://attune.app/buy?price=${price}`;
     try {
-      await openUrl(url);
+      await openExternalUrl(url);
     } catch (e) {
       console.error("openUrl:", e);
       window.open(url, "_blank");

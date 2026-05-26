@@ -9,7 +9,7 @@
  * `<memory_dir>`. v2 roadmap finding 069.
  */
 
-import { openUrl } from "@tauri-apps/plugin-opener";
+import { openExternalUrl } from "@/shared/lib/ipc";
 import { toast } from "sonner";
 
 import type { Memory } from "@/shared/types/Memory";
@@ -29,7 +29,7 @@ export async function openInObsidian(
     return;
   }
   try {
-    await openUrl(obsidianHref(absolutePath));
+    await openExternalUrl(obsidianHref(absolutePath));
   } catch (e) {
     console.error("openInObsidian:", e);
     toast.error("Could not open in Obsidian", { description: String(e) });
