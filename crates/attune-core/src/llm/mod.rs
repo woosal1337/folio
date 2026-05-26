@@ -22,6 +22,7 @@ pub mod providers;
 pub mod rate_limit;
 pub mod router;
 pub mod run_card;
+pub mod templates;
 pub mod types;
 
 pub use agent_run::{AgentRun, AgentRunStore};
