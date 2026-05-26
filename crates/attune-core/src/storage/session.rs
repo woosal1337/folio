@@ -99,7 +99,8 @@ pub fn scan_recordings(output_dir: &Path) -> Vec<RecordingSummary> {
                 let dt: DateTime<Local> = t.into();
                 dt.with_timezone(&Utc)
             });
-        let has_transcript = path.join(TRANSCRIPT_FILENAME).is_file();
+        let has_transcript = path.join(TRANSCRIPT_FILENAME).is_file()
+            || path.join(format!("{TRANSCRIPT_FILENAME}.zst")).is_file();
         let autoname = read_autoname_run(&path);
         let language_override = read_language_override(&path);
         out.push(RecordingSummary {
@@ -396,5 +397,37 @@ mod tests {
         assert!(result[0].suggested_title.is_none());
         assert!(result[0].suggested_subtitle.is_none());
         assert!(result[0].suggested_tags.is_empty());
+    }
+
+    /// Regression for the post-#066 (zstd) bug: after the transcript
+    /// writer switched to `transcript.json.zst` (and removed the
+    /// legacy `transcript.json`), the library row stayed in "needs
+    /// transcription" because `scan_recordings` only looked at the
+    /// uncompressed filename.
+    #[test]
+    fn has_transcript_detects_zstd_compressed_files() {
+        let dir = TempDir::new().unwrap();
+        let session = dir.path().join("2026-05-25-zstd");
+        std::fs::create_dir(&session).unwrap();
+        write_minimal_wav(&session.join("mic.wav"));
+        std::fs::write(session.join("transcript.json.zst"), b"FAKE").unwrap();
+        let result = scan_recordings(dir.path());
+        assert_eq!(result.len(), 1);
+        assert!(
+            result[0].has_transcript,
+            "transcript.json.zst should count as a transcript"
+        );
+    }
+
+    #[test]
+    fn has_transcript_still_detects_legacy_uncompressed_files() {
+        let dir = TempDir::new().unwrap();
+        let session = dir.path().join("2026-05-25-legacy");
+        std::fs::create_dir(&session).unwrap();
+        write_minimal_wav(&session.join("mic.wav"));
+        std::fs::write(session.join("transcript.json"), b"{}").unwrap();
+        let result = scan_recordings(dir.path());
+        assert_eq!(result.len(), 1);
+        assert!(result[0].has_transcript);
     }
 }
