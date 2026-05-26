@@ -2,6 +2,28 @@
 
 All notable changes to Attune will be documented in this file. Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [SemVer](https://semver.org).
 
+## [1.0.0] — Unreleased
+
+Public-readiness sweep. Version matches `Cargo.toml`, `package.json`, and `tauri.conf.json`. The bullet list under `[Unreleased]` below is the in-development changelog for this release; landing PRs append there until the public flip.
+
+### Added
+
+- `docs/CODE_STYLE.md` rev 2 — folded in the eight-document architecture research pass; now the authoritative style contract.
+- `docs/refactor/PHASE-3-PUNCH-LIST.md` — four-agent audit punch list driving the public-release sweep.
+- `NOTICE` — third-party license attributions.
+- ~50 v2-roadmap MVP modules across `attune-core` and `src-tauri` shipped under GET-24 through GET-118.
+
+### Changed
+
+- README describes local Whisper as the default backend (the OpenAI Whisper API is the fallback); previously claimed local "lands in v1".
+- `attune-core::audio::wav_writer` uses `parking_lot::Mutex` instead of `std::sync::Mutex` (`docs/CODE_STYLE.md` §6.1).
+- `attune-core::memory::watcher` reindex channel is bounded (capacity 256) instead of unbounded.
+- `attune-core::audio::devices` uses `tracing::warn!` instead of `eprintln!`.
+
+### Security
+
+- Capability split per window class, strict CSP, narrowed asset-protocol scope, OpenAI key moved from on-disk `Settings` to the macOS Keychain. Full P0 list in `docs/refactor/PHASE-3-PUNCH-LIST.md` §2.
+
 ## [Unreleased]
 
 ### Added

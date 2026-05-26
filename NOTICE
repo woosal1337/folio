@@ -1,0 +1,109 @@
+Attune
+Copyright (c) 2026 Ege Çelebi
+
+Licensed under the MIT License (see LICENSE).
+
+This product bundles or links against the following third-party software.
+The full text of each license is available from each project's repository
+or `cargo deny check` / `cargo about generate licenses`.
+
+Rust dependencies (bundled at compile time)
+-------------------------------------------
+
+- whisper-rs (MIT) — Rust bindings to whisper.cpp.
+  https://github.com/tazz4843/whisper-rs
+- whisper.cpp (MIT) — local Whisper inference; pulled in by whisper-rs.
+  https://github.com/ggerganov/whisper.cpp
+- ggml (MIT) — tensor library powering whisper.cpp.
+  https://github.com/ggerganov/ggml
+- rusqlite (MIT) — SQLite Rust bindings.
+  https://github.com/rusqlite/rusqlite
+- sqlite-vec (Apache-2.0) — vector search extension for SQLite.
+  https://github.com/asg017/sqlite-vec
+- cpal (Apache-2.0 OR MIT) — cross-platform audio I/O.
+  https://github.com/RustAudio/cpal
+- hound (Apache-2.0) — WAV reader/writer.
+  https://github.com/ruuda/hound
+- rubato (MIT) — polyphase resampling.
+  https://github.com/HEnquist/rubato
+- screencapturekit (MIT) — macOS ScreenCaptureKit bindings.
+  https://github.com/svtlabs/screencapturekit-rs
+- core-audio-types-rs (MIT OR Apache-2.0) — macOS Core Audio FFI.
+- objc (MIT) — Objective-C runtime FFI.
+  https://github.com/SSheldon/rust-objc
+- cocoa (MIT OR Apache-2.0) — macOS Cocoa bindings.
+  https://github.com/servo/core-foundation-rs
+- tauri 2.x (Apache-2.0 OR MIT) — application framework.
+  https://github.com/tauri-apps/tauri
+- tokio (MIT) — async runtime.
+  https://github.com/tokio-rs/tokio
+- reqwest (Apache-2.0 OR MIT) — HTTP client.
+  https://github.com/seanmonstar/reqwest
+- ring (LicenseRef-ring) — cryptographic primitives (used transitively).
+  Custom license; see the ring repository.
+- rustls (Apache-2.0 OR ISC OR MIT) — pure-Rust TLS.
+  https://github.com/rustls/rustls
+- aes-gcm (Apache-2.0 OR MIT) — authenticated encryption.
+  https://github.com/RustCrypto/AEADs
+- argon2 (Apache-2.0 OR MIT) — password hashing.
+  https://github.com/RustCrypto/password-hashes
+- sha2 (Apache-2.0 OR MIT) — SHA-2 hashes.
+- hmac (Apache-2.0 OR MIT) — HMAC.
+- chrono (Apache-2.0 OR MIT) — date and time.
+- serde / serde_json / serde_norway / toml (Apache-2.0 OR MIT) — serialization.
+- ts-rs (MIT) — TypeScript binding generation from Rust types.
+- thiserror (Apache-2.0 OR MIT) — derive-based error types.
+- anyhow (Apache-2.0 OR MIT) — application-level error handling.
+- tracing / tracing-subscriber (MIT) — structured logging.
+- uuid (Apache-2.0 OR MIT) — UUID generation.
+- parking_lot (Apache-2.0 OR MIT) — non-poisoning Mutex.
+- crossbeam-channel / crossbeam-queue (Apache-2.0 OR MIT) — lock-free channels.
+- zstd (Apache-2.0 OR MIT) — Zstandard compression (transcript storage).
+- zip (Apache-2.0 OR MIT) — share-bundle archives.
+- urlencoding (MIT) — URL component encoding.
+- keyring (Apache-2.0 OR MIT) — OS keychain access (Keychain on macOS).
+
+The full transitive license set is verified in CI by `cargo deny check`
+against the allow-list in `deny.toml`.
+
+JavaScript / TypeScript dependencies (bundled at build time)
+------------------------------------------------------------
+
+- React (MIT) — UI library. https://react.dev
+- React Router (MIT) — routing.
+- Vite (MIT) — bundler. https://vitejs.dev
+- TypeScript (Apache-2.0) — language and compiler.
+- Tailwind CSS (MIT) — utility-first CSS.
+- Radix UI primitives (MIT) — accessible UI primitives.
+- TanStack Virtual (MIT) — list virtualisation.
+- Tiptap (MIT) — rich-text editor.
+- react-markdown / remark-gfm / rehype-* (MIT) — Markdown rendering.
+- lucide-react (ISC) — icon set.
+- sonner (MIT) — toast notifications.
+- zustand (MIT) — state stores.
+- date-fns (MIT) — date utilities.
+- @fontsource/inter / fraunces / spectral / jetbrains-mono /
+  atkinson-hyperlegible / opendyslexic (OFL-1.1 each) — bundled fonts.
+- prettier / eslint / vitest / @testing-library/* (MIT) — dev tooling only.
+
+Fonts
+-----
+
+The bundled font families are licensed under the SIL Open Font License v1.1.
+See each font's `LICENSE` inside its `@fontsource/<name>` package.
+
+Apple platform frameworks
+-------------------------
+
+Attune calls into Apple's AVFoundation, AudioToolbox, ScreenCaptureKit,
+EventKit, AppKit, Cocoa, and CoreFoundation frameworks via FFI. Those
+frameworks are part of macOS and are not redistributed; their license is
+the Apple SDK License Agreement.
+
+Reporting an attribution miss
+-----------------------------
+
+If you ship Attune source or binaries and notice an attribution gap, file
+an issue at https://github.com/woosal1337/attune/issues with the
+dependency name and license text. We update this file alongside the
+dependency change.
