@@ -8,6 +8,8 @@ import { JobStrip } from "@/chrome/job-strip";
 import { CloudCostConfirmDialog } from "@/chrome/cloud-cost-confirm-dialog";
 import { DeepLinkHandler } from "@/chrome/deep-link-handler";
 import { HomeRedirect } from "@/chrome/home-redirect";
+import { GlobalShortcuts } from "@/chrome/global-shortcuts";
+import { CheatsheetOverlay } from "@/chrome/cheatsheet-overlay";
 // Route components are React.lazy-loaded so the Record page (the
 // dock-click landing) stays inside the cold-start budget: 400ms on
 // M1, 800ms on Intel per v2 finding 058. Editor, Tasks, AI, Memory,
@@ -40,6 +42,7 @@ export default function App() {
   const settingsOpen = useSettingsUiStore((s) => s.open);
   const setSettingsOpen = useSettingsUiStore((s) => s.setOpen);
   const openSettings = useSettingsUiStore((s) => s.openAt);
+  const [cheatsheetOpen, setCheatsheetOpen] = React.useState(false);
   const onMouseDown = useWindowDrag();
   const onDoubleClick = useWindowDoubleClick();
   const loadSettings = useSettingsStore((s) => s.load);
@@ -92,6 +95,11 @@ export default function App() {
           </React.Suspense>
           <CloudCostConfirmDialog />
           <DeepLinkHandler />
+          <GlobalShortcuts onOpenCheatsheet={() => setCheatsheetOpen(true)} />
+          <CheatsheetOverlay
+            open={cheatsheetOpen}
+            onClose={() => setCheatsheetOpen(false)}
+          />
         </div>
         <Toaster position="bottom-right" richColors closeButton />
       </HashRouter>
