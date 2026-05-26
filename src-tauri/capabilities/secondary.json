@@ -1,8 +1,8 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
-  "identifier": "default",
-  "description": "Capabilities granted ONLY to the main app window. Captions, preferences, editor, library, and record windows each carry their own capability file so the surface stays minimum-per-class per docs/CODE_STYLE.md §8.4. Removed in this revision: the recursive $HOME fs:* grants (writes funnel through canonicalised Tauri commands; raw filesystem access was unjustified) and the blanket https://* / http://* opener allow (replaced with an explicit per-host allowlist).",
-  "windows": ["main"],
+  "identifier": "secondary",
+  "description": "Secondary record/library/editor windows (Cmd-N / Cmd-Shift-L / row-double-click). Mirrors the main window's command surface so multi-window flows work, but the home-recursive fs grants are dropped — disk writes funnel through canonicalised Tauri commands.",
+  "windows": ["record-*", "library-standalone", "editor-*"],
   "permissions": [
     "core:default",
     "core:window:default",
