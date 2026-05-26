@@ -67,6 +67,22 @@
 
     /* Radius scale */
     --radius: 0.75rem;
+
+    /* Motion grammar (v2 finding 018 / GET-52). Codifies durations
+       and curves so 'transition-all 200ms ease' stops appearing in
+       new components. Use ms-* variables for durations and ease-*
+       variables for curves. iOS-style spring overshoot for popovers,
+       cinema-grade curve for modals, no-motion fallback below the
+       block honours prefers-reduced-motion. */
+    --motion-ms-fast: 120ms;
+    --motion-ms-snap: 200ms;
+    --motion-ms-modal: 350ms;
+    --motion-ms-deliberate: 480ms;
+    --motion-ease-standard: cubic-bezier(0.32, 0.72, 0, 1);
+    --motion-ease-emphasized: cubic-bezier(0.2, 0, 0, 1);
+    --motion-ease-decelerate: cubic-bezier(0, 0, 0.2, 1);
+    --motion-ease-accelerate: cubic-bezier(0.3, 0, 1, 1);
+    --motion-ease-overshoot: cubic-bezier(0.34, 1.56, 0.64, 1);
   }
 
   [data-theme="dark"] {
