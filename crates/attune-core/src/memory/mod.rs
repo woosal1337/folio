@@ -22,6 +22,7 @@
 //! integration test can drive it without spinning up an LLM.
 
 pub mod embed;
+pub mod embedding_cache;
 pub mod embedding_provider;
 pub mod git_commit;
 pub mod index;
