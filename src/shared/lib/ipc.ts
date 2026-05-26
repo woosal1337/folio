@@ -367,3 +367,14 @@ export function setRecordingLanguage(
 ): Promise<void> {
   return call<void>("set_recording_language", { sessionDir, language });
 }
+
+// ---- Native share sheet (v2 #010 / GET-34) -----------------------
+
+/**
+ * Present the macOS NSSharingServicePicker for one or more files.
+ * Anchors to the current key window. AirDrop, Messages, Mail, Notes,
+ * Reminders, third-party share extensions all come for free.
+ */
+export function sharePaths(paths: string[]): Promise<void> {
+  return call<void>("share_paths", { paths });
+}

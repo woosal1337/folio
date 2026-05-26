@@ -57,6 +57,7 @@ pub fn run() {
             commands::library::get_recording,
             commands::library::delete_recording,
             commands::library::reveal_in_finder,
+            commands::library::share_paths,
             commands::transcription::transcribe_recording,
             commands::transcription::read_transcript,
             commands::transcription::save_transcript,
