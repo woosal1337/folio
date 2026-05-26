@@ -65,7 +65,7 @@
       "active": true,
       "endpoints": ["https://attune.app/releases/latest.json"],
       "dialog": true,
-      "pubkey": "REPLACE_AT_RELEASE_TIME_WITH_GENERATED_PUBLIC_KEY"
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEYwQkM3OThBMEQwOEUyRUUKUldUdTRnZ05pbm04OEpKQ2F4M1BqQjQ1cGg2Q0o4bkFrVmZ3d1Y5WmIxaVk3em00UCtNYnd4dkYK"
     }
   }
 }
