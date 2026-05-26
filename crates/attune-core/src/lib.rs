@@ -26,6 +26,7 @@ pub mod evals;
 pub mod ffi;
 pub mod llm;
 pub mod memory;
+pub mod onboarding;
 pub mod permissions;
 pub mod qos;
 pub mod storage;
