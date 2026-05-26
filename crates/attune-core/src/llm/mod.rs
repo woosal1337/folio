@@ -23,6 +23,7 @@ pub mod providers;
 pub mod rate_limit;
 pub mod router;
 pub mod run_card;
+pub mod skills;
 pub mod templates;
 pub mod types;
 
