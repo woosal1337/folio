@@ -78,11 +78,18 @@ pub fn memory_path_for(p: &Path) -> Option<PathBuf> {
 /// Build a (sender, debouncer-runnable) pair. The caller spawns the
 /// runnable on a thread (or polls it directly in tests), and feeds
 /// events through the sender.
+/// Channel capacity for the reindex pipeline. Bounded per
+/// `docs/CODE_STYLE.md` §6.1 — unbounded channels hide backpressure
+/// problems. Sized to the rough burst of a `git pull` over an active
+/// vault (a couple of hundred files); senders that exceed this back-
+/// pressure naturally rather than growing without bound.
+pub const REINDEX_CHANNEL_CAPACITY: usize = 256;
+
 pub fn build<R: Reindexer>(
     debounce: Duration,
     reindexer: R,
 ) -> (Sender<ReindexEvent>, Debouncer<R>) {
-    let (tx, rx) = crossbeam_channel::unbounded();
+    let (tx, rx) = crossbeam_channel::bounded(REINDEX_CHANNEL_CAPACITY);
     let dbnc = Debouncer {
         rx,
         debounce,

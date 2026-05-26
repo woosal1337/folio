@@ -119,7 +119,7 @@ impl Transcriber for LocalWhisperTranscriber {
         // mapped in). We do it inside `transcribe` for v1 — fine for
         // one-shot use; a follow-up could cache the context across
         // requests behind a `OnceLock` keyed by model path.
-        let ctx = WhisperContext::new_with_params(
+        let whisper_context = WhisperContext::new_with_params(
             self.model_path
                 .to_str()
                 .ok_or_else(|| AttuneError::Transcription("non-UTF8 model path".into()))?,
@@ -127,7 +127,7 @@ impl Transcriber for LocalWhisperTranscriber {
         )
         .map_err(|e| AttuneError::Transcription(format!("could not load whisper model: {e}")))?;
 
-        let mut state = ctx
+        let mut whisper_state = whisper_context
             .create_state()
             .map_err(|e| AttuneError::Transcription(format!("whisper state init: {e}")))?;
 
@@ -223,23 +223,23 @@ impl Transcriber for LocalWhisperTranscriber {
         params.set_language(hint);
 
         info!("starting local whisper inference");
-        state
+        whisper_state
             .full(params, &pcm)
             .map_err(|e| AttuneError::Transcription(format!("whisper full(): {e}")))?;
 
-        let n = state
+        let n = whisper_state
             .full_n_segments()
             .map_err(|e| AttuneError::Transcription(format!("whisper segments: {e}")))?;
 
         let mut segments = Vec::with_capacity(n as usize);
         for i in 0..n {
-            let text = state
+            let text = whisper_state
                 .full_get_segment_text(i)
                 .map_err(|e| AttuneError::Transcription(format!("segment text: {e}")))?;
-            let t0 = state
+            let t0 = whisper_state
                 .full_get_segment_t0(i)
                 .map_err(|e| AttuneError::Transcription(format!("segment t0: {e}")))?;
-            let t1 = state
+            let t1 = whisper_state
                 .full_get_segment_t1(i)
                 .map_err(|e| AttuneError::Transcription(format!("segment t1: {e}")))?;
             segments.push(TranscriptSegment {
@@ -273,7 +273,7 @@ impl Transcriber for LocalWhisperTranscriber {
         // Whisper exposes the detected language as an integer id into
         // its internal table. Log it so we can debug when transcripts
         // come back in the wrong language.
-        let detected_lang_id = state.full_lang_id_from_state().ok();
+        let detected_lang_id = whisper_state.full_lang_id_from_state().ok();
         info!(
             segments = segments.len(),
             dropped_hallucinations = dropped_hallucinations.len(),

@@ -4,19 +4,20 @@
 //! written incrementally during capture and finalized atomically on close.
 
 use std::path::Path;
-use std::sync::Mutex;
 
 use hound::{SampleFormat, WavSpec, WavWriter};
+use parking_lot::Mutex;
 
-use crate::error::{AttuneError, Result};
+use crate::error::Result;
 
 /// Thread-safe wrapper around `hound::WavWriter`. Capture callbacks lock,
 /// write, and release per buffer. The lock is contended only between the
-/// callback thread and the finalize call.
+/// callback thread and the finalize call. `parking_lot::Mutex` matches
+/// `docs/CODE_STYLE.md` §6.1 — `std::sync::Mutex` is banned.
 pub struct AudioWavWriter {
     inner: Mutex<Option<WavWriter<std::io::BufWriter<std::fs::File>>>>,
     sample_rate: u32,
-    samples_written: parking_lot::Mutex<u64>,
+    samples_written: Mutex<u64>,
 }
 
 impl AudioWavWriter {
@@ -48,10 +49,7 @@ impl AudioWavWriter {
     /// Append mono float samples. Values are clamped to [-1.0, 1.0] then
     /// quantized to int16. No-op if the writer has been finalized.
     pub fn append(&self, samples: &[f32]) -> Result<()> {
-        let mut guard = self
-            .inner
-            .lock()
-            .map_err(|e| AttuneError::WavWriter(format!("poisoned mutex: {e}")))?;
+        let mut guard = self.inner.lock();
         let Some(writer) = guard.as_mut() else {
             return Ok(());
         };
@@ -66,10 +64,7 @@ impl AudioWavWriter {
 
     /// Finalize the WAV file. Subsequent writes are silently dropped.
     pub fn finalize(&self) -> Result<()> {
-        let mut guard = self
-            .inner
-            .lock()
-            .map_err(|e| AttuneError::WavWriter(format!("poisoned mutex: {e}")))?;
+        let mut guard = self.inner.lock();
         if let Some(writer) = guard.take() {
             writer.finalize()?;
         }

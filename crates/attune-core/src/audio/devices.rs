@@ -90,7 +90,7 @@ mod tests {
                 }
             }
             Err(e) => {
-                eprintln!("no input devices on this machine: {e}");
+                tracing::warn!(error = %e, "no input devices on this machine");
             }
         }
     }
