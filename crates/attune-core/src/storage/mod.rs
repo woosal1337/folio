@@ -8,6 +8,7 @@
 //! capture pipeline creates.
 
 pub mod atomic_write;
+pub mod decisions;
 pub mod digest;
 pub mod egress_log;
 pub mod fs_io;
