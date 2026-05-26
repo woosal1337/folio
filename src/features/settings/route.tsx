@@ -1,7 +1,6 @@
 import * as React from "react";
 import {
   Bot,
-  Crown,
   Folder,
   Lock,
   Mic,
@@ -60,7 +59,10 @@ const NAV: { id: Section; label: string; icon: typeof Mic }[] = [
   { id: "webhooks", label: "Webhooks", icon: Plug },
   { id: "usage", label: "Usage", icon: Wallet },
   { id: "privacy", label: "Privacy", icon: Lock },
-  { id: "pro", label: "Pro", icon: Crown },
+  // Pro tab is hidden until payment + license verification land end-to-end.
+  // The SectionPro component and `id: "pro"` branch below stay on disk so
+  // re-enabling is a one-line uncomment once the billing pipeline is ready.
+  // { id: "pro", label: "Pro", icon: Crown },
   { id: "appearance", label: "Appearance", icon: Palette },
 ];
 
