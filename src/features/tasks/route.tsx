@@ -641,7 +641,7 @@ function EmptyState({ onCreate }: EmptyStateProps) {
     <div className="rounded-2xl border border-dashed border-border bg-card py-16">
       <div className="mx-auto flex max-w-md flex-col items-center gap-3 text-center">
         <KanbanSquare className="h-8 w-8 text-muted-foreground" />
-        <h2 className="font-medium">Your board is empty</h2>
+        <h2 className="font-serif text-lg font-medium">Your board is empty</h2>
         <p className="text-sm text-muted-foreground">
           Add a task below to get started, or run the Extract Tasks agent on a recording
           to populate it from a meeting transcript.

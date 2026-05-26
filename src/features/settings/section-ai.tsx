@@ -130,7 +130,7 @@ export function SectionAi({ settings, onChange }: SectionAiProps) {
   return (
     <section className="space-y-6">
       <header className="space-y-1">
-        <h2 className="text-lg font-semibold">AI providers</h2>
+        <h2 className="font-serif text-2xl font-medium">AI providers</h2>
         <p className="text-sm text-muted-foreground">
           Bring your own API key. Stored in the macOS Keychain on this machine only.
           Used to summarise meetings, extract tasks, and chat with transcripts.
