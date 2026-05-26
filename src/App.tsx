@@ -1,5 +1,5 @@
 import * as React from "react";
-import { HashRouter, Route, Routes, Navigate } from "react-router-dom";
+import { HashRouter, Route, Routes, Navigate, useNavigate } from "react-router-dom";
 import { Toaster } from "sonner";
 
 import { Sidebar } from "@/chrome/sidebar";
@@ -10,6 +10,8 @@ import { DeepLinkHandler } from "@/chrome/deep-link-handler";
 import { HomeRedirect } from "@/chrome/home-redirect";
 import { GlobalShortcuts } from "@/chrome/global-shortcuts";
 import { CheatsheetOverlay } from "@/chrome/cheatsheet-overlay";
+import { CommandPalette } from "@/chrome/command-palette";
+import { verbSource } from "@/shared/lib/command-palette";
 // Route components are React.lazy-loaded so the Record page (the
 // dock-click landing) stays inside the cold-start budget: 400ms on
 // M1, 800ms on Intel per v2 finding 058. Editor, Tasks, AI, Memory,
@@ -43,6 +45,7 @@ export default function App() {
   const setSettingsOpen = useSettingsUiStore((s) => s.setOpen);
   const openSettings = useSettingsUiStore((s) => s.openAt);
   const [cheatsheetOpen, setCheatsheetOpen] = React.useState(false);
+  const [paletteOpen, setPaletteOpen] = React.useState(false);
   const onMouseDown = useWindowDrag();
   const onDoubleClick = useWindowDoubleClick();
   const loadSettings = useSettingsStore((s) => s.load);
@@ -95,16 +98,60 @@ export default function App() {
           </React.Suspense>
           <CloudCostConfirmDialog />
           <DeepLinkHandler />
-          <GlobalShortcuts onOpenCheatsheet={() => setCheatsheetOpen(true)} />
+          <GlobalShortcuts
+            onOpenCheatsheet={() => setCheatsheetOpen(true)}
+            onOpenPalette={() => setPaletteOpen(true)}
+          />
           <CheatsheetOverlay
             open={cheatsheetOpen}
             onClose={() => setCheatsheetOpen(false)}
+          />
+          <PaletteHost
+            open={paletteOpen}
+            onClose={() => setPaletteOpen(false)}
+            onOpenPreferences={() => openSettings()}
+            onOpenCheatsheet={() => setCheatsheetOpen(true)}
           />
         </div>
         <Toaster position="bottom-right" richColors closeButton />
       </HashRouter>
     </ErrorBoundary>
   );
+}
+
+/**
+ * Build the Cmd-K palette's source list. Wraps the verb source from
+ * the catalogue + (in a follow-up) per-data sources for recordings /
+ * tasks / memories. Keeping this in a sub-component lets useNavigate
+ * be called inside HashRouter while App.tsx itself doesn't need it.
+ */
+function PaletteHost({
+  open,
+  onClose,
+  onOpenPreferences,
+  onOpenCheatsheet,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onOpenPreferences: () => void;
+  onOpenCheatsheet: () => void;
+}) {
+  const navigate = useNavigate();
+  const sources = React.useMemo(
+    () => [
+      verbSource({
+        startRecording: () => navigate("/record"),
+        openInbox: () => navigate("/inbox"),
+        openLibrary: () => navigate("/library"),
+        openMemory: () => navigate("/memory"),
+        openTasks: () => navigate("/tasks"),
+        openPreferences: onOpenPreferences,
+        openCheatsheet: onOpenCheatsheet,
+      }),
+    ],
+    [navigate, onOpenPreferences, onOpenCheatsheet]
+  );
+  return <CommandPalette open={open} onClose={onClose} sources={sources} />;
 }
 
 /** Quiet fallback while a route's chunk is loading. Renders nothing
