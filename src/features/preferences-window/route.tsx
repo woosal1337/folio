@@ -6,6 +6,8 @@ import { Button } from "@/shared/ui/button";
 import { cn } from "@/shared/lib/utils";
 import { useSettingsStore } from "@/shared/stores/settings-store";
 import { useTheme } from "@/shared/hooks/use-theme";
+import { listInputDevices } from "@/shared/lib/ipc";
+import type { DeviceInfo } from "@/shared/types/DeviceInfo";
 import type { Settings } from "@/shared/types/Settings";
 
 import { SectionAi } from "@/features/settings/section-ai";
@@ -69,7 +71,7 @@ export default function PreferencesWindow() {
   const load = useSettingsStore((s) => s.load);
   const save = useSettingsStore((s) => s.save);
   const { theme, setTheme } = useTheme();
-  const [devices, setDevices] = React.useState<import("@/shared/types/DeviceInfo").DeviceInfo[]>([]);
+  const [devices, setDevices] = React.useState<DeviceInfo[]>([]);
   const [section, setSection] = React.useState<Section>("general");
 
   React.useEffect(() => {
@@ -77,14 +79,9 @@ export default function PreferencesWindow() {
   }, [settings, load]);
 
   React.useEffect(() => {
-    void (async () => {
-      try {
-        const list = await (await import("@/shared/lib/ipc")).listInputDevices();
-        setDevices(list);
-      } catch (e) {
-        console.error("listInputDevices:", e);
-      }
-    })();
+    listInputDevices()
+      .then(setDevices)
+      .catch((e) => console.error("listInputDevices:", e));
   }, []);
 
   const onChange = React.useCallback(
