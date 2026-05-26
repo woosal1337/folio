@@ -1,10 +1,15 @@
+import * as React from "react";
 import { KeyRound, Zap } from "lucide-react";
+import { toast } from "sonner";
 
 import { Badge } from "@/shared/ui/badge";
+import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
 import { Switch } from "@/shared/ui/switch";
 import { cn } from "@/shared/lib/utils";
+import { listProviders, setProviderKey } from "@/shared/lib/ipc";
+import type { ProviderStatus } from "@/shared/types/ProviderStatus";
 import type { Settings } from "@/shared/types/Settings";
 
 import { LocalWhisperSection } from "./local-whisper-section";
@@ -115,28 +120,7 @@ export function SectionTranscription({ settings, onChange }: Props) {
         </div>
       </section>
 
-      {settings.transcriber === "openai" && (
-        <section className="space-y-3">
-          <Label
-            htmlFor="openai-key"
-            className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground"
-          >
-            <KeyRound className="h-3.5 w-3.5" />
-            OpenAI API key
-          </Label>
-          <Input
-            id="openai-key"
-            type="password"
-            placeholder="sk-..."
-            value={settings.openai_api_key}
-            onChange={(e) => onChange("openai_api_key", e.target.value)}
-            className="font-mono"
-          />
-          <p className="text-xs text-muted-foreground">
-            Stored locally. Sent only to api.openai.com.
-          </p>
-        </section>
-      )}
+      {settings.transcriber === "openai" && <OpenAiKeySection />}
 
       {settings.transcriber === "local_whisper" && (
         <LocalWhisperSection settings={settings} onChange={onChange} />
@@ -162,5 +146,100 @@ export function SectionTranscription({ settings, onChange }: Props) {
         </p>
       </section>
     </div>
+  );
+}
+
+/**
+ * OpenAI API key entry. Reads + writes the key via the Keychain
+ * (`set_provider_key` / `list_providers`) instead of the on-disk
+ * Settings file. Phase-3 audit B9 phase 2.
+ */
+function OpenAiKeySection() {
+  const [status, setStatus] = React.useState<ProviderStatus | null>(null);
+  const [draft, setDraft] = React.useState("");
+  const [saving, setSaving] = React.useState(false);
+
+  const refresh = React.useCallback(async () => {
+    try {
+      const list = await listProviders();
+      setStatus(list.find((p) => p.id === "openai") ?? null);
+    } catch (e) {
+      console.error("listProviders:", e);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const list = await listProviders();
+        if (!cancelled) setStatus(list.find((p) => p.id === "openai") ?? null);
+      } catch (e) {
+        if (!cancelled) console.error("listProviders:", e);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const onSave = async () => {
+    const next = draft.trim();
+    if (next.length === 0) {
+      toast.error("Enter a key first");
+      return;
+    }
+    setSaving(true);
+    try {
+      await setProviderKey("openai", next);
+      setDraft("");
+      toast.success("OpenAI key saved to Keychain");
+      await refresh();
+    } catch (e) {
+      console.error("set_provider_key:", e);
+      toast.error("Could not save key", { description: String(e) });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <section className="space-y-3">
+      <Label
+        htmlFor="openai-key"
+        className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground"
+      >
+        <KeyRound className="h-3.5 w-3.5" />
+        OpenAI API key
+        {status?.configured ? (
+          <Badge variant="accent" className="text-2xs">
+            stored · {status.redacted_suffix ?? "key set"}
+          </Badge>
+        ) : null}
+      </Label>
+      <div className="flex gap-2">
+        <Input
+          id="openai-key"
+          type="password"
+          placeholder={status?.configured ? "•••• replace key" : "sk-..."}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          className="font-mono"
+          autoComplete="off"
+        />
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={onSave}
+          disabled={saving || draft.trim().length === 0}
+        >
+          {saving ? "Saving…" : status?.configured ? "Replace" : "Save"}
+        </Button>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Stored in the macOS Keychain. Never persisted to disk; never logged. Sent only to api.openai.com when transcribing.
+      </p>
+    </section>
   );
 }

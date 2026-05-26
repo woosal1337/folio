@@ -43,20 +43,18 @@ pub async fn transcribe_recording(
     state: State<'_, AppState>,
     session_dir: PathBuf,
 ) -> Result<TranscriptionResult, String> {
-    let (transcriber_kind, settings_api_key, settings_language, local_model) = {
+    let (transcriber_kind, settings_language, local_model) = {
         let settings = state.settings.lock();
         (
             settings.transcriber.clone(),
-            settings.openai_api_key.clone(),
             settings.transcription_language.clone(),
             settings.local_whisper_model.clone(),
         )
     };
 
-    let api_key = match attune_core::llm::KeyStore::get(attune_core::llm::ProviderId::OpenAi) {
-        Ok(Some(stored)) if !stored.trim().is_empty() => stored,
-        _ => settings_api_key,
-    };
+    let api_key = attune_core::llm::KeyStore::get(attune_core::llm::ProviderId::OpenAi)
+        .map_err(|e| format!("could not read OpenAI key from Keychain: {e}"))?
+        .unwrap_or_default();
 
     // Per-recording language override (v2 finding 046 / GET-89). When
     // `<session_dir>/language.txt` exists and is non-empty, its first

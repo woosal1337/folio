@@ -14,6 +14,7 @@ import { create } from "zustand";
 
 import {
   getRecording as ipcGetRecording,
+  hasOpenAiKey as ipcHasOpenAiKey,
   recordingStatus as fetchStatus,
   runAgent as ipcRunAgent,
   setTrayRecording as ipcSetTrayRecording,
@@ -124,7 +125,7 @@ export const useRecording = create<RecordingState>((set, get) => {
     const settings = useSettingsStore.getState().settings;
     if (!settings) return;
     if (!settings.auto_summarize_enabled) return;
-    if (!settings.openai_api_key || settings.openai_api_key.trim().length === 0) {
+    if (!(await ipcHasOpenAiKey())) {
       // No AI key configured — the user can still summarize manually
       // from the editor; the AgentPanel's hint links straight to
       // Settings → AI for them.
@@ -160,7 +161,7 @@ export const useRecording = create<RecordingState>((set, get) => {
     const settings = useSettingsStore.getState().settings;
     if (!settings) return;
     if (!settings.auto_extract_memories_enabled) return;
-    if (!settings.openai_api_key || settings.openai_api_key.trim().length === 0) {
+    if (!(await ipcHasOpenAiKey())) {
       return;
     }
     const jobId = `agent:extract-memories:${sessionDir}`;
@@ -195,7 +196,7 @@ export const useRecording = create<RecordingState>((set, get) => {
     const settings = useSettingsStore.getState().settings;
     if (!settings) return;
     if (!settings.auto_name_enabled) return;
-    if (!settings.openai_api_key || settings.openai_api_key.trim().length === 0) {
+    if (!(await ipcHasOpenAiKey())) {
       return;
     }
     const jobId = `agent:autoname:${sessionDir}`;
@@ -229,7 +230,7 @@ export const useRecording = create<RecordingState>((set, get) => {
     const settings = useSettingsStore.getState().settings;
     if (!settings) return;
     if (!settings.auto_extract_tasks_enabled) return;
-    if (!settings.openai_api_key || settings.openai_api_key.trim().length === 0) {
+    if (!(await ipcHasOpenAiKey())) {
       return;
     }
     const jobId = `agent:extract-tasks:${sessionDir}`;
@@ -493,18 +494,20 @@ export const useRecording = create<RecordingState>((set, get) => {
       // transcription when the selected provider isn't usable
       // (OpenAI without a key, anything else just runs).
       const settings = useSettingsStore.getState().settings;
-      const providerUsable =
-        settings?.transcriber === "local_whisper" ||
-        (settings?.transcriber === "openai" &&
-          settings.openai_api_key.trim().length > 0);
-      const shouldTranscribe =
-        (settings?.auto_transcribe_enabled ?? true) && providerUsable;
-      if (shouldTranscribe) {
-        // Fire-and-forget. `runTranscription` flips `transcribing` so
-        // the UI shows a spinner on the row; we deliberately do not
-        // await so the Stop click resolves as soon as the WAV is
-        // saved and the user can keep using the app.
+      const autoEnabled = settings?.auto_transcribe_enabled ?? true;
+      if (!autoEnabled) {
+        return;
+      }
+      if (settings?.transcriber === "local_whisper") {
         void runTranscription(sessionDir);
+        return;
+      }
+      if (settings?.transcriber === "openai") {
+        void (async () => {
+          if (await ipcHasOpenAiKey()) {
+            void runTranscription(sessionDir);
+          }
+        })();
       }
     },
 
