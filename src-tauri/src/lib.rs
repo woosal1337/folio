@@ -57,6 +57,11 @@ pub fn run() {
             if let Err(e) = app::tray::install(app.handle()) {
                 tracing::warn!(error = %e, "tray install failed");
             }
+            // NSVisualEffectView vibrancy on the main window. v2
+            // finding 011 / GET-45.
+            for window in app.webview_windows().values() {
+                app::vibrancy::install_window_vibrancy(window);
+            }
             let _ = app;
             Ok(())
         })
