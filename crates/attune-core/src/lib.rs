@@ -27,6 +27,7 @@ pub mod ffi;
 pub mod highlight_reel;
 pub mod import;
 pub mod llm;
+pub mod mcp_client;
 pub mod memory;
 pub mod onboarding;
 pub mod permissions;
