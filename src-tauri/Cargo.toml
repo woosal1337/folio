@@ -33,6 +33,7 @@ tauri-plugin-opener = { workspace = true }
 tauri-plugin-deep-link = { workspace = true }
 tauri-plugin-updater = { workspace = true }
 reqwest = { workspace = true }
+url = "2"
 tokio = { workspace = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]
