@@ -2,24 +2,20 @@
 
 Local-first meeting transcription for macOS. Captures system audio + microphone independently, transcribes on-device, writes per-meeting markdown to your vault. Audio never leaves your machine.
 
-**Status:** v0 in active development. Target ship: 2026-07-15.
+**Status:** preparing the `1.0.0` public release. Pre-release; build from source today.
 
 ## What it does
 
-- Sits in the menu bar. Watches your calendar and audio devices.
+- Sits in the menu bar. Watches your calendar and audio devices via EventKit (no Google OAuth, no Microsoft Graph).
 - When a meeting starts, records both system audio and your microphone as separate streams via cpal + ScreenCaptureKit.
-- Transcribes on-device. v0 uses the OpenAI Whisper API when the user opts in; the local `whisper.cpp` backend lands in v1.
-- Labels speakers: `me` (mic channel) vs `others` (system channel). Multi-speaker diarization on the system channel lands in v1.
+- Transcribes locally by default. The bundled Whisper backend (whisper.cpp via `whisper-rs`, Metal-accelerated on Apple Silicon) is the primary path; OpenAI's Whisper API is an opt-in fallback for users who want a faster cloud transcription on long meetings.
+- Labels speakers: `me` (mic channel) vs `others` (system channel). Multi-speaker diarization on the system channel is on the roadmap.
 - Writes a markdown file per meeting to your chosen vault path. Frontmatter includes attendees, duration, model, source.
-- Audio never leaves your machine. The only outbound calls are model downloads and (when you opt in) OpenAI transcription.
+- Audio never leaves your machine on the default path. Privacy Mode (Settings → Privacy) physically blocks every outbound HTTP call except `localhost` so the app keeps working end-to-end with Wi-Fi off.
 
-## Install (target UX, not yet shipped)
+## Install
 
-```sh
-brew install --cask woosal1337/attune/attune
-```
-
-For now, build from source. See [Development](#development).
+Pre-release. Build from source — see [Development](#development). The signed DMG + Sparkle auto-update channel land alongside the `1.0.0` public flip; the Homebrew tap follows.
 
 ## Repository layout
 
@@ -107,4 +103,4 @@ See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for setup and the workflow. The autho
 
 ## License
 
-MIT. See [LICENSE](./LICENSE).
+MIT. See [LICENSE](./LICENSE). Third-party attributions in [NOTICE](./NOTICE).
