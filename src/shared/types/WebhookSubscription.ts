@@ -4,26 +4,26 @@ import type { WebhookEvent } from "./WebhookEvent";
 /**
  * A single user-configured webhook subscription.
  */
-export type WebhookSubscription = { id: string, 
+export type WebhookSubscription = { id: string,
 /**
  * Human label shown in Settings (e.g. "eBrain sync").
  */
-label: string, 
+label: string,
 /**
  * Target URL. Must be http(s); the store will reject anything
  * else at save time.
  */
-url: string, 
+url: string,
 /**
  * HMAC secret. Stored in cleartext alongside the URL since the
  * whole point is a single-user local sync; if the user wanted
  * to encrypt secrets, the Keychain path is open as a follow-up.
  */
-secret: string, 
+secret: string,
 /**
  * Events this subscription wants to receive. Empty means all.
  */
-events: Array<WebhookEvent>, 
+events: Array<WebhookEvent>,
 /**
  * User-visible toggle. False subscriptions are saved but
  * skipped at fan-out time.

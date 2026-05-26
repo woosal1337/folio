@@ -4,63 +4,63 @@ import type { MemoryKind } from "./MemoryKind";
 /**
  * A single memory page on disk + its row in the FTS5 / vec indexes.
  */
-export type Memory = { 
+export type Memory = {
 /**
  * UUIDv7 — time-sortable so a default sort by id is also
  * chronological. Matches Avid Brain's `event_id` choice.
  */
-id: string, kind: MemoryKind, 
+id: string, kind: MemoryKind,
 /**
  * Dotted handle ("user.company", "ui.theme"). None only when
  * `kind == Observe`.
  */
-key: string | null, 
+key: string | null,
 /**
  * The memory in one sentence. This is what gets injected into
  * system prompts + ranked by FTS5.
  */
-content: string, 
+content: string,
 /**
  * Quoted snippet from the source transcript supporting the
  * claim. None for user-created memories.
  */
-evidence: string | null, 
+evidence: string | null,
 /**
  * Model self-reported confidence (0-1). User-created memories
  * default to 1.0.
  */
-confidence: number, 
+confidence: number,
 /**
  * Free-form tags, indexed at FTS5 weight 5x. ("identity",
  * "engineering", "company", ...)
  */
-tags: Array<string>, 
+tags: Array<string>,
 /**
  * Recording session this memory was extracted from. None for
  * user-created memories.
  */
-source_session_dir: string | null, 
+source_session_dir: string | null,
 /**
  * Trailing path component of `source_session_dir`, surfaced as
  * a deep link in the UI without re-deriving it.
  */
-source_session_label: string | null, 
+source_session_label: string | null,
 /**
  * Inclusive lower bound on the validity window. Equal to
  * `created_at` on first write.
  */
-valid_from: string, 
+valid_from: string,
 /**
  * When the memory stopped being currently-true. `None` means
  * "still true". Set on supersede / user delete so we never hard
  * delete history (Zep bi-temporal pattern).
  */
-valid_until: string | null, 
+valid_until: string | null,
 /**
  * Id of the prior memory this one replaces. `None` for the
  * first memory of its kind+key.
  */
-supersedes_id: string | null, 
+supersedes_id: string | null,
 /**
  * True when the user has explicitly pinned this memory — pinned
  * memories override the automatic "always-inject" set.
