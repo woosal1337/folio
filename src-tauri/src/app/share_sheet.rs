@@ -22,10 +22,15 @@ pub fn share_paths(paths: &[std::path::PathBuf]) -> Result<(), String> {
         }
     }
 
+    // SAFETY: every Objective-C call uses Apple-documented selectors
+    // and types. NSString::alloc().init_str + NSURL fileURLWithPath:
+    // are infallible on a valid UTF-8 string (we pass `to_string_lossy`).
+    // NSSharingServicePicker takes ownership of the items array via
+    // ARC-compatible retain semantics, so the temporary id slice can
+    // safely be dropped at the end of this block. The picker is
+    // anchored to the key window's contentView, which the runtime
+    // keeps alive for the lifetime of the app.
     unsafe {
-        // Build NSArray<NSURL *> from the given filesystem paths. The
-        // share sheet accepts NSURL items + plain NSString fallbacks;
-        // we use fileURLWithPath: so AirDrop sees the file payload.
         let mut urls: Vec<id> = Vec::with_capacity(paths.len());
         for p in paths {
             let s = p.to_string_lossy();

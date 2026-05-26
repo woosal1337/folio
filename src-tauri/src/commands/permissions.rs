@@ -62,26 +62,28 @@ pub fn list_permissions() -> Vec<PermissionRow> {
 }
 
 #[tauri::command]
-pub fn open_permission_settings(permission: Permission) -> Result<(), String> {
+pub fn open_permission_settings(
+    app: tauri::AppHandle,
+    permission: Permission,
+) -> Result<(), String> {
     let url = match permission {
         Permission::Microphone => MIC_URL,
         Permission::ScreenRecording => SCREEN_URL,
         Permission::Calendar => CALENDAR_URL,
         Permission::Notifications => NOTIFICATIONS_URL,
     };
-    open_url(url)
+    open_url(&app, url)
 }
 
 #[cfg(target_os = "macos")]
-fn open_url(url: &str) -> Result<(), String> {
-    std::process::Command::new("open")
-        .arg(url)
-        .spawn()
-        .map(|_| ())
+fn open_url(app: &tauri::AppHandle, url: &str) -> Result<(), String> {
+    use tauri_plugin_opener::OpenerExt;
+    app.opener()
+        .open_url(url, None::<&str>)
         .map_err(|e| e.to_string())
 }
 
 #[cfg(not(target_os = "macos"))]
-fn open_url(_url: &str) -> Result<(), String> {
+fn open_url(_app: &tauri::AppHandle, _url: &str) -> Result<(), String> {
     Err("open_permission_settings is only supported on macOS".into())
 }
