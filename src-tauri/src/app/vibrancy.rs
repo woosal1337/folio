@@ -17,6 +17,8 @@
 //!   * NSVisualEffectBlendingModeBehindWindow = 0
 //!   * NSVisualEffectStateFollowsWindowActiveState = 0
 //!   * NSViewWidthSizable | NSViewHeightSizable = 2 | 16 = 18
+//!   * NSWindowOrderingMode::NSWindowBelow = -1 (signed NSInteger;
+//!     0 is *not* a valid value and crashes AppKit via os_crash_msg)
 //!
 //! macOS only. Non-macOS targets noop — the existing sidebar uses
 //! a normal Tailwind colour.
@@ -29,6 +31,8 @@ const NS_VE_BLENDING_BEHIND_WINDOW: i64 = 0;
 const NS_VE_STATE_FOLLOWS_WINDOW: i64 = 0;
 #[cfg(target_os = "macos")]
 const NS_VIEW_AUTORESIZE_FILL: u64 = 2 | 16;
+#[cfg(target_os = "macos")]
+const NS_WINDOW_BELOW: i64 = -1;
 
 #[cfg(target_os = "macos")]
 pub fn install_window_vibrancy(window: &tauri::WebviewWindow) {
@@ -64,7 +68,7 @@ pub fn install_window_vibrancy(window: &tauri::WebviewWindow) {
         let _: () = msg_send![effect_view, setBlendingMode: NS_VE_BLENDING_BEHIND_WINDOW];
         let _: () = msg_send![effect_view, setState: NS_VE_STATE_FOLLOWS_WINDOW];
         let _: () = msg_send![effect_view, setAutoresizingMask: NS_VIEW_AUTORESIZE_FILL];
-        let _: () = msg_send![content_view, addSubview: effect_view positioned: 0u64 relativeTo: nil];
+        let _: () = msg_send![content_view, addSubview: effect_view positioned: NS_WINDOW_BELOW relativeTo: nil];
         tracing::info!("vibrancy installed on window {}", window.label());
     }
 }
