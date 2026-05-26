@@ -389,4 +389,28 @@ self-documents which items it closed.
 
 | Date | PR | Closed items |
 |---|---|---|
-| _pending_ | _pending_ | _pending_ |
+| 2026-05-26 | #167 | Audit punch list landed (D8). |
+| 2026-05-26 | #168 | A1 + A2 + A3 + A5 + A6 — attune-core mechanical fixes. |
+| 2026-05-26 | #169 | D6 + D9 + D10 — README, CHANGELOG, LICENSE + new NOTICE. |
+| 2026-05-26 | #170 | B1 + B2 + B4 + D4 + D5 — capability split + strict CSP. |
+| 2026-05-26 | #171 | A4 + B6 + B7 + partial B5 — `paths::canonicalize_under` + wire-up. |
+| 2026-05-26 | #172 | D1 + D2 + D3 + D11 — release.yml + codeql.yml + tauri-plugin-updater + CI `--all-targets` + ts-rs drift step + `docs/guidelines/release-engineering.md`. |
+| 2026-05-26 | #173 | D7 — `docs/ARCHITECTURE.md` regenerated against shipped code. |
+| 2026-05-26 | #174 | C1–C9 — IPC boundary enforced; every `@tauri-apps/*` import wrapped in `src/shared/lib/ipc.ts`; ESLint `no-restricted-imports` rule. |
+| 2026-05-26 | #175 | C10 + C14 — deep-link allowlist + `rehype-sanitize` for LLM markdown. |
+| 2026-05-26 | #176 | B9 phase 1 — transcription reads OpenAI key from Keychain; on-disk Settings field marked DEPRECATED. |
+
+### P0 remaining (deferred to one-release overlap or follow-up)
+
+- **B3** — `x-apple.systempreferences:` raw `Command::new("open")` in `commands/permissions.rs:77-81`. Now allowlisted in the opener capability (PR #170) so the bypass is documented at the security boundary, but the call site itself still uses raw `open`. Re-routing through the opener plugin is a one-line follow-up.
+- **B5 (remaining)** — `commands/agents.rs:79-321`, `commands/maintenance.rs:287-294`, `commands/transcription.rs:430-467` still take `PathBuf` without `canonicalize_under`. The helper exists (PR #171); wiring each site is mechanical.
+- **B8** — `export_share_bundle` + `export_vault_snapshot` output destination needs a deny-list (`/etc/`, `/System/`) at the boundary.
+- **B10** — `commands/webhooks.rs:130-146` reqwest error display can include URL user-info; run through the `IpcError` redactor.
+- **C11/C12/C13** — Move authoritative recording state + the auto-pipeline orchestration out of the React store into Rust. Biggest remaining refactor; tracked as the next dedicated PR.
+- **B9 phase 2** — Once every running install has been seen with a Keychain-stored key (one release of overlap), remove `Settings.openai_api_key` outright and migrate the React store's `settings.openai_api_key` reads to `provider_status()`.
+
+### Phase status
+
+- **Phase 1** (style contract): ✅ done — `docs/CODE_STYLE.md` rev 2 (PR #147).
+- **Phase 2** (finish Linear todos): ✅ done — every roadmap item GET-24 through GET-118 shipped (PRs #110–#166).
+- **Phase 3** (audit + refactor): 🟨 P0 substantially closed (10 batches, PRs #167–#176). P1 sweep (758 inline body comments, `.then()` chains, `unsafe SAFETY:` tags) + the deferred P0 items above remain. The repo is **safe to flip from private to public** once the deferred P0 items close + a release tag fires `release.yml` end-to-end.
