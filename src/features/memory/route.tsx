@@ -137,7 +137,7 @@ export default function MemoryRoute() {
   const archived = filtered.filter((m) => m.valid_until !== null);
 
   return (
-    <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-8 py-8">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-8 py-8">
       <header data-drag="" className="flex select-none items-end justify-between gap-4">
         <div>
           <h1 className="font-serif text-3xl font-medium tracking-tight">Memory</h1>
