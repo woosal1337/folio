@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Bot, Crown, Folder, Lock, Mic, Palette, Plug, Sparkles, Waves } from "lucide-react";
+import { Bot, Folder, Lock, Mic, Palette, Plug, Sparkles, Waves } from "lucide-react";
 
 import { ScrollArea } from "@/shared/ui/scroll-area";
 import { Button } from "@/shared/ui/button";
@@ -51,7 +51,10 @@ const TABS: TabSpec[] = [
   { id: "privacy", label: "Privacy", icon: Lock },
   { id: "storage", label: "Storage", icon: Folder },
   { id: "webhooks", label: "Webhooks", icon: Plug },
-  { id: "pro", label: "Pro", icon: Crown },
+  // Pro tab hidden until billing + license verification ship end-to-end.
+  // Component and the `section === "pro"` render branch below remain on
+  // disk so re-enabling is a one-line uncomment.
+  // { id: "pro", label: "Pro", icon: Crown },
 ];
 
 /**
