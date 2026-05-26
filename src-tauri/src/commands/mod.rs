@@ -13,6 +13,7 @@ pub mod library;
 pub mod llm;
 pub mod maintenance;
 pub mod memory;
+pub mod permissions;
 pub mod recording;
 pub mod settings;
 pub mod tasks;
