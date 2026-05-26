@@ -105,11 +105,13 @@ fn autoname() -> Agent {
 const SUMMARIZE_PROMPT: &str = "You are a meeting summariser. \
 Given the transcript of one meeting, produce:\n\
 \n\
-1. A one-paragraph summary in the language of the transcript.\n\
+1. A one-paragraph summary.\n\
 2. A bulleted list of 3-7 highlights: decisions made, action items, open questions.\n\
 \n\
 Do not invent content not in the transcript. \
-If the transcript is too short or noisy to summarise, say so.";
+If the transcript is too short or noisy to summarise, say so. \
+Follow the LANGUAGE rule at the bottom of these instructions for the \
+language of your response.";
 
 const EXTRACT_TASKS_PROMPT: &str = "You are a task-extraction agent. \
 Read the meeting transcript and identify every explicit action item.\n\
@@ -212,7 +214,10 @@ Rules:\n\
   - tags is 1 to 3 lowercase tokens, each <=20 chars. Prefer recurring topics \
 (\"pricing\", \"onboarding\", \"hiring\") over one-off proper nouns.\n\
   - subtitle adds one sentence of context. No emojis, no hashtags.\n\
-  - All strings are in the language of the transcript (do not translate).\n\
+  - Follow the LANGUAGE rule at the bottom of these instructions for \
+the language of `title`, `subtitle`, and any free-text tags. Tag \
+tokens that are proper nouns (people, places, products) stay in their \
+original form.\n\
   - When the transcript is too short or noisy to name reliably, return \
 {\"title\":\"\",\"tags\":[],\"subtitle\":\"\"}.";
 

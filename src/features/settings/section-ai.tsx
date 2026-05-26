@@ -139,6 +139,8 @@ export function SectionAi({ settings, onChange }: SectionAiProps) {
 
       <AutoAgentsCard settings={settings} onChange={onChange} />
 
+      <BriefingLanguageCard settings={settings} onChange={onChange} />
+
       {providers === null ? (
         <p className="text-sm text-muted-foreground">Loading providers…</p>
       ) : (
@@ -268,6 +270,69 @@ function AutoAgentsCard({
           />
         </div>
       ) : null}
+    </div>
+  );
+}
+
+/** Languages the briefing-language dropdown offers. The first entry
+ *  ("auto") preserves the legacy behaviour where every agent mirrors
+ *  the meeting language; the rest force agent output into the chosen
+ *  language regardless of what the transcript is in. Kept in sync
+ *  with the LANGUAGES array in section-transcription.tsx plus the
+ *  `language_name` helper in commands/agents.rs. */
+const BRIEFING_LANGUAGES: { value: string; label: string }[] = [
+  { value: "auto", label: "Auto (match meeting)" },
+  { value: "en", label: "English" },
+  { value: "tr", label: "Turkish" },
+  { value: "az", label: "Azerbaijani" },
+  { value: "ru", label: "Russian" },
+  { value: "de", label: "German" },
+  { value: "es", label: "Spanish" },
+  { value: "fr", label: "French" },
+  { value: "it", label: "Italian" },
+  { value: "pt", label: "Portuguese" },
+  { value: "nl", label: "Dutch" },
+  { value: "pl", label: "Polish" },
+  { value: "ar", label: "Arabic" },
+  { value: "ja", label: "Japanese" },
+  { value: "zh", label: "Chinese" },
+];
+
+function BriefingLanguageCard({
+  settings,
+  onChange,
+}: {
+  settings: Settings;
+  onChange: <K extends keyof Settings>(key: K, value: Settings[K]) => void;
+}) {
+  return (
+    <div className="space-y-3 rounded-lg border border-border bg-card p-4">
+      <div className="space-y-1">
+        <Label
+          htmlFor="briefing-language-select"
+          className="flex items-center gap-2 text-sm font-medium"
+        >
+          <Sparkles className="h-4 w-4 text-muted-foreground" />
+          Briefing language
+        </Label>
+        <p className="max-w-md text-xs text-muted-foreground">
+          Summaries, extracted tasks, memories, and auto-names are written in this
+          language regardless of the meeting's language. Quoted evidence snippets stay
+          in the transcript's original language.
+        </p>
+      </div>
+      <select
+        id="briefing-language-select"
+        value={settings.briefing_language}
+        onChange={(e) => onChange("briefing_language", e.target.value)}
+        className="h-9 w-full rounded-md border border-input bg-card px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        {BRIEFING_LANGUAGES.map((l) => (
+          <option key={l.value} value={l.value}>
+            {l.label}
+          </option>
+        ))}
+      </select>
     </div>
   );
 }

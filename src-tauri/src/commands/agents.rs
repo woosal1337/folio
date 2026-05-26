@@ -41,18 +41,70 @@ const DEFAULT_OPENAI_MODEL: &str = "gpt-4o-mini";
 const TRANSCRIPT_CHAR_CAP: usize = 100_000;
 const MAX_TOOL_ITERATIONS: usize = 5;
 
-/// Trailer appended to every agent's system prompt so the model
-/// responds in the meeting's language rather than the prompt's
-/// language. Closes v2 roadmap finding R09 / implements 097. We do
-/// not auto-detect from the transcript here — gpt-4o-mini is good
-/// enough at picking the dominant script from the user message that
-/// a single instruction suffices.
-const LANGUAGE_AWARE_TRAILER: &str = "\n\n\
+/// Build the language trailer appended to every agent's system
+/// prompt. Closes v2 roadmap finding R09 / implements 097.
+///
+/// `briefing_language` is the user's Settings choice:
+///   * `"auto"` → mirror the meeting's language (legacy behaviour).
+///   * any other BCP-47 tag → force that language regardless of the
+///     transcript, including tool-call free-text fields (task titles,
+///     memory content, autoname title/subtitle).
+///
+/// We do not auto-detect from the transcript ourselves — the model
+/// picks up the meeting's dominant script from the user message that
+/// follows. The trailer just states the rule.
+fn language_aware_trailer(briefing_language: &str) -> String {
+    let trimmed = briefing_language.trim();
+    if trimmed.is_empty() || trimmed.eq_ignore_ascii_case("auto") {
+        return "\n\n\
 LANGUAGE: Always reply in the same language as the meeting transcript, \
 not the language of these instructions. If the transcript is mixed, \
 default to the dominant language. For tool calls, write `title`, \
 `content`, `notes`, and any other free-text fields in the meeting's \
-language; structural fields (kind, key, status) stay in English.";
+language; structural fields (kind, key, status) stay in English."
+            .to_string();
+    }
+    let name = language_name(trimmed);
+    format!(
+        "\n\n\
+LANGUAGE: Always reply in {name} regardless of the language of the \
+meeting transcript or these instructions. Translate any quoted snippets \
+into {name} when surfacing them in your prose, but keep verbatim \
+evidence snippets in their original language so they still match the \
+transcript. For tool calls, write `title`, `content`, `notes`, and any \
+other free-text fields in {name}; structural fields (kind, key, status) \
+stay in English."
+    )
+}
+
+/// Map a BCP-47 / ISO-639-1 tag to the English name the model knows
+/// best. Unknown tags pass through verbatim so a niche tag like `cy`
+/// (Welsh) still produces a sensible instruction ("Always reply in cy")
+/// rather than crashing — the model will treat the tag as a language
+/// hint regardless.
+fn language_name(tag: &str) -> String {
+    match tag.to_ascii_lowercase().as_str() {
+        "en" => "English".to_string(),
+        "tr" => "Turkish".to_string(),
+        "az" => "Azerbaijani".to_string(),
+        "ru" => "Russian".to_string(),
+        "de" => "German".to_string(),
+        "es" => "Spanish".to_string(),
+        "fr" => "French".to_string(),
+        "it" => "Italian".to_string(),
+        "pt" => "Portuguese".to_string(),
+        "nl" => "Dutch".to_string(),
+        "pl" => "Polish".to_string(),
+        "ar" => "Arabic".to_string(),
+        "ja" => "Japanese".to_string(),
+        "zh" => "Chinese".to_string(),
+        "ko" => "Korean".to_string(),
+        "uk" => "Ukrainian".to_string(),
+        "he" => "Hebrew".to_string(),
+        "hi" => "Hindi".to_string(),
+        other => other.to_string(),
+    }
+}
 
 /// Agents that receive the `create_task` tool.
 const TASK_TOOL_AGENTS: &[&str] = &["extract-tasks"];
@@ -145,8 +197,12 @@ pub async fn run_agent(
     }
     let user_message = build_user_message(&transcript_text);
 
-    // Snapshot paths from settings (cheap, won't block agent run).
-    let tasks_path = state.settings.lock().tasks_path.clone();
+    // Snapshot paths + briefing language from settings (cheap, won't
+    // block agent run). The lock is dropped before any IPC.
+    let (tasks_path, briefing_language) = {
+        let s = state.settings.lock();
+        (s.tasks_path.clone(), s.briefing_language.clone())
+    };
     // Shared MemoryStore from AppState — single SQLite connection
     // reused across this whole agent run (preamble + every tool
     // dispatch + post-run embedding). v2 finding R14.
@@ -202,7 +258,7 @@ pub async fn run_agent(
         Some(preamble) => format!("{preamble}\n\n{}", agent.system_prompt),
         None => agent.system_prompt.clone(),
     };
-    let system_prompt = format!("{base}{LANGUAGE_AWARE_TRAILER}");
+    let system_prompt = format!("{base}{}", language_aware_trailer(&briefing_language));
 
     let mut messages: Vec<ChatMessage> = vec![ChatMessage {
         role: ChatRole::User,
@@ -788,6 +844,41 @@ mod tests {
                 })
                 .collect(),
         }
+    }
+
+    #[test]
+    fn trailer_auto_keeps_legacy_meeting_language_rule() {
+        for tag in ["auto", "Auto", " AUTO ", ""] {
+            let t = language_aware_trailer(tag);
+            assert!(t.contains("same language as the meeting transcript"), "tag={tag:?}");
+            assert!(!t.contains("regardless of the language"), "tag={tag:?}");
+        }
+    }
+
+    #[test]
+    fn trailer_known_tag_forces_named_language() {
+        let t = language_aware_trailer("en");
+        assert!(t.contains("Always reply in English"));
+        assert!(t.contains("regardless of the language"));
+        let t = language_aware_trailer("tr");
+        assert!(t.contains("Always reply in Turkish"));
+    }
+
+    #[test]
+    fn trailer_unknown_tag_passes_through() {
+        // Niche language tags still produce a usable instruction —
+        // worst case the model treats the tag as a language hint.
+        let t = language_aware_trailer("cy");
+        assert!(t.contains("Always reply in cy"));
+    }
+
+    #[test]
+    fn trailer_evidence_snippet_rule_only_when_forcing_translation() {
+        // The evidence-snippet carve-out is only meaningful when the
+        // briefing language differs from the transcript language;
+        // auto mode has no such concept.
+        assert!(!language_aware_trailer("auto").contains("verbatim evidence snippets"));
+        assert!(language_aware_trailer("en").contains("verbatim evidence snippets"));
     }
 
     #[test]
