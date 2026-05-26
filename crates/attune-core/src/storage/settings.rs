@@ -59,6 +59,15 @@ pub struct Settings {
     /// When false the user transcribes manually from the Library row.
     #[serde(default = "default_auto_transcribe_enabled")]
     pub auto_transcribe_enabled: bool,
+    /// When true, the VAD pre-pass runs as its own job before
+    /// transcription. Strips silence from both the mic and system
+    /// tracks so the ASR only ever sees speech-bearing audio.
+    /// Default ON because the silence-hallucination failure mode is
+    /// expensive (the 2026-05-26-11-47-54 mic.wav incident) and the
+    /// pre-pass is cheap. Set to false to send the raw recordings
+    /// straight to the ASR.
+    #[serde(default = "default_auto_vad_enabled")]
+    pub auto_vad_enabled: bool,
     /// Root directory for the local memory layer. Defaults to a
     /// subtree of the user's Obsidian vault per the
     /// `ai-chat-multi-provider.md` plan; falls back to
@@ -191,6 +200,9 @@ fn default_local_whisper_model() -> String {
 fn default_voice_processing_enabled() -> bool {
     true
 }
+fn default_auto_vad_enabled() -> bool {
+    true
+}
 fn default_auto_transcribe_enabled() -> bool {
     true
 }
@@ -255,6 +267,7 @@ impl Default for Settings {
             local_whisper_model: default_local_whisper_model(),
             voice_processing_enabled: default_voice_processing_enabled(),
             auto_transcribe_enabled: default_auto_transcribe_enabled(),
+            auto_vad_enabled: default_auto_vad_enabled(),
             memory_dir: default_memory_dir(),
             auto_extract_memories_enabled: default_auto_extract_memories_enabled(),
             feedback_sounds_enabled: default_feedback_sounds_enabled(),

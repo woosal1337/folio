@@ -1,11 +1,12 @@
 import * as React from "react";
-import { Bot, FileAudio, Loader2, Sparkles, type LucideIcon } from "lucide-react";
+import { AudioLines, Bot, FileAudio, Loader2, Sparkles, type LucideIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import { cn } from "@/shared/lib/utils";
 import { useJobsStore, type Job, type JobKind } from "@/shared/stores/jobs-store";
 
 const KIND_META: Record<JobKind, { icon: LucideIcon; tone: string }> = {
+  vad: { icon: AudioLines, tone: "text-primary" },
   transcribe: { icon: FileAudio, tone: "text-primary" },
   agent: { icon: Sparkles, tone: "text-primary" },
   download: { icon: Bot, tone: "text-primary" },

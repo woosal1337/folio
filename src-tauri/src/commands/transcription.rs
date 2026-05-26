@@ -113,6 +113,7 @@ pub async fn transcribe_recording(
         let language_for_task = language.clone();
         let label = source.channel.clone();
         let path = source.path.clone();
+        let sidecar_path = source.vad_sidecar.clone();
 
         let result: Result<Transcript, String> = tauri::async_runtime::spawn_blocking(move || {
             let hint = (!language_for_task.is_empty() && language_for_task != "auto")
@@ -138,7 +139,38 @@ pub async fn transcribe_recording(
         .map_err(|e| format!("transcription task panicked on channel {label}: {e}"))?;
 
         match result {
-            Ok(transcript) => {
+            Ok(mut transcript) => {
+                // Remap segment timestamps back to the original
+                // recording's timeline when the ASR worked off a
+                // VAD-compacted speech-only WAV. Without this the
+                // editor's playhead would scrub against the cut
+                // audio's timeline and lose sync with the source.
+                if let Some(side) = sidecar_path.as_ref() {
+                    match std::fs::read(side).map_err(|e| e.to_string()).and_then(|bytes| {
+                        serde_json::from_slice::<attune_core::audio::vad_filter::VadSidecar>(
+                            &bytes,
+                        )
+                        .map_err(|e| e.to_string())
+                    }) {
+                        Ok(sidecar) => {
+                            for seg in &mut transcript.segments {
+                                seg.start_seconds = attune_core::audio::vad_filter::remap_cut_seconds_to_original(
+                                    &sidecar,
+                                    seg.start_seconds,
+                                );
+                                seg.end_seconds = attune_core::audio::vad_filter::remap_cut_seconds_to_original(
+                                    &sidecar,
+                                    seg.end_seconds,
+                                );
+                            }
+                        }
+                        Err(e) => tracing::warn!(
+                            channel = %label,
+                            error = %e,
+                            "vad sidecar unreadable; timestamps left in cut-audio timeline"
+                        ),
+                    }
+                }
                 info!(
                     channel = %label,
                     segments = transcript.segments.len(),
@@ -192,27 +224,48 @@ pub async fn transcribe_recording(
 struct AudioSource {
     channel: String,
     path: PathBuf,
+    /// When present, the path the ASR sees (`path`) is a speech-only
+    /// derivative of the original recording. Segment timestamps from
+    /// the ASR are in that compacted timeline; reading the sidecar
+    /// lets the post-decode step remap them back onto the original
+    /// recording so the editor's audio playhead still lines up.
+    vad_sidecar: Option<PathBuf>,
 }
 
 /// Discover the audio channels present in `session_dir`. We always try
 /// both mic and system; whichever WAVs exist on disk are returned in a
 /// stable order (mic first, then system) so the resulting transcript
 /// reads top-to-bottom as "You", then "Others" by convention.
+///
+/// When the VAD pre-pass has run for this session, each channel will
+/// have a `<channel>.speech.wav` next to the raw `<channel>.wav` plus
+/// a `<channel>.vad.json` sidecar. We prefer the speech-only file as
+/// the ASR input (smaller payload, no silence for the decoder to
+/// hallucinate against) and carry the sidecar path so the post-decode
+/// step can remap segment timestamps back onto the original
+/// recording's timeline.
 fn collect_audio_sources(session_dir: &Path) -> Vec<AudioSource> {
     let mut out = Vec::new();
-    let mic = session_dir.join("mic.wav");
-    if mic.exists() {
-        out.push(AudioSource {
-            channel: "mic".to_string(),
-            path: mic,
-        });
-    }
-    let system = session_dir.join("system.wav");
-    if system.exists() {
-        out.push(AudioSource {
-            channel: "system".to_string(),
-            path: system,
-        });
+    for channel in &["mic", "system"] {
+        let raw = session_dir.join(format!("{channel}.wav"));
+        if !raw.exists() {
+            continue;
+        }
+        let speech = session_dir.join(format!("{channel}.speech.wav"));
+        let sidecar = session_dir.join(format!("{channel}.vad.json"));
+        if speech.exists() && sidecar.exists() {
+            out.push(AudioSource {
+                channel: (*channel).to_string(),
+                path: speech,
+                vad_sidecar: Some(sidecar),
+            });
+        } else {
+            out.push(AudioSource {
+                channel: (*channel).to_string(),
+                path: raw,
+                vad_sidecar: None,
+            });
+        }
     }
     out
 }

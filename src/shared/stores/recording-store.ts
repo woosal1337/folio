@@ -21,6 +21,7 @@ import {
   startRecording as ipcStart,
   stopRecording as ipcStop,
   transcribeRecording as ipcTranscribe,
+  runVad as ipcRunVad,
 } from "@/shared/lib/ipc";
 import { estimateOpenAITranscribeCost, formatUsd } from "@/shared/lib/cost-estimate";
 import { playFeedback } from "@/shared/lib/feedback";
@@ -306,6 +307,43 @@ export const useRecording = create<RecordingState>((set, get) => {
       description: basename(sessionDir),
     });
     try {
+      // VAD pre-pass: strip silence from mic.wav + system.wav before
+      // the ASR sees them. Whisper hallucinates on silent inputs (the
+      // 2026-05-26-11-47-54 mic.wav incident looped a sentence 14
+      // times across 60s of silence). Pushed as its own job pill so
+      // the user sees the two-step queue. Opt-out via
+      // Settings.auto_vad_enabled — when disabled or when the IPC
+      // fails we fall through to the ASR with the raw WAVs and log
+      // the reason; this never blocks transcription.
+      if (settings?.auto_vad_enabled ?? true) {
+        const vadJobId = `vad:${sessionDir}`;
+        useJobsStore.getState().push({
+          id: vadJobId,
+          kind: "vad",
+          label: `Detecting speech in ${basename(sessionDir)}`,
+          sessionDir,
+          recordingLabel: basename(sessionDir),
+        });
+        try {
+          const vadResult = await ipcRunVad(sessionDir);
+          const totalStripped = vadResult.channels.reduce(
+            (acc, c) => acc + c.sidecar.silence_stripped_seconds,
+            0
+          );
+          if (totalStripped >= 1) {
+            const mins = Math.floor(totalStripped / 60);
+            const secs = Math.round(totalStripped % 60);
+            const human = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+            toast.info("Speech detected", {
+              description: `Stripped ${human} of silence before transcription.`,
+            });
+          }
+        } catch (e) {
+          console.error("run_vad failed (falling back to raw WAVs):", e);
+        } finally {
+          useJobsStore.getState().pop(vadJobId);
+        }
+      }
       const result = await ipcTranscribe(sessionDir);
       set({
         transcribing: false,

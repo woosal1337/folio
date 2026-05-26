@@ -37,6 +37,16 @@ voice_processing_enabled: boolean,
  */
 auto_transcribe_enabled: boolean,
 /**
+ * When true, the VAD pre-pass runs as its own job before
+ * transcription. Strips silence from both the mic and system
+ * tracks so the ASR only ever sees speech-bearing audio.
+ * Default ON because the silence-hallucination failure mode is
+ * expensive (the 2026-05-26-11-47-54 mic.wav incident) and the
+ * pre-pass is cheap. Set to false to send the raw recordings
+ * straight to the ASR.
+ */
+auto_vad_enabled: boolean,
+/**
  * Root directory for the local memory layer. Defaults to a
  * subtree of the user's Obsidian vault per the
  * `ai-chat-multi-provider.md` plan; falls back to

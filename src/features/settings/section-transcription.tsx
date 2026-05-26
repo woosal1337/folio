@@ -83,6 +83,37 @@ export function SectionTranscription({ settings, onChange }: Props) {
         />
       </div>
 
+      {/* VAD pre-pass toggle. When on, recording-store queues a VAD
+          job before transcription kicks off — strips silence from the
+          mic + system tracks so Whisper never sees pure silence (the
+          decoder hallucinates loops on it). */}
+      <div className="flex items-start justify-between gap-6 rounded-lg border border-border bg-card p-4">
+        <div className="space-y-1">
+          <Label
+            htmlFor="auto-vad-toggle"
+            className="flex items-center gap-2 text-sm font-medium"
+          >
+            <Zap className="h-4 w-4 text-muted-foreground" />
+            Strip silence before transcription
+            <span className="rounded bg-muted px-1.5 py-0.5 text-2xs font-normal text-muted-foreground">
+              Recommended
+            </span>
+          </Label>
+          <p className="max-w-md text-xs text-muted-foreground">
+            Runs a fast voice-activity-detection pass on the mic and system tracks
+            before sending them to the transcriber. Removes silent stretches so the
+            model never gets a chance to hallucinate over them, and cuts cloud-Whisper
+            upload size on meetings with long listening periods.
+          </p>
+        </div>
+        <Switch
+          id="auto-vad-toggle"
+          checked={settings.auto_vad_enabled}
+          onCheckedChange={(checked) => onChange("auto_vad_enabled", checked)}
+          className="mt-1"
+        />
+      </div>
+
       <section className="space-y-3">
         <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
           Provider

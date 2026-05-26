@@ -88,6 +88,7 @@ pub fn run() {
             commands::windows::open_library_window,
             commands::windows::open_editor_window,
             commands::transcription::transcribe_recording,
+            commands::vad::run_vad,
             commands::transcription::read_transcript,
             commands::transcription::locate_transcript_span,
             commands::transcription::save_transcript,
