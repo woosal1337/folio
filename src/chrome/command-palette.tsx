@@ -36,10 +36,14 @@ export function CommandPalette({ open, onClose, sources }: Props) {
       return;
     }
     let cancelled = false;
-    Promise.all(sources.map((s) => s.load())).then((batches) => {
-      if (cancelled) return;
-      setItems(batches.flat());
-    });
+    (async () => {
+      try {
+        const batches = await Promise.all(sources.map((s) => s.load()));
+        if (!cancelled) setItems(batches.flat());
+      } catch (e) {
+        if (!cancelled) console.error("command-palette source load:", e);
+      }
+    })();
     return () => {
       cancelled = true;
     };

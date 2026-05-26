@@ -38,30 +38,28 @@ export function ParticipantCards({ transcript }: Props) {
 
   React.useEffect(() => {
     let cancelled = false;
-    listMemories({
-      query: null,
-      kinds: ["person"],
-      include_archived: false,
-      limit: null,
-    })
-      .then((all) => {
+    (async () => {
+      try {
+        const all = await listMemories({
+          query: null,
+          kinds: ["person"],
+          include_archived: false,
+          limit: null,
+        });
         if (cancelled) return;
-        // Substring match: take the tail of each `person.X` key and
-        // look for it as a word-ish chunk in the transcript. We
-        // intentionally allow partial matches because nicknames /
-        // shortened references are how meetings actually refer to
-        // people ("can Alice prep that?" matches `person.alice`).
         const hits = all.filter((m) => {
           const tail = (m.key ?? "").split(".").pop()?.toLowerCase();
           if (!tail || tail.length < 3) return false;
           return text.includes(tail);
         });
         setMatches(hits);
-      })
-      .catch((e) => {
-        console.error("ParticipantCards: listMemories failed", e);
-        if (!cancelled) setMatches([]);
-      });
+      } catch (e) {
+        if (!cancelled) {
+          console.error("ParticipantCards: listMemories failed", e);
+          setMatches([]);
+        }
+      }
+    })();
     return () => {
       cancelled = true;
     };

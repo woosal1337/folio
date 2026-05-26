@@ -72,19 +72,23 @@ export const AgentPanel = React.forwardRef<AgentPanelHandle, Props>(function Age
 
   React.useEffect(() => {
     let cancelled = false;
-    Promise.all([listAgents(), listAgentRuns(sessionDir)])
-      .then(([agentList, runList]) => {
+    (async () => {
+      try {
+        const [agentList, runList] = await Promise.all([
+          listAgents(),
+          listAgentRuns(sessionDir),
+        ]);
         if (cancelled) return;
         setAgents(agentList);
         const map: Record<string, AgentRun> = {};
         for (const r of runList) map[r.agent_id] = r;
         setRuns(map);
-      })
-      .catch((e) => {
+      } catch (e) {
         if (cancelled) return;
         console.error("agent init:", e);
         toast.error("Could not load agents", { description: String(e) });
-      });
+      }
+    })();
     return () => {
       cancelled = true;
     };

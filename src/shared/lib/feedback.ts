@@ -123,12 +123,14 @@ export function playFeedback(kind: FeedbackKind): void {
   // frozen, so the events landed in the past and produced silence.
   // Wait for resume to actually flip the state, THEN schedule.
   if (audio.state === "suspended") {
-    audio
-      .resume()
-      .then(() => schedule(audio, kind))
-      .catch((e) => {
-        console.warn("AudioContext resume failed:", e);
-      });
+    void (async () => {
+      try {
+        await audio.resume();
+        schedule(audio, kind);
+      } catch (e) {
+        console.error("AudioContext resume failed:", e);
+      }
+    })();
     return;
   }
   schedule(audio, kind);

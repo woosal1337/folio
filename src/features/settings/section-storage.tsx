@@ -51,12 +51,21 @@ export function SectionStorage({ settings, onChange }: Props) {
   const [isRepo, setIsRepo] = React.useState<boolean | null>(null);
   const [syncing, setSyncing] = React.useState(false);
   React.useEffect(() => {
-    gitVaultIsRepo()
-      .then(setIsRepo)
-      .catch((e) => {
-        console.error("git_vault_is_repo:", e);
-        setIsRepo(false);
-      });
+    let cancelled = false;
+    (async () => {
+      try {
+        const value = await gitVaultIsRepo();
+        if (!cancelled) setIsRepo(value);
+      } catch (e) {
+        if (!cancelled) {
+          console.error("git_vault_is_repo:", e);
+          setIsRepo(false);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
   const handleSync = async () => {
     setSyncing(true);

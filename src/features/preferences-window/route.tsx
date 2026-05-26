@@ -79,9 +79,18 @@ export default function PreferencesWindow() {
   }, [settings, load]);
 
   React.useEffect(() => {
-    listInputDevices()
-      .then(setDevices)
-      .catch((e) => console.error("listInputDevices:", e));
+    let cancelled = false;
+    (async () => {
+      try {
+        const next = await listInputDevices();
+        if (!cancelled) setDevices(next);
+      } catch (e) {
+        if (!cancelled) console.error("listInputDevices:", e);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const onChange = React.useCallback(

@@ -20,16 +20,15 @@ export function HomeRedirect() {
 
   React.useEffect(() => {
     let cancelled = false;
-    listRecordings()
-      .then((rs) => {
-        if (cancelled) return;
-        setResolution(rs.length > 0 ? "library" : "record");
-      })
-      .catch((e) => {
-        // On error, fall back to Record — same as the v1 behavior.
+    (async () => {
+      try {
+        const rs = await listRecordings();
+        if (!cancelled) setResolution(rs.length > 0 ? "library" : "record");
+      } catch (e) {
         console.error("HomeRedirect: listRecordings failed", e);
         if (!cancelled) setResolution("record");
-      });
+      }
+    })();
     return () => {
       cancelled = true;
     };

@@ -82,20 +82,19 @@ export function QuickLookSheet({
     let cancelled = false;
     setLoading(true);
     setError(null);
-    readTranscript(recording.session_dir)
-      .then((t) => {
-        if (cancelled) return;
-        setTranscript(t);
-      })
-      .catch((e) => {
-        if (cancelled) return;
-        console.error("quick-look transcript:", e);
-        setError(String(e));
-      })
-      .finally(() => {
-        if (cancelled) return;
-        setLoading(false);
-      });
+    (async () => {
+      try {
+        const t = await readTranscript(recording.session_dir);
+        if (!cancelled) setTranscript(t);
+      } catch (e) {
+        if (!cancelled) {
+          console.error("quick-look transcript:", e);
+          setError(String(e));
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
     return () => {
       cancelled = true;
     };

@@ -56,9 +56,18 @@ export function FirstRunConductor({ onFinish }: { onFinish: () => void }) {
   const [savingKey, setSavingKey] = React.useState(false);
 
   React.useEffect(() => {
-    listPermissions()
-      .then(setRows)
-      .catch((e) => console.error("list_permissions:", e));
+    let cancelled = false;
+    (async () => {
+      try {
+        const next = await listPermissions();
+        if (!cancelled) setRows(next);
+      } catch (e) {
+        if (!cancelled) console.error("list_permissions:", e);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const requiredPermissions = React.useMemo(
