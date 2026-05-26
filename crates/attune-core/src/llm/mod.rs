@@ -14,6 +14,7 @@
 
 pub mod agent_run;
 pub mod agents;
+pub mod confidence;
 pub mod keystore;
 pub mod provider;
 pub mod providers;
