@@ -3,7 +3,18 @@
 /**
  * Persisted user settings.
  */
-export type Settings = { mic_device: string | null, system_audio_enabled: boolean, output_dir: string, notes_dir: string, tasks_path: string, transcripts_dir: string, theme: string, transcriber: string, transcription_language: string, dictionary_terms: Array<string>,
+export type Settings = { mic_device: string | null, system_audio_enabled: boolean, output_dir: string, notes_dir: string, tasks_path: string, transcripts_dir: string, theme: string, transcriber: string, transcription_language: string,
+/**
+ * Language the LLM agents (summarise, extract-tasks, extract-memories,
+ * find-decisions, autoname, Q&A) must reply in regardless of the
+ * transcript's language. BCP-47 tag — `"auto"` keeps the legacy
+ * behaviour (mirror the meeting language); `"en"` etc. forces every
+ * agent output (and tool-call free-text like task titles + memory
+ * content) into that language. Default `"en"` because most users
+ * search + skim their library in English even when meetings are
+ * multilingual.
+ */
+briefing_language: string, dictionary_terms: Array<string>,
 /**
  * Identifier of the local Whisper model the user has chosen (e.g.
  * "large-v3", "small"). Used only when `transcriber == "local_whisper"`.

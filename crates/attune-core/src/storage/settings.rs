@@ -29,6 +29,16 @@ pub struct Settings {
     pub transcriber: String,
     #[serde(default = "default_language")]
     pub transcription_language: String,
+    /// Language the LLM agents (summarise, extract-tasks, extract-memories,
+    /// find-decisions, autoname, Q&A) must reply in regardless of the
+    /// transcript's language. BCP-47 tag — `"auto"` keeps the legacy
+    /// behaviour (mirror the meeting language); `"en"` etc. forces every
+    /// agent output (and tool-call free-text like task titles + memory
+    /// content) into that language. Default `"en"` because most users
+    /// search + skim their library in English even when meetings are
+    /// multilingual.
+    #[serde(default = "default_briefing_language")]
+    pub briefing_language: String,
     #[serde(default)]
     pub dictionary_terms: Vec<String>,
     /// Identifier of the local Whisper model the user has chosen (e.g.
@@ -172,6 +182,9 @@ fn default_provider() -> String {
 fn default_language() -> String {
     "auto".into()
 }
+fn default_briefing_language() -> String {
+    "en".into()
+}
 fn default_local_whisper_model() -> String {
     "large-v3".into()
 }
@@ -237,6 +250,7 @@ impl Default for Settings {
             theme: default_theme(),
             transcriber: default_provider(),
             transcription_language: default_language(),
+            briefing_language: default_briefing_language(),
             dictionary_terms: Vec::new(),
             local_whisper_model: default_local_whisper_model(),
             voice_processing_enabled: default_voice_processing_enabled(),
