@@ -379,6 +379,25 @@ export function sharePaths(paths: string[]): Promise<void> {
   return call<void>("share_paths", { paths });
 }
 
+// ---- Voice debrief (v2 #027 / GET-53) ----------------------------
+
+/**
+ * Save a voice-debrief blob next to an existing recording. `bytes`
+ * is the raw container body (typically `audio/webm;codecs=opus`).
+ * Returns the final on-disk path.
+ */
+export function saveDebrief(
+  sessionDir: string,
+  filename: string,
+  bytes: Uint8Array
+): Promise<string> {
+  return call<string>("save_debrief", {
+    sessionDir,
+    filename,
+    bytes: Array.from(bytes),
+  });
+}
+
 // ---- Transcript backlinks (v2 #038 / GET-41) ---------------------
 
 import type { TranscriptHit } from "@/shared/types/TranscriptHit";

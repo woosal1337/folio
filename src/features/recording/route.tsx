@@ -6,6 +6,7 @@ import { Button } from "@/shared/ui/button";
 import { Card, CardContent } from "@/shared/ui/card";
 import { RecordingRow } from "@/features/recording/recording-row";
 import { StatusPill } from "@/features/recording/status-pill";
+import { VoiceDebriefSheet } from "@/features/recording/voice-debrief-sheet";
 import { Badge } from "@/shared/ui/badge";
 import { useSettingsStore } from "@/shared/stores/settings-store";
 import { ShieldCheck } from "lucide-react";
@@ -43,12 +44,21 @@ export default function Record() {
     refresh();
   }, [syncFromBackend, refresh]);
 
+  // Voice-debrief on Stop (#027 / GET-53). Opens automatically after a
+  // save when the user has opted in; the sheet's own onClose flips the
+  // local state so a subsequent save re-opens it.
+  const voiceDebriefEnabled = useSettingsStore(
+    (s) => s.settings?.voice_debrief_enabled ?? false
+  );
+  const [debriefFor, setDebriefFor] = React.useState<string | null>(null);
+
   React.useEffect(() => {
     if (rec.lastSavedDir) {
       refresh();
       setExpanded(rec.lastSavedDir);
+      if (voiceDebriefEnabled) setDebriefFor(rec.lastSavedDir);
     }
-  }, [rec.lastSavedDir, refresh]);
+  }, [rec.lastSavedDir, refresh, voiceDebriefEnabled]);
 
   // After an auto-transcription completes, re-list so the row flips
   // from "transcribing" to "transcribed" without the user having to
@@ -215,6 +225,7 @@ export default function Record() {
           ))}
         </div>
       )}
+      <VoiceDebriefSheet sessionDir={debriefFor} onClose={() => setDebriefFor(null)} />
     </div>
   );
 }
