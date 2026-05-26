@@ -28,6 +28,8 @@ serde_json = { workspace = true }
 serde_norway = { workspace = true }
 toml = { workspace = true }
 ts-rs = { workspace = true }
+aes-gcm = { workspace = true }
+argon2 = { workspace = true }
 uuid = { workspace = true }
 
 # Memory layer.
