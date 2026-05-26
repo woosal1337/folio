@@ -41,6 +41,12 @@ pub fn install_window_vibrancy(window: &tauri::WebviewWindow) {
         return;
     };
     let ns_window = ns_window as id;
+    // SAFETY: ns_window is a valid NSWindow pointer obtained from Tauri's
+    // window handle (the Ok branch above guarantees it). Every Objective-C
+    // message below uses Apple-documented selectors and types; the
+    // NSVisualEffectView outlives the window because we add it as a
+    // subview of contentView, so the window owns it. Each return is
+    // checked for nil before further dereferences.
     unsafe {
         let content_view: id = msg_send![ns_window, contentView];
         if content_view == nil {

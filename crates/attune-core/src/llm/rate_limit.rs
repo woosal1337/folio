@@ -100,9 +100,11 @@ impl RateLimiter {
                 budget_usd: self.budget_usd,
             });
         }
-        // SAFETY: acquire only fails if the semaphore is closed,
-        // which we never close in normal app lifetime.
-        let permit = self.permits.acquire().await.expect("semaphore closed");
+        let permit = self
+            .permits
+            .acquire()
+            .await
+            .expect("invariant: this semaphore is owned by &self and is never explicitly closed across the app lifetime; acquire can only fail when close() has been called");
         Ok(permit)
     }
 

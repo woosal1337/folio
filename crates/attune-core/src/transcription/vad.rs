@@ -80,7 +80,9 @@ fn merge_close(
     let gap_samples = (min_gap_secs * sample_rate as f32) as usize;
     let mut out = vec![raw[0]];
     for range in raw.iter().skip(1) {
-        let last = out.last_mut().expect("non-empty");
+        let last = out
+            .last_mut()
+            .expect("invariant: out is non-empty here because we pushed at least one element above before entering this branch");
         if range.start.saturating_sub(last.end) <= gap_samples {
             last.end = range.end;
         } else {

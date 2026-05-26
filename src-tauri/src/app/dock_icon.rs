@@ -41,8 +41,13 @@ pub fn set_dock_icon() {
         "set_dock_icon: loading icon"
     );
 
+    // SAFETY: every Objective-C call below routes through the objc/cocoa
+    // runtime. The arguments (ICON_PNG byte slice + size, NSImage init,
+    // NSApplication.setApplicationIconImage:) match Apple's documented
+    // signatures; we check each return for `nil` and bail before
+    // dereferencing. ICON_PNG is `&'static [u8]` so the pointer outlives
+    // the NSData allocation.
     unsafe {
-        // NSData *data = [NSData dataWithBytes:bytes length:len];
         let ns_data: id = msg_send![
             class!(NSData),
             dataWithBytes: ICON_PNG.as_ptr() as *const std::ffi::c_void
