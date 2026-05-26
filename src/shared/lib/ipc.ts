@@ -378,3 +378,19 @@ export function setRecordingLanguage(
 export function sharePaths(paths: string[]): Promise<void> {
   return call<void>("share_paths", { paths });
 }
+
+// ---- Transcript backlinks (v2 #038 / GET-41) ---------------------
+
+import type { TranscriptHit } from "@/shared/types/TranscriptHit";
+
+/**
+ * Locate an evidence span inside a session's transcript and return
+ * the channel / segment / start-second / end-second it lives in.
+ * Returns null when the span can't be found.
+ */
+export function locateTranscriptSpan(
+  sessionDir: string,
+  span: string
+): Promise<TranscriptHit | null> {
+  return call<TranscriptHit | null>("locate_transcript_span", { sessionDir, span });
+}

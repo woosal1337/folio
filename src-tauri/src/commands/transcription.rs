@@ -377,6 +377,35 @@ pub async fn read_transcript(
     .map_err(|e| format!("read_transcript task panicked: {e}"))?
 }
 
+/// Locate an evidence span inside a session's transcript and return
+/// the channel / segment / timestamp it lives in. v2 finding 038 /
+/// GET-41. Used by the inbox + memory + task UIs to backlink a claim
+/// to the exact second of audio it came from.
+#[tauri::command]
+pub async fn locate_transcript_span(
+    state: State<'_, AppState>,
+    session_dir: PathBuf,
+    span: String,
+) -> Result<Option<attune_core::transcription::locate::TranscriptHit>, String> {
+    let output_dir = state.settings.lock().output_dir.clone();
+
+    tauri::async_runtime::spawn_blocking(move || -> Result<_, String> {
+        let canon_root = std::fs::canonicalize(&output_dir).map_err(|e| e.to_string())?;
+        let canon_target = std::fs::canonicalize(&session_dir).map_err(|e| e.to_string())?;
+        if !canon_target.starts_with(&canon_root) {
+            return Err(format!(
+                "refused: {} not under recordings folder",
+                canon_target.display()
+            ));
+        }
+        let path = canon_target.join(TRANSCRIPT_FILENAME);
+        let transcript = SessionTranscript::read_json(&path).map_err(|e| e.to_string())?;
+        Ok(attune_core::transcription::locate::locate_span(&transcript, &span))
+    })
+    .await
+    .map_err(|e| format!("locate_transcript_span task panicked: {e}"))?
+}
+
 const LANGUAGE_OVERRIDE_FILE: &str = "language.txt";
 
 /// Read `<session_dir>/language.txt` if present and return a trimmed,
