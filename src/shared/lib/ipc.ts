@@ -398,6 +398,19 @@ export function saveDebrief(
   });
 }
 
+// ---- Permission walkthrough (v2 #003 / GET-31) -------------------
+
+import type { PermissionRow } from "@/shared/types/PermissionRow";
+import type { Permission } from "@/shared/types/Permission";
+
+export function listPermissions(): Promise<PermissionRow[]> {
+  return call<PermissionRow[]>("list_permissions");
+}
+
+export function openPermissionSettings(permission: Permission): Promise<void> {
+  return call<void>("open_permission_settings", { permission });
+}
+
 // ---- Transcript backlinks (v2 #038 / GET-41) ---------------------
 
 import type { TranscriptHit } from "@/shared/types/TranscriptHit";

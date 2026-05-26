@@ -69,6 +69,8 @@ pub fn run() {
             commands::library::reveal_in_finder,
             commands::library::share_paths,
             commands::library::save_debrief,
+            commands::permissions::list_permissions,
+            commands::permissions::open_permission_settings,
             commands::transcription::transcribe_recording,
             commands::transcription::read_transcript,
             commands::transcription::locate_transcript_span,
