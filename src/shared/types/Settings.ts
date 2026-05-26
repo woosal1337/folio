@@ -3,12 +3,12 @@
 /**
  * Persisted user settings.
  */
-export type Settings = { mic_device: string | null, system_audio_enabled: boolean, output_dir: string, notes_dir: string, tasks_path: string, transcripts_dir: string, theme: string, transcriber: string, openai_api_key: string, transcription_language: string, dictionary_terms: Array<string>, 
+export type Settings = { mic_device: string | null, system_audio_enabled: boolean, output_dir: string, notes_dir: string, tasks_path: string, transcripts_dir: string, theme: string, transcriber: string, openai_api_key: string, transcription_language: string, dictionary_terms: Array<string>,
 /**
  * Identifier of the local Whisper model the user has chosen (e.g.
  * "large-v3", "small"). Used only when `transcriber == "local_whisper"`.
  */
-local_whisper_model: string, 
+local_whisper_model: string,
 /**
  * macOS only. When true, mic capture goes through Apple's Voice
  * Processing IO AudioUnit (AEC + noise suppression + AGC) so the
@@ -16,7 +16,7 @@ local_whisper_model: string,
  * wearing headphones. Falls back to the plain cpal path on
  * VPIO init failure. Ignored on non-macOS targets.
  */
-voice_processing_enabled: boolean, 
+voice_processing_enabled: boolean,
 /**
  * When true, the app starts transcribing automatically as soon as
  * a recording is stopped. Honours the currently-selected
@@ -24,7 +24,7 @@ voice_processing_enabled: boolean,
  * `openai_api_key`; Local Whisper needs no key). When false the
  * user transcribes manually from the Library row.
  */
-auto_transcribe_enabled: boolean, 
+auto_transcribe_enabled: boolean,
 /**
  * Root directory for the local memory layer. Defaults to a
  * subtree of the user's Obsidian vault per the
@@ -33,20 +33,20 @@ auto_transcribe_enabled: boolean,
  * exist. The `MemoryStore` creates this directory on first
  * write — callers should not assume it exists.
  */
-memory_dir: string, 
+memory_dir: string,
 /**
  * When true, runs the `extract-memories` agent automatically
  * after every transcription. Mirrors `auto_summarize_enabled`
  * and `auto_extract_tasks_enabled`. Skipped silently if no AI
  * key is set.
  */
-auto_extract_memories_enabled: boolean, 
+auto_extract_memories_enabled: boolean,
 /**
  * When true, the app plays short synthesised tones on the
  * recording lifecycle (start, stop, agent success, error).
  * Default off — users opt in via Settings. v2 finding 019.
  */
-feedback_sounds_enabled: boolean, 
+feedback_sounds_enabled: boolean,
 /**
  * When true and an AI provider key is configured, the app
  * automatically runs the `summarize` agent immediately after a
@@ -54,7 +54,7 @@ feedback_sounds_enabled: boolean,
  * away knowing the summary will be on the recording's page when
  * they come back. Falls back to a no-op when no AI key is set.
  */
-auto_summarize_enabled: boolean, 
+auto_summarize_enabled: boolean,
 /**
  * When true and an AI provider key is configured, the app
  * automatically runs the `extract-tasks` agent after a
@@ -63,7 +63,7 @@ auto_summarize_enabled: boolean,
  * meeting and come back to a populated to-do board. Skipped
  * silently if no AI key is set.
  */
-auto_extract_tasks_enabled: boolean, 
+auto_extract_tasks_enabled: boolean,
 /**
  * When true and an AI provider key is configured, fires the
  * `autoname` agent right after transcription completes so the
@@ -73,7 +73,7 @@ auto_extract_tasks_enabled: boolean,
  * surfaces the title in RecordingSummary so the UI can render
  * it without any extra IPC roundtrips. v2 finding 024 / GET-37.
  */
-auto_name_enabled: boolean, 
+auto_name_enabled: boolean,
 /**
  * Optional retention policy for the source WAV files inside each
  * session directory. None / 0 leaves WAVs in place forever; a
@@ -85,7 +85,7 @@ auto_name_enabled: boolean,
  * lets the user keep transcripts but drop the source audio.
  * v2 finding 063 / GET-98.
  */
-wav_retention_days: number | null, 
+wav_retention_days: number | null,
 /**
  * Opt-in toggle for the public-aggregate stats counter. v2
  * finding 095 / GET-110. When true, the app uploads three
@@ -96,7 +96,7 @@ wav_retention_days: number | null,
  * the follow-up PR; this setting ships the consent surface so
  * adding the upload later is a zero-UI change.
  */
-share_aggregate_stats: boolean, 
+share_aggregate_stats: boolean,
 /**
  * Attune Pro license key (v2 finding 092 / GET-108). Empty
  * string = Free tier. Non-empty = Pro — gates auto-record,
@@ -105,7 +105,7 @@ share_aggregate_stats: boolean,
  * of the key is a follow-up; for now the presence of a
  * non-empty value flips the tier.
  */
-pro_license_key: string, 
+pro_license_key: string,
 /**
  * RFC-3339 timestamp the user started the 14-day Pro trial.
  * Empty string = trial never started. The UI computes
@@ -113,7 +113,7 @@ pro_license_key: string,
  * than 14 days have elapsed without a license_key. v2 finding
  * 094 / GET-109.
  */
-pro_trial_started_at: string, 
+pro_trial_started_at: string,
 /**
  * Apple Reminders two-way sync — when enabled, kanban tasks
  * publish to the named Reminders list and #attune-tagged
@@ -121,12 +121,12 @@ pro_trial_started_at: string,
  * requires the user to grant Reminders permission on first
  * run. v2 finding 076 / GET-78.
  */
-reminders_sync_enabled: boolean, 
+reminders_sync_enabled: boolean,
 /**
  * Reminders list name to mirror to/from. Defaults to "Attune"
  * (we create the list on first sync if it doesn't exist).
  */
-reminders_list_name: string, 
+reminders_list_name: string,
 /**
  * Privacy Mode / Airgap (v2 finding 048 / GET-42). When true the
  * CloudGuard blocks every outbound HTTP request except to
@@ -135,7 +135,7 @@ reminders_list_name: string,
  * "blocked by Privacy Mode" error. The titlebar shows an AIRGAP
  * badge while this is on. Defaults to false.
  */
-privacy_mode: boolean, 
+privacy_mode: boolean,
 /**
  * Voice-debrief on Stop (v2 finding 027 / GET-53). When true, the
  * app pops a small sheet right after the user hits Stop that asks
