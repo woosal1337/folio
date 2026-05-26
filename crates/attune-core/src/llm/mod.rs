@@ -19,6 +19,7 @@ pub mod keystore;
 pub mod provider;
 pub mod providers;
 pub mod rate_limit;
+pub mod router;
 pub mod types;
 
 pub use agent_run::{AgentRun, AgentRunStore};
