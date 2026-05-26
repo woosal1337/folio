@@ -106,8 +106,8 @@ export function FirstRunConductor({ onFinish }: { onFinish: () => void }) {
           <h1 className="font-serif text-4xl font-medium tracking-tight">Welcome to Attune</h1>
         </div>
         <p className="mt-2 text-sm text-muted-foreground">
-          A local-first meeting recorder. Two permissions, one transcription choice, and you're
-          ready to capture your first meeting.
+          A local-first meeting recorder. Two permissions, one transcription choice, and
+          you&apos;re ready to capture your first meeting.
         </p>
       </header>
 
@@ -211,7 +211,7 @@ export function FirstRunConductor({ onFinish }: { onFinish: () => void }) {
         </div>
         <Button onClick={finish} disabled={savingKey} className="gap-2">
           <AudioLines className="h-4 w-4" />
-          I'm ready
+          I&apos;m ready
         </Button>
       </div>
     </div>
