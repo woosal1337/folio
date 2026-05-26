@@ -205,6 +205,23 @@ html[data-reading-font="atkinson-hyperlegible"] body {
 html[data-reading-font="opendyslexic"] body {
   font-family: "OpenDyslexic", "Atkinson Hyperlegible", "Inter", system-ui, sans-serif;
 }
+
+/* Tailwind's `font-serif` utility hardcodes Spectral/Georgia at higher
+ * specificity than the body rule above, so by default page headers
+ * stayed serif even when the user picked Atkinson Hyperlegible or
+ * OpenDyslexic. Re-bind .font-serif per reading-font so the whole UI
+ * (titles + body) follows the user's choice. `system` keeps the
+ * Tailwind default Spectral so the SF Pro body + Spectral headings
+ * pairing the original design ships with is preserved. */
+html[data-reading-font="fraunces"] .font-serif {
+  font-family: "Fraunces", "Spectral", Georgia, ui-serif, serif;
+}
+html[data-reading-font="atkinson-hyperlegible"] .font-serif {
+  font-family: "Atkinson Hyperlegible", "Inter", system-ui, sans-serif;
+}
+html[data-reading-font="opendyslexic"] .font-serif {
+  font-family: "OpenDyslexic", "Atkinson Hyperlegible", "Inter", system-ui, sans-serif;
+}
 html[data-reading-size="s"] {
   font-size: 14px;
 }

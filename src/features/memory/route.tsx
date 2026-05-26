@@ -664,7 +664,7 @@ function EmptyState({ onCreate }: EmptyStateProps) {
     <div className="rounded-2xl border border-dashed border-border bg-card py-16">
       <div className="mx-auto flex max-w-md flex-col items-center gap-3 text-center">
         <Brain className="h-8 w-8 text-muted-foreground" />
-        <h2 className="font-medium">Nothing remembered yet</h2>
+        <h2 className="font-serif text-lg font-medium">Nothing remembered yet</h2>
         <p className="text-sm text-muted-foreground">
           Attune will start populating this page after your next recording, assuming
           auto-extract memories is on in Settings → AI. You can also add an observation
