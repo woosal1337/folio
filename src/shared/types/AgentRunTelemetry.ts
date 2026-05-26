@@ -3,18 +3,18 @@ import type { EvidenceSpan } from "./EvidenceSpan";
 import type { ProviderId } from "./ProviderId";
 import type { ToolCallTrace } from "./ToolCallTrace";
 
-export type AgentRunTelemetry = { agent_id: string, provider: ProviderId, model: string, latency_ms: bigint, prompt_tokens: number | null, completion_tokens: number | null,
+export type AgentRunTelemetry = { agent_id: string, provider: ProviderId, model: string, latency_ms: bigint, prompt_tokens: number | null, completion_tokens: number | null, 
 /**
  * `prompt_tokens + completion_tokens` when both are known; one of
  * them when only one is reported; None when the provider gave us
  * no usage block.
  */
-total_tokens: number | null,
+total_tokens: number | null, 
 /**
  * Best-effort cost in USD computed from the model's published
  * per-million-token price. None when the model isn't in our table.
  */
-estimated_cost_usd: number | null, tool_calls: Array<ToolCallTrace>, evidence_spans: Array<EvidenceSpan>,
+estimated_cost_usd: number | null, tool_calls: Array<ToolCallTrace>, evidence_spans: Array<EvidenceSpan>, 
 /**
  * The response text of the run immediately before this one, kept
  * so the UI can render a diff for the "edit and retry" flow.

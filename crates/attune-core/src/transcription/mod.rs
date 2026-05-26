@@ -5,7 +5,9 @@
 //! API and [`stub`] for tests and offline use.
 
 pub mod adaptive;
+pub mod chunker;
 pub mod hallucination_filter;
+pub mod upload_state;
 pub mod local;
 pub mod locate;
 pub mod models;
