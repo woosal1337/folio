@@ -7,6 +7,7 @@ import {
   focusInTextInput,
   matchesChord,
 } from "@/shared/lib/shortcuts";
+import { openPreferencesWindow } from "@/shared/lib/ipc";
 import { useRecording } from "@/shared/stores/recording-store";
 import { useSettingsUiStore } from "@/shared/stores/settings-ui-store";
 
@@ -41,7 +42,12 @@ export function GlobalShortcuts({ onOpenCheatsheet, onOpenPalette }: Props) {
         event.preventDefault();
         dispatch(shortcut.action, {
           navigate,
-          openPreferences: () => openPreferences(),
+          openPreferences: () => {
+            openPreferencesWindow().catch((e) => {
+              console.error("open_preferences_window:", e);
+              openPreferences();
+            });
+          },
           openCheatsheet: onOpenCheatsheet,
           openAsk: onOpenPalette,
           toggleRecording: () => {
