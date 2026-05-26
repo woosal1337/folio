@@ -432,10 +432,18 @@ fn read_session_language_override(session_dir: &Path) -> Option<String> {
 /// Library row's language chip. Returns `None` when no override file
 /// exists.
 #[tauri::command]
-pub async fn get_recording_language(session_dir: PathBuf) -> Result<Option<String>, String> {
-    tauri::async_runtime::spawn_blocking(move || Ok(read_session_language_override(&session_dir)))
-        .await
-        .map_err(|e| format!("get_recording_language task panicked: {e}"))?
+pub async fn get_recording_language(
+    state: State<'_, AppState>,
+    session_dir: PathBuf,
+) -> Result<Option<String>, String> {
+    let output_dir = state.settings.lock().output_dir.clone();
+    tauri::async_runtime::spawn_blocking(move || -> Result<Option<String>, String> {
+        let dir = attune_core::paths::canonicalize_under(&output_dir, &session_dir)
+            .map_err(|e| e.to_string())?;
+        Ok(read_session_language_override(&dir))
+    })
+    .await
+    .map_err(|e| format!("get_recording_language task panicked: {e}"))?
 }
 
 /// Set or clear the per-recording language override. Empty / null
@@ -443,10 +451,14 @@ pub async fn get_recording_language(session_dir: PathBuf) -> Result<Option<Strin
 /// again. v2 finding 046 / GET-89.
 #[tauri::command]
 pub async fn set_recording_language(
+    state: State<'_, AppState>,
     session_dir: PathBuf,
     language: Option<String>,
 ) -> Result<(), String> {
+    let output_dir = state.settings.lock().output_dir.clone();
     tauri::async_runtime::spawn_blocking(move || -> Result<(), String> {
+        let session_dir = attune_core::paths::canonicalize_under(&output_dir, &session_dir)
+            .map_err(|e| e.to_string())?;
         let path = session_dir.join(LANGUAGE_OVERRIDE_FILE);
         match language.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
             Some(code) => {

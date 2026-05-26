@@ -142,6 +142,20 @@ async fn deliver(
         .body(body)
         .send()
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| redact_reqwest_error(&e, &sub.url))?;
     Ok(resp.status().to_string())
+}
+
+/// `reqwest::Error::Display` can include the full URL — which, for
+/// webhook endpoints, may carry a user-info segment, a query token, or
+/// any other secret the user pasted into the URL. Strip the URL out of
+/// the error text and replace it with the safe host before crossing
+/// the IPC boundary. v2 finding R13 / Phase-3 audit B10.
+fn redact_reqwest_error(error: &reqwest::Error, full_url: &str) -> String {
+    let host = url::Url::parse(full_url)
+        .ok()
+        .and_then(|u| u.host_str().map(|h| h.to_string()))
+        .unwrap_or_else(|| "<unknown host>".to_string());
+    let message = error.to_string().replace(full_url, &host);
+    format!("webhook delivery to {host} failed: {message}")
 }

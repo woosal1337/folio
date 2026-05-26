@@ -76,22 +76,34 @@ pub fn list_agents() -> Vec<Agent> {
 }
 
 #[tauri::command]
-pub async fn list_agent_runs(session_dir: PathBuf) -> Result<Vec<AgentRun>, String> {
-    let path = session_dir.clone();
-    tauri::async_runtime::spawn_blocking(move || AgentRunStore::list(&path))
-        .await
-        .map_err(|e| format!("list_agent_runs task panicked: {e}"))?
-        .map_err(|e| e.to_string())
+pub async fn list_agent_runs(
+    state: State<'_, AppState>,
+    session_dir: PathBuf,
+) -> Result<Vec<AgentRun>, String> {
+    let output_dir = state.settings.lock().output_dir.clone();
+    tauri::async_runtime::spawn_blocking(move || -> Result<Vec<AgentRun>, String> {
+        let path = attune_core::paths::canonicalize_under(&output_dir, &session_dir)
+            .map_err(|e| e.to_string())?;
+        AgentRunStore::list(&path).map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| format!("list_agent_runs task panicked: {e}"))?
 }
 
 #[tauri::command]
-pub async fn delete_agent_run(session_dir: PathBuf, agent_id: String) -> Result<(), String> {
-    let path = session_dir.clone();
-    let id = agent_id.clone();
-    tauri::async_runtime::spawn_blocking(move || AgentRunStore::delete(&path, &id))
-        .await
-        .map_err(|e| format!("delete_agent_run task panicked: {e}"))?
-        .map_err(|e| e.to_string())
+pub async fn delete_agent_run(
+    state: State<'_, AppState>,
+    session_dir: PathBuf,
+    agent_id: String,
+) -> Result<(), String> {
+    let output_dir = state.settings.lock().output_dir.clone();
+    tauri::async_runtime::spawn_blocking(move || -> Result<(), String> {
+        let path = attune_core::paths::canonicalize_under(&output_dir, &session_dir)
+            .map_err(|e| e.to_string())?;
+        AgentRunStore::delete(&path, &agent_id).map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| format!("delete_agent_run task panicked: {e}"))?
 }
 
 #[tauri::command]
@@ -101,6 +113,17 @@ pub async fn run_agent(
     agent_id: String,
 ) -> Result<AgentRun, String> {
     let agent = agents::by_id(&agent_id).ok_or_else(|| format!("unknown agent id: {agent_id}"))?;
+
+    let output_dir = state.settings.lock().output_dir.clone();
+    let session_dir = {
+        let target = session_dir.clone();
+        let root = output_dir.clone();
+        tauri::async_runtime::spawn_blocking(move || {
+            attune_core::paths::canonicalize_under(&root, &target).map_err(|e| e.to_string())
+        })
+        .await
+        .map_err(|e| format!("canonicalize task panicked: {e}"))??
+    };
 
     let transcript_path = session_dir.join("transcript.json");
     let session_dir_for_read = session_dir.clone();

@@ -122,6 +122,7 @@ pub async fn export_vault_snapshot(
     };
 
     tauri::async_runtime::spawn_blocking(move || -> Result<SnapshotSummary, String> {
+        check_export_destination(&destination)?;
         let summary = export_snapshot_impl(&destination, &paths).map_err(|e| e.to_string())?;
         info!(
             destination = %summary.destination.display(),
@@ -133,6 +134,39 @@ pub async fn export_vault_snapshot(
     })
     .await
     .map_err(|e| format!("export_vault_snapshot task panicked: {e}"))?
+}
+
+/// Defence-in-depth deny-list for export destinations. The native save
+/// dialog already restricts users to writable directories, but a
+/// frontend bug or a deep-link could still hand us a path aimed at a
+/// system directory. Refuse anything that lands inside one of these
+/// roots. v2 finding R02 / Phase-3 audit B8.
+fn check_export_destination(destination: &std::path::Path) -> Result<(), String> {
+    const DENYLIST: &[&str] = &[
+        "/etc/",
+        "/System/",
+        "/Library/",
+        "/usr/",
+        "/private/etc/",
+        "/private/var/",
+        "/sbin/",
+        "/bin/",
+    ];
+    let canonical = destination
+        .parent()
+        .and_then(|p| std::fs::canonicalize(p).ok())
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_else(|| destination.to_string_lossy().to_string());
+    let lc = canonical.to_lowercase();
+    for prefix in DENYLIST {
+        if lc.starts_with(&prefix.to_lowercase()) {
+            return Err(format!(
+                "refused export to {} — destination is under a protected system directory",
+                canonical
+            ));
+        }
+    }
+    Ok(())
 }
 
 /// Walk every session under `recordings_dir` and delete mic.wav +
@@ -211,10 +245,15 @@ pub async fn generate_weekly_digest(state: State<'_, AppState>) -> Result<Digest
 /// 052 / GET-69.
 #[tauri::command]
 pub async fn export_share_bundle(
+    state: State<'_, AppState>,
     session_dir: PathBuf,
     destination: PathBuf,
 ) -> Result<ShareBundleSummary, String> {
+    let output_dir = state.settings.lock().output_dir.clone();
     tauri::async_runtime::spawn_blocking(move || -> Result<ShareBundleSummary, String> {
+        let session_dir = attune_core::paths::canonicalize_under(&output_dir, &session_dir)
+            .map_err(|e| e.to_string())?;
+        check_export_destination(&destination)?;
         let summary =
             export_share_bundle_impl(&session_dir, &destination).map_err(|e| e.to_string())?;
         info!(
@@ -289,9 +328,15 @@ pub async fn list_inbox_entries(state: State<'_, AppState>) -> Result<Vec<InboxE
 /// Archive a single inbox entry (rename into .processed/).
 /// v2 finding 073 / GET-75.
 #[tauri::command]
-pub async fn archive_inbox_entry(path: PathBuf) -> Result<(), String> {
+pub async fn archive_inbox_entry(
+    state: State<'_, AppState>,
+    path: PathBuf,
+) -> Result<(), String> {
+    let memory_dir = state.settings.lock().memory_dir.clone();
     tauri::async_runtime::spawn_blocking(move || -> Result<(), String> {
-        archive_inbox_impl(&path).map_err(|e| e.to_string())?;
+        let canon = attune_core::paths::canonicalize_under(&memory_dir, &path)
+            .map_err(|e| e.to_string())?;
+        archive_inbox_impl(&canon).map_err(|e| e.to_string())?;
         Ok(())
     })
     .await
