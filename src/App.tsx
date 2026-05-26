@@ -29,7 +29,6 @@ const Tasks = React.lazy(() => import("@/features/tasks/route"));
 const Inbox = React.lazy(() => import("@/features/inbox/route"));
 const PreferencesWindow = React.lazy(() => import("@/features/preferences-window/route"));
 const MemoryRoute = React.lazy(() => import("@/features/memory/route"));
-const CaptionsRoute = React.lazy(() => import("@/features/captions/route"));
 const SettingsModal = React.lazy(() =>
   import("@/features/settings/route").then((m) => ({ default: m.SettingsModal }))
 );
@@ -90,7 +89,6 @@ export default function App() {
                   <Route path="/ai" element={<Navigate to="/inbox" replace />} />
                   <Route path="/tasks" element={<Tasks />} />
                   <Route path="/memory" element={<MemoryRoute />} />
-                  <Route path="/captions" element={<CaptionsRoute />} />
                   <Route path="*" element={<HomeRedirect />} />
                 </Routes>
               </React.Suspense>

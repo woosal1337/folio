@@ -124,8 +124,6 @@ pub fn run() {
             commands::maintenance::purge_old_wav_files,
             commands::maintenance::generate_weekly_digest,
             commands::maintenance::export_share_bundle,
-            commands::captions::open_captions_window,
-            commands::captions::close_captions_window,
             commands::maintenance::git_sync_vault,
             commands::maintenance::git_vault_is_repo,
             commands::maintenance::list_inbox_entries,
