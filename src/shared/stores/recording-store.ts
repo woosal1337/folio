@@ -16,6 +16,7 @@ import {
   getRecording as ipcGetRecording,
   recordingStatus as fetchStatus,
   runAgent as ipcRunAgent,
+  setTrayRecording as ipcSetTrayRecording,
   startRecording as ipcStart,
   stopRecording as ipcStop,
   transcribeRecording as ipcTranscribe,
@@ -74,7 +75,9 @@ export const useRecording = create<RecordingState>((set, get) => {
   const tick = () => {
     const { startedAt, recording } = get();
     if (!recording || startedAt === null) return;
-    set({ elapsed: Math.floor((Date.now() - startedAt) / 1000) });
+    const next = Math.floor((Date.now() - startedAt) / 1000);
+    set({ elapsed: next });
+    void ipcSetTrayRecording(next);
   };
 
   const installTicker = () => {
@@ -90,6 +93,7 @@ export const useRecording = create<RecordingState>((set, get) => {
       window.clearInterval(existing);
       set({ _tickerId: null });
     }
+    void ipcSetTrayRecording(null);
   };
 
   // Pull the trailing component of a path, cross-platform. Used by the

@@ -52,6 +52,11 @@ pub fn run() {
                 attune_core::cloud_guard::set_airgap(on);
                 tracing::info!(privacy_mode = on, "cloud guard initialised");
             }
+            // Menu bar (system tray) icon + menu. v2 finding 006 /
+            // GET-25. Cited by 8 lenses — recording must be ambient.
+            if let Err(e) = app::tray::install(app.handle()) {
+                tracing::warn!(error = %e, "tray install failed");
+            }
             let _ = app;
             Ok(())
         })
@@ -71,6 +76,7 @@ pub fn run() {
             commands::library::save_debrief,
             commands::permissions::list_permissions,
             commands::permissions::open_permission_settings,
+            commands::tray::set_tray_recording,
             commands::transcription::transcribe_recording,
             commands::transcription::read_transcript,
             commands::transcription::locate_transcript_span,
