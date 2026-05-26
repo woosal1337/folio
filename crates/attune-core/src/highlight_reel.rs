@@ -45,10 +45,16 @@ const DECISION_MARKERS: &[&str] = &[
     "ship by", "decision", "blocker", "owner", "action item",
 ];
 
-/// Score a single segment. Higher = more decision-dense.
+/// Score a single segment. Higher = more decision-dense. Returns 0
+/// when no decision marker is present — a segment must contain at
+/// least one marker to be reel-worthy, so we don't pad the reel with
+/// generic small-talk that happens to be wordy.
 pub fn score_segment(text: &str) -> u32 {
     let lc = text.to_lowercase();
     let marker_hits = DECISION_MARKERS.iter().filter(|m| lc.contains(*m)).count() as u32;
+    if marker_hits == 0 {
+        return 0;
+    }
     let word_count = text.split_whitespace().count() as u32;
     marker_hits * 50 + word_count.min(40)
 }
