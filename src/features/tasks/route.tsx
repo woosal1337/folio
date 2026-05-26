@@ -34,7 +34,6 @@ import {
   Circle,
   CircleDashed,
   Copy,
-  KanbanSquare,
   Loader2,
   Plus,
   Sparkles,
@@ -189,8 +188,6 @@ export default function Tasks() {
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           Loading…
         </div>
-      ) : tasks.length === 0 ? (
-        <EmptyState onCreate={(title) => create(blankNewTask(title, null))} />
       ) : null}
 
       <DndContext
@@ -632,24 +629,3 @@ function EditTaskDialog({ task, onClose, onSave }: EditTaskDialogProps) {
   );
 }
 
-interface EmptyStateProps {
-  onCreate: (title: string) => void;
-}
-
-function EmptyState({ onCreate }: EmptyStateProps) {
-  return (
-    <div className="rounded-2xl border border-dashed border-border bg-card py-16">
-      <div className="mx-auto flex max-w-md flex-col items-center gap-3 text-center">
-        <KanbanSquare className="h-8 w-8 text-muted-foreground" />
-        <h2 className="font-serif text-lg font-medium">Your board is empty</h2>
-        <p className="text-sm text-muted-foreground">
-          Add a task below to get started, or run the Extract Tasks agent on a recording
-          to populate it from a meeting transcript.
-        </p>
-        <div className="mt-2 w-full max-w-xs">
-          <InlineComposer onCreate={onCreate} />
-        </div>
-      </div>
-    </div>
-  );
-}
