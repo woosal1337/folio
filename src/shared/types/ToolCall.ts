@@ -3,17 +3,17 @@
 /**
  * A single tool invocation requested by the model.
  */
-export type ToolCall = { 
+export type ToolCall = {
 /**
  * Provider-assigned id (e.g. OpenAI's `call_abc123`). Used to
  * pair the `Tool`-role response message back to the call.
  */
-id: string, 
+id: string,
 /**
  * Name of the tool the model wants to invoke. Must match a
  * `ToolDef.name` from the request.
  */
-name: string, 
+name: string,
 /**
  * JSON-encoded arguments string exactly as the model produced
  * it. We do not pre-parse here so the dispatcher can validate

@@ -5,21 +5,21 @@ import type { MemoryKind } from "./MemoryKind";
  * Search/filter parameters. All fields are optional; the default
  * returns every currently-valid memory.
  */
-export type MemoryQuery = { 
+export type MemoryQuery = {
 /**
  * Free-text query string. Empty → no text filter (returns by
  * recency).
  */
-query: string | null, 
+query: string | null,
 /**
  * Restrict to these kinds. Empty → all kinds.
  */
-kinds: Array<MemoryKind>, 
+kinds: Array<MemoryKind>,
 /**
  * When true, include superseded / soft-deleted memories.
  * Defaults to false (currently-valid only).
  */
-include_archived: boolean, 
+include_archived: boolean,
 /**
  * Max rows returned.
  */
