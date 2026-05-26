@@ -31,6 +31,7 @@ pub mod memory;
 pub mod onboarding;
 pub mod permissions;
 pub mod qos;
+pub mod share_page;
 pub mod storage;
 pub mod transcription;
 pub mod webhooks;
