@@ -18,6 +18,7 @@
 //!   (placeholder).
 //! - [`error`] — the single public [`AttuneError`] enum.
 
+pub mod ask_attune;
 pub mod audio;
 pub mod calendar;
 pub mod cloud_guard;
