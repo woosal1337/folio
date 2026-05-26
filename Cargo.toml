@@ -126,6 +126,9 @@ toml = "0.8"
 aes-gcm = "0.10"
 argon2 = "0.5"
 
+# Tiny URL-encoder for window URL fragments (GET-48 multi-window).
+urlencoding = "2"
+
 # TypeScript binding generation for the Tauri IPC surface. Types in
 # attune-core that cross the IPC boundary derive `TS` and the bindings
 # are emitted into `src/lib/generated/` during `cargo test`.

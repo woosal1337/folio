@@ -429,6 +429,20 @@ export function openPreferencesWindow(): Promise<void> {
   return call<void>("open_preferences_window");
 }
 
+// ---- Multi-window (v2 #014 / GET-48) -----------------------------
+
+export function openRecordWindow(): Promise<void> {
+  return call<void>("open_record_window");
+}
+
+export function openLibraryWindow(): Promise<void> {
+  return call<void>("open_library_window");
+}
+
+export function openEditorWindow(label: string): Promise<void> {
+  return call<void>("open_editor_window", { label });
+}
+
 // ---- Transcript backlinks (v2 #038 / GET-41) ---------------------
 
 import type { TranscriptHit } from "@/shared/types/TranscriptHit";
