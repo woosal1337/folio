@@ -422,6 +422,13 @@ export function setTrayRecording(elapsedSecs: number | null): Promise<void> {
   return call<void>("set_tray_recording", { elapsedSecs });
 }
 
+// ---- Native Preferences NSWindow (v2 #020 / GET-86) -------------
+
+/** Open the dedicated Preferences NSWindow. Replaces the in-app modal. */
+export function openPreferencesWindow(): Promise<void> {
+  return call<void>("open_preferences_window");
+}
+
 // ---- Transcript backlinks (v2 #038 / GET-41) ---------------------
 
 import type { TranscriptHit } from "@/shared/types/TranscriptHit";

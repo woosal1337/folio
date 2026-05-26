@@ -82,6 +82,7 @@ pub fn run() {
             commands::permissions::list_permissions,
             commands::permissions::open_permission_settings,
             commands::tray::set_tray_recording,
+            commands::preferences::open_preferences_window,
             commands::transcription::transcribe_recording,
             commands::transcription::read_transcript,
             commands::transcription::locate_transcript_span,

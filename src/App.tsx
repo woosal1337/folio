@@ -27,6 +27,7 @@ const Tasks = React.lazy(() => import("@/features/tasks/route"));
 // and recent agent run-cards. /ai still redirects so old deep-links
 // land somewhere useful.
 const Inbox = React.lazy(() => import("@/features/inbox/route"));
+const PreferencesWindow = React.lazy(() => import("@/features/preferences-window/route"));
 const MemoryRoute = React.lazy(() => import("@/features/memory/route"));
 const CaptionsRoute = React.lazy(() => import("@/features/captions/route"));
 const SettingsModal = React.lazy(() =>
@@ -84,6 +85,7 @@ export default function App() {
                   <Route path="/editor" element={<Navigate to="/library" replace />} />
                   <Route path="/editor/:label" element={<Editor />} />
                   <Route path="/inbox" element={<Inbox />} />
+                  <Route path="/preferences-window" element={<PreferencesWindow />} />
                   <Route path="/ai" element={<Navigate to="/inbox" replace />} />
                   <Route path="/tasks" element={<Tasks />} />
                   <Route path="/memory" element={<MemoryRoute />} />
