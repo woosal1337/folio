@@ -128,7 +128,7 @@ mod tests {
     fn silence_in_the_middle_splits_into_two_ranges() {
         // 30s loud, 30s quiet, 30s loud.
         let mut pcm = loud_sine(16_000 * 30, 440, 16_000);
-        pcm.extend(std::iter::repeat(0.0_f32).take(16_000 * 30));
+        pcm.extend(std::iter::repeat_n(0.0_f32, 16_000 * 30));
         pcm.extend(loud_sine(16_000 * 30, 440, 16_000));
         let ranges = active_ranges(&pcm, 16_000);
         assert_eq!(ranges.len(), 2);
@@ -140,7 +140,7 @@ mod tests {
     fn short_silent_gap_is_bridged() {
         // Loud / 1s silence / loud — well under the 2s min gap.
         let mut pcm = loud_sine(16_000 * 30, 440, 16_000);
-        pcm.extend(std::iter::repeat(0.0_f32).take(16_000));
+        pcm.extend(std::iter::repeat_n(0.0_f32, 16_000));
         pcm.extend(loud_sine(16_000 * 30, 440, 16_000));
         // Smaller window so the 1s gap shows up as its own slice.
         let ranges =

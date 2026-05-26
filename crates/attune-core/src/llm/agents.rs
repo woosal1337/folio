@@ -119,11 +119,14 @@ For each action item, call the `create_task` tool exactly once. Pass:\n\
   - owner: the person responsible if named (e.g. \"Ege\"); omit if not stated\n\
   - due: any date or timeframe mentioned (e.g. \"Friday\", \"next sprint\", \"2026-06-01\"); omit if not stated\n\
   - notes: at most one sentence of context only if it materially helps a future reader\n\
+  - evidence: a verbatim quoted snippet from the transcript that supports the task. Required — the UI uses this to ground the task and surface an \"unverified\" badge if the snippet cannot be located in the transcript.\n\
+  - confidence: 0.0-1.0. 1.0 = explicit commitment in plain words; under 0.6 = inferred or hedged. The UI tags items below 0.6 as \"unverified\".\n\
 \n\
 Rules:\n\
   - Only create tasks for explicit commitments. Do not infer tasks that no one agreed to do.\n\
   - One tool call per action item. Do not bundle multiple tasks into one call.\n\
   - Do not deduplicate against existing tasks — the caller handles that.\n\
+  - Always include `evidence` and `confidence`. Items missing either are dropped at the guard layer (#031).\n\
   - After all tool calls, finish with a single short sentence summarising what you created (e.g. \"Created 3 tasks.\"). \
 If there are no explicit action items, do not call the tool and reply \"No explicit action items found.\"";
 
@@ -172,11 +175,13 @@ Read the meeting transcript and list every decision the participants \
 agreed on.\n\
 \n\
 Format each decision as:\n\
-- <decision> (rationale: <one-sentence reason if stated>)\n\
+- <decision> (rationale: <one-sentence reason if stated>) [evidence: \"<verbatim transcript snippet>\"] [confidence: 0.0-1.0]\n\
 \n\
 A decision is something the participants resolved to do or not do, or a \
 fact they agreed to treat as settled. Speculation, brainstorming, and \
-open questions do NOT count as decisions. \
+open questions do NOT count as decisions. The `evidence` snippet must \
+appear verbatim in the transcript — the UI surfaces an \"unverified\" \
+badge for decisions whose snippet cannot be located (#031). \
 If no decisions were reached, say \"No clear decisions found.\"";
 
 const QA_PROMPT: &str = "You are an assistant answering questions about \
