@@ -3,7 +3,16 @@
 /**
  * Persisted user settings.
  */
-export type Settings = { mic_device: string | null, system_audio_enabled: boolean, output_dir: string, notes_dir: string, tasks_path: string, transcripts_dir: string, theme: string, transcriber: string, openai_api_key: string, transcription_language: string, dictionary_terms: Array<string>,
+export type Settings = { mic_device: string | null, system_audio_enabled: boolean, output_dir: string, notes_dir: string, tasks_path: string, transcripts_dir: string, theme: string, transcriber: string,
+/**
+ * DEPRECATED — phase-3 audit B9. The OpenAI API key now lives in
+ * the macOS Keychain via `attune_core::llm::KeyStore`. This field
+ * is read as a fallback during the transition so users on prior
+ * builds keep working; new writes happen via `set_provider_key`.
+ * The field is scheduled for removal in the release after every
+ * running install has been seen with a Keychain-stored key.
+ */
+openai_api_key: string, transcription_language: string, dictionary_terms: Array<string>,
 /**
  * Identifier of the local Whisper model the user has chosen (e.g.
  * "large-v3", "small"). Used only when `transcriber == "local_whisper"`.
