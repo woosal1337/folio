@@ -135,4 +135,13 @@ reminders_list_name: string,
  * "blocked by Privacy Mode" error. The titlebar shows an AIRGAP
  * badge while this is on. Defaults to false.
  */
-privacy_mode: boolean, };
+privacy_mode: boolean,
+/**
+ * Voice-debrief on Stop (v2 finding 027 / GET-53). When true, the
+ * app pops a small sheet right after the user hits Stop that asks
+ * 'anything to capture before this fades?' and records up to 20s
+ * of mic. The clip lands next to the meeting as `debrief.webm`
+ * and the existing extract-tasks / extract-memories agents fire
+ * against its transcript. Default OFF — opt in from Settings.
+ */
+voice_debrief_enabled: boolean, };

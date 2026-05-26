@@ -141,6 +141,47 @@ pub async fn reveal_in_finder(path: PathBuf) -> Result<(), String> {
     .map_err(|e| format!("reveal_in_finder task panicked: {e}"))?
 }
 
+/// Save a voice-debrief blob next to an existing recording. v2 finding
+/// 027 / GET-53. The frontend records mic via MediaRecorder, hands us
+/// the raw container bytes (`debrief.webm` by default) and we write
+/// them atomically into the session directory.
+#[tauri::command]
+pub async fn save_debrief(
+    state: State<'_, AppState>,
+    session_dir: PathBuf,
+    filename: String,
+    bytes: Vec<u8>,
+) -> Result<PathBuf, String> {
+    let output_dir = state.settings.lock().output_dir.clone();
+    tauri::async_runtime::spawn_blocking(move || -> Result<PathBuf, String> {
+        let canon_root = std::fs::canonicalize(&output_dir).map_err(|e| e.to_string())?;
+        let canon_target = std::fs::canonicalize(&session_dir).map_err(|e| e.to_string())?;
+        if !canon_target.starts_with(&canon_root) {
+            return Err(format!(
+                "refused: {} not under recordings folder",
+                canon_target.display()
+            ));
+        }
+        // Filename sanitisation: no path components, no leading dots.
+        let safe = filename.replace(['/', '\\'], "_");
+        if safe.starts_with('.') || safe.is_empty() {
+            return Err(format!("invalid debrief filename: {safe}"));
+        }
+        let final_path = canon_target.join(&safe);
+        let tmp_path = canon_target.join(format!("{safe}.tmp"));
+        std::fs::write(&tmp_path, &bytes).map_err(|e| e.to_string())?;
+        std::fs::rename(&tmp_path, &final_path).map_err(|e| e.to_string())?;
+        info!(
+            "save_debrief: wrote {} bytes to {}",
+            bytes.len(),
+            final_path.display()
+        );
+        Ok(final_path)
+    })
+    .await
+    .map_err(|e| format!("save_debrief task panicked: {e}"))?
+}
+
 /// Present the macOS native share sheet (`NSSharingServicePicker`)
 /// anchored to the current key window for one or more files. v2
 /// finding 010 / GET-34 — AirDrop, Messages, Mail, Notes, third-party

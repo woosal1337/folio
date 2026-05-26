@@ -1,4 +1,4 @@
-import { Volume2 } from "lucide-react";
+import { Mic, Volume2 } from "lucide-react";
 
 import { Button } from "@/shared/ui/button";
 import { Label } from "@/shared/ui/label";
@@ -98,6 +98,28 @@ export function SectionGeneral({ settings, devices, onChange }: Props) {
             ))}
           </div>
         ) : null}
+      </section>
+
+      <Separator />
+
+      <section className="space-y-3">
+        <div className="flex items-start justify-between gap-6">
+          <div>
+            <h3 className="flex items-center gap-2 font-medium">
+              <Mic className="h-4 w-4 text-muted-foreground" />
+              Voice debrief on Stop
+            </h3>
+            <p className="mt-1 max-w-md text-xs text-muted-foreground">
+              After you hit Stop, Attune asks &ldquo;anything to capture before this
+              fades?&rdquo; and records up to 20s of mic. The clip rides into the same
+              extract-tasks / extract-memories pass as the meeting. Off by default.
+            </p>
+          </div>
+          <Switch
+            checked={settings.voice_debrief_enabled}
+            onCheckedChange={(v) => onChange("voice_debrief_enabled", v)}
+          />
+        </div>
       </section>
     </div>
   );
