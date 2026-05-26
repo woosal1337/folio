@@ -157,6 +157,12 @@ pub struct Settings {
     /// against its transcript. Default OFF — opt in from Settings.
     #[serde(default)]
     pub voice_debrief_enabled: bool,
+    /// One-screen first-run conductor completion flag. v2 finding 001
+    /// / GET-24. True after the user has either finished the
+    /// onboarding screen or explicitly dismissed it. The Record route
+    /// renders the conductor while this is false.
+    #[serde(default)]
+    pub onboarding_completed: bool,
 }
 
 fn default_theme() -> String {
@@ -252,6 +258,7 @@ impl Default for Settings {
             reminders_list_name: default_reminders_list(),
             privacy_mode: false,
             voice_debrief_enabled: false,
+            onboarding_completed: false,
         }
     }
 }

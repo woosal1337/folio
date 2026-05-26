@@ -144,4 +144,11 @@ privacy_mode: boolean,
  * and the existing extract-tasks / extract-memories agents fire
  * against its transcript. Default OFF — opt in from Settings.
  */
-voice_debrief_enabled: boolean, };
+voice_debrief_enabled: boolean,
+/**
+ * One-screen first-run conductor completion flag. v2 finding 001
+ * / GET-24. True after the user has either finished the
+ * onboarding screen or explicitly dismissed it. The Record route
+ * renders the conductor while this is false.
+ */
+onboarding_completed: boolean, };

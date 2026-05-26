@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/shared/ui/card";
 import { RecordingRow } from "@/features/recording/recording-row";
 import { StatusPill } from "@/features/recording/status-pill";
 import { VoiceDebriefSheet } from "@/features/recording/voice-debrief-sheet";
+import { FirstRunConductor } from "@/features/onboarding/first-run";
 import { Badge } from "@/shared/ui/badge";
 import { useSettingsStore } from "@/shared/stores/settings-store";
 import { ShieldCheck } from "lucide-react";
@@ -74,6 +75,12 @@ export default function Record() {
     const s = rec.elapsed % 60;
     return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
   }, [rec.elapsed]);
+
+  const onboardingCompleted = useSettingsStore((s) => s.settings?.onboarding_completed ?? false);
+  const reload = useSettingsStore((s) => s.load);
+  if (!onboardingCompleted) {
+    return <FirstRunConductor onFinish={() => reload()} />;
+  }
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-8 py-10">
