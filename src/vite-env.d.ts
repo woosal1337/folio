@@ -13,3 +13,6 @@ declare module "*.jpg" {
   const src: string;
   export default src;
 }
+
+// Build-time constants injected by vite.config.ts (`define`).
+declare const __ATTUNE_VERSION__: string;

@@ -174,7 +174,7 @@ export function Sidebar({ onOpenSettings }: SidebarProps) {
         </Button>
         {!collapsed && (
           <div className="mt-2 px-3 pb-1 text-2xs text-muted-foreground">
-            v1.0.0 · audio stays on this Mac
+            v{__ATTUNE_VERSION__} · audio stays on this Mac
           </div>
         )}
       </div>

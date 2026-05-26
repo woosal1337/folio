@@ -49,6 +49,18 @@ Package.resolved
 /models/*.bin
 /models/*.gguf
 
+# Local SQLite + persistent state that should never land in the
+# repository — caught by Phase-3 audit D-tier P2.
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.zst
+
 # Environment
 .env
 .env.local
