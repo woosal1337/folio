@@ -27,6 +27,7 @@ pub mod index;
 pub mod page;
 pub mod store;
 pub mod types;
+pub mod watcher;
 
 pub use embed::EmbeddingClient;
 pub use index::{MemoryIndex, EMBEDDING_DIMS};
