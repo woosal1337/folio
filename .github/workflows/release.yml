@@ -63,4 +63,4 @@ jobs:
             `src-tauri/tauri.conf.json` `plugins.updater.pubkey`.
           releaseDraft: true
           prerelease: ${{ contains(github.ref_name, '-') }}
-          args: --target ${{ matrix.platform.target }}
+          args: --target ${{ matrix.platform.target }} --config src-tauri/tauri.conf.release.json
