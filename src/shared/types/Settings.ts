@@ -3,16 +3,7 @@
 /**
  * Persisted user settings.
  */
-export type Settings = { mic_device: string | null, system_audio_enabled: boolean, output_dir: string, notes_dir: string, tasks_path: string, transcripts_dir: string, theme: string, transcriber: string,
-/**
- * DEPRECATED — phase-3 audit B9. The OpenAI API key now lives in
- * the macOS Keychain via `attune_core::llm::KeyStore`. This field
- * is read as a fallback during the transition so users on prior
- * builds keep working; new writes happen via `set_provider_key`.
- * The field is scheduled for removal in the release after every
- * running install has been seen with a Keychain-stored key.
- */
-openai_api_key: string, transcription_language: string, dictionary_terms: Array<string>,
+export type Settings = { mic_device: string | null, system_audio_enabled: boolean, output_dir: string, notes_dir: string, tasks_path: string, transcripts_dir: string, theme: string, transcriber: string, transcription_language: string, dictionary_terms: Array<string>,
 /**
  * Identifier of the local Whisper model the user has chosen (e.g.
  * "large-v3", "small"). Used only when `transcriber == "local_whisper"`.
@@ -29,9 +20,9 @@ voice_processing_enabled: boolean,
 /**
  * When true, the app starts transcribing automatically as soon as
  * a recording is stopped. Honours the currently-selected
- * `transcriber` provider (OpenAI Whisper API requires
- * `openai_api_key`; Local Whisper needs no key). When false the
- * user transcribes manually from the Library row.
+ * `transcriber` provider (OpenAI Whisper API requires a Keychain-
+ * stored key via `KeyStore::set`; Local Whisper needs no key).
+ * When false the user transcribes manually from the Library row.
  */
 auto_transcribe_enabled: boolean,
 /**

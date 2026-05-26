@@ -9,6 +9,7 @@ vi.mock("@/shared/lib/ipc", () => ({
   getRecording: vi.fn(),
   runAgent: vi.fn(),
   transcribeRecording: vi.fn(),
+  hasOpenAiKey: vi.fn().mockResolvedValue(false),
 }));
 
 import { recordingStatus, startRecording, stopRecording } from "@/shared/lib/ipc";

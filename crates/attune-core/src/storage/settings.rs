@@ -27,14 +27,6 @@ pub struct Settings {
     pub theme: String,
     #[serde(default = "default_provider")]
     pub transcriber: String,
-    /// DEPRECATED — phase-3 audit B9. The OpenAI API key now lives in
-    /// the macOS Keychain via `attune_core::llm::KeyStore`. This field
-    /// is read as a fallback during the transition so users on prior
-    /// builds keep working; new writes happen via `set_provider_key`.
-    /// The field is scheduled for removal in the release after every
-    /// running install has been seen with a Keychain-stored key.
-    #[serde(default)]
-    pub openai_api_key: String,
     #[serde(default = "default_language")]
     pub transcription_language: String,
     #[serde(default)]
@@ -52,9 +44,9 @@ pub struct Settings {
     pub voice_processing_enabled: bool,
     /// When true, the app starts transcribing automatically as soon as
     /// a recording is stopped. Honours the currently-selected
-    /// `transcriber` provider (OpenAI Whisper API requires
-    /// `openai_api_key`; Local Whisper needs no key). When false the
-    /// user transcribes manually from the Library row.
+    /// `transcriber` provider (OpenAI Whisper API requires a Keychain-
+    /// stored key via `KeyStore::set`; Local Whisper needs no key).
+    /// When false the user transcribes manually from the Library row.
     #[serde(default = "default_auto_transcribe_enabled")]
     pub auto_transcribe_enabled: bool,
     /// Root directory for the local memory layer. Defaults to a
@@ -244,7 +236,6 @@ impl Default for Settings {
             transcripts_dir: attune.join("Transcripts"),
             theme: default_theme(),
             transcriber: default_provider(),
-            openai_api_key: String::new(),
             transcription_language: default_language(),
             dictionary_terms: Vec::new(),
             local_whisper_model: default_local_whisper_model(),
@@ -409,14 +400,14 @@ mod tests {
         let store = SettingsStore::new(dir.path().join("settings.json"));
         let s = Settings {
             theme: "dark".into(),
-            openai_api_key: "sk-test".into(),
+            transcription_language: "tr".into(),
             ..Settings::default()
         };
         store.save(&s).unwrap();
 
         let loaded = store.load();
         assert_eq!(loaded.theme, "dark");
-        assert_eq!(loaded.openai_api_key, "sk-test");
+        assert_eq!(loaded.transcription_language, "tr");
     }
 
     #[test]

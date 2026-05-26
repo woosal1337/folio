@@ -177,6 +177,22 @@ export function listProviders(): Promise<ProviderStatus[]> {
   return call<ProviderStatus[]>("list_providers");
 }
 
+/**
+ * Probe the Keychain for an OpenAI API key. Used by the recording
+ * store to gate auto-summarise / auto-extract-tasks / auto-extract-
+ * memories / autoname on the presence of a key without exposing the
+ * key value to React state. Phase-3 audit B9 phase 2.
+ */
+export async function hasOpenAiKey(): Promise<boolean> {
+  try {
+    const providers = await listProviders();
+    return providers.some((p) => p.id === "openai" && p.configured);
+  } catch (e) {
+    console.error("hasOpenAiKey:", e);
+    return false;
+  }
+}
+
 export function setProviderKey(provider: ProviderId, apiKey: string): Promise<void> {
   return call<void>("set_provider_key", { provider, apiKey });
 }

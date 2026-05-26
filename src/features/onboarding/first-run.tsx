@@ -52,7 +52,7 @@ export function FirstRunConductor({ onFinish }: { onFinish: () => void }) {
   const [transcriber, setTranscriber] = React.useState<Transcriber>(
     (settings?.transcriber as Transcriber) ?? "local_whisper"
   );
-  const [openaiKey, setOpenaiKey] = React.useState(settings?.openai_api_key ?? "");
+  const [openaiKey, setOpenaiKey] = React.useState("");
   const [savingKey, setSavingKey] = React.useState(false);
 
   React.useEffect(() => {
