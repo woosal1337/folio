@@ -1,7 +1,8 @@
 //! Settings: read and persist user preferences.
 
+use attune_core::cloud_guard;
 use attune_core::storage::{Settings, SettingsStore};
-use tauri::State;
+use tauri::{Emitter, State};
 use tracing::{debug, info};
 
 use crate::app::AppState;
@@ -21,7 +22,11 @@ pub fn get_settings(state: State<'_, AppState>) -> Settings {
 /// disk write runs on a blocking task so the Tauri command runtime is
 /// not parked while the syscall is in flight.
 #[tauri::command]
-pub async fn save_settings(state: State<'_, AppState>, settings: Settings) -> Result<(), String> {
+pub async fn save_settings(
+    state: State<'_, AppState>,
+    app: tauri::AppHandle,
+    settings: Settings,
+) -> Result<(), String> {
     // Take a snapshot of the store path; the store itself is stateless
     // beyond that path, so we reconstruct it inside the blocking task
     // rather than holding the State reference across the await.
@@ -35,6 +40,11 @@ pub async fn save_settings(state: State<'_, AppState>, settings: Settings) -> Re
     .await
     .map_err(|e| format!("save_settings task panicked: {e}"))?
     .map_err(|e| e.to_string())?;
+
+    // CloudGuard (v2 finding 048 / GET-42) must mirror the persisted
+    // privacy_mode flag immediately, before the next outbound request.
+    cloud_guard::set_airgap(settings.privacy_mode);
+    let _ = app.emit("privacy-mode-changed", settings.privacy_mode);
 
     *state.settings.lock() = settings;
     info!("settings saved");
