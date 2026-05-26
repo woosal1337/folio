@@ -1,8 +1,41 @@
 import ReactMarkdown from "react-markdown";
 import type { Components } from "react-markdown";
+import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import remarkGfm from "remark-gfm";
 
 import { cn } from "@/shared/lib/utils";
+
+/**
+ * Strict sanitiser schema for LLM-generated markdown. Tightens
+ * `defaultSchema` so:
+ *
+ *   - `<script>` and `<style>` are stripped (the default already
+ *     does this; we keep it explicit for §8.6 audit-grep).
+ *   - Every `href` / `src` must be `http(s):`, `mailto:`, `data:`
+ *     (for embedded images), or one of our own deep-link schemes.
+ *     `javascript:` and `data:text/html` are rejected.
+ *   - `target` is forced to `_blank` and `rel="noopener noreferrer"`
+ *     so a clickjacked LLM link cannot script the rendering page.
+ *
+ * `docs/CODE_STYLE.md` §8.6: "LLM markdown/HTML output runs through
+ * a sanitiser before render." This is that sanitiser.
+ */
+const SANITIZE_SCHEMA = {
+  ...defaultSchema,
+  protocols: {
+    ...defaultSchema.protocols,
+    href: ["http", "https", "mailto", "attune", "obsidian"],
+    src: ["http", "https", "data"],
+  },
+  attributes: {
+    ...defaultSchema.attributes,
+    a: [
+      ...((defaultSchema.attributes && defaultSchema.attributes.a) || []),
+      ["target", "_blank"],
+      ["rel", "noopener noreferrer"],
+    ],
+  },
+};
 
 interface Props {
   children: string;
@@ -26,7 +59,11 @@ interface Props {
 export function Markdown({ children, className }: Props) {
   return (
     <div className={cn("text-sm leading-relaxed text-foreground", className)}>
-      <ReactMarkdown remarkPlugins={[remarkGfm]} components={COMPONENTS}>
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        rehypePlugins={[[rehypeSanitize, SANITIZE_SCHEMA]]}
+        components={COMPONENTS}
+      >
         {children}
       </ReactMarkdown>
     </div>
