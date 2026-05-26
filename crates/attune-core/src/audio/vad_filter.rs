@@ -65,8 +65,26 @@ use hound::{SampleFormat, WavReader, WavWriter};
 use serde::{Deserialize, Serialize};
 
 use crate::audio::resampler::StreamingResampler;
+use crate::audio::vad::silero;
 use crate::error::{AttuneError, Result};
 use crate::transcription::vad::{active_ranges_with, ActiveRange};
+
+/// Which detector backs `apply_vad_to_wav`. `Silero` is the default
+/// since 2026-05-27 (see `obsidian.md/projects/attune/plan/silero-vad-
+/// migration.md`); `Rms` is the legacy per-window energy gate kept as
+/// a runtime fallback for sandboxes where the Silero ONNX model
+/// fails to load.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VadEngine {
+    Silero,
+    Rms,
+}
+
+impl Default for VadEngine {
+    fn default() -> Self {
+        Self::Silero
+    }
+}
 
 /// Per-side padding applied to every active range before keeping it,
 /// so the leading consonant / trailing fricative aren't clipped by the
@@ -142,6 +160,14 @@ pub struct VadFilterOutcome {
 /// and the sidecar records zero ranges — callers can treat that the
 /// same way they treat "no audio".
 pub fn apply_vad_to_wav(input_wav: &Path) -> Result<VadFilterOutcome> {
+    apply_vad_to_wav_with(input_wav, VadEngine::default())
+}
+
+/// Same as [`apply_vad_to_wav`] but lets the caller pin the detector
+/// engine. Used by the `run_vad` Tauri command when the user has
+/// chosen the RMS fallback in Settings, and by unit tests that need
+/// to exercise both paths without flipping global state.
+pub fn apply_vad_to_wav_with(input_wav: &Path, engine: VadEngine) -> Result<VadFilterOutcome> {
     let reader = WavReader::open(input_wav).map_err(|e| {
         AttuneError::Transcription(format!(
             "vad: could not open {}: {e}",
@@ -155,14 +181,42 @@ pub fn apply_vad_to_wav(input_wav: &Path) -> Result<VadFilterOutcome> {
     // VAD operates on 16 kHz mono. Resample a copy if the source isn't
     // already in that shape; the source itself is untouched.
     let mono16k = to_mono_16k(&source_samples, spec.channels, spec.sample_rate)?;
-    let ranges = active_ranges_with(
-        &mono16k,
-        VAD_SAMPLE_RATE,
-        VAD_SAMPLE_RATE as usize * 30, // 30s window — matches transcription::vad default.
-        RMS_FLOOR,
-        MIN_GAP_SECS,
-    );
-    let padded = pad_and_merge_ranges(&ranges, mono16k.len(), VAD_SAMPLE_RATE, PAD_MS);
+
+    // Detector dispatch. Silero is the default since 2026-05-27. If
+    // Silero fails to initialise for some reason (sandbox, missing
+    // ONNX runtime symbols), we fall back to the RMS gate at runtime
+    // and log — the user gets a coarser cut but never a hard failure.
+    let mono_len = mono16k.len();
+    let ranges: Vec<ActiveRange> = match engine {
+        VadEngine::Silero => match silero::detect(&mono16k, silero::SileroParams::default()) {
+            Ok(segs) => segs
+                .into_iter()
+                .map(|s| ActiveRange {
+                    start: (s.start_seconds * VAD_SAMPLE_RATE as f64) as usize,
+                    end: ((s.end_seconds * VAD_SAMPLE_RATE as f64) as usize).min(mono_len),
+                })
+                .collect(),
+            Err(e) => {
+                tracing::warn!(error = %e, "silero detect failed; falling back to RMS gate");
+                active_ranges_with(
+                    &mono16k,
+                    VAD_SAMPLE_RATE,
+                    VAD_SAMPLE_RATE as usize * 30,
+                    RMS_FLOOR,
+                    MIN_GAP_SECS,
+                )
+            }
+        },
+        VadEngine::Rms => active_ranges_with(
+            &mono16k,
+            VAD_SAMPLE_RATE,
+            VAD_SAMPLE_RATE as usize * 30,
+            RMS_FLOOR,
+            MIN_GAP_SECS,
+        ),
+    };
+
+    let padded = pad_and_merge_ranges(&ranges, mono_len, VAD_SAMPLE_RATE, PAD_MS);
 
     // Translate the 16 kHz mono ranges back into source-sample-rate
     // ranges so we cut the source WAV (not the resampled copy).
@@ -451,24 +505,38 @@ mod tests {
 
     #[test]
     fn pure_silence_produces_empty_speech_wav_and_zero_ranges() {
+        // Both engines must agree that pure silence yields nothing.
         let dir = TempDir::new().unwrap();
         let path = dir.path().join("mic.wav");
         write_test_wav(&path, 16_000, 1, &vec![0.0_f32; 16_000 * 90]);
 
-        let outcome = apply_vad_to_wav(&path).unwrap();
-        assert_eq!(outcome.sidecar.ranges.len(), 0);
-        assert_eq!(outcome.sidecar.kept_samples, 0);
-        assert!(outcome.sidecar.silence_stripped_seconds >= 89.0);
-        assert_eq!(outcome.sidecar.active_ratio, 0.0);
+        for engine in [VadEngine::Silero, VadEngine::Rms] {
+            let outcome = apply_vad_to_wav_with(&path, engine).unwrap();
+            assert_eq!(outcome.sidecar.ranges.len(), 0, "engine = {engine:?}");
+            assert_eq!(outcome.sidecar.kept_samples, 0, "engine = {engine:?}");
+            assert!(
+                outcome.sidecar.silence_stripped_seconds >= 89.0,
+                "engine = {engine:?}"
+            );
+            assert_eq!(outcome.sidecar.active_ratio, 0.0, "engine = {engine:?}");
+        }
     }
 
+    // The next two tests exercise the *algorithmic* behaviour around
+    // pad-and-merge ranges using sine-wave fixtures, which the RMS
+    // gate accepts as "loud signal". Silero correctly rejects sine
+    // as non-speech (that's the whole reason we migrated to it), so
+    // they are pinned to the RMS engine. Silero's own speech-vs-non-
+    // speech behaviour is covered by the unit tests in
+    // `audio::vad::silero::tests`.
+
     #[test]
-    fn pure_speech_is_kept_in_full() {
+    fn rms_keeps_a_pure_loud_signal_in_full() {
         let dir = TempDir::new().unwrap();
         let path = dir.path().join("mic.wav");
         write_test_wav(&path, 16_000, 1, &loud_sine(16_000 * 30, 440, 16_000));
 
-        let outcome = apply_vad_to_wav(&path).unwrap();
+        let outcome = apply_vad_to_wav_with(&path, VadEngine::Rms).unwrap();
         assert_eq!(outcome.sidecar.ranges.len(), 1);
         // Padding can widen but never beyond the source.
         assert!(outcome.sidecar.kept_samples >= 16_000 * 30);
@@ -476,9 +544,9 @@ mod tests {
     }
 
     #[test]
-    fn silence_between_speech_islands_is_collapsed() {
-        // 30s loud · 60s silent · 30s loud → expect two ranges,
-        // ~60s saved minus a 300ms inter-range pad.
+    fn rms_collapses_silence_between_loud_islands() {
+        // 30 s loud · 60 s silent · 30 s loud → expect two ranges,
+        // ~60 s saved minus a 300 ms inter-range pad.
         let dir = TempDir::new().unwrap();
         let path = dir.path().join("mic.wav");
         let mut buf = loud_sine(16_000 * 30, 440, 16_000);
@@ -486,12 +554,71 @@ mod tests {
         buf.extend(loud_sine(16_000 * 30, 440, 16_000));
         write_test_wav(&path, 16_000, 1, &buf);
 
-        let outcome = apply_vad_to_wav(&path).unwrap();
+        let outcome = apply_vad_to_wav_with(&path, VadEngine::Rms).unwrap();
         assert_eq!(outcome.sidecar.ranges.len(), 2);
-        // ~60s of silence dropped. The exact saving depends on how the
-        // RMS gate aligns to the 30s windows and how aggressive the
-        // padding is; assert a generous lower bound.
+        // ~60 s of silence dropped. The exact saving depends on how
+        // the RMS gate aligns to the 30 s windows and how aggressive
+        // the padding is; assert a generous lower bound.
         assert!(outcome.sidecar.silence_stripped_seconds > 30.0);
+    }
+
+    /// Side-by-side comparison of Silero vs RMS on a real on-disk
+    /// recording. Skipped in CI; run with
+    ///
+    ///   cargo test --release -p attune-core --lib -- \
+    ///       --ignored audio::vad_filter::tests::compare_engines_on_recording
+    ///
+    /// after pointing `ATTUNE_VAD_FIXTURE` at a session directory
+    /// containing `mic.wav` and `system.wav`. Prints engine /
+    /// ranges / kept / stripped / inference-time for both channels.
+    /// Used as the migration acceptance harness — the Silero numbers
+    /// should match the user's intuition about how much actual
+    /// speech the recording contains.
+    #[test]
+    #[ignore = "requires ATTUNE_VAD_FIXTURE=<session_dir>"]
+    fn compare_engines_on_recording() {
+        let fixture = match std::env::var("ATTUNE_VAD_FIXTURE") {
+            Ok(s) => std::path::PathBuf::from(s),
+            Err(_) => panic!(
+                "set ATTUNE_VAD_FIXTURE to a session directory containing mic.wav / system.wav"
+            ),
+        };
+        println!("\nfixture: {}", fixture.display());
+        for ch in ["mic", "system"] {
+            let path = fixture.join(format!("{ch}.wav"));
+            if !path.is_file() {
+                continue;
+            }
+            for engine in [VadEngine::Silero, VadEngine::Rms] {
+                let t0 = std::time::Instant::now();
+                let outcome = apply_vad_to_wav_with(&path, engine).unwrap();
+                let dt = t0.elapsed();
+                let s = &outcome.sidecar;
+                println!(
+                    "{ch:>7}  engine={engine:?}  ranges={:<3}  active={:.3}  kept={:>6.1}s  stripped={:>6.1}s  wall={:?}",
+                    s.ranges.len(),
+                    s.active_ratio,
+                    s.kept_samples as f64 / s.sample_rate as f64,
+                    s.silence_stripped_seconds,
+                    dt,
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn silero_rejects_pure_sine_as_non_speech() {
+        // The migration's whole point: Silero must say "not speech"
+        // for a loud non-speech signal. RMS would have falsely kept
+        // it; Silero produces 0 ranges, ~100% of the audio stripped.
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("mic.wav");
+        write_test_wav(&path, 16_000, 1, &loud_sine(16_000 * 30, 440, 16_000));
+
+        let outcome = apply_vad_to_wav_with(&path, VadEngine::Silero).unwrap();
+        assert_eq!(outcome.sidecar.ranges.len(), 0);
+        assert_eq!(outcome.sidecar.kept_samples, 0);
+        assert!(outcome.sidecar.silence_stripped_seconds >= 29.0);
     }
 
     #[test]

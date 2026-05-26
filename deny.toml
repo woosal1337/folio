@@ -59,12 +59,36 @@ workspace-default-features = "allow"
 external-default-features = "allow"
 allow = []
 deny = [
-  { name = "openssl", reason = "use rustls; openssl pulls libssl/libcrypto and has a noisy CVE history" },
-  { name = "openssl-sys", reason = "use rustls" },
+  # Production TLS goes through rustls. openssl is allowed only when
+  # pulled by `native-tls`, which itself only enters our graph via
+  # ort-sys's build-script download of the ONNX Runtime archive (used
+  # by voice_activity_detector for Silero V5). That code does not ship
+  # in the runtime binary — it runs once at compile time to fetch the
+  # ORT release. If a new direct user of openssl shows up in the
+  # graph, the ban will fire again because `wrappers` only excuses the
+  # native-tls path. See
+  # obsidian.md/projects/attune/plan/silero-vad-migration.md.
+  { name = "openssl", reason = "use rustls; openssl pulls libssl/libcrypto and has a noisy CVE history", wrappers = [
+    "native-tls",
+  ] },
+  { name = "openssl-sys", reason = "use rustls", wrappers = [
+    "openssl",
+    "native-tls",
+  ] },
   { name = "git2", reason = "use gix; git2 pulls libgit2" },
 ]
 skip = []
-skip-tree = []
+# `ort-sys` is the build-dependency of the `ort` ONNX Runtime crate,
+# which `voice_activity_detector` pulls in for the Silero V5 VAD
+# model (see obsidian.md/projects/attune/plan/silero-vad-migration.md).
+# Its build script uses `ureq` with native-tls to download the ONNX
+# Runtime archive at compile time. That brings `openssl` into the
+# build-dep graph — banned by policy above because of its
+# libssl/libcrypto + CVE profile. The ban reason doesn't apply here
+# (openssl is a host-side tool used once at build time; it does not
+# ship in the attune binary), so we exempt the subtree explicitly
+# rather than weakening the ban or vendoring the entire ORT runtime.
+skip-tree = ["ort-sys"]
 
 [sources]
 unknown-registry = "deny"
