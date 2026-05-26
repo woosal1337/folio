@@ -242,11 +242,7 @@ export default function MemoryRoute() {
         </div>
       ) : null}
 
-      {!loading && memories.length === 0 ? (
-        <EmptyState
-          onCreate={(content) => create(blankNewMemory("observe", content))}
-        />
-      ) : null}
+      {!loading && memories.length === 0 ? <EmptyState /> : null}
 
       {current.length > 0 ? (
         <section className="space-y-2">
@@ -655,11 +651,7 @@ function EditMemoryDialog({ memory, onClose, onSave }: EditMemoryDialogProps) {
   );
 }
 
-interface EmptyStateProps {
-  onCreate: (content: string) => void;
-}
-
-function EmptyState({ onCreate }: EmptyStateProps) {
+function EmptyState() {
   return (
     <div className="rounded-2xl border border-dashed border-border bg-card py-16">
       <div className="mx-auto flex max-w-md flex-col items-center gap-3 text-center">
@@ -668,11 +660,8 @@ function EmptyState({ onCreate }: EmptyStateProps) {
         <p className="text-sm text-muted-foreground">
           Attune will start populating this page after your next recording, assuming
           auto-extract memories is on in Settings → AI. You can also add an observation
-          yourself.
+          yourself using the composer below.
         </p>
-        <div className="mt-2 w-full max-w-xs">
-          <InlineComposer onCreate={onCreate} />
-        </div>
       </div>
     </div>
   );
