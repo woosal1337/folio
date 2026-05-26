@@ -197,6 +197,62 @@ pub fn is_whisper_hallucination(text: &str) -> bool {
         .any(|m| normalized.contains(m))
 }
 
+/// Minimum run length that counts as a hallucination loop. Two
+/// identical consecutive segments can happen legitimately ("Yes."
+/// "Yes.") so we wait for the third before dropping anything.
+const REPETITION_LOOP_MIN_RUN: usize = 3;
+
+/// Drop runs of `REPETITION_LOOP_MIN_RUN` or more consecutive
+/// segments whose normalized text is identical. Returns the kept
+/// segments and the dropped texts (deduplicated to one entry per
+/// run so the log line stays readable).
+///
+/// Whisper falls into contextual hallucination loops on silent
+/// chunks: in the 2026-05-26-11-47-54 mic recording it emitted
+/// "I'm going to ask you to take your own distance from there." 14
+/// times at exact 2-second cadence while the user was silent and
+/// listening to background audio. The text was novel (not in the
+/// curated artifact catalog) but the loop structure is unmistakable.
+/// Two-then-stop happens in real meetings ("Yes." / "Yes."); three or
+/// more identical segments in a row is the signature of a stuck
+/// decoder.
+pub fn dedupe_repetitions(
+    segments: Vec<TranscriptSegment>,
+) -> (Vec<TranscriptSegment>, Vec<String>) {
+    if segments.len() < REPETITION_LOOP_MIN_RUN {
+        return (segments, Vec::new());
+    }
+    // Pass 1: compute run boundaries (start_idx, length) so we can
+    // decide which slots to drop without recomputing comparisons.
+    let mut runs: Vec<(usize, usize)> = Vec::new();
+    let mut i = 0;
+    while i < segments.len() {
+        let key = normalize_for_match(&segments[i].text);
+        let mut j = i + 1;
+        while j < segments.len() && normalize_for_match(&segments[j].text) == key {
+            j += 1;
+        }
+        runs.push((i, j - i));
+        i = j;
+    }
+    let mut kept = Vec::with_capacity(segments.len());
+    let mut dropped = Vec::new();
+    for (start, len) in runs {
+        if len >= REPETITION_LOOP_MIN_RUN {
+            dropped.push(segments[start].text.clone());
+            // Drop every member of the run, including the first.
+            // Once whisper enters the loop the "first" copy is just
+            // as much a hallucination as the rest — keeping it
+            // would leave a confusing fragment in the transcript.
+            continue;
+        }
+        for offset in 0..len {
+            kept.push(segments[start + offset].clone());
+        }
+    }
+    (kept, dropped)
+}
+
 /// Strip Whisper artifact segments out of `segments`. Returns the
 /// kept segments alongside the text of every segment that was
 /// dropped, so callers can log which artifact triggered the filter.
@@ -382,6 +438,99 @@ mod tests {
         assert!(dropped.contains(&"Altyazı M.K.".to_string()));
         assert!(dropped.contains(&"Thank you.".to_string()));
         assert!(dropped.contains(&"you".to_string()));
+    }
+
+    fn seg_at(text: &str, start: f64, end: f64) -> TranscriptSegment {
+        TranscriptSegment {
+            start_seconds: start,
+            end_seconds: end,
+            text: text.to_string(),
+        }
+    }
+
+    #[test]
+    fn dedupe_passes_through_segments_with_no_repetition() {
+        let input = vec![
+            seg("first"),
+            seg("second"),
+            seg("third"),
+            seg("fourth"),
+        ];
+        let (kept, dropped) = dedupe_repetitions(input.clone());
+        assert_eq!(kept.len(), 4);
+        assert!(dropped.is_empty());
+    }
+
+    #[test]
+    fn dedupe_keeps_pairs_of_identical_segments() {
+        // Real meetings: "Yes." / "Yes." or "Right." / "Right." pairs
+        // are legitimate confirmations and must survive.
+        let input = vec![seg("Yes."), seg("Yes."), seg("Then we move on.")];
+        let (kept, dropped) = dedupe_repetitions(input);
+        assert_eq!(kept.len(), 3);
+        assert!(dropped.is_empty());
+    }
+
+    #[test]
+    fn dedupe_drops_runs_of_three_or_more() {
+        // The 2026-05-26-11-47-54 mic hallucination pattern: 14
+        // copies of the same phrase. Three is enough to trigger the
+        // filter so we catch it early.
+        let input = vec![
+            seg_at("clean speech", 0.0, 5.0),
+            seg_at(
+                "I'm going to ask you to take your own distance from there.",
+                43.22,
+                45.22,
+            ),
+            seg_at(
+                "I'm going to ask you to take your own distance from there.",
+                45.22,
+                47.22,
+            ),
+            seg_at(
+                "I'm going to ask you to take your own distance from there.",
+                47.22,
+                49.22,
+            ),
+            seg_at("real speech after silence", 60.0, 62.0),
+        ];
+        let (kept, dropped) = dedupe_repetitions(input);
+        assert_eq!(kept.len(), 2);
+        assert_eq!(kept[0].text, "clean speech");
+        assert_eq!(kept[1].text, "real speech after silence");
+        assert_eq!(dropped.len(), 1);
+        assert!(dropped[0].contains("take your own distance"));
+    }
+
+    #[test]
+    fn dedupe_treats_punctuation_and_case_differences_as_same() {
+        // Whisper sometimes varies trailing punctuation within a loop
+        // ("hi" vs "hi." vs "Hi"). Normalization collapses these so
+        // the run-length detector still fires.
+        let input = vec![seg("hi"), seg("Hi."), seg("hi!"), seg("then more")];
+        let (kept, dropped) = dedupe_repetitions(input);
+        assert_eq!(kept.len(), 1);
+        assert_eq!(kept[0].text, "then more");
+        assert_eq!(dropped.len(), 1);
+    }
+
+    #[test]
+    fn dedupe_handles_back_to_back_distinct_loops() {
+        let input = vec![
+            seg("loop one"),
+            seg("loop one"),
+            seg("loop one"),
+            seg("loop two"),
+            seg("loop two"),
+            seg("loop two"),
+            seg("loop two"),
+            seg("kept after both"),
+        ];
+        let (kept, dropped) = dedupe_repetitions(input);
+        assert_eq!(kept.len(), 1);
+        assert_eq!(kept[0].text, "kept after both");
+        assert_eq!(dropped.len(), 2);
     }
 
     #[test]
