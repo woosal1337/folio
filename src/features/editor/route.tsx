@@ -21,8 +21,11 @@ import type { RecordingSummary } from "@/shared/types/RecordingSummary";
 import type { SessionTranscript } from "@/shared/types/SessionTranscript";
 
 import { AgentPanel, type AgentPanelHandle } from "./agent-panel";
+import { BriefingCard } from "./briefing-card";
 import { ParticipantCards } from "./participant-cards";
 import { TranscriptEditor } from "./transcript-editor";
+import { listAgentRuns } from "@/shared/lib/ipc";
+import type { AgentRun } from "@/shared/types/AgentRun";
 
 interface LocationState {
   recording?: RecordingSummary;
@@ -124,6 +127,27 @@ export default function Editor() {
       })
       .catch((e) => console.error("get_recording on transcript complete:", e));
   }, [label, lastTranscriptPath]);
+
+  const [agentRuns, setAgentRuns] = React.useState<AgentRun[]>([]);
+  React.useEffect(() => {
+    if (!recording?.session_dir || !recording.has_transcript) {
+      setAgentRuns([]);
+      return;
+    }
+    let cancelled = false;
+    listAgentRuns(recording.session_dir)
+      .then((runs) => {
+        if (!cancelled) setAgentRuns(runs);
+      })
+      .catch((e) => console.error("list_agent_runs:", e));
+    return () => {
+      cancelled = true;
+    };
+  }, [recording?.session_dir, recording?.has_transcript, lastTranscriptPath]);
+
+  const summaryRun = agentRuns.find((r) => r.agent_id === "summarize") ?? null;
+  const tasksRun = agentRuns.find((r) => r.agent_id === "extract-tasks") ?? null;
+  const memoriesRun = agentRuns.find((r) => r.agent_id === "extract-memories") ?? null;
 
   const handleTranscribe = async () => {
     if (!recording) return;
@@ -260,6 +284,15 @@ export default function Editor() {
           )}
         </CardContent>
       </Card>
+
+      {recording.has_transcript ? (
+        <BriefingCard
+          recording={recording}
+          summary={summaryRun}
+          tasks={tasksRun}
+          memories={memoriesRun}
+        />
+      ) : null}
 
       {transcript ? <ParticipantCards transcript={transcript} /> : null}
 
