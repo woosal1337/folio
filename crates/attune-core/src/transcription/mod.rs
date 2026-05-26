@@ -7,6 +7,7 @@
 pub mod adaptive;
 pub mod hallucination_filter;
 pub mod local;
+pub mod locate;
 pub mod models;
 pub mod model_lru;
 pub mod openai;

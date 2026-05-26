@@ -70,6 +70,7 @@ pub fn run() {
             commands::library::share_paths,
             commands::transcription::transcribe_recording,
             commands::transcription::read_transcript,
+            commands::transcription::locate_transcript_span,
             commands::transcription::save_transcript,
             commands::transcription::whisper_model_status,
             commands::transcription::ensure_whisper_model,
