@@ -60,7 +60,9 @@ export function classifyDeepLink(url: string): DeepLinkVerdict {
     return { kind: "rejected", reason: "unsupported scheme", url };
   }
   const remainder = url.slice(ATTUNE_SCHEME.length);
-  const [pathPart, queryPart = ""] = remainder.split("?", 2);
+  const parts = remainder.split("?", 2);
+  const pathPart = parts[0] ?? "";
+  const queryPart = parts[1] ?? "";
   const segments = pathPart.split("/").filter((s) => s.length > 0);
   const head = segments[0];
   if (!head) {

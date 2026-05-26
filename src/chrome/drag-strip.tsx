@@ -60,6 +60,11 @@ export function DragStrip({ className }: { className?: string }) {
   const airgap = eventMode ?? privacyMode;
 
   return (
+    // NOTE: window drag region. Pure pointer surface owned by Tauri;
+    // keyboard alternatives for window controls live in the OS chrome
+    // (macOS traffic-light buttons overlay the strip at the system
+    // level). eslint disable is intentional, not a missing a11y story.
+    // eslint-disable-next-line jsx-a11y/no-static-element-interactions
     <div
       data-tauri-drag-region
       data-drag=""

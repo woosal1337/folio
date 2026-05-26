@@ -91,7 +91,7 @@ export const LOCALE_SPECS: Record<Locale, LocaleSpec> = {
  */
 export function resolveLocale(preferred: readonly string[]): Locale {
   for (const candidate of preferred) {
-    const tag = candidate.toLowerCase().split("-")[0];
+    const tag = candidate.toLowerCase().split("-")[0] ?? "";
     if ((LOCALES as readonly string[]).includes(tag)) return tag as Locale;
   }
   return DEFAULT_LOCALE;

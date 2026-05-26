@@ -61,6 +61,7 @@ export default function App() {
   return (
     <ErrorBoundary>
       <HashRouter>
+        {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions -- NOTE: Tauri drag-region root; the data-drag attribute opt-in inside the handler is the documented Tauri pattern. Keyboard equivalents (Cmd-R, Cmd-W, etc.) live in GlobalShortcuts. */}
         <div
           className="flex h-screen w-screen flex-col overflow-hidden bg-background"
           onMouseDown={onMouseDown}

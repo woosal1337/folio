@@ -109,7 +109,15 @@ export function CommandPalette({ open, onClose, sources }: Props) {
                 key={item.id}
                 role="option"
                 aria-selected={idx === activeIndex}
+                tabIndex={-1}
                 onMouseEnter={() => setActiveIndex(idx)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    void item.action();
+                    onClose();
+                  }
+                }}
                 onClick={() => {
                   void item.action();
                   onClose();

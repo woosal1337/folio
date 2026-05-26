@@ -398,7 +398,10 @@ function channelLabel(channel: string): ChannelMeta {
 function sameSession(a: SessionTranscript, b: SessionTranscript): boolean {
   if (a.channels.length !== b.channels.length) return false;
   for (let i = 0; i < a.channels.length; i++) {
-    if (!sameChannel(a.channels[i], b.channels[i])) return false;
+    const ca = a.channels[i];
+    const cb = b.channels[i];
+    if (!ca || !cb) return false;
+    if (!sameChannel(ca, cb)) return false;
   }
   return true;
 }
@@ -408,9 +411,12 @@ function sameChannel(a: ChannelTranscript, b: ChannelTranscript): boolean {
   if (a.language !== b.language) return false;
   if (a.segments.length !== b.segments.length) return false;
   for (let i = 0; i < a.segments.length; i++) {
-    if (a.segments[i].text !== b.segments[i].text) return false;
-    if (a.segments[i].start_seconds !== b.segments[i].start_seconds) return false;
-    if (a.segments[i].end_seconds !== b.segments[i].end_seconds) return false;
+    const sa = a.segments[i];
+    const sb = b.segments[i];
+    if (!sa || !sb) return false;
+    if (sa.text !== sb.text) return false;
+    if (sa.start_seconds !== sb.start_seconds) return false;
+    if (sa.end_seconds !== sb.end_seconds) return false;
   }
   return true;
 }
