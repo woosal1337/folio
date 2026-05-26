@@ -1,6 +1,8 @@
 import * as React from "react";
-import { getInitialDeepLink, onDeepLink } from "@/shared/lib/ipc";
 import { toast } from "sonner";
+
+import { getInitialDeepLink, onDeepLink } from "@/shared/lib/ipc";
+import { classifyDeepLink } from "@/shared/lib/deep-link-allowlist";
 
 /**
  * Handler for `attune://` deep links and external audio file drops.
@@ -67,34 +69,36 @@ export function DeepLinkHandler() {
  */
 function handle(urls: string[]) {
   for (const url of urls) {
-    if (looksLikeAudio(url)) {
-      toast.message("Audio file received", {
-        description: pathLeaf(url),
-        action: {
-          label: "Dismiss",
-          onClick: () => {},
-        },
-      });
-      continue;
+    const verdict = classifyDeepLink(url);
+    switch (verdict.kind) {
+      case "allowed-attune-route":
+        toast.message("Attune deep link", {
+          description: `${verdict.route}${formatParams(verdict.params)}`,
+        });
+        break;
+      case "allowed-audio-file":
+        toast.message("Audio file received", {
+          description: pathLeaf(verdict.path),
+          action: {
+            label: "Dismiss",
+            onClick: () => {},
+          },
+        });
+        break;
+      case "rejected":
+        console.error("Rejected deep link:", verdict.reason, verdict.url);
+        toast.error("Rejected deep link", { description: verdict.reason });
+        break;
     }
-    if (url.startsWith("attune://")) {
-      toast.message("Attune deep link", { description: url });
-      continue;
-    }
-    toast.message("Received URL", { description: url });
   }
 }
 
-function looksLikeAudio(url: string): boolean {
-  const lower = url.toLowerCase();
-  return [".wav", ".m4a", ".mp3"].some((ext) => lower.endsWith(ext));
+function formatParams(params: Record<string, string>): string {
+  const entries = Object.entries(params);
+  if (entries.length === 0) return "";
+  return ` (${entries.map(([k, v]) => `${k}=${v}`).join(", ")})`;
 }
 
-function pathLeaf(url: string): string {
-  try {
-    const stripped = url.replace(/^file:\/\//, "");
-    return stripped.split("/").filter(Boolean).pop() ?? url;
-  } catch {
-    return url;
-  }
+function pathLeaf(path: string): string {
+  return path.split("/").filter(Boolean).pop() ?? path;
 }
