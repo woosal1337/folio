@@ -17,6 +17,7 @@ import { Button } from "@/shared/ui/button";
 import { Card, CardContent } from "@/shared/ui/card";
 import { Markdown } from "@/shared/ui/markdown";
 import { cn } from "@/shared/lib/utils";
+import { isAutonameEmpty, parseAutoname } from "@/shared/lib/autoname";
 import {
   listAgentRuns,
   listMemories,
@@ -371,14 +372,64 @@ function AgentRunCard({ run }: { run: AgentRunWithRecording }) {
             </Button>
           </div>
           <div className="relative max-h-[10rem] overflow-hidden">
-            <div className="prose prose-sm prose-neutral dark:prose-invert max-w-none text-foreground">
-              <Markdown>{run.response}</Markdown>
-            </div>
+            {run.agent_id === "autoname" ? (
+              <AutonameInboxPreview response={run.response} />
+            ) : (
+              <div className="prose prose-sm prose-neutral dark:prose-invert max-w-none text-foreground">
+                <Markdown>{run.response}</Markdown>
+              </div>
+            )}
             <div className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-card to-transparent" />
           </div>
         </CardContent>
       </Card>
     </li>
+  );
+}
+
+/**
+ * Compact inbox preview for the `autoname` agent. The agent emits a
+ * JSON object ({title, tags, subtitle}); rendering that JSON
+ * verbatim — which is what the default Markdown preview did — looks
+ * like a parsing bug to the user. We parse it here and either show a
+ * one-line "Title · subtitle [tag, tag]" line, or fall back to the
+ * raw response when the JSON can't be parsed, so we never silently
+ * hide a malformed model output.
+ */
+function AutonameInboxPreview({ response }: { response: string }) {
+  const parsed = React.useMemo(() => parseAutoname(response), [response]);
+  if (!parsed) {
+    return (
+      <div className="prose prose-sm prose-neutral dark:prose-invert max-w-none text-foreground">
+        <Markdown>{response}</Markdown>
+      </div>
+    );
+  }
+  if (isAutonameEmpty(parsed)) {
+    return (
+      <p className="text-sm italic text-muted-foreground">
+        No name suggested — the transcript was too short or noisy to title reliably.
+      </p>
+    );
+  }
+  return (
+    <div className="flex flex-col gap-1.5 text-sm">
+      {parsed.title.length > 0 ? (
+        <p className="font-medium text-foreground">{parsed.title}</p>
+      ) : null}
+      {parsed.subtitle.length > 0 ? (
+        <p className="text-muted-foreground">{parsed.subtitle}</p>
+      ) : null}
+      {parsed.tags.length > 0 ? (
+        <div className="flex flex-wrap gap-1.5">
+          {parsed.tags.map((t) => (
+            <Badge key={t} variant="outline" className="text-2xs">
+              {t}
+            </Badge>
+          ))}
+        </div>
+      ) : null}
+    </div>
   );
 }
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseAutoname } from "./agent-panel";
+import { parseAutoname } from "./autoname";
 
 describe("parseAutoname", () => {
   it("extracts title, tags, and subtitle from the canonical JSON shape", () => {
