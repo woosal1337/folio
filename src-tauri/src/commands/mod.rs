@@ -19,5 +19,6 @@ pub mod settings;
 pub mod tasks;
 pub mod transcription;
 pub mod tray;
+pub mod vad;
 pub mod windows;
 pub mod webhooks;

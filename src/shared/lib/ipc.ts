@@ -140,6 +140,35 @@ export function transcribeRecording(sessionDir: string): Promise<TranscriptionRe
   return call<TranscriptionResult>("transcribe_recording", { sessionDir });
 }
 
+/**
+ * Per-channel result of the VAD pre-pass over a session. Mirrors the
+ * Rust-side `ChannelVadResult` so the recording-store can log
+ * stripped-silence telemetry without an extra IPC roundtrip. The
+ * sidecar JSON is opaque to JS — only the totals matter here.
+ */
+export interface VadChannelResult {
+  channel: string;
+  speech_wav_path: string;
+  sidecar_path: string;
+  sidecar: {
+    sample_rate: number;
+    original_samples: number;
+    kept_samples: number;
+    silence_stripped_seconds: number;
+    active_ratio: number;
+  };
+}
+
+export interface VadRunResult {
+  session_dir: string;
+  channels: VadChannelResult[];
+  channel_errors: string[];
+}
+
+export function runVad(sessionDir: string): Promise<VadRunResult> {
+  return call<VadRunResult>("run_vad", { sessionDir });
+}
+
 export function readTranscript(sessionDir: string): Promise<SessionTranscript> {
   return call<SessionTranscript>("read_transcript", { sessionDir });
 }
