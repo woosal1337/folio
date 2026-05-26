@@ -43,6 +43,8 @@ Recommended VS Code / Cursor extensions: `rust-analyzer`, `tauri-vscode`, `tailw
 
 ## Conventions
 
+The authoritative style contract lives at [`docs/CODE_STYLE.md`](docs/CODE_STYLE.md). Read it first. It covers naming, comments, errors, logging, tests, concurrency, performance, security, git hygiene, and the public-release hygiene checklist. The summary below highlights the rules contributors hit most often.
+
 ### Rust
 
 - Typed errors via `thiserror`. New variants go in `crates/attune-core/src/error.rs` (`AttuneError`).
@@ -51,12 +53,15 @@ Recommended VS Code / Cursor extensions: `rust-analyzer`, `tauri-vscode`, `tailw
 - Logging via `tracing`, never `println!`.
 - 4-space indentation, 100-char width (enforced by `rustfmt.toml`).
 - No allocations on audio hot paths; pre-allocate buffers.
+- **No inline `//` body comments.** Doc-comments above declarations only — see [`docs/CODE_STYLE.md` §1](docs/CODE_STYLE.md#1-comments) for the rule and its four exceptions.
 
 ### TypeScript / React
 
 - Strict mode is on. No `any`. Use `import type` for type-only imports.
 - Function components only. Effects must have a cleanup if they subscribe.
 - Tauri command names live in `src/shared/lib/ipc.ts`; types are generated from Rust via `ts-rs` into `src/shared/types/` — never edit those by hand.
+- **No inline `//` or `/* */` body comments.** JSDoc above the export only — see [`docs/CODE_STYLE.md` §1](docs/CODE_STYLE.md#1-comments).
+- Effects MUST clean up subscriptions; race-condition guards use a local `cancelled` flag. See [`docs/CODE_STYLE.md` §6.2](docs/CODE_STYLE.md#62-typescript).
 
 ### Git
 
@@ -69,6 +74,10 @@ Conventional-commit style with a scope, lowercase subject, imperative mood:
 ```
 
 Allowed types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`. Enforced by `commit-msg` hook.
+
+- Commits are **GPG-signed**. The pre-commit hooks enforce this.
+- Commits are **never co-authored by an AI agent.** No `Co-Authored-By:` trailers.
+- The full git hygiene section is [`docs/CODE_STYLE.md` §10](docs/CODE_STYLE.md#10-git-hygiene).
 
 ## Workflow
 

@@ -17,11 +17,14 @@ Guidance for AI agents (Claude Code, Codex, etc.) working in this repo. Mirrors 
 
 ## Style
 
+**Read `docs/CODE_STYLE.md` first.** It is the authoritative source for naming, comments, errors, logging, tests, concurrency, performance, security, git hygiene, and the public-release hygiene checklist. Everything below is a thirty-second summary; the doc is the contract.
+
 - 4-space indent, 100-char width (`rustfmt.toml` enforces).
 - Errors via `thiserror` enums in `crates/attune-core/src/error.rs`. `AttuneError` is the public error type; new variants get added there, not invented per-module.
 - Logging via `tracing`, never `println!`. Spans for cross-async work.
 - No `unwrap()` outside tests. `expect("<reason>")` is acceptable for invariants that cannot fail.
-- Comments only for non-obvious _why_. Code should not need comments to explain what it does.
+- **Inline `//` body comments are forbidden.** Doc-comments above declarations only. See `docs/CODE_STYLE.md` §1 for the full rule + the four exceptions (`SAFETY`, `TODO(owner)`, `FIXME(owner)`, `NOTE: <why>`).
+- Commits are GPG-signed and never carry `Co-Authored-By:` trailers.
 
 ## Architecture rules
 
