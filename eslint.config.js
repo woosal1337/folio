@@ -102,15 +102,11 @@ export default [
       "react-hooks/exhaustive-deps": "warn",
 
       "jsx-a11y/no-autofocus": "warn",
-      // The following three rules are temporarily relaxed. Phase 3 of the
-      // architecture refactor (feature-based frontend + Zustand stores)
-      // replaces window.confirm with accessible Dialog, adds keyboard
-      // handlers to chrome regions, and tightens these back to "error".
-      "jsx-a11y/click-events-have-key-events": "off",
-      "jsx-a11y/no-static-element-interactions": "off",
+      "jsx-a11y/click-events-have-key-events": "warn",
+      "jsx-a11y/no-static-element-interactions": "warn",
       "jsx-a11y/media-has-caption": "off",
 
-      "no-console": ["warn", { allow: ["warn", "error", "info"] }],
+      "no-console": ["error", { allow: ["warn", "error", "info"] }],
       eqeqeq: ["error", "always"],
       "prefer-const": "error",
       "no-var": "error",

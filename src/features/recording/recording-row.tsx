@@ -169,6 +169,8 @@ export function RecordingRow({
             transcribed
           </Badge>
         ) : null}
+        {/* NOTE: container intercepts a click that would otherwise bubble to the parent row's onClick. It does not itself act as a button; the children are real <Button> elements with full keyboard handling. Hence the eslint-disable. */}
+        {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events */}
         <span
           className="ml-auto inline-flex items-center gap-1"
           onClick={(e) => e.stopPropagation()}

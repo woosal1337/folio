@@ -243,18 +243,22 @@ export const AgentPanel = React.forwardRef<AgentPanelHandle, Props>(function Age
 
       {completedAgents.length > 0 ? (
         <div className="space-y-3">
-          {completedAgents.map((agent) => (
+          {completedAgents.map((agent) => {
+            const run = runs[agent.id];
+            if (!run) return null;
+            return (
             <AgentResult
               key={agent.id}
               agent={agent}
-              run={runs[agent.id]}
+              run={run}
               collapsed={collapsed.has(agent.id)}
               isRunning={running.has(agent.id)}
               onToggleCollapsed={() => toggleCollapsed(agent.id)}
               onRerun={() => handleRun(agent)}
               onDelete={() => handleDelete(agent)}
             />
-          ))}
+            );
+          })}
         </div>
       ) : null}
     </div>
@@ -404,6 +408,8 @@ function AgentResult({
         ) : (
           <span className="ml-auto" />
         )}
+        {/* NOTE: container intercepts a click that would otherwise bubble to the parent header's onClick. It does not itself act as a button; the children are real <Button> elements with full keyboard handling. Hence the eslint-disable. */}
+        {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events */}
         <span className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
           <Button
             type="button"

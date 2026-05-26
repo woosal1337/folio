@@ -95,6 +95,10 @@ function labelFor(m: Memory): string {
   const tail = (m.key ?? "").split(".").pop() ?? "";
   return tail
     .split(/[-_]/)
-    .map((p) => (p.length === 0 ? p : p[0].toUpperCase() + p.slice(1)))
+    .map((p) => {
+      if (p.length === 0) return p;
+      const first = p[0] ?? "";
+      return first.toUpperCase() + p.slice(1);
+    })
     .join(" ");
 }
