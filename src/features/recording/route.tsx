@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Captions, FileAudio, Loader2, Mic, RefreshCw, Square } from "lucide-react";
+import { FileAudio, Loader2, Mic, RefreshCw, Square } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/shared/ui/button";
@@ -13,12 +13,7 @@ import { useSettingsStore } from "@/shared/stores/settings-store";
 import { ShieldCheck } from "lucide-react";
 import { useRecording } from "@/shared/stores/recording-store";
 import { useTranscriberCopy } from "@/shared/hooks/use-transcriber-copy";
-import {
-  deleteRecording,
-  listRecordings,
-  openCaptionsWindow,
-  revealInFinder,
-} from "@/shared/lib/ipc";
+import { deleteRecording, listRecordings, revealInFinder } from "@/shared/lib/ipc";
 import type { RecordingSummary } from "@/shared/types/RecordingSummary";
 
 export default function Record() {
@@ -104,24 +99,6 @@ export default function Record() {
         >
           <StatusPill recording={rec.recording} label={elapsedLabel} />
           <VoiceProcessingBadge />
-          <Button
-            variant="ghost"
-            size="sm"
-            className="mt-1 gap-1.5 text-xs text-muted-foreground"
-            onClick={() => {
-              openCaptionsWindow().catch((e) => {
-                console.error("open_captions_window:", e);
-                toast.error("Could not open captions", {
-                  description: String(e),
-                });
-              });
-            }}
-            aria-label="Open live captions window"
-            title="Open the always-on-top captions overlay"
-          >
-            <Captions className="h-3.5 w-3.5" />
-            Captions
-          </Button>
         </div>
       </header>
 
