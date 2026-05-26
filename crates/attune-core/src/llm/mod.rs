@@ -17,6 +17,7 @@ pub mod agent_toml;
 pub mod agents;
 pub mod confidence;
 pub mod keystore;
+pub mod live_agent;
 pub mod marketplace;
 pub mod provider;
 pub mod providers;
