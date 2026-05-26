@@ -27,6 +27,12 @@ pub struct Settings {
     pub theme: String,
     #[serde(default = "default_provider")]
     pub transcriber: String,
+    /// DEPRECATED — phase-3 audit B9. The OpenAI API key now lives in
+    /// the macOS Keychain via `attune_core::llm::KeyStore`. This field
+    /// is read as a fallback during the transition so users on prior
+    /// builds keep working; new writes happen via `set_provider_key`.
+    /// The field is scheduled for removal in the release after every
+    /// running install has been seen with a Keychain-stored key.
     #[serde(default)]
     pub openai_api_key: String,
     #[serde(default = "default_language")]
