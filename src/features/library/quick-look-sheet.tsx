@@ -288,7 +288,7 @@ export function QuickLookSheet({
               onClick={() => {
                 const files = [`${recording.session_dir}/mic.wav`];
                 if (recording.has_transcript) {
-                  files.push(`${recording.session_dir}/transcript.json`);
+                  files.push(`${recording.session_dir}/transcript.json.zst`);
                 }
                 sharePaths(files).catch((e) => {
                   console.error("share_paths:", e);

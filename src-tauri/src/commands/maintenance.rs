@@ -42,15 +42,17 @@ const TRANSCRIPT_FILENAME: &str = "transcript.json";
 pub async fn clear_recording_artifacts(session_dir: PathBuf) -> Result<(), String> {
     let dir = session_dir.clone();
     tauri::async_runtime::spawn_blocking(move || -> Result<(), String> {
-        let transcript_path = dir.join(TRANSCRIPT_FILENAME);
-        match std::fs::remove_file(&transcript_path) {
-            Ok(()) => info!(path = %transcript_path.display(), "deleted transcript"),
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
-            Err(e) => {
-                return Err(format!(
-                    "could not delete {}: {e}",
-                    transcript_path.display()
-                ))
+        for filename in [TRANSCRIPT_FILENAME, "transcript.json.zst"] {
+            let transcript_path = dir.join(filename);
+            match std::fs::remove_file(&transcript_path) {
+                Ok(()) => info!(path = %transcript_path.display(), "deleted transcript"),
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+                Err(e) => {
+                    return Err(format!(
+                        "could not delete {}: {e}",
+                        transcript_path.display()
+                    ))
+                }
             }
         }
 
