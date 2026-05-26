@@ -8,7 +8,7 @@ import {
   RefreshCw,
   Trash2,
 } from "lucide-react";
-import { save as showSaveDialog } from "@tauri-apps/plugin-dialog";
+import { showSaveDialog } from "@/shared/lib/ipc";
 import { toast } from "sonner";
 
 import { Button } from "@/shared/ui/button";

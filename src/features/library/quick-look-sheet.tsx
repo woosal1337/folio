@@ -10,7 +10,7 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
-import { save as showSaveDialog } from "@tauri-apps/plugin-dialog";
+import { showSaveDialog } from "@/shared/lib/ipc";
 import { exportShareBundle } from "@/shared/lib/ipc";
 import { toast } from "sonner";
 

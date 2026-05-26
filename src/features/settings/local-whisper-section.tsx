@@ -1,5 +1,5 @@
 import * as React from "react";
-import { listen } from "@tauri-apps/api/event";
+import { onWhisperDownloadProgress } from "@/shared/lib/ipc";
 import { Cpu, Download, Loader2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
@@ -9,7 +9,6 @@ import { Label } from "@/shared/ui/label";
 import { cn, formatBytes } from "@/shared/lib/utils";
 import {
   ensureWhisperModel,
-  WHISPER_DOWNLOAD_PROGRESS_EVENT,
   whisperModelStatus,
   type WhisperDownloadProgress,
 } from "@/shared/lib/ipc";
@@ -67,13 +66,10 @@ export function LocalWhisperSection({ settings, onChange }: Props) {
     let unlistenFn: (() => void) | null = null;
     let cancelled = false;
     (async () => {
-      const unlisten = await listen<WhisperDownloadProgress>(
-        WHISPER_DOWNLOAD_PROGRESS_EVENT,
-        (event) => {
-          if (cancelled) return;
-          setProgress(event.payload);
-        }
-      );
+      const unlisten = await onWhisperDownloadProgress<WhisperDownloadProgress>((payload) => {
+        if (cancelled) return;
+        setProgress(payload);
+      });
       if (cancelled) {
         unlisten();
       } else {

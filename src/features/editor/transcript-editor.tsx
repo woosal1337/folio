@@ -11,8 +11,8 @@ import {
   Undo2,
   X,
 } from "lucide-react";
-import { save as showSaveDialog } from "@tauri-apps/plugin-dialog";
-import { writeTextFile } from "@tauri-apps/plugin-fs";
+import { showSaveDialog } from "@/shared/lib/ipc";
+import { writeTextFileFromBrowser } from "@/shared/lib/ipc";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { toast } from "sonner";
 
@@ -165,7 +165,7 @@ export function TranscriptEditor({ sessionDir, initial, onSaved }: Props) {
         filters: [{ name: format.toUpperCase(), extensions: [ext] }],
       });
       if (!path) return; // user cancelled
-      await writeTextFile(path, content);
+      await writeTextFileFromBrowser(path, content);
       toast.success(`Exported to ${pathLeaf(path)}`);
     } catch (e) {
       console.error("export transcript:", e);

@@ -1,5 +1,5 @@
 import * as React from "react";
-import { convertFileSrc } from "@tauri-apps/api/core";
+import { assetUrl } from "@/shared/lib/ipc";
 import { Pause, Play } from "lucide-react";
 
 import { cn, formatDuration } from "@/shared/lib/utils";
@@ -41,7 +41,7 @@ export function AudioPlayer({ filePath, label, channel, className }: AudioPlayer
   // Convert the OS path to a Tauri asset:// URL the webview can load.
   const src = React.useMemo(() => {
     try {
-      return convertFileSrc(filePath);
+      return assetUrl(filePath);
     } catch (e) {
       console.error("convertFileSrc:", e);
       return "";
