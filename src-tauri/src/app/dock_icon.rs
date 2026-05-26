@@ -35,7 +35,7 @@ pub fn set_dock_icon() {
         .iter()
         .take(64)
         .fold(0u64, |acc, b| acc.wrapping_mul(31).wrapping_add(*b as u64));
-    tracing::info!(
+    tracing::debug!(
         bytes = len,
         prefix_hash = prefix,
         "set_dock_icon: loading icon"
@@ -69,7 +69,7 @@ pub fn set_dock_icon() {
         // [[NSApplication sharedApplication] setApplicationIconImage:img];
         let app: id = NSApp();
         let _: () = msg_send![app, setApplicationIconImage: ns_image];
-        tracing::info!("dock icon set");
+        tracing::debug!("dock icon set");
     }
 }
 

@@ -1,12 +1,22 @@
 import path from "node:path";
+import { readFileSync } from "node:fs";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+
+// Read the app version once at build time from package.json so the
+// UI doesn't drift from the manifest. Phase-3 audit D-tier P2.
+const pkg = JSON.parse(readFileSync(path.resolve(__dirname, "package.json"), "utf8")) as {
+  version: string;
+};
 
 // Tauri dev port + reload behaviour. https://v2.tauri.app/start/frontend/vite/
 const host = process.env.TAURI_DEV_HOST;
 
 export default defineConfig(() => ({
   plugins: [react()],
+  define: {
+    __ATTUNE_VERSION__: JSON.stringify(pkg.version),
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "src"),
