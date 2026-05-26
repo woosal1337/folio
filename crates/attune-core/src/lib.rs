@@ -27,6 +27,7 @@ pub mod evals;
 pub mod ffi;
 pub mod highlight_reel;
 pub mod import;
+pub mod live_notes;
 pub mod llm;
 pub mod mcp_client;
 pub mod memory;
