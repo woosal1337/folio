@@ -12,6 +12,7 @@ import { useSettingsUiStore } from "@/shared/stores/settings-ui-store";
 
 interface Props {
   onOpenCheatsheet: () => void;
+  onOpenPalette: () => void;
 }
 
 /**
@@ -25,7 +26,7 @@ interface Props {
  * placeholders; the dedicated panes wire their real handlers when
  * they ship.
  */
-export function GlobalShortcuts({ onOpenCheatsheet }: Props) {
+export function GlobalShortcuts({ onOpenCheatsheet, onOpenPalette }: Props) {
   const navigate = useNavigate();
   const openPreferences = useSettingsUiStore((s) => s.openAt);
   const recording = useRecording((s) => s.recording);
@@ -42,7 +43,7 @@ export function GlobalShortcuts({ onOpenCheatsheet }: Props) {
           navigate,
           openPreferences: () => openPreferences(),
           openCheatsheet: onOpenCheatsheet,
-          openAsk: () => navigate("/inbox"),
+          openAsk: onOpenPalette,
           toggleRecording: () => {
             if (recording) void stop();
             else void start();
@@ -60,7 +61,7 @@ export function GlobalShortcuts({ onOpenCheatsheet }: Props) {
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [navigate, openPreferences, onOpenCheatsheet, recording, start, stop]);
+  }, [navigate, openPreferences, onOpenCheatsheet, onOpenPalette, recording, start, stop]);
 
   return null;
 }
