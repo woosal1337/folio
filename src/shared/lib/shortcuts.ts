@@ -1,0 +1,129 @@
+/**
+ * First-class keyboard shortcut layer (v2 finding 008 / GET-32).
+ *
+ * The shortcut catalogue is the single source of truth. The
+ * cheat-sheet overlay (Cmd-Shift-/), the global handler in App.tsx,
+ * and the future Settings → Keyboard customisation pane all read
+ * from this list. New shortcuts get added here and only here.
+ *
+ * Cap on the catalogue is ~12 entries so the surface stays
+ * Apple-like (Lens 2). Add a new one only when an existing chord
+ * would be ambiguous.
+ */
+
+import type { NavigateFunction } from "react-router-dom";
+
+export type ShortcutAction =
+  | "toggleRecording"
+  | "openAsk"
+  | "openCheatsheet"
+  | "newTask"
+  | "navRecord"
+  | "navInbox"
+  | "navLibrary"
+  | "navTasks"
+  | "navMemory"
+  | "openPreferences"
+  | "transcriptPrev"
+  | "transcriptNext";
+
+export interface Shortcut {
+  action: ShortcutAction;
+  label: string;
+  group: "Recording" | "Navigation" | "Editing" | "Help";
+  keys: KeyChord;
+  enabledWhen?: "always" | "notInTextInput";
+}
+
+export interface KeyChord {
+  key: string;
+  cmd?: boolean;
+  shift?: boolean;
+  alt?: boolean;
+  ctrl?: boolean;
+}
+
+export const SHORTCUTS: Shortcut[] = [
+  { action: "toggleRecording", label: "Toggle recording", group: "Recording", keys: { key: "r", cmd: true } },
+  { action: "openAsk", label: "Ask (chat)", group: "Recording", keys: { key: "k", cmd: true } },
+  { action: "newTask", label: "New task", group: "Editing", keys: { key: "n", cmd: true } },
+  { action: "navRecord", label: "Record", group: "Navigation", keys: { key: "1", cmd: true } },
+  { action: "navInbox", label: "Inbox", group: "Navigation", keys: { key: "2", cmd: true } },
+  { action: "navLibrary", label: "Library", group: "Navigation", keys: { key: "3", cmd: true } },
+  { action: "navTasks", label: "Tasks", group: "Navigation", keys: { key: "4", cmd: true } },
+  { action: "navMemory", label: "Memory", group: "Navigation", keys: { key: "5", cmd: true } },
+  { action: "openPreferences", label: "Preferences", group: "Help", keys: { key: ",", cmd: true } },
+  { action: "transcriptPrev", label: "Previous transcript segment", group: "Editing", keys: { key: "k" }, enabledWhen: "notInTextInput" },
+  { action: "transcriptNext", label: "Next transcript segment", group: "Editing", keys: { key: "j" }, enabledWhen: "notInTextInput" },
+  { action: "openCheatsheet", label: "Keyboard cheat sheet", group: "Help", keys: { key: "/", cmd: true, shift: true } },
+];
+
+/**
+ * Pretty-printed chord for the cheat-sheet UI. Uses the Apple
+ * conventions: ⌘ ⇧ ⌥ ⌃ before the key. Falls back to "Ctrl-…" on
+ * non-Mac platforms.
+ */
+export function formatChord(chord: KeyChord): string {
+  const isMac = typeof navigator !== "undefined" && /Mac/.test(navigator.platform);
+  const parts: string[] = [];
+  if (chord.ctrl) parts.push(isMac ? "⌃" : "Ctrl");
+  if (chord.alt) parts.push(isMac ? "⌥" : "Alt");
+  if (chord.shift) parts.push(isMac ? "⇧" : "Shift");
+  if (chord.cmd) parts.push(isMac ? "⌘" : "Ctrl");
+  const key = chord.key === " " ? "Space" : chord.key.length === 1 ? chord.key.toUpperCase() : chord.key;
+  parts.push(key);
+  return parts.join(isMac ? "" : "-");
+}
+
+/**
+ * Compare a DOM KeyboardEvent against a shortcut's chord. Treats
+ * Cmd and Ctrl as the same key on non-Mac platforms so Linux /
+ * Windows builds get the same surface without a parallel chord table.
+ */
+export function matchesChord(event: KeyboardEvent, chord: KeyChord): boolean {
+  const isMac = typeof navigator !== "undefined" && /Mac/.test(navigator.platform);
+  const cmdKey = isMac ? event.metaKey : event.ctrlKey;
+  if (!!chord.cmd !== cmdKey) return false;
+  if (!!chord.shift !== event.shiftKey) return false;
+  if (!!chord.alt !== event.altKey) return false;
+  if (!!chord.ctrl !== (isMac ? event.ctrlKey : false)) return false;
+  return event.key.toLowerCase() === chord.key.toLowerCase();
+}
+
+/**
+ * True when the keyboard focus is in a text-entry surface. The
+ * shortcut layer suppresses single-letter actions (J / K) while
+ * the user is typing in an input.
+ */
+export function focusInTextInput(): boolean {
+  const el = document.activeElement;
+  if (!(el instanceof HTMLElement)) return false;
+  if (el.isContentEditable) return true;
+  const tag = el.tagName;
+  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
+}
+
+/**
+ * Dispatch table the App-level handler uses. Side-effect-only.
+ * Keeps the route-aware logic (navigation) in one place so the
+ * cheat-sheet labels stay accurate as routes evolve.
+ */
+export function dispatch(
+  action: ShortcutAction,
+  ctx: { navigate: NavigateFunction; openPreferences: () => void; openCheatsheet: () => void; openAsk: () => void; toggleRecording: () => void; newTask: () => void; segmentPrev: () => void; segmentNext: () => void }
+): void {
+  switch (action) {
+    case "toggleRecording": ctx.toggleRecording(); return;
+    case "openAsk": ctx.openAsk(); return;
+    case "openCheatsheet": ctx.openCheatsheet(); return;
+    case "newTask": ctx.newTask(); return;
+    case "navRecord": ctx.navigate("/record"); return;
+    case "navInbox": ctx.navigate("/inbox"); return;
+    case "navLibrary": ctx.navigate("/library"); return;
+    case "navTasks": ctx.navigate("/tasks"); return;
+    case "navMemory": ctx.navigate("/memory"); return;
+    case "openPreferences": ctx.openPreferences(); return;
+    case "transcriptPrev": ctx.segmentPrev(); return;
+    case "transcriptNext": ctx.segmentNext(); return;
+  }
+}

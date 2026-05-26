@@ -1,0 +1,66 @@
+import * as React from "react";
+import { useNavigate } from "react-router-dom";
+
+import {
+  SHORTCUTS,
+  dispatch,
+  focusInTextInput,
+  matchesChord,
+} from "@/shared/lib/shortcuts";
+import { useRecording } from "@/shared/stores/recording-store";
+import { useSettingsUiStore } from "@/shared/stores/settings-ui-store";
+
+interface Props {
+  onOpenCheatsheet: () => void;
+}
+
+/**
+ * App-level keyboard listener. Reads the SHORTCUTS catalogue and
+ * dispatches each chord through the same code path the cheatsheet
+ * documents. Suppresses single-letter chords (J / K, no modifier)
+ * while focus is inside a text input.
+ *
+ * Mounted once inside the router so dispatch can call navigate().
+ * Ask / new-task / segment-prev-next currently route to no-op
+ * placeholders; the dedicated panes wire their real handlers when
+ * they ship.
+ */
+export function GlobalShortcuts({ onOpenCheatsheet }: Props) {
+  const navigate = useNavigate();
+  const openPreferences = useSettingsUiStore((s) => s.openAt);
+  const recording = useRecording((s) => s.recording);
+  const start = useRecording((s) => s.start);
+  const stop = useRecording((s) => s.stop);
+
+  React.useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      for (const shortcut of SHORTCUTS) {
+        if (!matchesChord(event, shortcut.keys)) continue;
+        if (shortcut.enabledWhen === "notInTextInput" && focusInTextInput()) continue;
+        event.preventDefault();
+        dispatch(shortcut.action, {
+          navigate,
+          openPreferences: () => openPreferences(),
+          openCheatsheet: onOpenCheatsheet,
+          openAsk: () => navigate("/inbox"),
+          toggleRecording: () => {
+            if (recording) void stop();
+            else void start();
+          },
+          newTask: () => navigate("/tasks"),
+          segmentPrev: () => {
+            document.dispatchEvent(new CustomEvent("attune:transcript-prev"));
+          },
+          segmentNext: () => {
+            document.dispatchEvent(new CustomEvent("attune:transcript-next"));
+          },
+        });
+        return;
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [navigate, openPreferences, onOpenCheatsheet, recording, start, stop]);
+
+  return null;
+}
