@@ -4,6 +4,7 @@
 mod app;
 mod commands;
 
+use tauri::Manager;
 use tracing_subscriber::EnvFilter;
 
 use crate::app::AppState;
@@ -41,6 +42,15 @@ pub fn run() {
                 if let Err(e) = app.deep_link().register_all() {
                     tracing::warn!(error = %e, "deep-link register_all failed");
                 }
+            }
+            // Mirror the persisted privacy_mode setting into the
+            // process-global CloudGuard so the very first network call
+            // after launch already honours it. v2 finding 048 / GET-42.
+            {
+                let state: tauri::State<'_, app::AppState> = app.state();
+                let on = state.settings.lock().privacy_mode;
+                attune_core::cloud_guard::set_airgap(on);
+                tracing::info!(privacy_mode = on, "cloud guard initialised");
             }
             let _ = app;
             Ok(())

@@ -126,4 +126,13 @@ reminders_sync_enabled: boolean,
  * Reminders list name to mirror to/from. Defaults to "Attune"
  * (we create the list on first sync if it doesn't exist).
  */
-reminders_list_name: string, };
+reminders_list_name: string,
+/**
+ * Privacy Mode / Airgap (v2 finding 048 / GET-42). When true the
+ * CloudGuard blocks every outbound HTTP request except to
+ * localhost. Cloud LLM providers, embedding APIs, model
+ * downloads, and webhook delivery all short-circuit with a clear
+ * "blocked by Privacy Mode" error. The titlebar shows an AIRGAP
+ * badge while this is on. Defaults to false.
+ */
+privacy_mode: boolean, };

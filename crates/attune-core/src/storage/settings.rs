@@ -141,6 +141,14 @@ pub struct Settings {
     /// (we create the list on first sync if it doesn't exist).
     #[serde(default = "default_reminders_list")]
     pub reminders_list_name: String,
+    /// Privacy Mode / Airgap (v2 finding 048 / GET-42). When true the
+    /// CloudGuard blocks every outbound HTTP request except to
+    /// localhost. Cloud LLM providers, embedding APIs, model
+    /// downloads, and webhook delivery all short-circuit with a clear
+    /// "blocked by Privacy Mode" error. The titlebar shows an AIRGAP
+    /// badge while this is on. Defaults to false.
+    #[serde(default)]
+    pub privacy_mode: bool,
 }
 
 fn default_theme() -> String {
@@ -234,6 +242,7 @@ impl Default for Settings {
             pro_trial_started_at: String::new(),
             reminders_sync_enabled: false,
             reminders_list_name: default_reminders_list(),
+            privacy_mode: false,
         }
     }
 }
