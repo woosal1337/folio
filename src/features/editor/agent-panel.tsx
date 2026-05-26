@@ -442,11 +442,118 @@ function AgentResult({
       </button>
       {!collapsed ? (
         <div className="border-t border-border px-4 py-4">
-          <Markdown>{run.response}</Markdown>
+          {agent.id === "autoname" ? (
+            <AutonameResultBody response={run.response} />
+          ) : (
+            <Markdown>{run.response}</Markdown>
+          )}
           <RefineRow run={run} />
         </div>
       ) : null}
     </div>
+  );
+}
+
+interface AutonameParsed {
+  title: string;
+  tags: string[];
+  subtitle: string;
+}
+
+/**
+ * Best-effort parse of the autoname agent's JSON response. The agent
+ * prompt asks for `{title, tags, subtitle}` JSON only, but we tolerate
+ * stray prose / fences by lifting the first balanced `{...}` block.
+ * Mirrors the Rust-side parser in
+ * `crates/attune-core/src/storage/session.rs` so the React card and
+ * the library row never disagree.
+ */
+export function parseAutoname(response: string): AutonameParsed | null {
+  const start = response.indexOf("{");
+  if (start === -1) return null;
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  let end = -1;
+  for (let i = start; i < response.length; i++) {
+    const ch = response[i];
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (ch === "\\") {
+        escaped = true;
+      } else if (ch === '"') {
+        inString = false;
+      }
+      continue;
+    }
+    if (ch === '"') inString = true;
+    else if (ch === "{") depth += 1;
+    else if (ch === "}") {
+      depth -= 1;
+      if (depth === 0) {
+        end = i;
+        break;
+      }
+    }
+  }
+  if (end === -1) return null;
+  try {
+    const parsed = JSON.parse(response.slice(start, end + 1)) as unknown;
+    if (!parsed || typeof parsed !== "object") return null;
+    const obj = parsed as Record<string, unknown>;
+    const title = typeof obj.title === "string" ? obj.title.trim() : "";
+    const subtitle = typeof obj.subtitle === "string" ? obj.subtitle.trim() : "";
+    const tags = Array.isArray(obj.tags)
+      ? obj.tags.filter((t): t is string => typeof t === "string" && t.trim().length > 0)
+      : [];
+    return { title, tags, subtitle };
+  } catch {
+    return null;
+  }
+}
+
+function AutonameResultBody({ response }: { response: string }) {
+  const parsed = React.useMemo(() => parseAutoname(response), [response]);
+  if (!parsed) {
+    return <Markdown>{response}</Markdown>;
+  }
+  const isEmpty =
+    parsed.title.length === 0 && parsed.tags.length === 0 && parsed.subtitle.length === 0;
+  if (isEmpty) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        No name suggested — the transcript was too short or noisy to title reliably.
+      </p>
+    );
+  }
+  return (
+    <dl className="grid grid-cols-[5rem_1fr] gap-x-3 gap-y-2 text-sm">
+      {parsed.title.length > 0 ? (
+        <>
+          <dt className="text-xs text-muted-foreground">Title</dt>
+          <dd className="font-medium">{parsed.title}</dd>
+        </>
+      ) : null}
+      {parsed.subtitle.length > 0 ? (
+        <>
+          <dt className="text-xs text-muted-foreground">Subtitle</dt>
+          <dd>{parsed.subtitle}</dd>
+        </>
+      ) : null}
+      {parsed.tags.length > 0 ? (
+        <>
+          <dt className="text-xs text-muted-foreground">Tags</dt>
+          <dd className="flex flex-wrap gap-1.5">
+            {parsed.tags.map((t) => (
+              <Badge key={t} variant="outline" className="text-2xs">
+                {t}
+              </Badge>
+            ))}
+          </dd>
+        </>
+      ) : null}
+    </dl>
   );
 }
 
