@@ -19,6 +19,7 @@
 //! - [`error`] — the single public [`AttuneError`] enum.
 
 pub mod audio;
+pub mod calendar;
 pub mod cloud_guard;
 pub mod error;
 pub mod evals;
