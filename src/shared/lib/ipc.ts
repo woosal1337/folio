@@ -411,6 +411,17 @@ export function openPermissionSettings(permission: Permission): Promise<void> {
   return call<void>("open_permission_settings", { permission });
 }
 
+// ---- Menu bar tray bridge (v2 #006 / GET-25) ---------------------
+
+/**
+ * Push the current recording state into the menu bar tray icon. Pass
+ * `null` when not recording; pass the elapsed seconds while recording
+ * so the title updates to "● M:SS".
+ */
+export function setTrayRecording(elapsedSecs: number | null): Promise<void> {
+  return call<void>("set_tray_recording", { elapsedSecs });
+}
+
 // ---- Transcript backlinks (v2 #038 / GET-41) ---------------------
 
 import type { TranscriptHit } from "@/shared/types/TranscriptHit";

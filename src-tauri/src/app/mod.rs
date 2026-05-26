@@ -4,5 +4,6 @@
 pub mod dock_icon;
 pub mod share_sheet;
 pub mod state;
+pub mod tray;
 
 pub use state::AppState;

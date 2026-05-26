@@ -18,4 +18,5 @@ pub mod recording;
 pub mod settings;
 pub mod tasks;
 pub mod transcription;
+pub mod tray;
 pub mod webhooks;

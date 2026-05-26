@@ -132,7 +132,7 @@ ts-rs = { version = "10", features = ["serde-compat", "chrono-impl"] }
 whisper-rs = { version = "0.13", default-features = false }
 
 # Tauri 2
-tauri = { version = "2", features = ["protocol-asset"] }
+tauri = { version = "2", features = ["protocol-asset", "tray-icon"] }
 tauri-build = { version = "2", features = [] }
 tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
