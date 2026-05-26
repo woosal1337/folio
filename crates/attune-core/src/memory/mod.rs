@@ -23,6 +23,7 @@
 
 pub mod embed;
 pub mod embedding_provider;
+pub mod git_commit;
 pub mod index;
 pub mod page;
 pub mod store;
