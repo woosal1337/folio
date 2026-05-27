@@ -169,10 +169,7 @@ pub fn apply_vad_to_wav(input_wav: &Path) -> Result<VadFilterOutcome> {
 /// to exercise both paths without flipping global state.
 pub fn apply_vad_to_wav_with(input_wav: &Path, engine: VadEngine) -> Result<VadFilterOutcome> {
     let reader = WavReader::open(input_wav).map_err(|e| {
-        AttuneError::Transcription(format!(
-            "vad: could not open {}: {e}",
-            input_wav.display()
-        ))
+        AttuneError::Transcription(format!("vad: could not open {}: {e}", input_wav.display()))
     })?;
     let spec = reader.spec();
     let source_samples = read_interleaved_f32(reader)?;
@@ -233,12 +230,15 @@ pub fn apply_vad_to_wav_with(input_wav: &Path, engine: VadEngine) -> Result<VadF
         })
         .collect();
 
-    let stem = input_wav.file_stem().and_then(|s| s.to_str()).ok_or_else(|| {
-        AttuneError::Transcription(format!(
-            "vad: input path {} has no usable stem",
-            input_wav.display()
-        ))
-    })?;
+    let stem = input_wav
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .ok_or_else(|| {
+            AttuneError::Transcription(format!(
+                "vad: input path {} has no usable stem",
+                input_wav.display()
+            ))
+        })?;
     let parent = input_wav.parent().unwrap_or_else(|| Path::new("."));
     let speech_path = parent.join(format!("{stem}.speech.wav"));
     let sidecar_path = parent.join(format!("{stem}.vad.json"));
@@ -293,7 +293,10 @@ pub fn apply_vad_to_wav_with(input_wav: &Path, engine: VadEngine) -> Result<VadF
         });
     }
     writer.finalize().map_err(|e| {
-        AttuneError::Transcription(format!("vad: finalising {} failed: {e}", speech_path.display()))
+        AttuneError::Transcription(format!(
+            "vad: finalising {} failed: {e}",
+            speech_path.display()
+        ))
     })?;
 
     let original_seconds = original_frame_count as f64 / spec.sample_rate as f64;
@@ -320,9 +323,8 @@ pub fn apply_vad_to_wav_with(input_wav: &Path, engine: VadEngine) -> Result<VadF
         silence_stripped_seconds,
         active_ratio,
     };
-    let sidecar_json = serde_json::to_vec_pretty(&sidecar).map_err(|e| {
-        AttuneError::Transcription(format!("vad: serialising sidecar failed: {e}"))
-    })?;
+    let sidecar_json = serde_json::to_vec_pretty(&sidecar)
+        .map_err(|e| AttuneError::Transcription(format!("vad: serialising sidecar failed: {e}")))?;
     std::fs::write(&sidecar_path, sidecar_json).map_err(|e| {
         AttuneError::Transcription(format!(
             "vad: writing {} failed: {e}",
@@ -446,18 +448,18 @@ fn write_sample_f32<W: std::io::Write + std::io::Seek>(
     value: f32,
 ) -> Result<()> {
     match format {
-        SampleFormat::Float => writer.write_sample(value).map_err(|e| {
-            AttuneError::Transcription(format!("vad: wav write failed: {e}"))
-        }),
+        SampleFormat::Float => writer
+            .write_sample(value)
+            .map_err(|e| AttuneError::Transcription(format!("vad: wav write failed: {e}"))),
         SampleFormat::Int => {
             let spec = writer.spec();
             let bits = spec.bits_per_sample;
             let max = (1i64 << (bits - 1)) as f32;
             let clamped = value.clamp(-1.0, 1.0);
             let int_sample = (clamped * max).round() as i32;
-            writer.write_sample(int_sample).map_err(|e| {
-                AttuneError::Transcription(format!("vad: wav write failed: {e}"))
-            })
+            writer
+                .write_sample(int_sample)
+                .map_err(|e| AttuneError::Transcription(format!("vad: wav write failed: {e}")))
         }
     }
 }
@@ -477,12 +479,7 @@ mod tests {
     use std::f32::consts::PI;
     use tempfile::TempDir;
 
-    fn write_test_wav(
-        path: &Path,
-        sample_rate: u32,
-        channels: u16,
-        samples: &[f32],
-    ) {
+    fn write_test_wav(path: &Path, sample_rate: u32, channels: u16, samples: &[f32]) {
         let spec = WavSpec {
             channels,
             sample_rate,

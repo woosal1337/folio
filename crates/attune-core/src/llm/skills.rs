@@ -101,7 +101,10 @@ pub fn skills_dir(vault_root: &Path) -> PathBuf {
 pub fn ensure_dir(vault_root: &Path) -> Result<PathBuf> {
     let dir = skills_dir(vault_root);
     fs::create_dir_all(&dir).map_err(|e| {
-        AttuneError::Storage(format!("could not create skills dir {}: {e}", dir.display()))
+        AttuneError::Storage(format!(
+            "could not create skills dir {}: {e}",
+            dir.display()
+        ))
     })?;
     Ok(dir)
 }
@@ -138,17 +141,16 @@ pub fn list_all(vault_root: &Path) -> Result<Vec<Skill>> {
         return Ok(Vec::new());
     }
     let mut out = Vec::new();
-    for entry in fs::read_dir(&dir).map_err(|e| {
-        AttuneError::Storage(format!("could not read {}: {e}", dir.display()))
-    })? {
+    for entry in fs::read_dir(&dir)
+        .map_err(|e| AttuneError::Storage(format!("could not read {}: {e}", dir.display())))?
+    {
         let entry = entry.map_err(|e| AttuneError::Storage(format!("read_dir: {e}")))?;
         let path = entry.path();
         if path.extension().and_then(|e| e.to_str()) != Some("toml") {
             continue;
         }
-        let raw = fs::read_to_string(&path).map_err(|e| {
-            AttuneError::Storage(format!("could not read {}: {e}", path.display()))
-        })?;
+        let raw = fs::read_to_string(&path)
+            .map_err(|e| AttuneError::Storage(format!("could not read {}: {e}", path.display())))?;
         out.push(parse(&raw)?);
     }
     out.sort_by(|a, b| a.slug.cmp(&b.slug));
@@ -187,7 +189,9 @@ mod tests {
     #[test]
     fn tracker_returns_none_on_first_sighting() {
         let mut tracker = CorrectionTracker::new();
-        assert!(tracker.record("extract-tasks", "acme corp", "ACME Corporation").is_none());
+        assert!(tracker
+            .record("extract-tasks", "acme corp", "ACME Corporation")
+            .is_none());
     }
 
     #[test]

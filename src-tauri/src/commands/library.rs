@@ -120,10 +120,7 @@ pub async fn get_recording(
 /// quick but we run it on a blocking task for consistency with the
 /// other library commands.
 #[tauri::command]
-pub async fn reveal_in_finder(
-    state: State<'_, AppState>,
-    path: PathBuf,
-) -> Result<(), String> {
+pub async fn reveal_in_finder(state: State<'_, AppState>, path: PathBuf) -> Result<(), String> {
     let output_dir = state.settings.lock().output_dir.clone();
     tauri::async_runtime::spawn_blocking(move || -> Result<(), String> {
         let canon = attune_core::paths::canonicalize_under(&output_dir, &path)
@@ -193,16 +190,13 @@ pub async fn save_debrief(
 /// finding 010 / GET-34 — AirDrop, Messages, Mail, Notes, third-party
 /// share extensions for free, with zero per-target plumbing.
 #[tauri::command]
-pub async fn share_paths(
-    state: State<'_, AppState>,
-    paths: Vec<PathBuf>,
-) -> Result<(), String> {
+pub async fn share_paths(state: State<'_, AppState>, paths: Vec<PathBuf>) -> Result<(), String> {
     info!("share_paths: {} item(s)", paths.len());
     let output_dir = state.settings.lock().output_dir.clone();
     let mut canon_paths: Vec<PathBuf> = Vec::with_capacity(paths.len());
     for p in &paths {
-        let canon = attune_core::paths::canonicalize_under(&output_dir, p)
-            .map_err(|e| e.to_string())?;
+        let canon =
+            attune_core::paths::canonicalize_under(&output_dir, p).map_err(|e| e.to_string())?;
         canon_paths.push(canon);
     }
     crate::app::share_sheet::share_paths(&canon_paths)

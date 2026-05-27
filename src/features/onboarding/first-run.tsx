@@ -12,42 +12,141 @@ import { toast } from "sonner";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent } from "@/shared/ui/card";
 import { cn } from "@/shared/lib/utils";
-import { setProviderKey } from "@/shared/lib/ipc";
+import { requestCalendarAccess, setProviderKey } from "@/shared/lib/ipc";
 import { useSettingsStore } from "@/shared/stores/settings-store";
 import { PermissionsScreen } from "./permissions-screen";
+import { SignupScreen } from "./signup-screen";
+import { EventKitRationaleScreen } from "./eventkit-rationale-screen";
+import { WorkspaceNameScreen } from "./workspace-name-screen";
+import { WorkspaceBucketScreen } from "./workspace-bucket-screen";
+import { inferWorkspaceNameFromEmail } from "./infer-workspace-name";
 
 type Transcriber = "local_whisper" | "openai";
 
+type SigninMode = "" | "offline" | "google" | "microsoft" | "sso";
+
+type Bucket = "founder" | "clinical" | "sales" | "education";
+
 /**
- * One-screen first-run conductor. v2 finding 001 / GET-24 — Hero.
+ * Six-step first-run conductor.
  *
- * Renders while `Settings.onboarding_completed` is false. Three
- * actions stacked vertically:
+ *   permissions → signup → eventkit → workspace-name → workspace-bucket
+ *               → transcriber → done
  *
- *   1. Grant the two required TCC permissions (Microphone + Screen
- *      Recording) via the System Settings deep links from #003.
- *   2. Pick the ASR: Local Whisper (default, free) or OpenAI Whisper
- *      API (paid, faster) — with the key-paste field when OpenAI is
- *      selected.
- *   3. A primed Record button labelled "I'm ready" that flips
- *      onboarding_completed and dismisses the conductor.
+ * Offline branch (signin_mode === "offline") skips eventkit and both
+ * workspace screens — local-only mode does not need a workspace
+ * identity. OAuth branches proceed through the full chain; the
+ * workspace name pre-populates from the email returned by the
+ * provider callback (stub in v1 until the backend lands).
  *
- * Bias toward zero friction: the user can finish without granting
- * permissions or pasting a key — the rows just keep showing yellow
- * dots and the Record button stays primed. The downstream record
- * flow surfaces missing permissions per-attempt.
+ * Each leaf component is pure and stateless about the conductor —
+ * they receive callbacks and call them when the user confirms.
  */
-type Step = "permissions" | "transcriber";
+
+type Step =
+  | "permissions"
+  | "signup"
+  | "eventkit"
+  | "workspace-name"
+  | "workspace-bucket"
+  | "transcriber";
 
 export function FirstRunConductor({ onFinish }: { onFinish: () => void }) {
   const settings = useSettingsStore((s) => s.settings);
   const saveSettings = useSettingsStore((s) => s.save);
   const [step, setStep] = React.useState<Step>("permissions");
+  const [signinMode, setSigninMode] = React.useState<SigninMode>(
+    (settings?.signin_mode as SigninMode) ?? ""
+  );
+  const [accountEmail, setAccountEmail] = React.useState<string | null>(null);
+  const [workspaceName, setWorkspaceName] = React.useState<string>(
+    settings?.workspace_name ?? ""
+  );
+  const [workspaceBucket, setWorkspaceBucket] = React.useState<Bucket | "">(
+    (settings?.workspace_bucket as Bucket | "") ?? ""
+  );
+  const [calendarDeferred, setCalendarDeferred] = React.useState<boolean>(
+    settings?.onboarding_calendar_deferred ?? false
+  );
   const [transcriber, setTranscriber] = React.useState<Transcriber>(
     (settings?.transcriber as Transcriber) ?? "local_whisper"
   );
   const [openaiKey, setOpenaiKey] = React.useState("");
   const [savingKey, setSavingKey] = React.useState(false);
+
+  const persistPartial = React.useCallback(
+    async (patch: Partial<NonNullable<typeof settings>>) => {
+      if (!settings) return;
+      try {
+        await saveSettings({ ...settings, ...patch });
+      } catch (e) {
+        console.error("save settings:", e);
+        toast.error("Could not save", { description: String(e) });
+      }
+    },
+    [settings, saveSettings]
+  );
+
+  const handleProviderChosen = React.useCallback(
+    async (provider: "google" | "microsoft" | "sso") => {
+      // Backend OAuth lands in Sprint 2 backend pass. Until then the
+      // happy path stubs out the email so the workspace screens still
+      // get useful defaults. We persist the chosen provider so the
+      // backend pass can resume from here.
+      const stubEmail = "";
+      setSigninMode(provider);
+      setAccountEmail(stubEmail);
+      await persistPartial({ signin_mode: provider });
+      toast.info("Sign-in stubbed", {
+        description:
+          "Real OAuth lands with the backend. Continuing with workspace setup.",
+      });
+      setStep("eventkit");
+    },
+    [persistPartial]
+  );
+
+  const handleOffline = React.useCallback(async () => {
+    setSigninMode("offline");
+    await persistPartial({ signin_mode: "offline" });
+    setStep("transcriber");
+  }, [persistPartial]);
+
+  const handleGrantCalendar = React.useCallback(async () => {
+    try {
+      await requestCalendarAccess();
+      setCalendarDeferred(false);
+      await persistPartial({ onboarding_calendar_deferred: false });
+    } catch (e) {
+      console.error("request_calendar_access:", e);
+      toast.error("Could not open calendar settings", { description: String(e) });
+    }
+    setStep("workspace-name");
+  }, [persistPartial]);
+
+  const handleSkipCalendar = React.useCallback(async () => {
+    setCalendarDeferred(true);
+    await persistPartial({ onboarding_calendar_deferred: true });
+    setStep("workspace-name");
+  }, [persistPartial]);
+
+  const handleWorkspaceName = React.useCallback(
+    async (name: string) => {
+      setWorkspaceName(name);
+      await persistPartial({ workspace_name: name });
+      setStep("workspace-bucket");
+    },
+    [persistPartial]
+  );
+
+  const handleWorkspaceBucket = React.useCallback(
+    async (bucket: Bucket) => {
+      setWorkspaceBucket(bucket);
+      await persistPartial({ workspace_bucket: bucket });
+      setStep("transcriber");
+    },
+    [persistPartial]
+  );
 
   const finish = React.useCallback(async () => {
     if (transcriber === "openai" && openaiKey.trim().length > 0) {
@@ -66,6 +165,10 @@ export function FirstRunConductor({ onFinish }: { onFinish: () => void }) {
     try {
       await saveSettings({
         ...settings,
+        signin_mode: signinMode,
+        workspace_name: workspaceName,
+        workspace_bucket: workspaceBucket,
+        onboarding_calendar_deferred: calendarDeferred,
         transcriber,
         onboarding_completed: true,
       });
@@ -77,19 +180,63 @@ export function FirstRunConductor({ onFinish }: { onFinish: () => void }) {
       console.error("update settings on first-run finish:", e);
       toast.error("Could not save preferences", { description: String(e) });
     }
-  }, [openaiKey, settings, transcriber, saveSettings, onFinish]);
+  }, [
+    openaiKey,
+    settings,
+    signinMode,
+    workspaceName,
+    workspaceBucket,
+    calendarDeferred,
+    transcriber,
+    saveSettings,
+    onFinish,
+  ]);
 
   if (!settings) return null;
 
+  if (step === "permissions") {
+    return <PermissionsScreen onContinue={() => setStep("signup")} />;
+  }
+  if (step === "signup") {
+    return (
+      <SignupScreen onProviderChosen={handleProviderChosen} onOffline={handleOffline} />
+    );
+  }
+  if (step === "eventkit") {
+    return (
+      <EventKitRationaleScreen
+        onGrant={handleGrantCalendar}
+        onSkip={handleSkipCalendar}
+      />
+    );
+  }
+  if (step === "workspace-name") {
+    return (
+      <WorkspaceNameScreen
+        email={accountEmail}
+        initial={workspaceName || inferWorkspaceNameFromEmail(accountEmail ?? "")}
+        onContinue={handleWorkspaceName}
+      />
+    );
+  }
+  if (step === "workspace-bucket") {
+    return (
+      <WorkspaceBucketScreen
+        initial={workspaceBucket}
+        onContinue={handleWorkspaceBucket}
+      />
+    );
+  }
+
+  // transcriber step (final)
   return (
-    step === "permissions" ? (
-      <PermissionsScreen onContinue={() => setStep("transcriber")} />
-    ) : (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-8 px-8 py-12">
       <header data-drag="" className="select-none">
         <div className="flex items-center gap-3">
           <Sparkles className="h-6 w-6 text-primary" />
-          <h1 className="font-serif text-4xl font-medium tracking-tight">Welcome to Attune</h1>
+          <h1 className="font-serif text-4xl font-medium tracking-tight">
+            Welcome to Attune
+          </h1>
         </div>
         <p className="mt-2 text-sm text-muted-foreground">
           One last thing — pick how you want transcripts to happen.
@@ -144,13 +291,12 @@ export function FirstRunConductor({ onFinish }: { onFinish: () => void }) {
       >
         <div className="flex items-center gap-2">
           <CheckCircle2 className="h-4 w-4 text-primary" />
-          <p className="text-sm">You can change everything later in Preferences (Cmd-,).</p>
+          <p className="text-sm">
+            You can change everything later in Preferences (Cmd-,).
+          </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            onClick={() => setStep("permissions")}
-          >
+          <Button variant="ghost" onClick={() => setStep("signup")}>
             Back
           </Button>
           <Button onClick={finish} disabled={savingKey} className="gap-2">
@@ -160,7 +306,6 @@ export function FirstRunConductor({ onFinish }: { onFinish: () => void }) {
         </div>
       </div>
     </div>
-    )
   );
 }
 
@@ -172,7 +317,13 @@ interface ChoiceProps {
   detail: string;
 }
 
-function TranscriberChoice({ selected, onClick, icon: Icon, title, detail }: ChoiceProps) {
+function TranscriberChoice({
+  selected,
+  onClick,
+  icon: Icon,
+  title,
+  detail,
+}: ChoiceProps) {
   return (
     <button
       type="button"

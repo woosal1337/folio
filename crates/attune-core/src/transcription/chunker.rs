@@ -57,9 +57,10 @@ pub fn split(pcm: &[f32], config: ChunkerConfig) -> Vec<ChunkRange> {
         return Vec::new();
     }
     let samples_per_chunk_by_bytes = config.target_bytes / config.bytes_per_sample.max(1);
-    let samples_per_chunk_by_time =
-        (config.target_seconds * config.sample_rate as f64) as usize;
-    let target_samples = samples_per_chunk_by_bytes.min(samples_per_chunk_by_time).max(1);
+    let samples_per_chunk_by_time = (config.target_seconds * config.sample_rate as f64) as usize;
+    let target_samples = samples_per_chunk_by_bytes
+        .min(samples_per_chunk_by_time)
+        .max(1);
     let lookback_samples = (config.silence_lookback_seconds * config.sample_rate as f64) as usize;
 
     let mut out = Vec::new();
@@ -86,7 +87,12 @@ pub fn split(pcm: &[f32], config: ChunkerConfig) -> Vec<ChunkRange> {
 /// for a frame whose RMS over the next 50 ms window dips below
 /// `floor`. Returns the index of the first such frame, or None when
 /// no silence is found in the window.
-fn find_silence_split(pcm: &[f32], nominal_end: usize, lookback: usize, floor: f32) -> Option<usize> {
+fn find_silence_split(
+    pcm: &[f32],
+    nominal_end: usize,
+    lookback: usize,
+    floor: f32,
+) -> Option<usize> {
     if lookback == 0 {
         return None;
     }

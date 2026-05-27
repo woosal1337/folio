@@ -50,7 +50,12 @@ pub struct GuardedItem {
 /// Build a GuardedItem from a confidence + evidence span + the full
 /// transcript text. Pure function, no IO — the prompts feed us the
 /// confidence and span; we judge.
-pub fn judge(confidence: f32, evidence_span: &str, transcript: &str, threshold: f32) -> GuardedItem {
+pub fn judge(
+    confidence: f32,
+    evidence_span: &str,
+    transcript: &str,
+    threshold: f32,
+) -> GuardedItem {
     let span = evidence_span.trim();
     let grounded = !span.is_empty() && contains_loose(transcript, span);
     let verdict = if !grounded {
@@ -105,25 +110,41 @@ fn normalize(s: &str) -> String {
 mod tests {
     use super::*;
 
-    const TRANSCRIPT: &str = "Alice: we should ship the redesign \nby Friday.\n\nBob: I'll handle the press release.";
+    const TRANSCRIPT: &str =
+        "Alice: we should ship the redesign \nby Friday.\n\nBob: I'll handle the press release.";
 
     #[test]
     fn verified_when_high_confidence_and_grounded() {
-        let g = judge(0.9, "ship the redesign by Friday", TRANSCRIPT, DEFAULT_MIN_CONFIDENCE);
+        let g = judge(
+            0.9,
+            "ship the redesign by Friday",
+            TRANSCRIPT,
+            DEFAULT_MIN_CONFIDENCE,
+        );
         assert_eq!(g.verdict, Verdict::Verified);
         assert!(g.verified);
     }
 
     #[test]
     fn low_confidence_when_under_threshold_but_grounded() {
-        let g = judge(0.4, "I'll handle the press release", TRANSCRIPT, DEFAULT_MIN_CONFIDENCE);
+        let g = judge(
+            0.4,
+            "I'll handle the press release",
+            TRANSCRIPT,
+            DEFAULT_MIN_CONFIDENCE,
+        );
         assert_eq!(g.verdict, Verdict::LowConfidence);
         assert!(!g.verified);
     }
 
     #[test]
     fn not_grounded_when_span_missing() {
-        let g = judge(0.95, "let's launch on Mars", TRANSCRIPT, DEFAULT_MIN_CONFIDENCE);
+        let g = judge(
+            0.95,
+            "let's launch on Mars",
+            TRANSCRIPT,
+            DEFAULT_MIN_CONFIDENCE,
+        );
         assert_eq!(g.verdict, Verdict::NotGrounded);
         assert!(!g.verified);
     }

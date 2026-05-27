@@ -14,8 +14,7 @@
 
 use attune_core::permissions::{Permission, PermissionRow, PermissionStatus};
 
-const MIC_URL: &str =
-    "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone";
+const MIC_URL: &str = "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone";
 const SCREEN_URL: &str =
     "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture";
 const CALENDAR_URL: &str =
@@ -73,6 +72,19 @@ pub fn open_permission_settings(
         Permission::Notifications => NOTIFICATIONS_URL,
     };
     open_url(&app, url)
+}
+
+/// GET-128 stub. Trigger the EKEventStore TCC prompt by deep-linking
+/// into System Settings → Privacy & Security → Calendar. A true
+/// `EKEventStore.requestFullAccessToEvents` FFI call needs the
+/// objc2-event-kit binding to land in attune-core; until then this
+/// is the user-equivalent path. Returns `Ok(())` so the UI can flip
+/// into "granting" state regardless of whether the user actually
+/// toggles Attune on — Settings → Calendar will report the
+/// authoritative status next time the user opens it.
+#[tauri::command]
+pub fn request_calendar_access(app: tauri::AppHandle) -> Result<(), String> {
+    open_url(&app, CALENDAR_URL)
 }
 
 #[cfg(target_os = "macos")]

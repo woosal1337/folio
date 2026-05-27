@@ -76,9 +76,8 @@ pub fn load(vault_root: &Path, slug: &str) -> Result<Option<MeetingTemplate>> {
     if !path.exists() {
         return Ok(None);
     }
-    let raw = fs::read_to_string(&path).map_err(|e| {
-        AttuneError::Storage(format!("could not read {}: {e}", path.display()))
-    })?;
+    let raw = fs::read_to_string(&path)
+        .map_err(|e| AttuneError::Storage(format!("could not read {}: {e}", path.display())))?;
     parse(&raw).map(Some)
 }
 
@@ -102,17 +101,16 @@ pub fn list_all(vault_root: &Path) -> Result<Vec<MeetingTemplate>> {
         return Ok(Vec::new());
     }
     let mut out = Vec::new();
-    for entry in fs::read_dir(&dir).map_err(|e| {
-        AttuneError::Storage(format!("could not read {}: {e}", dir.display()))
-    })? {
+    for entry in fs::read_dir(&dir)
+        .map_err(|e| AttuneError::Storage(format!("could not read {}: {e}", dir.display())))?
+    {
         let entry = entry.map_err(|e| AttuneError::Storage(format!("read_dir: {e}")))?;
         let path = entry.path();
         if path.extension().and_then(|e| e.to_str()) != Some("toml") {
             continue;
         }
-        let raw = fs::read_to_string(&path).map_err(|e| {
-            AttuneError::Storage(format!("could not read {}: {e}", path.display()))
-        })?;
+        let raw = fs::read_to_string(&path)
+            .map_err(|e| AttuneError::Storage(format!("could not read {}: {e}", path.display())))?;
         out.push(parse(&raw)?);
     }
     out.sort_by(|a, b| a.slug.cmp(&b.slug));
@@ -126,7 +124,10 @@ pub fn list_all(vault_root: &Path) -> Result<Vec<MeetingTemplate>> {
 /// Returns None when no template matches.
 pub fn pick_for_label(templates: &[MeetingTemplate], label: &str) -> Option<MeetingTemplate> {
     let label_lc = label.to_lowercase();
-    if let Some(hit) = templates.iter().find(|t| t.slug.eq_ignore_ascii_case(&label_lc)) {
+    if let Some(hit) = templates
+        .iter()
+        .find(|t| t.slug.eq_ignore_ascii_case(&label_lc))
+    {
         return Some(hit.clone());
     }
     templates
@@ -152,8 +153,7 @@ pub fn baked_in_defaults() -> Vec<MeetingTemplate> {
             agents: vec!["summarize".into(), "extract-tasks".into()],
             summary_sections: vec!["yesterday".into(), "today".into(), "blockers".into()],
             prompt_bias: Some(
-                "This is a daily standup. Focus on commitments and blockers, not narration."
-                    .into(),
+                "This is a daily standup. Focus on commitments and blockers, not narration.".into(),
             ),
         },
         MeetingTemplate {
@@ -164,8 +164,7 @@ pub fn baked_in_defaults() -> Vec<MeetingTemplate> {
             agents: vec!["summarize".into(), "extract-memories".into()],
             summary_sections: vec!["growth".into(), "blockers".into(), "feedback".into()],
             prompt_bias: Some(
-                "This is a 1-on-1. Treat personal context as memories worth keeping."
-                    .into(),
+                "This is a 1-on-1. Treat personal context as memories worth keeping.".into(),
             ),
         },
         MeetingTemplate {
@@ -174,14 +173,9 @@ pub fn baked_in_defaults() -> Vec<MeetingTemplate> {
             description: Some("Candidate signal, red flags, follow-up questions.".into()),
             match_keywords: vec!["interview".into(), "candidate".into()],
             agents: vec!["summarize".into(), "find-decisions".into()],
-            summary_sections: vec![
-                "signal".into(),
-                "red-flags".into(),
-                "follow-up".into(),
-            ],
+            summary_sections: vec!["signal".into(), "red-flags".into(), "follow-up".into()],
             prompt_bias: Some(
-                "This is an interview. Focus on candidate-evaluative claims with evidence."
-                    .into(),
+                "This is an interview. Focus on candidate-evaluative claims with evidence.".into(),
             ),
         },
         MeetingTemplate {
@@ -202,27 +196,20 @@ pub fn baked_in_defaults() -> Vec<MeetingTemplate> {
                 "constraints".into(),
             ],
             prompt_bias: Some(
-                "This is a design review. Prioritise explicit decisions and open questions."
-                    .into(),
+                "This is a design review. Prioritise explicit decisions and open questions.".into(),
             ),
         },
         MeetingTemplate {
             slug: "customer-call".into(),
             name: "Customer call".into(),
-            description: Some(
-                "Pain points, asks, commitments to the customer.".into(),
-            ),
+            description: Some("Pain points, asks, commitments to the customer.".into()),
             match_keywords: vec!["customer".into(), "client".into(), "sales".into()],
             agents: vec![
                 "summarize".into(),
                 "extract-tasks".into(),
                 "extract-memories".into(),
             ],
-            summary_sections: vec![
-                "pain-points".into(),
-                "asks".into(),
-                "commitments".into(),
-            ],
+            summary_sections: vec!["pain-points".into(), "asks".into(), "commitments".into()],
             prompt_bias: Some(
                 "This is a customer call. Treat every commitment as a task and every \
                  pain point as a memory."

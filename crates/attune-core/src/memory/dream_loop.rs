@@ -65,7 +65,8 @@ pub fn cluster_near_duplicates(items: &[ConsolidationItem], threshold: f32) -> V
             }
         }
     }
-    let mut groups: std::collections::BTreeMap<usize, Vec<String>> = std::collections::BTreeMap::new();
+    let mut groups: std::collections::BTreeMap<usize, Vec<String>> =
+        std::collections::BTreeMap::new();
     for (idx, item) in items.iter().enumerate() {
         let root = find(&mut parent, idx);
         groups.entry(root).or_default().push(item.id.clone());

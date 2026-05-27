@@ -50,7 +50,11 @@ pub const DEFAULT_LOOKAHEAD: Duration = Duration::minutes(30);
 /// Return the event whose `starts_at` is the next one >= `now` and
 /// <= `now + window`. Ignores all-day events (24h+ duration) so the
 /// menu bar surface is meeting-only. Returns None when nothing fits.
-pub fn next_event(events: &[CalendarEvent], now: DateTime<Utc>, window: Duration) -> Option<CalendarEvent> {
+pub fn next_event(
+    events: &[CalendarEvent],
+    now: DateTime<Utc>,
+    window: Duration,
+) -> Option<CalendarEvent> {
     let cutoff = now + window;
     events
         .iter()
@@ -106,7 +110,11 @@ struct ProviderSig {
 const CONFERENCE_PROVIDERS: &[ProviderSig] = &[
     ProviderSig {
         name: "Zoom",
-        url_prefixes: &["https://zoom.us/j/", "https://us02web.zoom.us/", "https://us05web.zoom.us/"],
+        url_prefixes: &[
+            "https://zoom.us/j/",
+            "https://us02web.zoom.us/",
+            "https://us05web.zoom.us/",
+        ],
     },
     ProviderSig {
         name: "Google Meet",
@@ -163,7 +171,12 @@ mod tests {
 
     #[test]
     fn next_event_skips_all_day_events() {
-        let events = vec![ev("all-day", "Holiday", now() + Duration::minutes(5), 24 * 60)];
+        let events = vec![ev(
+            "all-day",
+            "Holiday",
+            now() + Duration::minutes(5),
+            24 * 60,
+        )];
         assert!(next_event(&events, now(), DEFAULT_LOOKAHEAD).is_none());
     }
 

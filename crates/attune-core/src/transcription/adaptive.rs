@@ -61,7 +61,10 @@ pub fn detect_memsize_gb() -> Option<u64> {
     #[cfg(target_os = "macos")]
     {
         use std::process::Command;
-        let out = Command::new("sysctl").args(["-n", "hw.memsize"]).output().ok()?;
+        let out = Command::new("sysctl")
+            .args(["-n", "hw.memsize"])
+            .output()
+            .ok()?;
         let bytes: u64 = String::from_utf8_lossy(&out.stdout).trim().parse().ok()?;
         Some(bytes / (1024 * 1024 * 1024))
     }

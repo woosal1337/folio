@@ -60,7 +60,11 @@ mod tests {
 
     #[test]
     fn raw_url_builds_canonical_github_path() {
-        let url = raw_url("attune-ai/attune-templates", "main", "templates/standup/template.toml");
+        let url = raw_url(
+            "attune-ai/attune-templates",
+            "main",
+            "templates/standup/template.toml",
+        );
         assert_eq!(
             url,
             "https://raw.githubusercontent.com/attune-ai/attune-templates/main/templates/standup/template.toml"

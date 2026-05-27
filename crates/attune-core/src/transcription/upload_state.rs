@@ -29,16 +29,9 @@ const STATE_FILE: &str = "upload-state.json";
 #[serde(tag = "status", rename_all = "snake_case")]
 pub enum ChunkStatus {
     Pending,
-    Uploading {
-        attempts: u32,
-    },
-    Succeeded {
-        transcript_text: String,
-    },
-    Failed {
-        attempts: u32,
-        last_error: String,
-    },
+    Uploading { attempts: u32 },
+    Succeeded { transcript_text: String },
+    Failed { attempts: u32, last_error: String },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -138,9 +131,8 @@ pub fn load(session_dir: &Path) -> Result<Option<UploadState>> {
     if !path.exists() {
         return Ok(None);
     }
-    let raw = fs::read(&path).map_err(|e| {
-        AttuneError::Storage(format!("could not read {}: {e}", path.display()))
-    })?;
+    let raw = fs::read(&path)
+        .map_err(|e| AttuneError::Storage(format!("could not read {}: {e}", path.display())))?;
     let state = serde_json::from_slice::<UploadState>(&raw).map_err(|e| {
         AttuneError::Storage(format!("invalid upload-state JSON {}: {e}", path.display()))
     })?;
@@ -189,9 +181,20 @@ mod tests {
     #[test]
     fn remaining_filters_succeeded_chunks() {
         let state = UploadState::new(vec![
-            chunk(0, ChunkStatus::Succeeded { transcript_text: "hi".into() }),
+            chunk(
+                0,
+                ChunkStatus::Succeeded {
+                    transcript_text: "hi".into(),
+                },
+            ),
             chunk(1, ChunkStatus::Pending),
-            chunk(2, ChunkStatus::Failed { attempts: 2, last_error: "timeout".into() }),
+            chunk(
+                2,
+                ChunkStatus::Failed {
+                    attempts: 2,
+                    last_error: "timeout".into(),
+                },
+            ),
         ]);
         let remaining: Vec<usize> = state.remaining().iter().map(|c| c.index).collect();
         assert_eq!(remaining, vec![1, 2]);
@@ -200,7 +203,12 @@ mod tests {
     #[test]
     fn is_complete_only_when_every_chunk_succeeded() {
         let mut state = UploadState::new(vec![
-            chunk(0, ChunkStatus::Succeeded { transcript_text: "hi".into() }),
+            chunk(
+                0,
+                ChunkStatus::Succeeded {
+                    transcript_text: "hi".into(),
+                },
+            ),
             chunk(1, ChunkStatus::Pending),
         ]);
         assert!(!state.is_complete());
@@ -210,10 +218,16 @@ mod tests {
 
     #[test]
     fn stitched_transcript_joins_with_single_space() {
-        let mut state = UploadState::new(vec![chunk(0, ChunkStatus::Pending), chunk(1, ChunkStatus::Pending)]);
+        let mut state = UploadState::new(vec![
+            chunk(0, ChunkStatus::Pending),
+            chunk(1, ChunkStatus::Pending),
+        ]);
         state.mark_succeeded(0, "hello world".into());
         state.mark_succeeded(1, "second chunk".into());
-        assert_eq!(state.stitched_transcript().as_deref(), Some("hello world second chunk"));
+        assert_eq!(
+            state.stitched_transcript().as_deref(),
+            Some("hello world second chunk")
+        );
     }
 
     #[test]

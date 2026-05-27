@@ -66,7 +66,10 @@ pub fn share_paths(paths: &[std::path::PathBuf]) -> Result<(), String> {
             );
             (view, centre)
         } else {
-            (nil, NSRect::new(NSPoint::new(0.0, 0.0), NSSize::new(1.0, 1.0)))
+            (
+                nil,
+                NSRect::new(NSPoint::new(0.0, 0.0), NSSize::new(1.0, 1.0)),
+            )
         };
 
         if anchor_view == nil {

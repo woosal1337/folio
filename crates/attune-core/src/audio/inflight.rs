@@ -31,23 +31,14 @@ pub fn session_dir(memory_dir: &Path, session_id: &str) -> PathBuf {
 }
 
 /// Path for the next chunk file. `chunk_index` is 1-based.
-pub fn chunk_path(
-    memory_dir: &Path,
-    session_id: &str,
-    channel: &str,
-    chunk_index: u32,
-) -> PathBuf {
+pub fn chunk_path(memory_dir: &Path, session_id: &str, channel: &str, chunk_index: u32) -> PathBuf {
     session_dir(memory_dir, session_id)
         .join(channel)
         .join(format!("{:04}.wav", chunk_index))
 }
 
 /// Ensure the channel dir exists for a session.
-pub fn ensure_channel_dir(
-    memory_dir: &Path,
-    session_id: &str,
-    channel: &str,
-) -> Result<PathBuf> {
+pub fn ensure_channel_dir(memory_dir: &Path, session_id: &str, channel: &str) -> Result<PathBuf> {
     let path = session_dir(memory_dir, session_id).join(channel);
     fs::create_dir_all(&path).map_err(|e| {
         AttuneError::Storage(format!(

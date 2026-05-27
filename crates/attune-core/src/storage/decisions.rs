@@ -85,9 +85,8 @@ pub fn get(vault_root: &Path, id: &str) -> Result<Option<Decision>> {
     if !path.exists() {
         return Ok(None);
     }
-    let raw = fs::read(&path).map_err(|e| {
-        AttuneError::Storage(format!("could not read {}: {e}", path.display()))
-    })?;
+    let raw = fs::read(&path)
+        .map_err(|e| AttuneError::Storage(format!("could not read {}: {e}", path.display())))?;
     let parsed = serde_json::from_slice::<Decision>(&raw).map_err(|e| {
         AttuneError::Storage(format!("invalid decision JSON {}: {e}", path.display()))
     })?;
@@ -103,17 +102,16 @@ pub fn list_all(vault_root: &Path) -> Result<Vec<Decision>> {
         return Ok(Vec::new());
     }
     let mut out = Vec::new();
-    for entry in fs::read_dir(&dir).map_err(|e| {
-        AttuneError::Storage(format!("could not read {}: {e}", dir.display()))
-    })? {
+    for entry in fs::read_dir(&dir)
+        .map_err(|e| AttuneError::Storage(format!("could not read {}: {e}", dir.display())))?
+    {
         let entry = entry.map_err(|e| AttuneError::Storage(format!("read_dir: {e}")))?;
         let path = entry.path();
         if path.extension().and_then(|e| e.to_str()) != Some("json") {
             continue;
         }
-        let raw = fs::read(&path).map_err(|e| {
-            AttuneError::Storage(format!("could not read {}: {e}", path.display()))
-        })?;
+        let raw = fs::read(&path)
+            .map_err(|e| AttuneError::Storage(format!("could not read {}: {e}", path.display())))?;
         let parsed = serde_json::from_slice::<Decision>(&raw).map_err(|e| {
             AttuneError::Storage(format!("invalid decision JSON {}: {e}", path.display()))
         })?;
@@ -128,9 +126,8 @@ pub fn list_all(vault_root: &Path) -> Result<Vec<Decision>> {
 /// reads this field directly.
 pub fn mark_reversed_by(vault_root: &Path, prior_id: &str, new_id: &str) -> Result<Decision> {
     let dir = decisions_dir(vault_root);
-    let mut prior = get(vault_root, prior_id)?.ok_or_else(|| {
-        AttuneError::Storage(format!("decision {prior_id} not found"))
-    })?;
+    let mut prior = get(vault_root, prior_id)?
+        .ok_or_else(|| AttuneError::Storage(format!("decision {prior_id} not found")))?;
     prior.reversed_by_id = Some(new_id.to_string());
     write_atomic(&dir, &prior)?;
     Ok(prior)

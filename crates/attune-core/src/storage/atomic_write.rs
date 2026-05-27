@@ -23,32 +23,24 @@ pub fn atomic_write(path: &Path, bytes: &[u8]) -> Result<()> {
     if let Some(parent) = path.parent() {
         if !parent.as_os_str().is_empty() {
             fs::create_dir_all(parent).map_err(|e| {
-                AttuneError::Storage(format!(
-                    "create_dir_all {}: {e}",
-                    parent.display()
-                ))
+                AttuneError::Storage(format!("create_dir_all {}: {e}", parent.display()))
             })?;
         }
     }
     let tmp = path.with_extension(format!(
         "{}.tmp",
-        path.extension()
-            .and_then(|s| s.to_str())
-            .unwrap_or("")
+        path.extension().and_then(|s| s.to_str()).unwrap_or("")
     ));
     {
-        let mut file = fs::File::create(&tmp).map_err(|e| {
-            AttuneError::Storage(format!("create {}: {e}", tmp.display()))
-        })?;
-        file.write_all(bytes).map_err(|e| {
-            AttuneError::Storage(format!("write {}: {e}", tmp.display()))
-        })?;
+        let mut file = fs::File::create(&tmp)
+            .map_err(|e| AttuneError::Storage(format!("create {}: {e}", tmp.display())))?;
+        file.write_all(bytes)
+            .map_err(|e| AttuneError::Storage(format!("write {}: {e}", tmp.display())))?;
         // fsync so the bytes are durable before the rename swaps the
         // pointer; otherwise a power loss between rename + the OS
         // flush could leave an empty file on disk.
-        file.sync_all().map_err(|e| {
-            AttuneError::Storage(format!("fsync {}: {e}", tmp.display()))
-        })?;
+        file.sync_all()
+            .map_err(|e| AttuneError::Storage(format!("fsync {}: {e}", tmp.display())))?;
     }
     fs::rename(&tmp, path).map_err(|e| {
         AttuneError::Storage(format!(

@@ -145,6 +145,9 @@ mod tests {
     fn disk_mb_is_monotonic_with_parameter_count() {
         assert!(LocalLlmModel::Gemma2_2BIt.disk_mb() < LocalLlmModel::Phi35Mini.disk_mb());
         assert!(LocalLlmModel::Phi35Mini.disk_mb() < LocalLlmModel::Qwen25_7BInstruct.disk_mb());
-        assert!(LocalLlmModel::Qwen25_7BInstruct.disk_mb() <= LocalLlmModel::Llama31_8BInstruct.disk_mb());
+        assert!(
+            LocalLlmModel::Qwen25_7BInstruct.disk_mb()
+                <= LocalLlmModel::Llama31_8BInstruct.disk_mb()
+        );
     }
 }

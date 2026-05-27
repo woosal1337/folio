@@ -86,7 +86,11 @@ pub fn build(transcript: &SessionTranscript, options: BuildOptions<'_>) -> Share
                 start_seconds: seg.start_seconds,
                 end_seconds: seg.end_seconds,
                 channel: channel.channel.clone(),
-                text: if redacted { String::new() } else { seg.text.clone() },
+                text: if redacted {
+                    String::new()
+                } else {
+                    seg.text.clone()
+                },
                 redacted,
             });
         }
@@ -200,8 +204,16 @@ mod tests {
     #[test]
     fn build_emits_default_speaker_names_when_not_overridden() {
         let payload = build(&fixture(), opts(&[]));
-        let mic_chip = payload.speakers.iter().find(|s| s.channel == "mic").unwrap();
-        let system_chip = payload.speakers.iter().find(|s| s.channel == "system").unwrap();
+        let mic_chip = payload
+            .speakers
+            .iter()
+            .find(|s| s.channel == "mic")
+            .unwrap();
+        let system_chip = payload
+            .speakers
+            .iter()
+            .find(|s| s.channel == "system")
+            .unwrap();
         assert_eq!(mic_chip.display_name, "You");
         assert_eq!(system_chip.display_name, "Others");
     }
@@ -210,7 +222,10 @@ mod tests {
     fn build_sets_expiry_to_now_plus_window() {
         let payload = build(&fixture(), opts(&[]));
         let diff = payload.expires_at - payload.created_at;
-        assert!(diff.num_days() == 7, "expiry window should be 7 days, got {diff}");
+        assert!(
+            diff.num_days() == 7,
+            "expiry window should be 7 days, got {diff}"
+        );
     }
 
     #[test]

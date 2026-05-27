@@ -7,13 +7,13 @@
 pub mod adaptive;
 pub mod chunker;
 pub mod hallucination_filter;
-pub mod upload_state;
 pub mod local;
 pub mod locate;
-pub mod models;
 pub mod model_lru;
+pub mod models;
 pub mod openai;
 pub mod stub;
+pub mod upload_state;
 pub mod vad;
 
 use std::path::{Path, PathBuf};

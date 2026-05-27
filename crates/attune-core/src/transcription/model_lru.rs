@@ -78,11 +78,7 @@ pub fn list_cached(cache_dir: &Path) -> Vec<CachedModel> {
 /// Enforce a cap by deleting the oldest-atime models until the
 /// total falls under `cap_bytes`. `keep_id` is the model the user
 /// has currently selected — never evicted regardless of LRU rank.
-pub fn enforce_cap(
-    cache_dir: &Path,
-    cap_bytes: u64,
-    keep_id: Option<&str>,
-) -> EvictSummary {
+pub fn enforce_cap(cache_dir: &Path, cap_bytes: u64, keep_id: Option<&str>) -> EvictSummary {
     let mut cached = list_cached(cache_dir);
     let mut total: u64 = cached.iter().map(|c| c.bytes).sum();
     let mut evicted = Vec::new();

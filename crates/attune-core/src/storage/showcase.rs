@@ -91,14 +91,12 @@ pub fn read(memory_dir: &Path) -> Result<Option<Showcase>> {
 /// Write the showcase file. Creates `.attune/` if missing.
 pub fn write(memory_dir: &Path, showcase: &Showcase) -> Result<PathBuf> {
     let dir = memory_dir.join(".attune");
-    fs::create_dir_all(&dir).map_err(|e| {
-        AttuneError::Storage(format!("create_dir_all {}: {e}", dir.display()))
-    })?;
+    fs::create_dir_all(&dir)
+        .map_err(|e| AttuneError::Storage(format!("create_dir_all {}: {e}", dir.display())))?;
     let path = dir.join(SHOWCASE_FILENAME);
     let body = render(showcase);
-    fs::write(&path, body).map_err(|e| {
-        AttuneError::Storage(format!("write showcase {}: {e}", path.display()))
-    })?;
+    fs::write(&path, body)
+        .map_err(|e| AttuneError::Storage(format!("write showcase {}: {e}", path.display())))?;
     Ok(path)
 }
 

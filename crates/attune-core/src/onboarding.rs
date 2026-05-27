@@ -175,9 +175,8 @@ pub fn materialise(recordings_root: &Path) -> Result<PathBuf> {
         ))
     })?;
     let bundle = bundle();
-    let body = serde_json::to_string_pretty(&bundle).map_err(|e| {
-        AttuneError::Storage(format!("could not serialise demo bundle: {e}"))
-    })?;
+    let body = serde_json::to_string_pretty(&bundle)
+        .map_err(|e| AttuneError::Storage(format!("could not serialise demo bundle: {e}")))?;
     fs::write(session_dir.join("demo.json"), body).map_err(|e| {
         AttuneError::Storage(format!(
             "could not write demo.json into {}: {e}",
@@ -247,7 +246,13 @@ mod tests {
         let b = bundle();
         assert!(!b.summary_markdown.trim().is_empty());
         assert!(!b.tasks.is_empty(), "demo must include at least one task");
-        assert!(!b.memories.is_empty(), "demo must include at least one memory");
-        assert!(!b.decisions.is_empty(), "demo must include at least one decision");
+        assert!(
+            !b.memories.is_empty(),
+            "demo must include at least one memory"
+        );
+        assert!(
+            !b.decisions.is_empty(),
+            "demo must include at least one decision"
+        );
     }
 }

@@ -166,9 +166,21 @@ mod tests {
     #[test]
     fn render_markdown_groups_by_kind() {
         let notes = vec![
-            LiveNote { anchor_seconds: 5.0, kind: NoteKind::Action, text: "ship".into() },
-            LiveNote { anchor_seconds: 12.0, kind: NoteKind::Decision, text: "go".into() },
-            LiveNote { anchor_seconds: 20.0, kind: NoteKind::Action, text: "send deck".into() },
+            LiveNote {
+                anchor_seconds: 5.0,
+                kind: NoteKind::Action,
+                text: "ship".into(),
+            },
+            LiveNote {
+                anchor_seconds: 12.0,
+                kind: NoteKind::Decision,
+                text: "go".into(),
+            },
+            LiveNote {
+                anchor_seconds: 20.0,
+                kind: NoteKind::Action,
+                text: "send deck".into(),
+            },
         ];
         let md = render_markdown(&notes);
         assert!(md.contains("## Action items"));

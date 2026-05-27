@@ -127,16 +127,10 @@ pub fn read(session_dir: &Path, agent_id: &str) -> Result<Option<AgentRunTelemet
         return Ok(None);
     }
     let bytes = std::fs::read(&path).map_err(|e| {
-        AttuneError::Storage(format!(
-            "could not read telemetry {}: {e}",
-            path.display()
-        ))
+        AttuneError::Storage(format!("could not read telemetry {}: {e}", path.display()))
     })?;
     let parsed = serde_json::from_slice::<AgentRunTelemetry>(&bytes).map_err(|e| {
-        AttuneError::Storage(format!(
-            "could not parse telemetry {}: {e}",
-            path.display()
-        ))
+        AttuneError::Storage(format!("could not parse telemetry {}: {e}", path.display()))
     })?;
     Ok(Some(parsed))
 }
@@ -146,7 +140,12 @@ pub fn read(session_dir: &Path, agent_id: &str) -> Result<Option<AgentRunTelemet
 /// Unknown models return None so the UI shows "—" instead of a wrong
 /// number. Prices are USD per 1M input / output tokens; data taken
 /// from the provider docs at the time of writing.
-pub fn estimate_cost_usd(provider: ProviderId, model: &str, prompt: u32, completion: u32) -> Option<f32> {
+pub fn estimate_cost_usd(
+    provider: ProviderId,
+    model: &str,
+    prompt: u32,
+    completion: u32,
+) -> Option<f32> {
     let (per_million_input, per_million_output): (f32, f32) = match (provider, model) {
         (ProviderId::OpenAi, m) if m.starts_with("gpt-4o-mini") => (0.15, 0.60),
         (ProviderId::OpenAi, m) if m.starts_with("gpt-4o") => (2.50, 10.00),
@@ -155,8 +154,8 @@ pub fn estimate_cost_usd(provider: ProviderId, model: &str, prompt: u32, complet
         (ProviderId::OpenAi, m) if m.starts_with("o4-mini") => (1.10, 4.40),
         _ => return None,
     };
-    let cost = (prompt as f32 * per_million_input + completion as f32 * per_million_output)
-        / 1_000_000.0;
+    let cost =
+        (prompt as f32 * per_million_input + completion as f32 * per_million_output) / 1_000_000.0;
     Some(cost)
 }
 
@@ -223,6 +222,8 @@ mod tests {
     #[test]
     fn telemetry_path_is_predictable() {
         let p = telemetry_path(Path::new("/r/foo"), "summarize");
-        assert!(p.to_string_lossy().ends_with("agent_runs/summarize.telemetry.json"));
+        assert!(p
+            .to_string_lossy()
+            .ends_with("agent_runs/summarize.telemetry.json"));
     }
 }

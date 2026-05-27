@@ -18,7 +18,10 @@
 import { convertFileSrc, invoke, type InvokeArgs } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { save as platformShowSaveDialog, type SaveDialogOptions } from "@tauri-apps/plugin-dialog";
+import {
+  save as platformShowSaveDialog,
+  type SaveDialogOptions,
+} from "@tauri-apps/plugin-dialog";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
 import { openUrl as platformOpenUrl } from "@tauri-apps/plugin-opener";
 import {
@@ -455,6 +458,10 @@ export function openPermissionSettings(permission: Permission): Promise<void> {
   return call<void>("open_permission_settings", { permission });
 }
 
+export function requestCalendarAccess(): Promise<void> {
+  return call<void>("request_calendar_access");
+}
+
 // ---- Menu bar tray bridge (v2 #006 / GET-25) ---------------------
 
 /**
@@ -544,7 +551,9 @@ export async function onWhisperDownloadProgress<T = WhisperDownloadProgress>(
   return listen<T>(WHISPER_DOWNLOAD_PROGRESS_EVENT, (event) => handler(event.payload));
 }
 
-export async function onDeepLink(handler: (urls: string[]) => void): Promise<UnlistenFn> {
+export async function onDeepLink(
+  handler: (urls: string[]) => void
+): Promise<UnlistenFn> {
   return platformOnDeepLink(handler);
 }
 
@@ -556,7 +565,9 @@ export async function openExternalUrl(url: string): Promise<void> {
   await platformOpenUrl(url);
 }
 
-export async function showSaveDialog(options: SaveDialogOptions): Promise<string | null> {
+export async function showSaveDialog(
+  options: SaveDialogOptions
+): Promise<string | null> {
   return platformShowSaveDialog(options);
 }
 
@@ -569,6 +580,9 @@ export async function showSaveDialog(options: SaveDialogOptions): Promise<string
  * this through a Tauri command is tracked under
  * `docs/refactor/PHASE-3-PUNCH-LIST.md` (C8 follow-up).
  */
-export async function writeTextFileFromBrowser(path: string, contents: string): Promise<void> {
+export async function writeTextFileFromBrowser(
+  path: string,
+  contents: string
+): Promise<void> {
   await writeTextFile(path, contents);
 }

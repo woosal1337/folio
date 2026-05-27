@@ -146,22 +146,26 @@ pub async fn transcribe_recording(
                 // editor's playhead would scrub against the cut
                 // audio's timeline and lose sync with the source.
                 if let Some(side) = sidecar_path.as_ref() {
-                    match std::fs::read(side).map_err(|e| e.to_string()).and_then(|bytes| {
-                        serde_json::from_slice::<attune_core::audio::vad_filter::VadSidecar>(
-                            &bytes,
-                        )
+                    match std::fs::read(side)
                         .map_err(|e| e.to_string())
-                    }) {
+                        .and_then(|bytes| {
+                            serde_json::from_slice::<attune_core::audio::vad_filter::VadSidecar>(
+                                &bytes,
+                            )
+                            .map_err(|e| e.to_string())
+                        }) {
                         Ok(sidecar) => {
                             for seg in &mut transcript.segments {
-                                seg.start_seconds = attune_core::audio::vad_filter::remap_cut_seconds_to_original(
-                                    &sidecar,
-                                    seg.start_seconds,
-                                );
-                                seg.end_seconds = attune_core::audio::vad_filter::remap_cut_seconds_to_original(
-                                    &sidecar,
-                                    seg.end_seconds,
-                                );
+                                seg.start_seconds =
+                                    attune_core::audio::vad_filter::remap_cut_seconds_to_original(
+                                        &sidecar,
+                                        seg.start_seconds,
+                                    );
+                                seg.end_seconds =
+                                    attune_core::audio::vad_filter::remap_cut_seconds_to_original(
+                                        &sidecar,
+                                        seg.end_seconds,
+                                    );
                             }
                         }
                         Err(e) => tracing::warn!(
@@ -456,7 +460,10 @@ pub async fn locate_transcript_span(
         }
         let path = canon_target.join(TRANSCRIPT_FILENAME);
         let transcript = SessionTranscript::read_json(&path).map_err(|e| e.to_string())?;
-        Ok(attune_core::transcription::locate::locate_span(&transcript, &span))
+        Ok(attune_core::transcription::locate::locate_span(
+            &transcript,
+            &span,
+        ))
     })
     .await
     .map_err(|e| format!("locate_transcript_span task panicked: {e}"))?

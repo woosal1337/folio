@@ -41,8 +41,17 @@ pub struct ReelPlan {
 /// short to bias toward precision over recall (false positives waste
 /// reel seconds).
 const DECISION_MARKERS: &[&str] = &[
-    "decided", "we agreed", "we'll", "we will", "let's", "going to ship",
-    "ship by", "decision", "blocker", "owner", "action item",
+    "decided",
+    "we agreed",
+    "we'll",
+    "we will",
+    "let's",
+    "going to ship",
+    "ship by",
+    "decision",
+    "blocker",
+    "owner",
+    "action item",
 ];
 
 /// Score a single segment. Higher = more decision-dense. Returns 0
@@ -84,7 +93,13 @@ pub fn plan(transcript: &SessionTranscript) -> Option<ReelPlan> {
     if scored.is_empty() {
         return None;
     }
-    scored.sort_by(|a, b| b.0.cmp(&a.0).then(a.1.start_seconds.partial_cmp(&b.1.start_seconds).unwrap_or(std::cmp::Ordering::Equal)));
+    scored.sort_by(|a, b| {
+        b.0.cmp(&a.0).then(
+            a.1.start_seconds
+                .partial_cmp(&b.1.start_seconds)
+                .unwrap_or(std::cmp::Ordering::Equal),
+        )
+    });
 
     let mut picked: Vec<ReelCut> = Vec::new();
     let mut total = 0.0_f64;
@@ -108,7 +123,11 @@ pub fn plan(transcript: &SessionTranscript) -> Option<ReelPlan> {
     if picked.is_empty() {
         return None;
     }
-    picked.sort_by(|a, b| a.start_seconds.partial_cmp(&b.start_seconds).unwrap_or(std::cmp::Ordering::Equal));
+    picked.sort_by(|a, b| {
+        a.start_seconds
+            .partial_cmp(&b.start_seconds)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     Some(ReelPlan {
         total_seconds: total,
         cuts: picked,
@@ -125,7 +144,8 @@ fn separated_enough(a: &ReelCut, b: &ReelCut) -> bool {
     if overlap > 0.0 {
         return false;
     }
-    (hi - lo) - (a.end_seconds - a.start_seconds) - (b.end_seconds - b.start_seconds) >= MIN_GAP_SECONDS
+    (hi - lo) - (a.end_seconds - a.start_seconds) - (b.end_seconds - b.start_seconds)
+        >= MIN_GAP_SECONDS
 }
 
 #[cfg(test)]
@@ -148,9 +168,21 @@ mod tests {
                 language: None,
                 segments: vec![
                     seg("Hello and welcome to the meeting.", 0.0, 5.0),
-                    seg("We agreed to ship the redesign by Friday, that is the decision.", 20.0, 35.0),
-                    seg("Alice will own the announcement, that's the action item.", 40.0, 55.0),
-                    seg("Bob has a blocker on the legal review, we'll chase it tomorrow.", 60.0, 78.0),
+                    seg(
+                        "We agreed to ship the redesign by Friday, that is the decision.",
+                        20.0,
+                        35.0,
+                    ),
+                    seg(
+                        "Alice will own the announcement, that's the action item.",
+                        40.0,
+                        55.0,
+                    ),
+                    seg(
+                        "Bob has a blocker on the legal review, we'll chase it tomorrow.",
+                        60.0,
+                        78.0,
+                    ),
                     seg("Thanks everyone, goodbye.", 80.0, 84.0),
                 ],
             }],
