@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Attune system permission usage descriptions.
+         These are merged into the app's Info.plist by Tauri during
+         bundling. Localised variants live in `src-tauri/locale/`
+         and are bundled alongside as Apple-standard `.lproj`
+         directories. See ADR-001 for the privacy posture. -->
+
+    <key>NSMicrophoneUsageDescription</key>
+    <string>Attune transcribes your meeting's audio on this Mac. The recording never leaves the device.</string>
+
+    <key>NSAudioCaptureUsageDescription</key>
+    <string>Attune captures the audio from your meeting apps on this Mac so it can be transcribed locally. The recording never leaves the device.</string>
+
+    <key>NSScreenCaptureUsageDescription</key>
+    <string>Attune captures the audio from your meeting's video conferencing app on this Mac. Only audio is read; the screen contents are not stored.</string>
+
+    <key>NSCalendarsUsageDescription</key>
+    <string>Attune reads your calendar to suggest the people you meet with and to detect when meetings start. Calendar data stays on your Mac.</string>
+
+    <key>NSContactsUsageDescription</key>
+    <string>Attune reads your contacts so it can suggest who to invite to your workspace. Contacts stay on your Mac.</string>
+
+    <key>NSRemindersUsageDescription</key>
+    <string>Attune writes meeting action items to a Reminders list you choose. Reminders stay in your iCloud account, not on Attune's servers.</string>
+
+    <key>NSAppleEventsUsageDescription</key>
+    <string>Attune coordinates with system events to detect when your video-conferencing app starts a call and offer to capture it.</string>
+
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>Attune does not use your location.</string>
+
+    <!-- Indicate the languages we ship localised strings for so macOS
+         picks the right `.lproj/InfoPlist.strings` from the bundle. -->
+    <key>CFBundleLocalizations</key>
+    <array>
+        <string>en</string>
+        <string>de</string>
+        <string>fr</string>
+        <string>es</string>
+        <string>it</string>
+        <string>pt</string>
+        <string>nl</string>
+        <string>pl</string>
+        <string>tr</string>
+        <string>ar</string>
+        <string>ja</string>
+        <string>zh-Hans</string>
+    </array>
+
+    <!-- Disable the per-app App Nap so audio capture isn't throttled
+         when the user has Attune in the background during a meeting. -->
+    <key>NSAppSleepDisabled</key>
+    <true/>
+</dict>
+</plist>

@@ -1,0 +1,17 @@
+/* Attune — Turkish localisation for system permission prompts. */
+
+"NSMicrophoneUsageDescription" = "Attune, toplantınızın sesini bu Mac'te yazıya döker. Kayıt hiçbir zaman cihazdan ayrılmaz.";
+
+"NSAudioCaptureUsageDescription" = "Attune, yerel olarak yazıya dökmek için bu Mac'teki toplantı uygulamalarınızın sesini yakalar. Kayıt hiçbir zaman cihazdan ayrılmaz.";
+
+"NSScreenCaptureUsageDescription" = "Attune, bu Mac'teki görüntülü görüşme uygulamanızın sesini yakalar. Yalnızca ses okunur; ekran içeriği saklanmaz.";
+
+"NSCalendarsUsageDescription" = "Attune, görüştüğünüz kişileri önermek ve toplantıların ne zaman başladığını algılamak için takviminizi okur. Takvim verileri Mac'inizde kalır.";
+
+"NSContactsUsageDescription" = "Attune, çalışma alanınıza kimi davet edebileceğinizi önermek için kişilerinizi okur. Kişiler Mac'inizde kalır.";
+
+"NSRemindersUsageDescription" = "Attune, toplantı yapılacaklarını seçtiğiniz bir Hatırlatıcılar listesine yazar. Hatırlatıcılar iCloud hesabınızda kalır, Attune sunucularında değil.";
+
+"NSAppleEventsUsageDescription" = "Attune, görüntülü görüşme uygulamanız bir çağrı başlattığında algılamak ve kaydetmeyi önermek için sistem olaylarıyla koordine olur.";
+
+"NSLocationWhenInUseUsageDescription" = "Attune konumunuzu kullanmaz.";
