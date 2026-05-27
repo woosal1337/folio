@@ -10,7 +10,7 @@
 
 "NSContactsUsageDescription" = "O Attune lê seus contatos para sugerir quem convidar para o seu espaço de trabalho. Os contatos permanecem no seu Mac.";
 
-"NSRemindersUsageDescription" = "O Attune escreve os itens de ação das reuniões em uma lista de Lembretes que você escolher. Os lembretes ficam na sua conta iCloud, não nos servidores do Attune.";
+"NSRemindersUsageDescription" = "O Attune escreve os items de ação das reuniões em uma lista de Lembretes que você escolher. Os lembretes ficam na sua conta iCloud, não nos servidores do Attune.";
 
 "NSAppleEventsUsageDescription" = "O Attune se coordena com eventos do sistema para detectar quando seu aplicativo de videoconferência inicia uma chamada e oferecer captura.";
 

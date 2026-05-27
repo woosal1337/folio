@@ -12,6 +12,6 @@
 
 "NSRemindersUsageDescription" = "Attune, toplantı yapılacaklarını seçtiğiniz bir Hatırlatıcılar listesine yazar. Hatırlatıcılar iCloud hesabınızda kalır, Attune sunucularında değil.";
 
-"NSAppleEventsUsageDescription" = "Attune, görüntülü görüşme uygulamanız bir çağrı başlattığında algılamak ve kaydetmeyi önermek için sistem olaylarıyla koordine olur.";
+"NSAppleEventsUsageDescription" = "Attune, görüntülü görüşme uygulamanız bir çağrı başlattığında algılamak ve kaydetmeyi önermek için system olaylarıyla koordine olur.";
 
 "NSLocationWhenInUseUsageDescription" = "Attune konumunuzu kullanmaz.";

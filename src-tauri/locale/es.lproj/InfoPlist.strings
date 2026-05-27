@@ -8,7 +8,7 @@
 
 "NSCalendarsUsageDescription" = "Attune lee tu calendario para sugerir personas con las que te reúnes y detectar cuándo comienzan las reuniones. Los datos del calendario permanecen en tu Mac.";
 
-"NSContactsUsageDescription" = "Attune lee tus contactos para sugerir a quién invitar a tu espacio de trabajo. Los contactos permanecen en tu Mac.";
+"NSContactsUsageDescription" = "Attune lee tus contacts para sugerir a quién invitar a tu espacio de trabajo. Los contacts permanecen en tu Mac.";
 
 "NSRemindersUsageDescription" = "Attune escribe los pendientes de las reuniones en una lista de Recordatorios que tú elijas. Los recordatorios se quedan en tu cuenta de iCloud, no en los servidores de Attune.";
 

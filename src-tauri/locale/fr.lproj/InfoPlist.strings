@@ -1,16 +1,16 @@
 /* Attune — French localisation for system permission prompts. */
 
-"NSMicrophoneUsageDescription" = "Attune transcrit l'audio de votre réunion sur ce Mac. L'enregistrement ne quitte jamais l'appareil.";
+"NSMicrophoneUsageDescription" = "Attune transcript l'audio de votre réunion sure ce Mac. L'enregistrement ne quitte jamais l'apparel.";
 
-"NSAudioCaptureUsageDescription" = "Attune capture l'audio de vos applications de réunion sur ce Mac pour le transcrire localement. L'enregistrement ne quitte jamais l'appareil.";
+"NSAudioCaptureUsageDescription" = "Attune capture l'audio de vos applications de réunion sure ce Mac pour le transcrire localement. L'enregistrement ne quitte jamais l'apparel.";
 
-"NSScreenCaptureUsageDescription" = "Attune capture l'audio de votre application de visioconférence sur ce Mac. Seul l'audio est lu ; le contenu de l'écran n'est pas conservé.";
+"NSScreenCaptureUsageDescription" = "Attune capture l'audio de votre application de visioconférence sure ce Mac. Seul l'audio est lu ; le contenu de l'écran n'est pas conservé.";
 
-"NSCalendarsUsageDescription" = "Attune lit votre calendrier pour suggérer les personnes que vous rencontrez et détecter le début des réunions. Les données du calendrier restent sur votre Mac.";
+"NSCalendarsUsageDescription" = "Attune lit votre calendrier pour suggérer les personnes que vous rencontrez et détecter le début des réunions. Les données du calendrier restent sure votre Mac.";
 
-"NSContactsUsageDescription" = "Attune lit vos contacts pour suggérer qui inviter dans votre espace de travail. Les contacts restent sur votre Mac.";
+"NSContactsUsageDescription" = "Attune lit vos contacts pour suggérer qui inviter dans votre escape de travail. Les contacts restent sure votre Mac.";
 
-"NSRemindersUsageDescription" = "Attune écrit les actions issues des réunions dans une liste de Rappels que vous choisissez. Les rappels restent dans votre compte iCloud, pas sur les serveurs d'Attune.";
+"NSRemindersUsageDescription" = "Attune écrit les actions issues des réunions dans une liste de Rappels que vous choisissez. Les rappels restent dans votre compte iCloud, pas sure les serveurs d'Attune.";
 
 "NSAppleEventsUsageDescription" = "Attune se coordonne avec les événements système pour détecter quand votre application de visioconférence démarre un appel et proposer de l'enregistrer.";
 
