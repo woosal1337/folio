@@ -89,10 +89,7 @@ fn format_block(citation: &Citation) -> String {
         .start_seconds
         .map(format_timestamp)
         .unwrap_or_default();
-    let session = citation
-        .session_label
-        .as_deref()
-        .unwrap_or("(no session)");
+    let session = citation.session_label.as_deref().unwrap_or("(no session)");
     format!(
         "[{label} id={id} session={session}{ts}]\n{snippet}\n",
         id = citation.id,

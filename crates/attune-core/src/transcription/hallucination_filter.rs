@@ -450,12 +450,7 @@ mod tests {
 
     #[test]
     fn dedupe_passes_through_segments_with_no_repetition() {
-        let input = vec![
-            seg("first"),
-            seg("second"),
-            seg("third"),
-            seg("fourth"),
-        ];
+        let input = vec![seg("first"), seg("second"), seg("third"), seg("fourth")];
         let (kept, dropped) = dedupe_repetitions(input.clone());
         assert_eq!(kept.len(), 4);
         assert!(dropped.is_empty());

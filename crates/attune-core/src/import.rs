@@ -58,10 +58,16 @@ pub fn detect_source(entry_names: &[String]) -> SourceProvider {
     if lc.iter().any(|n| n.contains("granola")) {
         return SourceProvider::Granola;
     }
-    if lc.iter().any(|n| n.contains("otter") || n.ends_with(".otr")) {
+    if lc
+        .iter()
+        .any(|n| n.contains("otter") || n.ends_with(".otr"))
+    {
         return SourceProvider::Otter;
     }
-    if lc.iter().any(|n| n.contains("fathom") || n.ends_with(".vtt")) {
+    if lc
+        .iter()
+        .any(|n| n.contains("fathom") || n.ends_with(".vtt"))
+    {
         return SourceProvider::Fathom;
     }
     SourceProvider::Generic
@@ -134,16 +140,10 @@ fn transcript_json(meeting: &ImportedMeeting) -> Result<String> {
 fn write_atomic(final_path: &Path, body: &str) -> Result<()> {
     let tmp_path = final_path.with_extension("tmp");
     std::fs::write(&tmp_path, body).map_err(|e| {
-        AttuneError::Storage(format!(
-            "could not write {}: {e}",
-            tmp_path.display()
-        ))
+        AttuneError::Storage(format!("could not write {}: {e}", tmp_path.display()))
     })?;
     std::fs::rename(&tmp_path, final_path).map_err(|e| {
-        AttuneError::Storage(format!(
-            "could not rename {}: {e}",
-            final_path.display()
-        ))
+        AttuneError::Storage(format!("could not rename {}: {e}", final_path.display()))
     })?;
     Ok(())
 }

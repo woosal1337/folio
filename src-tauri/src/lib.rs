@@ -82,6 +82,7 @@ pub fn run() {
             commands::library::save_debrief,
             commands::permissions::list_permissions,
             commands::permissions::open_permission_settings,
+            commands::permissions::request_calendar_access,
             commands::tray::set_tray_recording,
             commands::preferences::open_preferences_window,
             commands::windows::open_record_window,

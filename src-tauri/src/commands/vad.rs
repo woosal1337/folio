@@ -61,8 +61,7 @@ pub async fn run_vad(
     // malicious sessionDir argument from the frontend escape the
     // recordings root.
     let canonical = tauri::async_runtime::spawn_blocking(move || {
-        attune_core::paths::canonicalize_under(&output_dir, &session_dir)
-            .map_err(|e| e.to_string())
+        attune_core::paths::canonicalize_under(&output_dir, &session_dir).map_err(|e| e.to_string())
     })
     .await
     .map_err(|e| format!("canonicalize task panicked: {e}"))??;

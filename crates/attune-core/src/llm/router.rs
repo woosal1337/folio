@@ -134,10 +134,18 @@ mod tests {
     use crate::transcription::{ChannelTranscript, TranscriptSegment};
 
     fn seg(t: &str, start: f64, end: f64) -> TranscriptSegment {
-        TranscriptSegment { start_seconds: start, end_seconds: end, text: t.into() }
+        TranscriptSegment {
+            start_seconds: start,
+            end_seconds: end,
+            text: t.into(),
+        }
     }
     fn ch(name: &str, segs: Vec<TranscriptSegment>) -> ChannelTranscript {
-        ChannelTranscript { channel: name.into(), language: None, segments: segs }
+        ChannelTranscript {
+            channel: name.into(),
+            language: None,
+            segments: segs,
+        }
     }
 
     #[test]

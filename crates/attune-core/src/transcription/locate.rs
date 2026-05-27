@@ -59,14 +59,13 @@ pub fn locate_span(transcript: &SessionTranscript, span: &str) -> Option<Transcr
         if let Some(byte_idx) = joined.find(&needle) {
             // Walk cum[] to find the segment whose [cum[i]..cum[i+1])
             // range contains byte_idx.
-            let seg_idx = match cum
-                .binary_search_by(|probe| {
-                    if *probe <= byte_idx {
-                        std::cmp::Ordering::Less
-                    } else {
-                        std::cmp::Ordering::Greater
-                    }
-                }) {
+            let seg_idx = match cum.binary_search_by(|probe| {
+                if *probe <= byte_idx {
+                    std::cmp::Ordering::Less
+                } else {
+                    std::cmp::Ordering::Greater
+                }
+            }) {
                 Ok(i) => i.saturating_sub(1),
                 Err(i) => i.saturating_sub(1),
             };

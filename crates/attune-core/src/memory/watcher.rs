@@ -198,10 +198,22 @@ mod tests {
     #[test]
     fn memory_path_for_strips_editor_suffixes() {
         let base = PathBuf::from("/v/memories/foo.md");
-        assert_eq!(memory_path_for(&PathBuf::from("/v/memories/foo.md.swp")), Some(base.clone()));
-        assert_eq!(memory_path_for(&PathBuf::from("/v/memories/foo.md~")), Some(base.clone()));
-        assert_eq!(memory_path_for(&PathBuf::from("/v/memories/foo.md.lock")), Some(base.clone()));
-        assert_eq!(memory_path_for(&PathBuf::from("/v/memories/foo.md")), Some(base));
+        assert_eq!(
+            memory_path_for(&PathBuf::from("/v/memories/foo.md.swp")),
+            Some(base.clone())
+        );
+        assert_eq!(
+            memory_path_for(&PathBuf::from("/v/memories/foo.md~")),
+            Some(base.clone())
+        );
+        assert_eq!(
+            memory_path_for(&PathBuf::from("/v/memories/foo.md.lock")),
+            Some(base.clone())
+        );
+        assert_eq!(
+            memory_path_for(&PathBuf::from("/v/memories/foo.md")),
+            Some(base)
+        );
     }
 
     #[test]
@@ -217,7 +229,11 @@ mod tests {
 
         let p = PathBuf::from("/v/memories/a.md");
         for _ in 0..5 {
-            tx.send(ReindexEvent { path: p.clone(), kind: EventKind::Modified }).unwrap();
+            tx.send(ReindexEvent {
+                path: p.clone(),
+                kind: EventKind::Modified,
+            })
+            .unwrap();
         }
         // First tick: pulls one event into pending.
         dbnc.tick();
@@ -242,9 +258,21 @@ mod tests {
 
         let a = PathBuf::from("/v/memories/a.md");
         let b = PathBuf::from("/v/memories/b.md");
-        tx.send(ReindexEvent { path: a.clone(), kind: EventKind::Modified }).unwrap();
-        tx.send(ReindexEvent { path: a.clone(), kind: EventKind::Modified }).unwrap();
-        tx.send(ReindexEvent { path: b.clone(), kind: EventKind::Created }).unwrap();
+        tx.send(ReindexEvent {
+            path: a.clone(),
+            kind: EventKind::Modified,
+        })
+        .unwrap();
+        tx.send(ReindexEvent {
+            path: a.clone(),
+            kind: EventKind::Modified,
+        })
+        .unwrap();
+        tx.send(ReindexEvent {
+            path: b.clone(),
+            kind: EventKind::Created,
+        })
+        .unwrap();
         for _ in 0..3 {
             dbnc.tick();
         }

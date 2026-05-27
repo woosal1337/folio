@@ -44,7 +44,10 @@ pub struct EgressEntry {
 }
 
 fn path_for(memory_dir: &Path) -> PathBuf {
-    memory_dir.join(".attune").join(AUDIT_DIRNAME).join(EGRESS_FILENAME)
+    memory_dir
+        .join(".attune")
+        .join(AUDIT_DIRNAME)
+        .join(EGRESS_FILENAME)
 }
 
 fn last_line_sha(path: &Path) -> Result<String> {
@@ -87,10 +90,7 @@ pub fn append(
     let path = path_for(memory_dir);
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(|e| {
-            AttuneError::Storage(format!(
-                "create_dir_all {}: {e}",
-                parent.display()
-            ))
+            AttuneError::Storage(format!("create_dir_all {}: {e}", parent.display()))
         })?;
     }
     let entry = EgressEntry {
@@ -110,9 +110,8 @@ pub fn append(
         .map_err(|e| AttuneError::Storage(format!("open egress log {}: {e}", path.display())))?;
     let line = serde_json::to_string(&entry)
         .map_err(|e| AttuneError::Storage(format!("egress serialize: {e}")))?;
-    writeln!(file, "{line}").map_err(|e| {
-        AttuneError::Storage(format!("write egress log {}: {e}", path.display()))
-    })?;
+    writeln!(file, "{line}")
+        .map_err(|e| AttuneError::Storage(format!("write egress log {}: {e}", path.display())))?;
     Ok(entry)
 }
 
@@ -167,11 +166,9 @@ mod tests {
     #[test]
     fn append_creates_chain_from_scratch() {
         let dir = tempfile::tempdir().unwrap();
-        let first =
-            append(dir.path(), "openai/whisper", "openai", 1024, "rec1", 0.06).unwrap();
+        let first = append(dir.path(), "openai/whisper", "openai", 1024, "rec1", 0.06).unwrap();
         assert!(first.prev_sha256.is_empty());
-        let second =
-            append(dir.path(), "openai/chat", "openai", 2048, "rec1", 0.12).unwrap();
+        let second = append(dir.path(), "openai/chat", "openai", 2048, "rec1", 0.12).unwrap();
         assert!(!second.prev_sha256.is_empty());
         let entries = read_all(dir.path());
         assert_eq!(entries.len(), 2);
@@ -181,15 +178,7 @@ mod tests {
     fn verify_chain_returns_none_when_intact() {
         let dir = tempfile::tempdir().unwrap();
         for i in 0..3 {
-            append(
-                dir.path(),
-                format!("call/{i}"),
-                "openai",
-                100,
-                "rec",
-                0.01,
-            )
-            .unwrap();
+            append(dir.path(), format!("call/{i}"), "openai", 100, "rec", 0.01).unwrap();
         }
         assert!(verify_chain(dir.path()).is_none());
     }
@@ -198,15 +187,7 @@ mod tests {
     fn verify_chain_flags_a_torn_out_line() {
         let dir = tempfile::tempdir().unwrap();
         for i in 0..3 {
-            append(
-                dir.path(),
-                format!("call/{i}"),
-                "openai",
-                100,
-                "rec",
-                0.01,
-            )
-            .unwrap();
+            append(dir.path(), format!("call/{i}"), "openai", 100, "rec", 0.01).unwrap();
         }
         let path = path_for(dir.path());
         let lines: Vec<String> = fs::read_to_string(&path)

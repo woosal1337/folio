@@ -13,11 +13,9 @@ use attune_core::storage::fs_io::{
     archive_inbox_entry as archive_inbox_impl, list_inbox as list_inbox_impl, InboxEntry,
 };
 use attune_core::storage::git_sync::{is_git_repo, sync as git_sync_impl, GitSyncSummary};
-use attune_core::storage::showcase::{
-    read as read_showcase, write as write_showcase, Showcase,
-};
 use attune_core::storage::retention::{purge_old_wavs, PurgeSummary};
 use attune_core::storage::share_bundle::{export as export_share_bundle_impl, ShareBundleSummary};
+use attune_core::storage::showcase::{read as read_showcase, write as write_showcase, Showcase};
 use attune_core::storage::snapshot::{
     export as export_snapshot_impl, SnapshotPaths, SnapshotSummary,
 };
@@ -328,10 +326,7 @@ pub async fn list_inbox_entries(state: State<'_, AppState>) -> Result<Vec<InboxE
 /// Archive a single inbox entry (rename into .processed/).
 /// v2 finding 073 / GET-75.
 #[tauri::command]
-pub async fn archive_inbox_entry(
-    state: State<'_, AppState>,
-    path: PathBuf,
-) -> Result<(), String> {
+pub async fn archive_inbox_entry(state: State<'_, AppState>, path: PathBuf) -> Result<(), String> {
     let memory_dir = state.settings.lock().memory_dir.clone();
     tauri::async_runtime::spawn_blocking(move || -> Result<(), String> {
         let canon = attune_core::paths::canonicalize_under(&memory_dir, &path)
@@ -360,10 +355,7 @@ pub async fn get_showcase(state: State<'_, AppState>) -> Result<Option<Showcase>
 
 /// Persist the user's showcase. v2 finding 087 / GET-107.
 #[tauri::command]
-pub async fn save_showcase(
-    state: State<'_, AppState>,
-    showcase: Showcase,
-) -> Result<(), String> {
+pub async fn save_showcase(state: State<'_, AppState>, showcase: Showcase) -> Result<(), String> {
     let memory_dir = {
         let settings = state.settings.lock();
         settings.memory_dir.clone()

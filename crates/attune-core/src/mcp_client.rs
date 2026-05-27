@@ -99,11 +99,12 @@ pub fn parse(input: &str) -> Result<McpConfig> {
 pub fn load(vault_root: &Path) -> Result<McpConfig> {
     let path = config_path(vault_root);
     if !path.exists() {
-        return Ok(McpConfig { servers: Vec::new() });
+        return Ok(McpConfig {
+            servers: Vec::new(),
+        });
     }
-    let raw = fs::read_to_string(&path).map_err(|e| {
-        AttuneError::Storage(format!("could not read {}: {e}", path.display()))
-    })?;
+    let raw = fs::read_to_string(&path)
+        .map_err(|e| AttuneError::Storage(format!("could not read {}: {e}", path.display())))?;
     parse(&raw)
 }
 
@@ -207,7 +208,10 @@ mod tests {
             url: None,
             headers: BTreeMap::new(),
         };
-        let s = toml::to_string_pretty(&McpConfig { servers: vec![server.clone()] }).unwrap();
+        let s = toml::to_string_pretty(&McpConfig {
+            servers: vec![server.clone()],
+        })
+        .unwrap();
         let parsed = parse(&s).unwrap();
         assert_eq!(parsed.servers[0], server);
     }

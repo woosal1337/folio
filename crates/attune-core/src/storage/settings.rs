@@ -257,6 +257,48 @@ pub struct Settings {
     /// `"activity_only"`, `"email_only"`, or `"none"`.
     #[serde(default = "default_note_shared_notification")]
     pub note_shared_notification: String,
+
+    // ============================================================
+    // Sprint 2 onboarding (GET-127 / GET-128 / GET-129 / GET-131).
+    // ============================================================
+    /// GET-127 Signup. Which sign-in path the user chose during
+    /// onboarding. `""` = not chosen yet, `"offline"` = local-only
+    /// workspace (no cloud identity), `"google"` / `"microsoft"` /
+    /// `"sso"` = the corresponding OAuth provider. Tracks the
+    /// chosen path so the Settings → Profile section can display it
+    /// and so we can re-prompt for sign-in when the user later
+    /// tries to enable Pro / Clinical / MCP features.
+    #[serde(default)]
+    pub signin_mode: String,
+
+    /// GET-131 Workspace. Human name of the user's primary
+    /// workspace, e.g. "Clinora". Auto-populated from the email
+    /// domain during onboarding; user-editable in Settings →
+    /// Workspace → General once that section ships (GET-138).
+    /// Local-only mode allows any name; cloud mode uses the
+    /// backend-validated workspace slug.
+    #[serde(default)]
+    pub workspace_name: String,
+
+    /// GET-129 Workspace. The user's chosen workspace bucket from
+    /// the 2×2 onboarding card grid. Enum stored as string:
+    /// `"founder"`, `"clinical"`, `"sales"`, or `"education"`.
+    /// Empty string before onboarding. Drives downstream defaults:
+    /// VAD threshold priors, summary template selector, default
+    /// retention policy (Clinical forces 0-day WAV retention), and
+    /// the BAA-free Clinical wedge gating in
+    /// `commands::clinical::verify_license` once GET-130 ships.
+    #[serde(default)]
+    pub workspace_bucket: String,
+
+    /// GET-128 EventKit. True when the user explicitly skipped the
+    /// pre-EventKit rationale screen during onboarding. The Library
+    /// and Invite-teammates surfaces consult this to decide whether
+    /// to show a "Grant calendar access" affordance, vs assume the
+    /// user will re-prompt themselves. Reset to false on any re-grant
+    /// from Settings.
+    #[serde(default)]
+    pub onboarding_calendar_deferred: bool,
 }
 
 fn default_theme() -> String {
@@ -403,6 +445,10 @@ impl Default for Settings {
             notify_auto_detected_meetings: default_notify_auto_detected_meetings(),
             notification_muted_apps: Vec::new(),
             note_shared_notification: default_note_shared_notification(),
+            signin_mode: String::new(),
+            workspace_name: String::new(),
+            workspace_bucket: String::new(),
+            onboarding_calendar_deferred: false,
         }
     }
 }

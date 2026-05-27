@@ -90,9 +90,8 @@ pub fn load(vault_root: &Path, slug: &str) -> Result<Option<AgentDefinition>> {
     if !path.exists() {
         return Ok(None);
     }
-    let raw = fs::read_to_string(&path).map_err(|e| {
-        AttuneError::Storage(format!("could not read {}: {e}", path.display()))
-    })?;
+    let raw = fs::read_to_string(&path)
+        .map_err(|e| AttuneError::Storage(format!("could not read {}: {e}", path.display())))?;
     parse(&raw).map(Some)
 }
 
@@ -104,10 +103,7 @@ pub fn save(vault_root: &Path, agent: &AgentDefinition) -> Result<PathBuf> {
     let tmp_path = dir.join(format!("{}.toml.tmp", agent.slug));
     let rendered = render(agent)?;
     fs::write(&tmp_path, rendered).map_err(|e| {
-        AttuneError::Storage(format!(
-            "could not write {}: {e}",
-            tmp_path.display()
-        ))
+        AttuneError::Storage(format!("could not write {}: {e}", tmp_path.display()))
     })?;
     fs::rename(&tmp_path, &final_path).map_err(|e| {
         AttuneError::Storage(format!("could not rename {}: {e}", final_path.display()))
@@ -123,17 +119,16 @@ pub fn list_all(vault_root: &Path) -> Result<Vec<AgentDefinition>> {
         return Ok(Vec::new());
     }
     let mut out = Vec::new();
-    for entry in fs::read_dir(&dir).map_err(|e| {
-        AttuneError::Storage(format!("could not read {}: {e}", dir.display()))
-    })? {
+    for entry in fs::read_dir(&dir)
+        .map_err(|e| AttuneError::Storage(format!("could not read {}: {e}", dir.display())))?
+    {
         let entry = entry.map_err(|e| AttuneError::Storage(format!("read_dir: {e}")))?;
         let path = entry.path();
         if path.extension().and_then(|e| e.to_str()) != Some("toml") {
             continue;
         }
-        let raw = fs::read_to_string(&path).map_err(|e| {
-            AttuneError::Storage(format!("could not read {}: {e}", path.display()))
-        })?;
+        let raw = fs::read_to_string(&path)
+            .map_err(|e| AttuneError::Storage(format!("could not read {}: {e}", path.display())))?;
         let agent = parse(&raw)?;
         out.push(agent);
     }

@@ -67,7 +67,9 @@ pub fn ensure_allowed(host: &str) -> Result<(), CloudGuardError> {
             return Ok(());
         }
     }
-    Err(CloudGuardError::Airgapped { host: host.to_string() })
+    Err(CloudGuardError::Airgapped {
+        host: host.to_string(),
+    })
 }
 
 /// Extract just the host portion of a URL (handles both bare hosts
@@ -81,7 +83,11 @@ pub fn host_of(url: &str) -> Option<&str> {
         .find(|c| c == '/' || c == '?' || c == '#')
         .unwrap_or(after_scheme.len());
     let authority = &after_scheme[..end];
-    if authority.is_empty() { None } else { Some(authority) }
+    if authority.is_empty() {
+        None
+    } else {
+        Some(authority)
+    }
 }
 
 #[cfg(test)]
@@ -112,7 +118,14 @@ mod tests {
     fn airgap_allows_localhost_variants() {
         reset();
         set_airgap(true);
-        for h in ["localhost", "127.0.0.1", "::1", "0.0.0.0", "127.0.0.1:8080", "LOCALHOST"] {
+        for h in [
+            "localhost",
+            "127.0.0.1",
+            "::1",
+            "0.0.0.0",
+            "127.0.0.1:8080",
+            "LOCALHOST",
+        ] {
             assert!(ensure_allowed(h).is_ok(), "should allow {h}");
         }
         reset();
@@ -120,8 +133,14 @@ mod tests {
 
     #[test]
     fn host_of_strips_scheme_and_path() {
-        assert_eq!(host_of("https://api.openai.com/v1/chat"), Some("api.openai.com"));
-        assert_eq!(host_of("http://localhost:8080/health"), Some("localhost:8080"));
+        assert_eq!(
+            host_of("https://api.openai.com/v1/chat"),
+            Some("api.openai.com")
+        );
+        assert_eq!(
+            host_of("http://localhost:8080/health"),
+            Some("localhost:8080")
+        );
         assert_eq!(host_of("api.openai.com"), Some("api.openai.com"));
         assert_eq!(host_of(""), None);
     }

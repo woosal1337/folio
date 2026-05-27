@@ -32,14 +32,23 @@ const MENU_QUIT: &str = "quit_attune";
 /// Build the tray icon and wire its menu. Called once during the
 /// Tauri `setup` hook.
 pub fn install<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
-    let start = MenuItem::with_id(app, MENU_START, "Start Recording", true, Some("CmdOrCtrl+R"))?;
+    let start = MenuItem::with_id(
+        app,
+        MENU_START,
+        "Start Recording",
+        true,
+        Some("CmdOrCtrl+R"),
+    )?;
     let stop = MenuItem::with_id(app, MENU_STOP, "Stop Recording", true, None::<&str>)?;
     let open = MenuItem::with_id(app, MENU_OPEN, "Open Library", true, None::<&str>)?;
     let inbox = MenuItem::with_id(app, MENU_INBOX, "Open Inbox", true, None::<&str>)?;
     let separator = PredefinedMenuItem::separator(app)?;
     let quit = MenuItem::with_id(app, MENU_QUIT, "Quit Attune", true, Some("CmdOrCtrl+Q"))?;
 
-    let menu = Menu::with_items(app, &[&start, &stop, &separator, &open, &inbox, &separator, &quit])?;
+    let menu = Menu::with_items(
+        app,
+        &[&start, &stop, &separator, &open, &inbox, &separator, &quit],
+    )?;
 
     let _tray = TrayIconBuilder::with_id(TRAY_ID)
         .menu(&menu)

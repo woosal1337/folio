@@ -65,7 +65,12 @@ pub fn is_git_repo(dir: &Path) -> bool {
 /// Stage + commit the given path. Returns the commit SHA on success
 /// or an error string the caller can log. No-ops (nothing-to-commit)
 /// are NOT errors — they return Ok("").
-pub fn commit_path(dir: &Path, path: &Path, verb: MemoryVerb, slug: &str) -> Result<String, String> {
+pub fn commit_path(
+    dir: &Path,
+    path: &Path,
+    verb: MemoryVerb,
+    slug: &str,
+) -> Result<String, String> {
     if !is_git_repo(dir) {
         return Ok(String::new());
     }
@@ -124,10 +129,22 @@ mod tests {
 
     #[test]
     fn message_uses_the_canonical_prefix() {
-        assert_eq!(message(MemoryVerb::Update, "user.company"), "attune-memory: UPDATE user.company");
-        assert_eq!(message(MemoryVerb::Create, "person.alice"), "attune-memory: CREATE person.alice");
-        assert_eq!(message(MemoryVerb::Delete, "ui.theme"), "attune-memory: DELETE ui.theme");
-        assert_eq!(message(MemoryVerb::Supersede, "x"), "attune-memory: SUPERSEDE x");
+        assert_eq!(
+            message(MemoryVerb::Update, "user.company"),
+            "attune-memory: UPDATE user.company"
+        );
+        assert_eq!(
+            message(MemoryVerb::Create, "person.alice"),
+            "attune-memory: CREATE person.alice"
+        );
+        assert_eq!(
+            message(MemoryVerb::Delete, "ui.theme"),
+            "attune-memory: DELETE ui.theme"
+        );
+        assert_eq!(
+            message(MemoryVerb::Supersede, "x"),
+            "attune-memory: SUPERSEDE x"
+        );
     }
 
     #[test]

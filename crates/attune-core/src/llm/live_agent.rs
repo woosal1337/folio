@@ -223,9 +223,18 @@ mod tests {
         let out = buf.dedup(
             now,
             vec![
-                Nudge { kind: NudgeKind::Ask, text: "a".into() },
-                Nudge { kind: NudgeKind::Verify, text: "b".into() },
-                Nudge { kind: NudgeKind::Action, text: "c".into() },
+                Nudge {
+                    kind: NudgeKind::Ask,
+                    text: "a".into(),
+                },
+                Nudge {
+                    kind: NudgeKind::Verify,
+                    text: "b".into(),
+                },
+                Nudge {
+                    kind: NudgeKind::Action,
+                    text: "c".into(),
+                },
             ],
         );
         assert_eq!(out.len(), 3);

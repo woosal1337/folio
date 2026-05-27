@@ -69,11 +69,7 @@ pub fn active_ranges_with(
 /// Merge active ranges separated by less than `min_gap_secs`
 /// silence so whisper doesn't split a single sentence across two
 /// inference calls.
-fn merge_close(
-    raw: &[ActiveRange],
-    sample_rate: u32,
-    min_gap_secs: f32,
-) -> Vec<ActiveRange> {
+fn merge_close(raw: &[ActiveRange], sample_rate: u32, min_gap_secs: f32) -> Vec<ActiveRange> {
     if raw.is_empty() {
         return Vec::new();
     }
@@ -145,8 +141,13 @@ mod tests {
         pcm.extend(std::iter::repeat_n(0.0_f32, 16_000));
         pcm.extend(loud_sine(16_000 * 30, 440, 16_000));
         // Smaller window so the 1s gap shows up as its own slice.
-        let ranges =
-            active_ranges_with(&pcm, 16_000, 16_000, DEFAULT_RMS_FLOOR, DEFAULT_MIN_GAP_SECS);
+        let ranges = active_ranges_with(
+            &pcm,
+            16_000,
+            16_000,
+            DEFAULT_RMS_FLOOR,
+            DEFAULT_MIN_GAP_SECS,
+        );
         // The 1s gap is below the min gap (2s) → all three slices
         // merge into a single range covering the whole buffer.
         assert_eq!(ranges.len(), 1);

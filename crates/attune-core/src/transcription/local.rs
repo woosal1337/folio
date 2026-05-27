@@ -231,10 +231,7 @@ impl Transcriber for LocalWhisperTranscriber {
         let sample_rate_f = WHISPER_INPUT_SAMPLE_RATE as f64;
         let mut segments = Vec::new();
         let mut last_detected_lang_id: Option<i32> = None;
-        info!(
-            ranges = ranges.len(),
-            "starting local whisper inference"
-        );
+        info!(ranges = ranges.len(), "starting local whisper inference");
         for (idx, range) in ranges.iter().enumerate() {
             let offset_secs = range.start as f64 / sample_rate_f;
             let slice = &pcm[range.start..range.end];

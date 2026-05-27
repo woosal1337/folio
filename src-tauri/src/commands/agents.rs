@@ -850,7 +850,10 @@ mod tests {
     fn trailer_auto_keeps_legacy_meeting_language_rule() {
         for tag in ["auto", "Auto", " AUTO ", ""] {
             let t = language_aware_trailer(tag);
-            assert!(t.contains("same language as the meeting transcript"), "tag={tag:?}");
+            assert!(
+                t.contains("same language as the meeting transcript"),
+                "tag={tag:?}"
+            );
             assert!(!t.contains("regardless of the language"), "tag={tag:?}");
         }
     }
