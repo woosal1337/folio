@@ -102,6 +102,88 @@ pub struct ConferenceLink {
     pub url: String,
 }
 
+/// GET-132 — a single teammate suggestion derived from recent
+/// calendar events. Returned by `derive_attendee_suggestions` and
+/// surfaced by the onboarding invite-teammates screen.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[ts(export, export_to = "../../../src/shared/types/")]
+pub struct AttendeeSuggestion {
+    /// Email address as it appeared in the calendar attendee list.
+    /// Always lowercased.
+    pub email: String,
+    /// Display name when EventKit knew one. Empty string when the
+    /// attendee entry only carried an email (the UI falls back to
+    /// the local part of the email in that case).
+    pub display_name: String,
+    /// Number of distinct events in the input window where this
+    /// attendee appeared. Drives the "N meetings together" caption.
+    pub meeting_count: u32,
+}
+
+/// Derive teammate suggestions from a window of calendar events.
+///
+/// Pure on-device computation — the input slice already lives on
+/// the user's Mac, the output is sorted suggestions. Filters apply
+/// in order:
+///   1. Drop events whose attendees vector is empty.
+///   2. Drop the user's own email (case-insensitive) from each event.
+///   3. Optionally filter to attendees whose domain matches
+///      `user_domain` (case-insensitive). Passing `None` keeps all
+///      domains.
+///   4. Group remaining emails across events, count distinct event
+///      occurrences, and keep only those meeting `min_count`.
+///   5. Sort by meeting count (desc), then email (asc) for stable
+///      output.
+pub fn derive_attendee_suggestions(
+    events: &[CalendarEvent],
+    user_email: &str,
+    user_domain: Option<&str>,
+    min_count: u32,
+) -> Vec<AttendeeSuggestion> {
+    let user_email_lower = user_email.trim().to_ascii_lowercase();
+    let domain_lower = user_domain.map(|d| d.trim().to_ascii_lowercase());
+
+    let mut counts: std::collections::HashMap<String, u32> = std::collections::HashMap::new();
+    for event in events {
+        // Each attendee within one event counts at most once toward
+        // the meeting tally for that event (dedupe within event).
+        let mut seen_in_event: std::collections::HashSet<String> = std::collections::HashSet::new();
+        for raw in &event.attendees {
+            let email = raw.trim().to_ascii_lowercase();
+            if email.is_empty() || email == user_email_lower {
+                continue;
+            }
+            if let Some(domain) = &domain_lower {
+                let Some(at) = email.find('@') else { continue };
+                let attendee_domain = &email[at + 1..];
+                if attendee_domain != domain {
+                    continue;
+                }
+            }
+            seen_in_event.insert(email);
+        }
+        for email in seen_in_event {
+            *counts.entry(email).or_insert(0) += 1;
+        }
+    }
+
+    let mut out: Vec<AttendeeSuggestion> = counts
+        .into_iter()
+        .filter(|(_, c)| *c >= min_count)
+        .map(|(email, meeting_count)| AttendeeSuggestion {
+            email,
+            display_name: String::new(),
+            meeting_count,
+        })
+        .collect();
+    out.sort_by(|a, b| {
+        b.meeting_count
+            .cmp(&a.meeting_count)
+            .then_with(|| a.email.cmp(&b.email))
+    });
+    out
+}
+
 struct ProviderSig {
     name: &'static str,
     url_prefixes: &'static [&'static str],
@@ -224,5 +306,74 @@ mod tests {
     #[test]
     fn detect_conference_url_returns_none_when_absent() {
         assert!(detect_conference_url("Just a plain note.").is_none());
+    }
+
+    fn ev_with(id: &str, attendees: &[&str]) -> CalendarEvent {
+        let mut e = ev(id, "Meeting", now(), 30);
+        e.attendees = attendees.iter().map(|s| (*s).to_string()).collect();
+        e
+    }
+
+    #[test]
+    fn derive_attendee_drops_user_and_counts_distinct_events() {
+        let events = vec![
+            ev_with("1", &["me@acme.com", "alice@acme.com", "bob@acme.com"]),
+            ev_with("2", &["ME@ACME.COM", "alice@acme.com"]),
+            ev_with("3", &["me@acme.com", "bob@acme.com"]),
+        ];
+        let out = derive_attendee_suggestions(&events, "me@acme.com", None, 1);
+        // Alice in 2 events, Bob in 2 events. Both meet min_count=1.
+        // Sort: equal counts → alphabetical by email.
+        assert_eq!(out.len(), 2);
+        assert_eq!(out[0].email, "alice@acme.com");
+        assert_eq!(out[0].meeting_count, 2);
+        assert_eq!(out[1].email, "bob@acme.com");
+        assert_eq!(out[1].meeting_count, 2);
+    }
+
+    #[test]
+    fn derive_attendee_filters_by_domain_when_provided() {
+        let events = vec![ev_with(
+            "1",
+            &["alice@acme.com", "carl@vendor.io", "dave@acme.com"],
+        )];
+        let out = derive_attendee_suggestions(&events, "me@acme.com", Some("acme.com"), 1);
+        assert_eq!(out.len(), 2);
+        assert!(out.iter().all(|s| s.email.ends_with("@acme.com")));
+    }
+
+    #[test]
+    fn derive_attendee_applies_min_count_threshold() {
+        let events = vec![
+            ev_with("1", &["alice@acme.com", "bob@acme.com"]),
+            ev_with("2", &["alice@acme.com"]),
+            ev_with("3", &["alice@acme.com"]),
+        ];
+        let out = derive_attendee_suggestions(&events, "me@acme.com", None, 3);
+        assert_eq!(out.len(), 1);
+        assert_eq!(out[0].email, "alice@acme.com");
+        assert_eq!(out[0].meeting_count, 3);
+    }
+
+    #[test]
+    fn derive_attendee_dedupes_within_one_event() {
+        let events = vec![ev_with("1", &["alice@acme.com", "alice@acme.com"])];
+        let out = derive_attendee_suggestions(&events, "me@acme.com", None, 1);
+        assert_eq!(out.len(), 1);
+        assert_eq!(out[0].meeting_count, 1);
+    }
+
+    #[test]
+    fn derive_attendee_sorts_by_count_desc_then_email_asc() {
+        let events = vec![
+            ev_with("1", &["zoe@acme.com", "bob@acme.com"]),
+            ev_with("2", &["zoe@acme.com", "bob@acme.com"]),
+            ev_with("3", &["zoe@acme.com"]),
+        ];
+        let out = derive_attendee_suggestions(&events, "me@acme.com", None, 1);
+        assert_eq!(out[0].email, "zoe@acme.com");
+        assert_eq!(out[0].meeting_count, 3);
+        assert_eq!(out[1].email, "bob@acme.com");
+        assert_eq!(out[1].meeting_count, 2);
     }
 }
