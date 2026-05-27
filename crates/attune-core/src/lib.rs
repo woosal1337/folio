@@ -57,6 +57,7 @@
 
 pub mod ask_attune;
 pub mod audio;
+pub mod backend;
 pub mod calendar;
 pub mod cloud_guard;
 pub mod encryption;

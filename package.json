@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
+    "tauri:dev:local": "ATTUNE_API_BASE_URL=http://localhost:8000 tauri dev",
     "typecheck": "tsc -b --noEmit",
     "lint": "eslint src --max-warnings 0",
     "lint:fix": "eslint src --max-warnings 0 --fix",

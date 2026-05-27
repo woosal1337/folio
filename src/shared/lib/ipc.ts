@@ -480,6 +480,130 @@ export function listAttendeeSuggestions(
   });
 }
 
+// ---- Backend auth ------------------------------------------------
+
+import type { AuthStatus } from "@/shared/types/AuthStatus";
+import type { UserIdentity } from "@/shared/types/UserIdentity";
+
+export function authRequestSigninCode(email: string): Promise<void> {
+  return call<void>("auth_request_signin_code", { email });
+}
+
+export function authVerifySigninCode(
+  email: string,
+  code: string,
+  deviceId: string,
+  deviceName: string,
+): Promise<UserIdentity> {
+  return call<UserIdentity>("auth_verify_signin_code", {
+    email,
+    code,
+    deviceId,
+    deviceName,
+  });
+}
+
+export function authStatus(): Promise<AuthStatus> {
+  return call<AuthStatus>("auth_status");
+}
+
+export function authLogout(): Promise<void> {
+  return call<void>("auth_logout");
+}
+
+// ---- Backend account ---------------------------------------------
+
+export interface BackendUser {
+  id: string;
+  email: string;
+  display_name?: string | null;
+  privacy_tier?: string | null;
+  subscription_tier?: string | null;
+}
+
+export interface BackendDevice {
+  device_id: string;
+  device_name: string;
+  created_at: string;
+  last_seen_at?: string | null;
+  user_agent?: string | null;
+  ip?: string | null;
+}
+
+export function accountGet(): Promise<BackendUser> {
+  return call<BackendUser>("account_get");
+}
+
+export function accountUpdate(displayName: string | null): Promise<BackendUser> {
+  return call<BackendUser>("account_update", { displayName });
+}
+
+export function accountDevices(): Promise<BackendDevice[]> {
+  return call<BackendDevice[]>("account_devices");
+}
+
+export function accountRevokeDevice(deviceId: string): Promise<void> {
+  return call<void>("account_revoke_device", { deviceId });
+}
+
+export function accountSoftDelete(): Promise<void> {
+  return call<void>("account_soft_delete");
+}
+
+// ---- Backend referrals (GET-141) ---------------------------------
+
+export interface ReferralTokenResponse {
+  token: string;
+  share_url: string;
+}
+
+export interface ReferralStats {
+  token: string;
+  share_url: string;
+  qualified_count: number;
+  pending_count: number;
+  free_months_earned: number;
+  yearly_cap: number;
+  yearly_remaining: number;
+}
+
+export function referralsGenerate(): Promise<ReferralTokenResponse> {
+  return call<ReferralTokenResponse>("referrals_generate");
+}
+
+export function referralsMe(): Promise<ReferralStats> {
+  return call<ReferralStats>("referrals_me");
+}
+
+export function referralsRedeem(
+  token: string,
+  newUserId: string,
+  newUserEmail: string,
+): Promise<void> {
+  return call<void>("referrals_redeem", { token, newUserId, newUserEmail });
+}
+
+// ---- Backend settings sync ---------------------------------------
+
+export interface SettingsSyncSnapshot {
+  settings: unknown | null;
+  updated_at: string | null;
+}
+
+export function settingsSyncPull(): Promise<SettingsSyncSnapshot> {
+  return call<SettingsSyncSnapshot>("settings_sync_pull");
+}
+
+export function settingsSyncPush(
+  settings: unknown,
+  updatedAt: string,
+): Promise<SettingsSyncSnapshot> {
+  return call<SettingsSyncSnapshot>("settings_sync_push", {
+    settings,
+    updatedAt,
+  });
+}
+
 // ---- Menu bar tray bridge (v2 #006 / GET-25) ---------------------
 
 /**
