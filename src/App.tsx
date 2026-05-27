@@ -19,6 +19,9 @@ import { verbSource } from "@/shared/lib/command-palette";
 // arrive when the user navigates to them. The static fallback below
 // renders a near-empty frame so the route swap stays visually quiet.
 const Record = React.lazy(() => import("@/features/recording/route"));
+const FirstRunConductor = React.lazy(() =>
+  import("@/features/onboarding/first-run").then((m) => ({ default: m.FirstRunConductor })),
+);
 const Library = React.lazy(() => import("@/features/library/route"));
 const Editor = React.lazy(() => import("@/features/editor/route"));
 const Tasks = React.lazy(() => import("@/features/tasks/route"));
@@ -59,6 +62,47 @@ export default function App() {
     loadSettings();
     void hydrateAuth();
   }, [loadSettings, hydrateAuth]);
+
+  // Force-login policy: the sidebar + every route is invisible until
+  // the user holds a valid Keychain session. The conductor takes the
+  // full window. Once `signedIn === true`, the normal chrome renders.
+  const authHydrated = useAuthStore((s) => s.hydrated);
+  const signedIn = useAuthStore((s) => s.signedIn);
+  const reloadSettings = useSettingsStore((s) => s.load);
+
+  if (!authHydrated) {
+    return (
+      <ErrorBoundary>
+        <div
+          className="flex h-screen w-screen items-center justify-center bg-background text-sm text-muted-foreground"
+          onMouseDown={onMouseDown}
+          onDoubleClick={onDoubleClick}
+        >
+          Loading…
+        </div>
+      </ErrorBoundary>
+    );
+  }
+  if (!signedIn) {
+    return (
+      <ErrorBoundary>
+        {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions -- Tauri drag-region root, same pattern as the signed-in shell below. */}
+        <div
+          className="flex h-screen w-screen flex-col overflow-hidden bg-background"
+          onMouseDown={onMouseDown}
+          onDoubleClick={onDoubleClick}
+        >
+          <DragStrip />
+          <main className="flex-1 overflow-y-auto">
+            <React.Suspense fallback={<RouteLoading />}>
+              <FirstRunConductor onFinish={() => reloadSettings()} />
+            </React.Suspense>
+          </main>
+          <Toaster theme="system" position="bottom-right" richColors closeButton />
+        </div>
+      </ErrorBoundary>
+    );
+  }
 
   return (
     <ErrorBoundary>
