@@ -10,7 +10,6 @@ import { VoiceDebriefSheet } from "@/features/recording/voice-debrief-sheet";
 import { FirstRunConductor } from "@/features/onboarding/first-run";
 import { Badge } from "@/shared/ui/badge";
 import { useSettingsStore } from "@/shared/stores/settings-store";
-import { useAuthStore } from "@/shared/stores/auth-store";
 import { ShieldCheck } from "lucide-react";
 import { useRecording } from "@/shared/stores/recording-store";
 import { useTranscriberCopy } from "@/shared/hooks/use-transcriber-copy";
@@ -72,23 +71,13 @@ export default function Record() {
     return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
   }, [rec.elapsed]);
 
+  // Auth + onboarding gating happens at App.tsx — by the time this
+  // route mounts we know the user is signed in. We still defer to the
+  // conductor when `onboarding_completed === false` so post-signup
+  // workspace setup still runs.
   const onboardingCompleted = useSettingsStore((s) => s.settings?.onboarding_completed ?? false);
   const reload = useSettingsStore((s) => s.load);
-  const authHydrated = useAuthStore((s) => s.hydrated);
-  const signedIn = useAuthStore((s) => s.signedIn);
-
-  // Force-login policy (2026-05-28): the app refuses to render the
-  // recording surface until the user holds a valid Keychain session.
-  // The conductor handles the signup → code-verify flow. We also
-  // re-route here if the user signed out from Settings.
-  if (!authHydrated) {
-    return (
-      <div className="flex h-full items-center justify-center p-12 text-sm text-muted-foreground">
-        Loading…
-      </div>
-    );
-  }
-  if (!signedIn || !onboardingCompleted) {
+  if (!onboardingCompleted) {
     return <FirstRunConductor onFinish={() => reload()} />;
   }
 
