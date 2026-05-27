@@ -1,0 +1,244 @@
+/**
+ * GET-137 — Settings → Profile + Get help.
+ *
+ * Account-level fields (name, avatar, email, language) and the Get
+ * help link surface. Until the OAuth signup flow lands (GET-127),
+ * the Profile section runs in "local-only" mode: identity is
+ * synthesised from the OS user, the email field is empty, and the
+ * sign-out button is hidden.
+ *
+ * When auth ships, this section reads from the attune-api `/users/me`
+ * endpoint and writes via PATCH /users/me + clears the Keychain
+ * token on Sign out.
+ */
+
+import * as React from "react";
+import {
+  BookOpen,
+  ExternalLink,
+  FileText,
+  Heart,
+  Keyboard,
+  LogOut,
+  Mail,
+  User,
+  Languages as LanguagesIcon,
+} from "lucide-react";
+
+import { Button } from "@/shared/ui/button";
+import { Input } from "@/shared/ui/input";
+import { Label } from "@/shared/ui/label";
+import type { Settings } from "@/shared/types/Settings";
+
+interface SectionProfileProps {
+  settings: Settings;
+  onChange: <K extends keyof Settings>(key: K, value: Settings[K]) => void;
+}
+
+const LANGUAGE_OPTIONS: { value: string; label: string }[] = [
+  { value: "en", label: "English" },
+  { value: "de", label: "Deutsch" },
+  { value: "fr", label: "Français" },
+  { value: "es", label: "Español" },
+  { value: "it", label: "Italiano" },
+  { value: "pt", label: "Português" },
+  { value: "nl", label: "Nederlands" },
+  { value: "pl", label: "Polski" },
+  { value: "tr", label: "Türkçe" },
+  { value: "ar", label: "العربية" },
+  { value: "ja", label: "日本語" },
+  { value: "zh-Hans", label: "简体中文" },
+];
+
+export function SectionProfile({ settings, onChange }: SectionProfileProps) {
+  // Stub for v1 — these fields will be backed by attune-api `/users/me`
+  // once signup ships (GET-127). For now, they're locally cached so
+  // the user can set their display name before backend identity lands.
+  const [displayName, setDisplayName] = React.useState("");
+
+  return (
+    <section className="space-y-7">
+      <header className="space-y-1">
+        <h2 className="font-serif text-2xl font-medium">Profile</h2>
+        <p className="text-sm text-muted-foreground">
+          Your identity inside Attune. Used for shared notes, agent
+          attribution, and workspace membership.
+        </p>
+      </header>
+
+      <Group title="Identity">
+        <FieldRow icon={User} title="Display name">
+          <Input
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+            placeholder="Your name"
+            className="max-w-xs"
+          />
+        </FieldRow>
+        <FieldRow
+          icon={Mail}
+          title="Email"
+          description="Set once you sign in. Becomes the workspace's primary owner."
+        >
+          <p className="text-sm italic text-muted-foreground">
+            Sign in to set
+          </p>
+        </FieldRow>
+        <FieldRow
+          icon={LanguagesIcon}
+          title="Language"
+          description="App language. Recording transcription language lives under Settings → Transcription."
+        >
+          <select
+            value={settings.briefing_language === "auto" ? "en" : settings.briefing_language}
+            onChange={(e) => onChange("briefing_language", e.target.value)}
+            className="h-9 rounded-md border border-input bg-card px-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            {LANGUAGE_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </FieldRow>
+      </Group>
+
+      <Group title="Get help">
+        <HelpLink
+          icon={BookOpen}
+          title="Documentation"
+          description="Guides, tips, and how-to walkthroughs."
+          href="https://attune.app/docs"
+        />
+        <HelpLink
+          icon={Keyboard}
+          title="Keyboard shortcuts"
+          description="Every Cmd-, Cmd-K, and Cmd-Option-S binding in one page."
+          href="https://attune.app/docs/shortcuts"
+        />
+        <HelpLink
+          icon={Mail}
+          title="Email support"
+          description="Direct line to the team. We answer within a working day."
+          href="mailto:support@attune.app"
+        />
+        <HelpLink
+          icon={FileText}
+          title="Open source acknowledgements"
+          description="Whisper, Silero V5, Parakeet, MLX, and every other library that makes Attune possible."
+          href="https://attune.app/oss"
+        />
+        <HelpLink
+          icon={Heart}
+          title="What's new"
+          description="Release notes for every shipped version."
+          href="https://attune.app/changelog"
+        />
+      </Group>
+
+      <SignOutFooter />
+    </section>
+  );
+}
+
+function Group({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-3">
+      <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+        {title}
+      </Label>
+      <div className="space-y-1 rounded-lg border border-border bg-card p-2">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function FieldRow({
+  icon: Icon,
+  title,
+  description,
+  children,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  description?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-start gap-4 rounded-md p-3 hover:bg-muted/30">
+      <Icon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+      <div className="min-w-0 flex-1 space-y-1">
+        <p className="text-sm font-medium">{title}</p>
+        {description ? (
+          <p className="max-w-prose text-xs text-muted-foreground">{description}</p>
+        ) : null}
+      </div>
+      <div className="shrink-0">{children}</div>
+    </div>
+  );
+}
+
+function HelpLink({
+  icon: Icon,
+  title,
+  description,
+  href,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  description: string;
+  href: string;
+}) {
+  const external = href.startsWith("http");
+  return (
+    <a
+      href={href}
+      target={external ? "_blank" : undefined}
+      rel={external ? "noopener noreferrer" : undefined}
+      className="flex items-start gap-4 rounded-md p-3 transition-colors hover:bg-muted/30"
+    >
+      <Icon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+      <div className="min-w-0 flex-1 space-y-0.5">
+        <p className="flex items-center gap-1.5 text-sm font-medium">
+          {title}
+          {external ? <ExternalLink className="h-3 w-3 text-muted-foreground" /> : null}
+        </p>
+        <p className="max-w-prose text-xs text-muted-foreground">{description}</p>
+      </div>
+    </a>
+  );
+}
+
+function SignOutFooter() {
+  // v1 stub: hidden until OAuth signup lands (GET-127). After auth, this
+  // button clears the Keychain token, calls POST /auth/logout, and
+  // returns the user to the signup screen.
+  return (
+    <div className="rounded-lg border border-dashed border-border bg-card p-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm font-medium">Sign out</p>
+          <p className="text-xs text-muted-foreground">
+            Available once you sign in with Google, Microsoft, or SSO.
+          </p>
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          disabled
+          className="gap-1.5 text-destructive disabled:opacity-50"
+        >
+          <LogOut className="h-3.5 w-3.5" />
+          Sign out
+        </Button>
+      </div>
+    </div>
+  );
+}

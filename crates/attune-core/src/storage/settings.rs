@@ -180,6 +180,83 @@ pub struct Settings {
     /// renders the conductor while this is false.
     #[serde(default)]
     pub onboarding_completed: bool,
+
+    // ============================================================
+    // Sprint 1 onboarding rebuild (GET-133 / GET-134 / GET-135).
+    // ============================================================
+    /// GET-133 General. When true, a thin floating indicator pulses
+    /// on the right edge of the screen while Attune is transcribing.
+    /// The eventual home of the consensus #11 Acoustic Confidence
+    /// Strip surface; defaults ON because Tony's Calm Computing
+    /// principle says recording state must always be visible.
+    #[serde(default = "default_live_meeting_indicator")]
+    pub live_meeting_indicator: bool,
+    /// GET-133 General. macOS Login Items API binding. When true,
+    /// Attune launches on user login via the SMAppService
+    /// background-task entitlement. Default OFF — opt in from
+    /// Settings.
+    #[serde(default)]
+    pub open_at_login: bool,
+    /// GET-133 General. When a meeting starts (detected via
+    /// EventKit or auto-detect), Attune repositions itself out of
+    /// the way so the user can keep typing notes alongside their
+    /// conferencing app. Default OFF until the implicit-brief
+    /// surface lands.
+    #[serde(default)]
+    pub move_aside_in_meetings: bool,
+    /// GET-133 Privacy. Default visibility for shared-meeting links.
+    /// `"workspace_only"` (default, stricter than Granola),
+    /// `"anyone_with_link"`, or `"disabled"`.
+    #[serde(default = "default_link_sharing")]
+    pub default_link_sharing: String,
+    /// GET-133 Privacy. When the user clicks a shared-meeting link
+    /// in their browser, deep-link into the desktop app instead of
+    /// the web view. Default ON.
+    #[serde(default = "default_always_open_shared_links")]
+    pub always_open_shared_links: bool,
+    /// GET-133 Privacy. Roundtable consensus #5 — show a coloured
+    /// left border on every artefact indicating where it lives
+    /// (green = on-device only, amber = Apple PCC / encrypted cloud,
+    /// red = third-party cloud). Default ON.
+    #[serde(default = "default_privacy_tier_band_enabled")]
+    pub privacy_tier_band_enabled: bool,
+    /// GET-133 Privacy. Number of days after which transcripts auto-
+    /// delete. GDPR Art. 5(1)(c) data minimisation default = 90
+    /// days; Granola defaults to Off, which is an Art. 5 violation
+    /// in the EU. Range UI: Off / 7 / 30 / 90 / 365.
+    #[serde(default = "default_auto_delete_period_days")]
+    pub auto_delete_period_days: Option<u32>,
+
+    /// GET-134 Calendar. Show next-meeting + countdown in the macOS
+    /// menu bar. Default ON — feeds the consensus #9 Quiet Mode dot.
+    #[serde(default = "default_show_upcoming_meetings_in_menubar")]
+    pub show_upcoming_meetings_in_menubar: bool,
+    /// GET-134 Calendar. Power-user knob hidden behind an Advanced
+    /// disclosure. When true, the "Coming up" section includes
+    /// events without attendees / video links (e.g. focus blocks).
+    /// Default OFF.
+    #[serde(default)]
+    pub show_events_without_participants: bool,
+
+    /// GET-135 Notifications. Fire a notification 1 minute before
+    /// a calendared meeting starts. Default ON.
+    #[serde(default = "default_notify_scheduled_meetings")]
+    pub notify_scheduled_meetings: bool,
+    /// GET-135 Notifications. Detect via NSRunningApplication that
+    /// a known conferencing app started a call, then ask the user
+    /// to capture. Default ON.
+    #[serde(default = "default_notify_auto_detected_meetings")]
+    pub notify_auto_detected_meetings: bool,
+    /// GET-135 Notifications. Bundle identifiers the user does NOT
+    /// want auto-detect notifications for. Per-app mute escape
+    /// hatch — Granola pattern.
+    #[serde(default)]
+    pub notification_muted_apps: Vec<String>,
+    /// GET-135 Notifications. Where to surface "a teammate shared a
+    /// note with you" events. `"activity_and_email"` (default),
+    /// `"activity_only"`, `"email_only"`, or `"none"`.
+    #[serde(default = "default_note_shared_notification")]
+    pub note_shared_notification: String,
 }
 
 fn default_theme() -> String {
@@ -223,6 +300,36 @@ fn default_reminders_list() -> String {
 }
 fn default_feedback_sounds_enabled() -> bool {
     false
+}
+fn default_live_meeting_indicator() -> bool {
+    true
+}
+fn default_link_sharing() -> String {
+    "workspace_only".into()
+}
+fn default_always_open_shared_links() -> bool {
+    true
+}
+fn default_privacy_tier_band_enabled() -> bool {
+    true
+}
+fn default_auto_delete_period_days() -> Option<u32> {
+    // GDPR Art. 5(1)(c) data minimisation — keep transcripts no
+    // longer than the user needs them. 90 days is the consensus
+    // default among privacy-aware tools (Signal, ProtonMail).
+    Some(90)
+}
+fn default_show_upcoming_meetings_in_menubar() -> bool {
+    true
+}
+fn default_notify_scheduled_meetings() -> bool {
+    true
+}
+fn default_notify_auto_detected_meetings() -> bool {
+    true
+}
+fn default_note_shared_notification() -> String {
+    "activity_and_email".into()
 }
 /// Resolve the default memory directory.
 ///
@@ -283,6 +390,19 @@ impl Default for Settings {
             privacy_mode: false,
             voice_debrief_enabled: false,
             onboarding_completed: false,
+            live_meeting_indicator: default_live_meeting_indicator(),
+            open_at_login: false,
+            move_aside_in_meetings: false,
+            default_link_sharing: default_link_sharing(),
+            always_open_shared_links: default_always_open_shared_links(),
+            privacy_tier_band_enabled: default_privacy_tier_band_enabled(),
+            auto_delete_period_days: default_auto_delete_period_days(),
+            show_upcoming_meetings_in_menubar: default_show_upcoming_meetings_in_menubar(),
+            show_events_without_participants: false,
+            notify_scheduled_meetings: default_notify_scheduled_meetings(),
+            notify_auto_detected_meetings: default_notify_auto_detected_meetings(),
+            notification_muted_apps: Vec::new(),
+            note_shared_notification: default_note_shared_notification(),
         }
     }
 }
