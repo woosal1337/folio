@@ -23,8 +23,13 @@ export type SettingsSection =
   | "ai"
   | "storage"
   | "workspace-general"
+  | "workspace-team"
+  | "workspace-analytics"
+  | "workspace-billing"
+  | "connectors"
   | "webhooks"
   | "usage"
+  | "referrals"
   | "privacy"
   | "pro"
   | "appearance";

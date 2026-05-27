@@ -1,10 +1,13 @@
 import * as React from "react";
 import {
+  BarChart3,
   Bell,
   Bot,
   Building2,
   Calendar as CalendarIcon,
+  CreditCard,
   Folder,
+  Gift,
   Lock,
   Mic,
   Palette,
@@ -12,8 +15,10 @@ import {
   Settings as SettingsIcon,
   Sparkles,
   User,
+  Users,
   Wallet,
   Waves,
+  Workflow,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -41,6 +46,7 @@ import { SectionAi } from "./section-ai";
 import { SectionAppearance } from "./section-appearance";
 import { SectionAudio } from "./section-audio";
 import { SectionCalendar } from "./section-calendar";
+import { SectionConnectors } from "./section-connectors";
 import { SectionGeneral } from "./section-general";
 import { SectionNotifications } from "./section-notifications";
 import { SectionPreferences } from "./section-preferences";
@@ -51,7 +57,11 @@ import { SectionStorage } from "./section-storage";
 import { SectionTranscription } from "./section-transcription";
 import { SectionUsage } from "./section-usage";
 import { SectionWebhooks } from "./section-webhooks";
+import { SectionWorkspaceAnalytics } from "./section-workspace-analytics";
+import { SectionWorkspaceBilling } from "./section-workspace-billing";
 import { SectionWorkspaceGeneral } from "./section-workspace-general";
+import { SectionWorkspaceTeam } from "./section-workspace-team";
+import { SectionReferrals } from "./section-referrals";
 
 type Section = SettingsSection;
 
@@ -100,8 +110,13 @@ const NAV_GROUPS: NavGroup[] = [
     label: "Workspace",
     items: [
       { id: "workspace-general", label: "General", icon: Building2 },
-      { id: "webhooks", label: "Webhooks", icon: Plug },
+      { id: "workspace-team", label: "Team", icon: Users },
+      { id: "workspace-analytics", label: "Analytics", icon: BarChart3 },
+      { id: "workspace-billing", label: "Billing", icon: CreditCard },
+      { id: "connectors", label: "Connectors", icon: Plug },
+      { id: "webhooks", label: "Webhooks", icon: Workflow },
       { id: "usage", label: "Usage", icon: Wallet },
+      { id: "referrals", label: "Referrals", icon: Gift },
       // Pro tab is hidden until payment + license verification land
       // end-to-end. SectionPro + the `id: "pro"` branch below stay on
       // disk so re-enabling is a one-line uncomment.
@@ -250,10 +265,20 @@ export function SettingsModal({ open, onOpenChange }: Props) {
                 <SectionStorage settings={settings} onChange={update} />
               ) : section === "workspace-general" ? (
                 <SectionWorkspaceGeneral settings={settings} onChange={update} />
+              ) : section === "workspace-team" ? (
+                <SectionWorkspaceTeam settings={settings} />
+              ) : section === "workspace-analytics" ? (
+                <SectionWorkspaceAnalytics />
+              ) : section === "workspace-billing" ? (
+                <SectionWorkspaceBilling />
+              ) : section === "connectors" ? (
+                <SectionConnectors />
               ) : section === "webhooks" ? (
                 <SectionWebhooks />
               ) : section === "usage" ? (
                 <SectionUsage />
+              ) : section === "referrals" ? (
+                <SectionReferrals />
               ) : section === "privacy" ? (
                 <SectionPrivacy settings={settings} onChange={update} />
               ) : section === "pro" ? (
