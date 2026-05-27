@@ -25,7 +25,7 @@ type Transcriber = "local_whisper" | "openai";
 
 type SigninMode = "" | "offline" | "google" | "microsoft" | "sso";
 
-type Bucket = "founder" | "clinical" | "sales" | "education";
+type Bucket = "founder" | "healthcare" | "sales" | "education";
 
 /**
  * Six-step first-run conductor.
@@ -142,20 +142,10 @@ export function FirstRunConductor({ onFinish }: { onFinish: () => void }) {
   const handleWorkspaceBucket = React.useCallback(
     async (bucket: Bucket) => {
       setWorkspaceBucket(bucket);
-      // Clinical workspaces default discoverable=false / auto-join=false
-      // (Sasha). Other buckets keep the permissive defaults so we don't
-      // accidentally close off a workspace that was already open.
-      const patch: Partial<NonNullable<typeof settings>> = {
-        workspace_bucket: bucket,
-      };
-      if (bucket === "clinical") {
-        patch.workspace_discoverable = false;
-        patch.workspace_auto_join = false;
-      }
-      await persistPartial(patch);
+      await persistPartial({ workspace_bucket: bucket });
       setStep("transcriber");
     },
-    [persistPartial, settings]
+    [persistPartial]
   );
 
   const finish = React.useCallback(async () => {

@@ -2,22 +2,7 @@
  * GET-138 — Settings → Workspace → General.
  *
  * Workspace setup (name + logo), invites & members policy, SSO /
- * SCIM upsell stubs, data-security visualisation, danger zone.
- *
- * Persona red lines:
- *   - Sasha: bucket-aware defaults for the two join toggles.
- *     Clinical workspaces default discoverable=false / auto-join=false
- *     because therapist practices don't accept walk-ins. The on-disk
- *     `Settings.workspace_discoverable` / `workspace_auto_join` are
- *     simple booleans; the bucket-aware default is applied here when
- *     the user hasn't touched the toggle yet (we treat missing
- *     workspace_bucket as "unknown" and trust the persisted bool).
- *   - Mira: SSO + SCIM are Pro/Enterprise tier upsell tiles, not
- *     functional toggles in v1. Clicking opens the upsell modal
- *     (stubbed to a toast for now).
- *   - Tony: Danger Zone retains the orange-red treatment from Granola
- *     but its three actions are gated behind the workspace existing
- *     server-side (we noop with a toast in local-only mode).
+ * SCIM upsell stubs, data export controls, danger zone.
  *
  * Backend pairing: workspace mutation endpoints land with GET-123 in
  * attune-api. Until then, the toggles persist to local Settings only;
@@ -56,7 +41,6 @@ interface SectionProps {
 }
 
 export function SectionWorkspaceGeneral({ settings, onChange }: SectionProps) {
-  const isClinical = settings.workspace_bucket === "clinical";
   const isLocalOnly = settings.signin_mode === "" || settings.signin_mode === "offline";
 
   return (
@@ -90,7 +74,7 @@ export function SectionWorkspaceGeneral({ settings, onChange }: SectionProps) {
         <FieldRow
           icon={Sparkles}
           title="Workspace type"
-          subtitle="Set during onboarding. Changing this can affect privacy defaults — contact support."
+          subtitle="Set during onboarding. Tunes summary templates and terminology."
         >
           <BucketBadge bucket={settings.workspace_bucket} />
         </FieldRow>
@@ -100,22 +84,14 @@ export function SectionWorkspaceGeneral({ settings, onChange }: SectionProps) {
         <ToggleRow
           icon={settings.workspace_discoverable ? Eye : EyeOff}
           title="Discoverable by matching email domain"
-          description={
-            isClinical
-              ? "Off by default for Clinical workspaces. Therapist and medical practices shouldn't surface to walk-in colleagues."
-              : "Other people signing in with a matching work email will see this workspace in their workspace picker."
-          }
+          description="Other people signing in with a matching work email will see this workspace in their workspace picker."
           checked={settings.workspace_discoverable}
           onChange={(v) => onChange("workspace_discoverable", v)}
         />
         <ToggleRow
           icon={UserPlus}
           title="Allow teammates to join automatically"
-          description={
-            isClinical
-              ? "Off by default for Clinical workspaces. New members must be invited explicitly."
-              : "Matching-domain teammates can join without admin approval."
-          }
+          description="Matching-domain teammates can join without admin approval."
           checked={settings.workspace_auto_join}
           onChange={(v) => onChange("workspace_auto_join", v)}
         />
@@ -148,10 +124,6 @@ export function SectionWorkspaceGeneral({ settings, onChange }: SectionProps) {
       </Group>
 
       <Group title="Data security">
-        <PrivacyTierViz
-          bucket={settings.workspace_bucket}
-          autoDelete={settings.auto_delete_period_days}
-        />
         <ActionRow
           icon={Globe}
           title="Data export permissions"
@@ -412,7 +384,7 @@ function BucketBadge({ bucket }: { bucket: string }) {
   }
   const labels: Record<string, string> = {
     founder: "Founder / Operator",
-    clinical: "Clinical",
+    healthcare: "Healthcare",
     sales: "Sales / Customer Success",
     education: "Education / Research",
   };
@@ -468,47 +440,3 @@ function LogoPicker({
   );
 }
 
-function PrivacyTierViz({
-  bucket,
-  autoDelete,
-}: {
-  bucket: string;
-  autoDelete: number | null;
-}) {
-  const tierMode = bucket === "clinical" ? "Tier 2" : "Tier 1";
-  const tierDescription =
-    bucket === "clinical"
-      ? "Zero-knowledge encryption. Server holds ciphertext only. Required for BAA-free clinical use."
-      : "Server-side AES-256-GCM. Encrypted at rest; Attune can decrypt for sharing and exports.";
-  const retention =
-    autoDelete && autoDelete > 0
-      ? `Auto-delete after ${autoDelete} days`
-      : "Retention off (kept indefinitely)";
-  return (
-    <div className="space-y-3 rounded-md border border-border bg-background p-4">
-      <div className="flex items-center gap-2">
-        <ShieldCheck className="h-4 w-4 text-primary" />
-        <p className="text-sm font-medium">Privacy tier</p>
-        <span className="ml-auto rounded-full bg-primary/10 px-2.5 py-0.5 text-2xs font-medium uppercase tracking-wider text-primary">
-          {tierMode}
-        </span>
-      </div>
-      <p className="text-xs text-muted-foreground">{tierDescription}</p>
-      <div className="flex flex-wrap items-center gap-2 pt-1 text-2xs">
-        <Pill label="On this Mac" detail="WAV + raw transcript" />
-        <Pill label="Cloud" detail={tierMode === "Tier 2" ? "Ciphertext only" : "Encrypted at rest"} />
-        <Pill label="Retention" detail={retention} />
-      </div>
-    </div>
-  );
-}
-
-function Pill({ label, detail }: { label: string; detail: string }) {
-  return (
-    <span className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2 py-0.5 text-muted-foreground">
-      <span className="font-medium text-foreground">{label}</span>
-      <span>·</span>
-      <span>{detail}</span>
-    </span>
-  );
-}
