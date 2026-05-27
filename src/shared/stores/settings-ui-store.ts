@@ -22,6 +22,7 @@ export type SettingsSection =
   | "transcription"
   | "ai"
   | "storage"
+  | "workspace-general"
   | "webhooks"
   | "usage"
   | "privacy"

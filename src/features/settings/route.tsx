@@ -2,6 +2,7 @@ import * as React from "react";
 import {
   Bell,
   Bot,
+  Building2,
   Calendar as CalendarIcon,
   Folder,
   Lock,
@@ -50,6 +51,7 @@ import { SectionStorage } from "./section-storage";
 import { SectionTranscription } from "./section-transcription";
 import { SectionUsage } from "./section-usage";
 import { SectionWebhooks } from "./section-webhooks";
+import { SectionWorkspaceGeneral } from "./section-workspace-general";
 
 type Section = SettingsSection;
 
@@ -97,6 +99,7 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: "Workspace",
     items: [
+      { id: "workspace-general", label: "General", icon: Building2 },
       { id: "webhooks", label: "Webhooks", icon: Plug },
       { id: "usage", label: "Usage", icon: Wallet },
       // Pro tab is hidden until payment + license verification land
@@ -245,6 +248,8 @@ export function SettingsModal({ open, onOpenChange }: Props) {
                 <SectionAi settings={settings} onChange={update} />
               ) : section === "storage" ? (
                 <SectionStorage settings={settings} onChange={update} />
+              ) : section === "workspace-general" ? (
+                <SectionWorkspaceGeneral settings={settings} onChange={update} />
               ) : section === "webhooks" ? (
                 <SectionWebhooks />
               ) : section === "usage" ? (
