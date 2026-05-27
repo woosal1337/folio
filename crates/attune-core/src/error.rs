@@ -55,6 +55,12 @@ pub enum AttuneError {
 
     #[error("internal: {0}")]
     Internal(String),
+
+    #[error("backend api error: {0}")]
+    Backend(String),
+
+    #[error("{0}")]
+    Other(String),
 }
 
 pub type Result<T> = std::result::Result<T, AttuneError>;

@@ -10,6 +10,7 @@ import { VoiceDebriefSheet } from "@/features/recording/voice-debrief-sheet";
 import { FirstRunConductor } from "@/features/onboarding/first-run";
 import { Badge } from "@/shared/ui/badge";
 import { useSettingsStore } from "@/shared/stores/settings-store";
+import { useAuthStore } from "@/shared/stores/auth-store";
 import { ShieldCheck } from "lucide-react";
 import { useRecording } from "@/shared/stores/recording-store";
 import { useTranscriberCopy } from "@/shared/hooks/use-transcriber-copy";
@@ -73,7 +74,21 @@ export default function Record() {
 
   const onboardingCompleted = useSettingsStore((s) => s.settings?.onboarding_completed ?? false);
   const reload = useSettingsStore((s) => s.load);
-  if (!onboardingCompleted) {
+  const authHydrated = useAuthStore((s) => s.hydrated);
+  const signedIn = useAuthStore((s) => s.signedIn);
+
+  // Force-login policy (2026-05-28): the app refuses to render the
+  // recording surface until the user holds a valid Keychain session.
+  // The conductor handles the signup → code-verify flow. We also
+  // re-route here if the user signed out from Settings.
+  if (!authHydrated) {
+    return (
+      <div className="flex h-full items-center justify-center p-12 text-sm text-muted-foreground">
+        Loading…
+      </div>
+    );
+  }
+  if (!signedIn || !onboardingCompleted) {
     return <FirstRunConductor onFinish={() => reload()} />;
   }
 

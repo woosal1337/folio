@@ -14,8 +14,10 @@ import { Card, CardContent } from "@/shared/ui/card";
 import { cn } from "@/shared/lib/utils";
 import { requestCalendarAccess, setProviderKey } from "@/shared/lib/ipc";
 import { useSettingsStore } from "@/shared/stores/settings-store";
+import { useAuthStore } from "@/shared/stores/auth-store";
 import { PermissionsScreen } from "./permissions-screen";
 import { SignupScreen } from "./signup-screen";
+import { CodeEntryScreen } from "./code-entry-screen";
 import { EventKitRationaleScreen } from "./eventkit-rationale-screen";
 import { WorkspaceNameScreen } from "./workspace-name-screen";
 import { WorkspaceBucketScreen } from "./workspace-bucket-screen";
@@ -24,54 +26,79 @@ import { inferWorkspaceNameFromEmail } from "./infer-workspace-name";
 
 type Transcriber = "local_whisper" | "openai";
 
-type SigninMode = "" | "offline" | "google" | "microsoft" | "sso";
-
 type Bucket = "founder" | "healthcare" | "sales" | "education";
 
 /**
- * Six-step first-run conductor.
+ * Seven-step first-run conductor with force-login at the front.
  *
- *   permissions → signup → eventkit → workspace-name → workspace-bucket
- *               → transcriber → done
+ *   permissions → signup (email) → code-entry → eventkit → workspace-name
+ *                → workspace-bucket → invite-teammates → transcriber
  *
- * Offline branch (signin_mode === "offline") skips eventkit and both
- * workspace screens — local-only mode does not need a workspace
- * identity. OAuth branches proceed through the full chain; the
- * workspace name pre-populates from the email returned by the
- * provider callback (stub in v1 until the backend lands).
+ * Per the founder's force-login policy (2026-05-28), the offline
+ * escape hatch is removed — the conductor cannot exit until the user
+ * has a valid Keychain session. The signup screen calls
+ * `auth_request_signin_code`; the code-entry screen exchanges the OTP
+ * for tokens and flips `useAuthStore.signedIn`.
  *
- * Each leaf component is pure and stateless about the conductor —
- * they receive callbacks and call them when the user confirms.
+ * When the user signs out from Settings, the recording route detects
+ * `signedIn === false` and remounts the conductor at the signup step
+ * (`onboarding_completed` stays true so we don't ask for permissions
+ * again — only re-authenticate).
  */
 
 type Step =
   | "permissions"
   | "signup"
+  | "code-entry"
   | "eventkit"
   | "workspace-name"
   | "workspace-bucket"
   | "invite-teammates"
   | "transcriber";
 
+function deviceFingerprint() {
+  // Stable-per-install: read or generate a random id we keep in
+  // localStorage. The backend treats this as the device-id; it
+  // rotates on full app reinstall. Good enough for a "manage your
+  // devices" UI without OS-level fingerprinting.
+  const KEY = "attune.device_id";
+  const existing = window.localStorage.getItem(KEY);
+  if (existing) return existing;
+  const id = crypto.randomUUID().replace(/-/g, "");
+  window.localStorage.setItem(KEY, id);
+  return id;
+}
+
 export function FirstRunConductor({ onFinish }: { onFinish: () => void }) {
   const settings = useSettingsStore((s) => s.settings);
   const saveSettings = useSettingsStore((s) => s.save);
-  const [step, setStep] = React.useState<Step>("permissions");
-  const [signinMode, setSigninMode] = React.useState<SigninMode>(
-    (settings?.signin_mode as SigninMode) ?? ""
+  const onboardingCompleted = settings?.onboarding_completed ?? false;
+  const signedIn = useAuthStore((s) => s.signedIn);
+  const cachedIdentity = useAuthStore((s) => s.identity);
+
+  // If onboarding finished previously and the user just signed out,
+  // skip straight to signup — no need to re-grant permissions.
+  const initialStep: Step = signedIn
+    ? "transcriber"
+    : onboardingCompleted
+      ? "signup"
+      : "permissions";
+
+  const [step, setStep] = React.useState<Step>(initialStep);
+  const [accountEmail, setAccountEmail] = React.useState<string | null>(
+    cachedIdentity?.email ?? null,
   );
-  const [accountEmail, setAccountEmail] = React.useState<string | null>(null);
   const [workspaceName, setWorkspaceName] = React.useState<string>(
-    settings?.workspace_name ?? ""
+    settings?.workspace_name ?? "",
   );
   const [workspaceBucket, setWorkspaceBucket] = React.useState<Bucket | "">(
-    (settings?.workspace_bucket as Bucket | "") ?? ""
+    (settings?.workspace_bucket as Bucket | "") ?? "",
   );
   const [calendarDeferred, setCalendarDeferred] = React.useState<boolean>(
-    settings?.onboarding_calendar_deferred ?? false
+    settings?.onboarding_calendar_deferred ?? false,
   );
   const [transcriber, setTranscriber] = React.useState<Transcriber>(
-    (settings?.transcriber as Transcriber) ?? "local_whisper"
+    (settings?.transcriber as Transcriber) ?? "local_whisper",
   );
   const [openaiKey, setOpenaiKey] = React.useState("");
   const [savingKey, setSavingKey] = React.useState(false);
@@ -86,32 +113,21 @@ export function FirstRunConductor({ onFinish }: { onFinish: () => void }) {
         toast.error("Could not save", { description: String(e) });
       }
     },
-    [settings, saveSettings]
+    [settings, saveSettings],
   );
 
-  const handleProviderChosen = React.useCallback(
-    async (provider: "google" | "microsoft" | "sso") => {
-      // Backend OAuth lands in Sprint 2 backend pass. Until then the
-      // happy path stubs out the email so the workspace screens still
-      // get useful defaults. We persist the chosen provider so the
-      // backend pass can resume from here.
-      const stubEmail = "";
-      setSigninMode(provider);
-      setAccountEmail(stubEmail);
-      await persistPartial({ signin_mode: provider });
-      toast.info("Sign-in stubbed", {
-        description:
-          "Real OAuth lands with the backend. Continuing with workspace setup.",
-      });
-      setStep("eventkit");
-    },
-    [persistPartial]
-  );
+  const handleCodeSent = React.useCallback((email: string) => {
+    setAccountEmail(email);
+    setStep("code-entry");
+  }, []);
 
-  const handleOffline = React.useCallback(async () => {
-    setSigninMode("offline");
-    await persistPartial({ signin_mode: "offline" });
-    setStep("transcriber");
+  const handleVerified = React.useCallback(async () => {
+    // The auth store is already updated by CodeEntryScreen via setSignedIn.
+    // Persist the email + signin_mode so Settings → Profile can show it.
+    await persistPartial({
+      signin_mode: "email",
+    });
+    setStep("eventkit");
   }, [persistPartial]);
 
   const handleGrantCalendar = React.useCallback(async () => {
@@ -138,19 +154,16 @@ export function FirstRunConductor({ onFinish }: { onFinish: () => void }) {
       await persistPartial({ workspace_name: name });
       setStep("workspace-bucket");
     },
-    [persistPartial]
+    [persistPartial],
   );
 
   const handleWorkspaceBucket = React.useCallback(
     async (bucket: Bucket) => {
       setWorkspaceBucket(bucket);
       await persistPartial({ workspace_bucket: bucket });
-      // Skip the invite-teammates screen if EventKit was deferred —
-      // we have no calendar data to seed suggestions from. The user
-      // can invite teammates later from Settings → Workspace.
       setStep(calendarDeferred ? "transcriber" : "invite-teammates");
     },
-    [persistPartial, calendarDeferred]
+    [persistPartial, calendarDeferred],
   );
 
   const handleInviteTeammates = React.useCallback(async () => {
@@ -174,7 +187,6 @@ export function FirstRunConductor({ onFinish }: { onFinish: () => void }) {
     try {
       await saveSettings({
         ...settings,
-        signin_mode: signinMode,
         workspace_name: workspaceName,
         workspace_bucket: workspaceBucket,
         onboarding_calendar_deferred: calendarDeferred,
@@ -192,7 +204,6 @@ export function FirstRunConductor({ onFinish }: { onFinish: () => void }) {
   }, [
     openaiKey,
     settings,
-    signinMode,
     workspaceName,
     workspaceBucket,
     calendarDeferred,
@@ -208,7 +219,21 @@ export function FirstRunConductor({ onFinish }: { onFinish: () => void }) {
   }
   if (step === "signup") {
     return (
-      <SignupScreen onProviderChosen={handleProviderChosen} onOffline={handleOffline} />
+      <SignupScreen
+        initialEmail={accountEmail ?? undefined}
+        onCodeSent={handleCodeSent}
+      />
+    );
+  }
+  if (step === "code-entry") {
+    return (
+      <CodeEntryScreen
+        email={accountEmail ?? ""}
+        deviceId={deviceFingerprint()}
+        deviceName={`Attune on ${navigator.platform || "Mac"}`}
+        onBack={() => setStep("signup")}
+        onVerified={() => void handleVerified()}
+      />
     );
   }
   if (step === "eventkit") {
@@ -237,10 +262,6 @@ export function FirstRunConductor({ onFinish }: { onFinish: () => void }) {
     );
   }
   if (step === "invite-teammates") {
-    // Derive the workspace domain from the signed-in account so the
-    // attendee suggestion filter picks teammates from the same org.
-    // Falls back to the empty string (no filter) when the email
-    // wasn't captured.
     const at = (accountEmail ?? "").indexOf("@");
     const domain = at >= 0 ? (accountEmail ?? "").slice(at + 1) : "";
     return (
@@ -308,26 +329,15 @@ export function FirstRunConductor({ onFinish }: { onFinish: () => void }) {
         </CardContent>
       </Card>
 
-      <div
-        className={cn(
-          "flex items-center justify-between rounded-lg border border-primary/30 bg-primary/5 p-4"
-        )}
-      >
+      <div className={cn("flex items-center justify-between rounded-lg border border-primary/30 bg-primary/5 p-4")}>
         <div className="flex items-center gap-2">
           <CheckCircle2 className="h-4 w-4 text-primary" />
-          <p className="text-sm">
-            You can change everything later in Preferences (Cmd-,).
-          </p>
+          <p className="text-sm">You can change everything later in Preferences (Cmd-,).</p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" onClick={() => setStep("signup")}>
-            Back
-          </Button>
-          <Button onClick={finish} disabled={savingKey} className="gap-2">
-            <AudioLines className="h-4 w-4" />
-            I&apos;m ready
-          </Button>
-        </div>
+        <Button onClick={finish} disabled={savingKey} className="gap-2">
+          <AudioLines className="h-4 w-4" />
+          I&apos;m ready
+        </Button>
       </div>
     </div>
   );
@@ -341,13 +351,7 @@ interface ChoiceProps {
   detail: string;
 }
 
-function TranscriberChoice({
-  selected,
-  onClick,
-  icon: Icon,
-  title,
-  detail,
-}: ChoiceProps) {
+function TranscriberChoice({ selected, onClick, icon: Icon, title, detail }: ChoiceProps) {
   return (
     <button
       type="button"
@@ -357,7 +361,7 @@ function TranscriberChoice({
         "flex flex-col items-start gap-2 rounded-md border p-3 text-left transition-colors",
         selected
           ? "border-primary bg-primary/5 ring-1 ring-primary/30"
-          : "border-border bg-card hover:bg-muted/40"
+          : "border-border bg-card hover:bg-muted/40",
       )}
     >
       <div className="flex items-center gap-2">

@@ -34,6 +34,7 @@ const SettingsModal = React.lazy(() =>
 );
 import { ErrorBoundary } from "@/error-boundary";
 import { useWindowDoubleClick, useWindowDrag } from "@/shared/hooks/use-window-drag";
+import { useAuthStore } from "@/shared/stores/auth-store";
 import { useSettingsStore } from "@/shared/stores/settings-store";
 import { useSettingsUiStore } from "@/shared/stores/settings-ui-store";
 
@@ -49,13 +50,15 @@ export default function App() {
   const onMouseDown = useWindowDrag();
   const onDoubleClick = useWindowDoubleClick();
   const loadSettings = useSettingsStore((s) => s.load);
+  const hydrateAuth = useAuthStore((s) => s.hydrate);
 
   // Load settings once at mount. The recording store reads from this
   // cache when deciding whether to auto-transcribe after stop, so the
   // settings need to be in memory before the first stop fires.
   React.useEffect(() => {
     loadSettings();
-  }, [loadSettings]);
+    void hydrateAuth();
+  }, [loadSettings, hydrateAuth]);
 
   return (
     <ErrorBoundary>
