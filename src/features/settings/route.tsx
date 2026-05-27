@@ -1,12 +1,16 @@
 import * as React from "react";
 import {
+  Bell,
   Bot,
+  Calendar as CalendarIcon,
   Folder,
   Lock,
   Mic,
   Palette,
   Plug,
+  Settings as SettingsIcon,
   Sparkles,
+  User,
   Wallet,
   Waves,
 } from "lucide-react";
@@ -35,9 +39,13 @@ import type { Theme } from "@/shared/hooks/use-theme";
 import { SectionAi } from "./section-ai";
 import { SectionAppearance } from "./section-appearance";
 import { SectionAudio } from "./section-audio";
+import { SectionCalendar } from "./section-calendar";
 import { SectionGeneral } from "./section-general";
+import { SectionNotifications } from "./section-notifications";
+import { SectionPreferences } from "./section-preferences";
 import { SectionPrivacy } from "./section-privacy";
 import { SectionPro } from "./section-pro";
+import { SectionProfile } from "./section-profile";
 import { SectionStorage } from "./section-storage";
 import { SectionTranscription } from "./section-transcription";
 import { SectionUsage } from "./section-usage";
@@ -50,20 +58,53 @@ interface Props {
   onOpenChange: (open: boolean) => void;
 }
 
-const NAV: { id: Section; label: string; icon: typeof Mic }[] = [
-  { id: "general", label: "General", icon: Mic },
-  { id: "audio", label: "Audio", icon: Waves },
-  { id: "transcription", label: "Transcription", icon: Sparkles },
-  { id: "ai", label: "AI", icon: Bot },
-  { id: "storage", label: "Storage", icon: Folder },
-  { id: "webhooks", label: "Webhooks", icon: Plug },
-  { id: "usage", label: "Usage", icon: Wallet },
-  { id: "privacy", label: "Privacy", icon: Lock },
-  // Pro tab is hidden until payment + license verification land end-to-end.
-  // The SectionPro component and `id: "pro"` branch below stay on disk so
-  // re-enabling is a one-line uncomment once the billing pipeline is ready.
-  // { id: "pro", label: "Pro", icon: Crown },
-  { id: "appearance", label: "Appearance", icon: Palette },
+interface NavItem {
+  id: Section;
+  label: string;
+  icon: typeof Mic;
+}
+
+interface NavGroup {
+  label: string;
+  items: NavItem[];
+}
+
+// Granola-style two-section sidebar: personal-level config under
+// the user's name, workspace-level config under the workspace name.
+// (Sprint 1 ships Personal only; Workspace lights up in Sprint 2.)
+const NAV_GROUPS: NavGroup[] = [
+  {
+    label: "Personal",
+    items: [
+      { id: "preferences", label: "Preferences", icon: SettingsIcon },
+      { id: "profile", label: "Profile", icon: User },
+      { id: "calendar", label: "Calendar", icon: CalendarIcon },
+      { id: "notifications", label: "Notifications", icon: Bell },
+    ],
+  },
+  {
+    label: "Recording",
+    items: [
+      { id: "general", label: "General", icon: Mic },
+      { id: "audio", label: "Audio", icon: Waves },
+      { id: "transcription", label: "Transcription", icon: Sparkles },
+      { id: "ai", label: "AI", icon: Bot },
+      { id: "storage", label: "Storage", icon: Folder },
+      { id: "privacy", label: "Privacy", icon: Lock },
+      { id: "appearance", label: "Appearance", icon: Palette },
+    ],
+  },
+  {
+    label: "Workspace",
+    items: [
+      { id: "webhooks", label: "Webhooks", icon: Plug },
+      { id: "usage", label: "Usage", icon: Wallet },
+      // Pro tab is hidden until payment + license verification land
+      // end-to-end. SectionPro + the `id: "pro"` branch below stay on
+      // disk so re-enabling is a one-line uncomment.
+      // { id: "pro", label: "Pro", icon: Crown },
+    ],
+  },
 ];
 
 export function SettingsModal({ open, onOpenChange }: Props) {
@@ -134,32 +175,36 @@ export function SettingsModal({ open, onOpenChange }: Props) {
 
         <nav
           aria-label="Settings sections"
-          className="flex flex-col gap-1 border-r border-border bg-secondary p-3"
+          className="flex flex-col gap-3 overflow-y-auto border-r border-border bg-secondary p-3"
         >
-          <p className="px-3 pb-2 pt-1 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Settings
-          </p>
-          {NAV.map((item) => {
-            const Icon = item.icon;
-            const active = section === item.id;
-            return (
-              <button
-                type="button"
-                key={item.id}
-                onClick={() => setSection(item.id)}
-                aria-current={active ? "page" : undefined}
-                className={cn(
-                  "flex items-center gap-3 rounded-md px-3 py-2 text-left text-sm font-medium transition-colors",
-                  active
-                    ? "bg-card text-foreground shadow-sm"
-                    : "text-muted-foreground hover:bg-card/60 hover:text-foreground"
-                )}
-              >
-                <Icon className="h-4 w-4 shrink-0" />
-                {item.label}
-              </button>
-            );
-          })}
+          {NAV_GROUPS.map((group) => (
+            <div key={group.label} className="flex flex-col gap-1">
+              <p className="px-3 pb-1 pt-2 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">
+                {group.label}
+              </p>
+              {group.items.map((item) => {
+                const Icon = item.icon;
+                const active = section === item.id;
+                return (
+                  <button
+                    type="button"
+                    key={item.id}
+                    onClick={() => setSection(item.id)}
+                    aria-current={active ? "page" : undefined}
+                    className={cn(
+                      "flex items-center gap-3 rounded-md px-3 py-2 text-left text-sm font-medium transition-colors",
+                      active
+                        ? "bg-card text-foreground shadow-sm"
+                        : "text-muted-foreground hover:bg-card/60 hover:text-foreground"
+                    )}
+                  >
+                    <Icon className="h-4 w-4 shrink-0" />
+                    {item.label}
+                  </button>
+                );
+              })}
+            </div>
+          ))}
         </nav>
 
         {/*
@@ -178,6 +223,14 @@ export function SettingsModal({ open, onOpenChange }: Props) {
             <div className="px-8 py-7">
               {!settings ? (
                 <p className="text-sm text-muted-foreground">Loading…</p>
+              ) : section === "preferences" ? (
+                <SectionPreferences settings={settings} onChange={update} />
+              ) : section === "profile" ? (
+                <SectionProfile settings={settings} onChange={update} />
+              ) : section === "calendar" ? (
+                <SectionCalendar settings={settings} onChange={update} />
+              ) : section === "notifications" ? (
+                <SectionNotifications settings={settings} onChange={update} />
               ) : section === "general" ? (
                 <SectionGeneral
                   settings={settings}

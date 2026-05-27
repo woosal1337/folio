@@ -4,9 +4,6 @@ import {
   Brain,
   CheckCircle2,
   Cloud,
-  ExternalLink,
-  Mic,
-  Monitor,
   ShieldCheck,
   Sparkles,
 } from "lucide-react";
@@ -14,15 +11,10 @@ import { toast } from "sonner";
 
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent } from "@/shared/ui/card";
-import { Badge } from "@/shared/ui/badge";
 import { cn } from "@/shared/lib/utils";
-import {
-  listPermissions,
-  openPermissionSettings,
-  setProviderKey,
-} from "@/shared/lib/ipc";
+import { setProviderKey } from "@/shared/lib/ipc";
 import { useSettingsStore } from "@/shared/stores/settings-store";
-import type { PermissionRow } from "@/shared/types/PermissionRow";
+import { PermissionsScreen } from "./permissions-screen";
 
 type Transcriber = "local_whisper" | "openai";
 
@@ -45,35 +37,17 @@ type Transcriber = "local_whisper" | "openai";
  * dots and the Record button stays primed. The downstream record
  * flow surfaces missing permissions per-attempt.
  */
+type Step = "permissions" | "transcriber";
+
 export function FirstRunConductor({ onFinish }: { onFinish: () => void }) {
   const settings = useSettingsStore((s) => s.settings);
   const saveSettings = useSettingsStore((s) => s.save);
-  const [rows, setRows] = React.useState<PermissionRow[]>([]);
+  const [step, setStep] = React.useState<Step>("permissions");
   const [transcriber, setTranscriber] = React.useState<Transcriber>(
     (settings?.transcriber as Transcriber) ?? "local_whisper"
   );
   const [openaiKey, setOpenaiKey] = React.useState("");
   const [savingKey, setSavingKey] = React.useState(false);
-
-  React.useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const next = await listPermissions();
-        if (!cancelled) setRows(next);
-      } catch (e) {
-        if (!cancelled) console.error("list_permissions:", e);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const requiredPermissions = React.useMemo(
-    () => rows.filter((r) => r.permission === "microphone" || r.permission === "screen_recording"),
-    [rows]
-  );
 
   const finish = React.useCallback(async () => {
     if (transcriber === "openai" && openaiKey.trim().length > 0) {
@@ -108,6 +82,9 @@ export function FirstRunConductor({ onFinish }: { onFinish: () => void }) {
   if (!settings) return null;
 
   return (
+    step === "permissions" ? (
+      <PermissionsScreen onContinue={() => setStep("transcriber")} />
+    ) : (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-8 px-8 py-12">
       <header data-drag="" className="select-none">
         <div className="flex items-center gap-3">
@@ -115,58 +92,9 @@ export function FirstRunConductor({ onFinish }: { onFinish: () => void }) {
           <h1 className="font-serif text-4xl font-medium tracking-tight">Welcome to Attune</h1>
         </div>
         <p className="mt-2 text-sm text-muted-foreground">
-          A local-first meeting recorder. Two permissions, one transcription choice, and
-          you&apos;re ready to capture your first meeting.
+          One last thing — pick how you want transcripts to happen.
         </p>
       </header>
-
-      <Card>
-        <CardContent className="flex flex-col gap-4 py-5">
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4 text-muted-foreground" />
-            <h2 className="font-medium">Grant permissions</h2>
-            <Badge variant="outline" className="text-2xs">
-              required
-            </Badge>
-          </div>
-          <ul className="flex flex-col gap-2">
-            {requiredPermissions.map((row) => (
-              <li
-                key={row.permission}
-                className="flex items-start gap-3 rounded-md border border-border bg-muted/30 p-3"
-              >
-                {row.permission === "microphone" ? (
-                  <Mic className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                ) : (
-                  <Monitor className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                )}
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium">
-                    {row.permission === "microphone" ? "Microphone" : "Screen Recording"}
-                  </p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">{row.rationale}</p>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    openPermissionSettings(row.permission).catch((e) =>
-                      console.error("open_permission_settings:", e)
-                    );
-                  }}
-                  className="shrink-0 gap-1"
-                >
-                  <ExternalLink className="h-3 w-3" />
-                  Open
-                </Button>
-              </li>
-            ))}
-            {requiredPermissions.length === 0 ? (
-              <li className="text-xs italic text-muted-foreground">Loading permissions…</li>
-            ) : null}
-          </ul>
-        </CardContent>
-      </Card>
 
       <Card>
         <CardContent className="flex flex-col gap-4 py-5">
@@ -218,12 +146,21 @@ export function FirstRunConductor({ onFinish }: { onFinish: () => void }) {
           <CheckCircle2 className="h-4 w-4 text-primary" />
           <p className="text-sm">You can change everything later in Preferences (Cmd-,).</p>
         </div>
-        <Button onClick={finish} disabled={savingKey} className="gap-2">
-          <AudioLines className="h-4 w-4" />
-          I&apos;m ready
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            onClick={() => setStep("permissions")}
+          >
+            Back
+          </Button>
+          <Button onClick={finish} disabled={savingKey} className="gap-2">
+            <AudioLines className="h-4 w-4" />
+            I&apos;m ready
+          </Button>
+        </div>
       </div>
     </div>
+    )
   );
 }
 

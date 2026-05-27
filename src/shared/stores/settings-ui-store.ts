@@ -13,6 +13,10 @@
 import { create } from "zustand";
 
 export type SettingsSection =
+  | "preferences"
+  | "profile"
+  | "calendar"
+  | "notifications"
   | "general"
   | "audio"
   | "transcription"
@@ -40,7 +44,7 @@ interface SettingsUiState {
 
 export const useSettingsUiStore = create<SettingsUiState>((set) => ({
   open: false,
-  section: "general",
+  section: "preferences",
 
   openAt: (section) => set((s) => ({ open: true, section: section ?? s.section })),
   close: () => set({ open: false }),
