@@ -19,6 +19,7 @@ import { SignupScreen } from "./signup-screen";
 import { EventKitRationaleScreen } from "./eventkit-rationale-screen";
 import { WorkspaceNameScreen } from "./workspace-name-screen";
 import { WorkspaceBucketScreen } from "./workspace-bucket-screen";
+import { InviteTeammatesScreen } from "./invite-teammates-screen";
 import { inferWorkspaceNameFromEmail } from "./infer-workspace-name";
 
 type Transcriber = "local_whisper" | "openai";
@@ -49,6 +50,7 @@ type Step =
   | "eventkit"
   | "workspace-name"
   | "workspace-bucket"
+  | "invite-teammates"
   | "transcriber";
 
 export function FirstRunConductor({ onFinish }: { onFinish: () => void }) {
@@ -143,10 +145,17 @@ export function FirstRunConductor({ onFinish }: { onFinish: () => void }) {
     async (bucket: Bucket) => {
       setWorkspaceBucket(bucket);
       await persistPartial({ workspace_bucket: bucket });
-      setStep("transcriber");
+      // Skip the invite-teammates screen if EventKit was deferred —
+      // we have no calendar data to seed suggestions from. The user
+      // can invite teammates later from Settings → Workspace.
+      setStep(calendarDeferred ? "transcriber" : "invite-teammates");
     },
-    [persistPartial]
+    [persistPartial, calendarDeferred]
   );
+
+  const handleInviteTeammates = React.useCallback(async () => {
+    setStep("transcriber");
+  }, []);
 
   const finish = React.useCallback(async () => {
     if (transcriber === "openai" && openaiKey.trim().length > 0) {
@@ -224,6 +233,21 @@ export function FirstRunConductor({ onFinish }: { onFinish: () => void }) {
       <WorkspaceBucketScreen
         initial={workspaceBucket}
         onContinue={handleWorkspaceBucket}
+      />
+    );
+  }
+  if (step === "invite-teammates") {
+    // Derive the workspace domain from the signed-in account so the
+    // attendee suggestion filter picks teammates from the same org.
+    // Falls back to the empty string (no filter) when the email
+    // wasn't captured.
+    const at = (accountEmail ?? "").indexOf("@");
+    const domain = at >= 0 ? (accountEmail ?? "").slice(at + 1) : "";
+    return (
+      <InviteTeammatesScreen
+        userEmail={accountEmail}
+        workspaceDomain={domain}
+        onContinue={() => handleInviteTeammates()}
       />
     );
   }

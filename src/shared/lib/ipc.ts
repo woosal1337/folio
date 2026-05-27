@@ -462,6 +462,24 @@ export function requestCalendarAccess(): Promise<void> {
   return call<void>("request_calendar_access");
 }
 
+// ---- Calendar-derived suggestions (GET-132) ----------------------
+
+import type { AttendeeSuggestion } from "@/shared/types/AttendeeSuggestion";
+
+export function listAttendeeSuggestions(
+  userEmail: string,
+  domainFilter: string,
+  windowDays: number,
+  minCount: number,
+): Promise<AttendeeSuggestion[]> {
+  return call<AttendeeSuggestion[]>("list_attendee_suggestions", {
+    userEmail,
+    domainFilter,
+    windowDays,
+    minCount,
+  });
+}
+
 // ---- Menu bar tray bridge (v2 #006 / GET-25) ---------------------
 
 /**
