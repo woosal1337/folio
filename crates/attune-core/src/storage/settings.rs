@@ -299,6 +299,33 @@ pub struct Settings {
     /// from Settings.
     #[serde(default)]
     pub onboarding_calendar_deferred: bool,
+
+    /// GET-138 Workspace. Whether the workspace appears in the
+    /// domain-match discovery feed for other users with matching
+    /// work emails. Defaults to true for Founder/Sales/Education
+    /// buckets; the workspace-bucket selection in onboarding flips
+    /// this to false when the user picks Clinical (Sasha — therapist
+    /// workspaces don't accept walk-ins).
+    #[serde(default = "default_true")]
+    pub workspace_discoverable: bool,
+
+    /// GET-138 Workspace. Whether teammates can join the workspace
+    /// automatically (no admin approval) once they sign in with a
+    /// matching work email. Same bucket-aware defaults as
+    /// `workspace_discoverable`.
+    #[serde(default = "default_true")]
+    pub workspace_auto_join: bool,
+
+    /// GET-138 Workspace. Local file path to the workspace logo PNG
+    /// or SVG, max 256x256 / 500KB. Empty means "no logo set" — the
+    /// UI falls back to a generated monogram. v1 stores the path
+    /// only; the backend favicon-fetch path lands with GET-123.
+    #[serde(default)]
+    pub workspace_logo_path: String,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 fn default_theme() -> String {
@@ -449,6 +476,9 @@ impl Default for Settings {
             workspace_name: String::new(),
             workspace_bucket: String::new(),
             onboarding_calendar_deferred: false,
+            workspace_discoverable: true,
+            workspace_auto_join: true,
+            workspace_logo_path: String::new(),
         }
     }
 }
