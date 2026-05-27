@@ -76,10 +76,18 @@ export function FirstRunConductor({ onFinish }: { onFinish: () => void }) {
   const signedIn = useAuthStore((s) => s.signedIn);
   const cachedIdentity = useAuthStore((s) => s.identity);
 
-  // If onboarding finished previously and the user just signed out,
-  // skip straight to signup — no need to re-grant permissions.
+  // Step the conductor lands on at first mount:
+  //   • Not signed in + never onboarded → fresh install, walk through
+  //     permissions first.
+  //   • Not signed in + onboarded → user signed out from Settings;
+  //     just re-authenticate (skip permissions).
+  //   • Signed in + not onboarded → we're mid-flow (just verified
+  //     OTP, or the user closed the app halfway through workspace
+  //     setup); resume at EventKit.
+  //   • Signed in + onboarded is impossible inside the conductor —
+  //     App.tsx wouldn't have mounted us.
   const initialStep: Step = signedIn
-    ? "transcriber"
+    ? "eventkit"
     : onboardingCompleted
       ? "signup"
       : "permissions";
@@ -123,12 +131,17 @@ export function FirstRunConductor({ onFinish }: { onFinish: () => void }) {
 
   const handleVerified = React.useCallback(async () => {
     // The auth store is already updated by CodeEntryScreen via setSignedIn.
-    // Persist the email + signin_mode so Settings → Profile can show it.
-    await persistPartial({
-      signin_mode: "email",
-    });
+    // Persist signin_mode so Settings → Profile can show it.
+    await persistPartial({ signin_mode: "email" });
+    // Returning users who completed onboarding previously go straight
+    // back to the app — no need to redo workspace setup. Fresh users
+    // continue through EventKit → workspace → transcriber.
+    if (onboardingCompleted) {
+      onFinish();
+      return;
+    }
     setStep("eventkit");
-  }, [persistPartial]);
+  }, [persistPartial, onboardingCompleted, onFinish]);
 
   const handleGrantCalendar = React.useCallback(async () => {
     try {

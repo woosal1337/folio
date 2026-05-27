@@ -63,14 +63,23 @@ export default function App() {
     void hydrateAuth();
   }, [loadSettings, hydrateAuth]);
 
-  // Force-login policy: the sidebar + every route is invisible until
-  // the user holds a valid Keychain session. The conductor takes the
-  // full window. Once `signedIn === true`, the normal chrome renders.
+  // Force-login + post-signup setup: the sidebar + every route is
+  // invisible until BOTH the user holds a valid Keychain session AND
+  // `onboarding_completed` is true on disk. The conductor takes the
+  // full window for either case — signed-out users sign in; freshly-
+  // signed-in users finish workspace setup (EventKit → workspace
+  // name → bucket → invite teammates → transcriber → "I'm ready").
+  // Only after the conductor flips `onboarding_completed` does the
+  // main chrome render.
   const authHydrated = useAuthStore((s) => s.hydrated);
   const signedIn = useAuthStore((s) => s.signedIn);
+  const settingsHydrated = useSettingsStore((s) => s.settings !== null);
+  const onboardingCompleted = useSettingsStore(
+    (s) => s.settings?.onboarding_completed ?? false,
+  );
   const reloadSettings = useSettingsStore((s) => s.load);
 
-  if (!authHydrated) {
+  if (!authHydrated || !settingsHydrated) {
     return (
       <ErrorBoundary>
         <div
@@ -83,7 +92,7 @@ export default function App() {
       </ErrorBoundary>
     );
   }
-  if (!signedIn) {
+  if (!signedIn || !onboardingCompleted) {
     return (
       <ErrorBoundary>
         {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions -- Tauri drag-region root, same pattern as the signed-in shell below. */}
