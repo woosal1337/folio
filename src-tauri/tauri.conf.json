@@ -53,7 +53,10 @@
         "role": "Editor",
         "rank": "Alternate"
       }
-    ]
+    ],
+    "macOS": {
+      "infoPlist": "Info.plist"
+    }
   },
   "plugins": {
     "deep-link": {

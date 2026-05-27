@@ -1,0 +1,19 @@
+/* Attune — German localisation for system permission prompts.
+ * These strings appear inside the native macOS permission dialog.
+ * Keep them factual and single-sentence per Apple HIG. */
+
+"NSMicrophoneUsageDescription" = "Attune transkribiert das Audio deines Meetings auf diesem Mac. Die Aufnahme verlässt das Gerät nicht.";
+
+"NSAudioCaptureUsageDescription" = "Attune erfasst das Audio deiner Meeting-Apps auf diesem Mac, um es lokal zu transkribieren. Die Aufnahme verlässt das Gerät nicht.";
+
+"NSScreenCaptureUsageDescription" = "Attune erfasst das Audio deiner Videokonferenz-App auf diesem Mac. Es wird nur Audio gelesen; der Bildschirminhalt wird nicht gespeichert.";
+
+"NSCalendarsUsageDescription" = "Attune liest deinen Kalender, um Personen vorzuschlagen, mit denen du dich triffst, und um zu erkennen, wann Meetings beginnen. Kalenderdaten bleiben auf deinem Mac.";
+
+"NSContactsUsageDescription" = "Attune liest deine Kontakte, um vorzuschlagen, wen du in deinen Workspace einladen kannst. Kontakte bleiben auf deinem Mac.";
+
+"NSRemindersUsageDescription" = "Attune schreibt Aufgaben aus Meetings in eine von dir gewählte Erinnerungs-Liste. Erinnerungen bleiben in deinem iCloud-Konto, nicht auf Attunes Servern.";
+
+"NSAppleEventsUsageDescription" = "Attune koordiniert mit Systemereignissen, um zu erkennen, wann deine Videokonferenz-App einen Anruf startet, und bietet an, ihn aufzunehmen.";
+
+"NSLocationWhenInUseUsageDescription" = "Attune verwendet deinen Standort nicht.";

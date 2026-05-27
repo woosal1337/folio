@@ -1,0 +1,39 @@
+name = "attune-backend"
+main = "src/index.ts"
+compatibility_date = "2026-01-15"
+compatibility_flags = ["nodejs_compat"]
+
+# D1 binding — see src/db/schema.sql for the schema migration.
+# Create with: wrangler d1 create attune-db
+# Then paste the database_id below.
+[[d1_databases]]
+binding = "DB"
+database_name = "attune-db"
+database_id = "REPLACE_AFTER_D1_CREATE"
+migrations_dir = "src/db/migrations"
+
+# KV for ephemeral session + OAuth state storage (24h TTL on entries).
+# Create with: wrangler kv:namespace create SESSIONS
+[[kv_namespaces]]
+binding = "SESSIONS"
+id = "REPLACE_AFTER_KV_CREATE"
+
+# Production deployment — api.attune.app.
+[env.production]
+routes = [
+  { pattern = "api.attune.app/*", zone_name = "attune.app" },
+]
+
+# Staging deployment — api-staging.attune.app.
+[env.staging]
+routes = [
+  { pattern = "api-staging.attune.app/*", zone_name = "attune.app" },
+]
+
+# Vars (non-secret). Secrets via `wrangler secret put`.
+[vars]
+NPPES_API_BASE = "https://npiregistry.cms.hhs.gov/api/"
+APP_DEEP_LINK_SCHEME = "attune"
+JWT_ISSUER = "https://api.attune.app"
+JWT_AUDIENCE = "com.attune.app"
+SESSION_TTL_DAYS = "7"

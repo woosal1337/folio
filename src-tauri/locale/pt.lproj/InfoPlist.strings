@@ -1,0 +1,17 @@
+/* Attune — Portuguese localisation for system permission prompts. */
+
+"NSMicrophoneUsageDescription" = "O Attune transcreve o áudio da sua reunião neste Mac. A gravação nunca sai do dispositivo.";
+
+"NSAudioCaptureUsageDescription" = "O Attune captura o áudio dos seus aplicativos de reunião neste Mac para transcrevê-lo localmente. A gravação nunca sai do dispositivo.";
+
+"NSScreenCaptureUsageDescription" = "O Attune captura o áudio do seu aplicativo de videoconferência neste Mac. Apenas o áudio é lido; o conteúdo da tela não é armazenado.";
+
+"NSCalendarsUsageDescription" = "O Attune lê seu calendário para sugerir as pessoas com quem você se reúne e detectar quando as reuniões começam. Os dados do calendário permanecem no seu Mac.";
+
+"NSContactsUsageDescription" = "O Attune lê seus contatos para sugerir quem convidar para o seu espaço de trabalho. Os contatos permanecem no seu Mac.";
+
+"NSRemindersUsageDescription" = "O Attune escreve os itens de ação das reuniões em uma lista de Lembretes que você escolher. Os lembretes ficam na sua conta iCloud, não nos servidores do Attune.";
+
+"NSAppleEventsUsageDescription" = "O Attune se coordena com eventos do sistema para detectar quando seu aplicativo de videoconferência inicia uma chamada e oferecer captura.";
+
+"NSLocationWhenInUseUsageDescription" = "O Attune não usa sua localização.";

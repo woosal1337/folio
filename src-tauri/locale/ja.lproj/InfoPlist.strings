@@ -1,0 +1,17 @@
+/* Attune — Japanese localisation for system permission prompts. */
+
+"NSMicrophoneUsageDescription" = "Attune はこの Mac でミーティングの音声を文字起こしします。録音はこのデバイスから外部に送信されません。";
+
+"NSAudioCaptureUsageDescription" = "Attune はローカルで文字起こしするため、この Mac のミーティングアプリの音声を取得します。録音はこのデバイスから外部に送信されません。";
+
+"NSScreenCaptureUsageDescription" = "Attune はこの Mac のビデオ会議アプリの音声を取得します。読み取るのは音声のみで、画面の内容は保存しません。";
+
+"NSCalendarsUsageDescription" = "Attune は、ミーティング相手の候補を提案し、ミーティングの開始を検出するためにカレンダーを読み取ります。カレンダーのデータは Mac 内に保持されます。";
+
+"NSContactsUsageDescription" = "Attune は、ワークスペースに誰を招待するかを提案するために連絡先を読み取ります。連絡先は Mac 内に保持されます。";
+
+"NSRemindersUsageDescription" = "Attune は、ミーティングのアクションアイテムを選択したリマインダーリストに書き出します。リマインダーは iCloud アカウントに保持され、Attune のサーバーには保存されません。";
+
+"NSAppleEventsUsageDescription" = "Attune は、ビデオ会議アプリが通話を開始したことを検出し、録音を提案するためにシステムイベントと連携します。";
+
+"NSLocationWhenInUseUsageDescription" = "Attune は位置情報を使用しません。";

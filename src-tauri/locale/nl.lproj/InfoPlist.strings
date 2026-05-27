@@ -1,0 +1,17 @@
+/* Attune — Dutch localisation for system permission prompts. */
+
+"NSMicrophoneUsageDescription" = "Attune transcribeert de audio van je vergadering op deze Mac. De opname verlaat het apparaat nooit.";
+
+"NSAudioCaptureUsageDescription" = "Attune legt de audio van je vergaderapps op deze Mac vast om deze lokaal te transcriberen. De opname verlaat het apparaat nooit.";
+
+"NSScreenCaptureUsageDescription" = "Attune legt de audio van je videoconferentie-app op deze Mac vast. Alleen de audio wordt gelezen; de schermconinhoud wordt niet opgeslagen.";
+
+"NSCalendarsUsageDescription" = "Attune leest je agenda om mensen met wie je vergadert voor te stellen en te detecteren wanneer vergaderingen beginnen. Agendagegevens blijven op je Mac.";
+
+"NSContactsUsageDescription" = "Attune leest je contacten om voor te stellen wie je voor je werkruimte kunt uitnodigen. Contacten blijven op je Mac.";
+
+"NSRemindersUsageDescription" = "Attune schrijft actiepunten uit vergaderingen naar een door jou gekozen Herinneringen-lijst. Herinneringen blijven in je iCloud-account, niet op de servers van Attune.";
+
+"NSAppleEventsUsageDescription" = "Attune coördineert met systeemgebeurtenissen om te detecteren wanneer je videoconferentie-app een gesprek start, en biedt aan dit op te nemen.";
+
+"NSLocationWhenInUseUsageDescription" = "Attune gebruikt je locatie niet.";
