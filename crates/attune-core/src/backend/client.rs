@@ -26,9 +26,15 @@ use tracing::{debug, warn};
 use crate::backend::tokens::TokenStore;
 use crate::backend::types::{Envelope, ErrorBody, RefreshRequest, RefreshResponse};
 
-/// Production base URL. Override at runtime via the `ATTUNE_API_BASE_URL`
-/// env var so dev / staging builds can point at a local FastAPI.
-const DEFAULT_BASE_URL: &str = "https://attune.chele.bi";
+/// Production base URL. Used when the binary is built in `--release`
+/// mode and no `ATTUNE_API_BASE_URL` env var is set.
+const PROD_BASE_URL: &str = "https://attune.chele.bi";
+
+/// Dev base URL. Used automatically by `cargo build` / `bun tauri dev`
+/// debug builds so the client talks to the local Docker stack out of
+/// the box. Override via `ATTUNE_API_BASE_URL` if your local API
+/// binds to a non-default port.
+const DEV_BASE_URL: &str = "http://localhost:8000";
 
 /// Total request timeout. Generous because the OTP-email path can
 /// stall on slow SMTP providers.
@@ -48,7 +54,7 @@ pub struct BackendClient {
 impl BackendClient {
     pub fn new() -> Self {
         let base_url = std::env::var("ATTUNE_API_BASE_URL")
-            .unwrap_or_else(|_| DEFAULT_BASE_URL.to_string())
+            .unwrap_or_else(|_| default_base_url().to_string())
             .trim_end_matches('/')
             .to_string();
         let http = Client::builder()
@@ -237,6 +243,18 @@ impl BackendClient {
 impl Default for BackendClient {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+/// Choose the default backend URL based on the build profile.
+/// Debug builds (`bun tauri dev`, `cargo run`) point at the local
+/// Docker stack; release builds point at the production cloud.
+/// The `ATTUNE_API_BASE_URL` env var overrides either path.
+fn default_base_url() -> &'static str {
+    if cfg!(debug_assertions) {
+        DEV_BASE_URL
+    } else {
+        PROD_BASE_URL
     }
 }
 
