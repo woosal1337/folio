@@ -1,23 +1,16 @@
 /**
  * GET-129 — Workspace segmentation.
  *
- * Four cards: Founder / Clinical / Sales / Education. Selecting
- * Clinical sets `workspace_bucket = "clinical"` and triggers the
- * Sprint 3 GET-130 license-verification flow downstream.
+ * Four cards: Founder / Healthcare / Sales / Education. The bucket
+ * is a free-text label used to tune templates and terminology in
+ * summaries. It has no privacy, encryption, or verification side
+ * effects — Attune is a general transcription app, and any
+ * vertical-specific gating (e.g. clinical license verification)
+ * has been deferred (see Linear GET-130).
  *
- * Tony: 2×2 SF-Symbol-style grid, equal-weight cards. No "primary"
+ * Tony: 2x2 SF-Symbol-style grid, equal-weight cards. No "primary"
  * suggestion — the question is genuinely about the user, not a
  * sales funnel.
- *
- * Sasha: the bucket choice is only used to tune defaults
- * (terminology in summaries, the default privacy tier for Clinical,
- * whether to surface the license-verification prompt). It is not
- * sent to analytics; it persists locally and is read by the rest of
- * the onboarding flow.
- *
- * Mira: Clinical pre-selects Tier-2 (Bitwarden ZKE) when the privacy
- * settings land in Sprint 3 — but we do not enforce that here. This
- * screen just captures the segment.
  */
 
 import * as React from "react";
@@ -26,7 +19,7 @@ import { Rocket, Stethoscope, TrendingUp, GraduationCap } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import { cn } from "@/shared/lib/utils";
 
-type Bucket = "founder" | "clinical" | "sales" | "education";
+type Bucket = "founder" | "healthcare" | "sales" | "education";
 
 interface BucketCard {
   id: Bucket;
@@ -43,10 +36,10 @@ const BUCKETS: BucketCard[] = [
     tagline: "Investor calls, hiring, customer interviews.",
   },
   {
-    id: "clinical",
+    id: "healthcare",
     icon: Stethoscope,
-    label: "Clinical",
-    tagline: "Therapy, medical, BAA-free privacy mode by default.",
+    label: "Healthcare",
+    tagline: "Patient consults, therapy notes, medical interviews.",
   },
   {
     id: "sales",
