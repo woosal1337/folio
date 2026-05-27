@@ -28,6 +28,8 @@ import {
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
+import { authLogout } from "@/shared/lib/ipc";
+import { useAuthStore } from "@/shared/stores/auth-store";
 import type { Settings } from "@/shared/types/Settings";
 
 interface SectionProfileProps {
@@ -51,10 +53,28 @@ const LANGUAGE_OPTIONS: { value: string; label: string }[] = [
 ];
 
 export function SectionProfile({ settings, onChange }: SectionProfileProps) {
-  // Stub for v1 — these fields will be backed by attune-api `/users/me`
-  // once signup ships (GET-127). For now, they're locally cached so
-  // the user can set their display name before backend identity lands.
-  const [displayName, setDisplayName] = React.useState("");
+  // Identity is sourced from the Keychain-cached `UserIdentity` blob
+  // (written on OTP verify, cleared on logout). The display-name
+  // input still mirrors a local-only string until we wire
+  // PATCH /api/account on save.
+  const identity = useAuthStore((s) => s.identity);
+  const clearAuth = useAuthStore((s) => s.clear);
+  const [displayName, setDisplayName] = React.useState(
+    identity?.display_name ?? "",
+  );
+
+  React.useEffect(() => {
+    setDisplayName(identity?.display_name ?? "");
+  }, [identity?.display_name]);
+
+  const handleSignOut = async () => {
+    try {
+      await authLogout();
+    } catch (e) {
+      console.error("logout:", e);
+    }
+    clearAuth();
+  };
 
   return (
     <section className="space-y-7">
@@ -78,11 +98,13 @@ export function SectionProfile({ settings, onChange }: SectionProfileProps) {
         <FieldRow
           icon={Mail}
           title="Email"
-          description="Set once you sign in. Becomes the workspace's primary owner."
+          description="The address you signed in with. Becomes the workspace's primary owner."
         >
-          <p className="text-sm italic text-muted-foreground">
-            Sign in to set
-          </p>
+          {identity?.email ? (
+            <p className="font-mono text-sm text-foreground">{identity.email}</p>
+          ) : (
+            <p className="text-sm italic text-muted-foreground">Not signed in</p>
+          )}
         </FieldRow>
         <FieldRow
           icon={LanguagesIcon}
@@ -102,6 +124,30 @@ export function SectionProfile({ settings, onChange }: SectionProfileProps) {
           </select>
         </FieldRow>
       </Group>
+
+      {identity ? (
+        <Group title="Session">
+          <div className="flex items-center justify-between gap-4 rounded-md border border-border bg-card p-3">
+            <div className="min-w-0 flex-1 space-y-0.5">
+              <p className="text-sm font-medium">Sign out</p>
+              <p className="text-xs text-muted-foreground">
+                Clears tokens from this Mac&apos;s Keychain. You&apos;ll need to
+                sign back in to use Attune.
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleSignOut}
+              className="shrink-0 gap-1.5 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              Sign out
+            </Button>
+          </div>
+        </Group>
+      ) : null}
 
       <Group title="Get help">
         <HelpLink
