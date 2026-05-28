@@ -119,6 +119,16 @@ export function stopRecording(): Promise<RecordingResult> {
   return call<RecordingResult>("stop_recording");
 }
 
+/** Pause capture, keeping the note open for a Resume (GET-149). */
+export function pauseRecording(): Promise<RecordingStatus> {
+  return call<RecordingStatus>("pause_recording");
+}
+
+/** Resume a paused note, continuing capture into the same note (GET-149). */
+export function resumeRecording(): Promise<RecordingStatus> {
+  return call<RecordingStatus>("resume_recording");
+}
+
 // ---- Library ------------------------------------------------------------
 
 export function listRecordings(): Promise<RecordingSummary[]> {

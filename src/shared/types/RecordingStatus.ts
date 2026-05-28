@@ -9,4 +9,9 @@ export type RecordingStatus = { recording: boolean, elapsed_secs: bigint, channe
  * notes editor (GET-145) can autosave into it mid-recording. None
  * when idle.
  */
-session_dir: string | null, };
+session_dir: string | null,
+/**
+ * True when a note is open but capture is paused (GET-149): no
+ * active session, but a Resume will continue into the same note.
+ */
+paused: boolean, };

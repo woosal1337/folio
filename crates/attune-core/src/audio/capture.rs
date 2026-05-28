@@ -125,6 +125,9 @@ pub struct RecordingStatus {
     /// notes editor (GET-145) can autosave into it mid-recording. None
     /// when idle.
     pub session_dir: Option<String>,
+    /// True when a note is open but capture is paused (GET-149): no
+    /// active session, but a Resume will continue into the same note.
+    pub paused: bool,
 }
 
 /// Result of [`CaptureSession::stop`] in a form ready to hand to the UI:
@@ -141,11 +144,19 @@ impl CaptureSession {
     /// Start a new capture session. Creates the timestamped output directory,
     /// opens WAV writers, and begins streaming audio from the enabled sources.
     pub fn start(config: CaptureConfig) -> Result<Self> {
-        let started_at = SystemTime::now();
-        let started_at_dt: DateTime<Utc> = started_at.into();
+        let started_at_dt: DateTime<Utc> = SystemTime::now().into();
         let session_dir = config
             .output_dir
             .join(started_at_dt.format("%Y-%m-%d-%H-%M-%S").to_string());
+        Self::start_in(config, session_dir)
+    }
+
+    /// Start a capture session writing `mic.wav` / `system.wav` into an
+    /// explicit directory rather than a fresh timestamped one. Used by
+    /// the pause/resume flow (GET-149) to capture a continuation part
+    /// into a per-part subdirectory of the same note.
+    pub fn start_in(config: CaptureConfig, session_dir: PathBuf) -> Result<Self> {
+        let started_at_dt: DateTime<Utc> = SystemTime::now().into();
         std::fs::create_dir_all(&session_dir)?;
         info!(dir = %session_dir.display(), "capture session started");
 

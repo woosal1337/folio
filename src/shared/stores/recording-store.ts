@@ -20,6 +20,8 @@ import {
   setTrayRecording as ipcSetTrayRecording,
   startRecording as ipcStart,
   stopRecording as ipcStop,
+  pauseRecording as ipcPause,
+  resumeRecording as ipcResume,
   transcribeRecording as ipcTranscribe,
   runVad as ipcRunVad,
 } from "@/shared/lib/ipc";
@@ -34,6 +36,8 @@ import { useTasksStore } from "@/shared/stores/tasks-store";
 
 interface RecordingState {
   recording: boolean;
+  /** GET-149: a note is open but capture is paused (not recording). */
+  paused: boolean;
   /** Wall-clock ms when the current session started, or null if idle. */
   startedAt: number | null;
   /** Whole-seconds elapsed in the current session. */
@@ -75,6 +79,10 @@ interface RecordingState {
   start: () => Promise<void>;
   /** Stop the current recording session. Auto-transcribes if configured. */
   stop: () => Promise<void>;
+  /** Pause capture, keeping the note open (GET-149). */
+  pause: () => Promise<void>;
+  /** Resume a paused note, continuing capture (GET-149). */
+  resume: () => Promise<void>;
   /** Transcribe an existing session on demand. */
   transcribe: (sessionDir: string) => Promise<void>;
 }
@@ -434,6 +442,7 @@ export const useRecording = create<RecordingState>((set, get) => {
 
   return {
     recording: false,
+    paused: false,
     startedAt: null,
     elapsed: 0,
     channels: [],
@@ -450,9 +459,24 @@ export const useRecording = create<RecordingState>((set, get) => {
     syncFromBackend: async () => {
       try {
         const status = await fetchStatus();
-        if (!status.recording) return;
+        // GET-149: adopt a paused note (a note is open but not capturing)
+        // so a window reload mid-pause still shows Resume + the editor.
+        if (!status.recording) {
+          if (status.paused) {
+            set({
+              recording: false,
+              paused: true,
+              startedAt: null,
+              elapsed: Number(status.elapsed_secs),
+              channels: [],
+              liveSessionDir: status.session_dir,
+            });
+          }
+          return;
+        }
         set({
           recording: true,
+          paused: false,
           startedAt: Date.now() - Number(status.elapsed_secs) * 1000,
           elapsed: Number(status.elapsed_secs),
           channels: status.channels,
@@ -477,6 +501,7 @@ export const useRecording = create<RecordingState>((set, get) => {
         const status = await ipcStart();
         set({
           recording: true,
+          paused: false,
           startedAt: Date.now(),
           elapsed: 0,
           channels: status.channels,
@@ -514,6 +539,7 @@ export const useRecording = create<RecordingState>((set, get) => {
         clearTicker();
         set({
           recording: false,
+          paused: false,
           startedAt: null,
           elapsed: 0,
           channels: [],
@@ -556,6 +582,57 @@ export const useRecording = create<RecordingState>((set, get) => {
             void runTranscription(sessionDir);
           }
         })();
+      }
+    },
+
+    pause: async () => {
+      set({ busy: true, error: null });
+      try {
+        const status = await ipcPause();
+        clearTicker();
+        void ipcSetTrayRecording(null);
+        set({
+          recording: false,
+          paused: true,
+          startedAt: null,
+          elapsed: Number(status.elapsed_secs),
+          channels: [],
+          liveSessionDir: status.session_dir,
+        });
+        playFeedback("stop");
+      } catch (e) {
+        const message = String(e);
+        set({ error: message });
+        toast.error("Could not pause", { description: message });
+      } finally {
+        set({ busy: false });
+      }
+    },
+
+    resume: async () => {
+      set({ busy: true, error: null });
+      try {
+        const status = await ipcResume();
+        const elapsed = Number(status.elapsed_secs);
+        set({
+          recording: true,
+          paused: false,
+          // Anchor startedAt so the ticker continues from the accumulated
+          // elapsed across the pause gap (monotonic timer).
+          startedAt: Date.now() - elapsed * 1000,
+          elapsed,
+          channels: status.channels,
+          liveSessionDir: status.session_dir,
+        });
+        installTicker();
+        playFeedback("start");
+      } catch (e) {
+        const message = String(e);
+        set({ error: message });
+        playFeedback("error");
+        toast.error("Could not resume", { description: message });
+      } finally {
+        set({ busy: false });
       }
     },
 

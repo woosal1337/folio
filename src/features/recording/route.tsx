@@ -1,5 +1,5 @@
 import * as React from "react";
-import { FileAudio, Loader2, Mic, RefreshCw, Square } from "lucide-react";
+import { FileAudio, Loader2, Mic, Pause, Play, RefreshCw, Square } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/shared/ui/button";
@@ -105,7 +105,11 @@ export default function Record() {
               : "Recording idle"
           }
         >
-          <StatusPill recording={rec.recording} label={elapsedLabel} />
+          <StatusPill
+            recording={rec.recording}
+            paused={rec.paused}
+            label={elapsedLabel}
+          />
           <VoiceProcessingBadge />
         </div>
       </header>
@@ -113,16 +117,50 @@ export default function Record() {
       <Card>
         <CardContent className="flex flex-col items-center gap-4 py-12">
           {rec.recording ? (
-            <Button
-              size="xl"
-              variant="destructive"
-              className="w-full max-w-md gap-3"
-              onClick={rec.stop}
-              disabled={rec.busy}
-            >
-              <Square className="h-5 w-5 fill-current" />
-              Stop recording
-            </Button>
+            <div className="flex w-full max-w-md gap-3">
+              <Button
+                size="xl"
+                variant="destructive"
+                className="flex-1 gap-2"
+                onClick={rec.stop}
+                disabled={rec.busy}
+              >
+                <Square className="h-5 w-5 fill-current" />
+                Stop
+              </Button>
+              <Button
+                size="xl"
+                variant="outline"
+                className="gap-2"
+                onClick={rec.pause}
+                disabled={rec.busy}
+              >
+                <Pause className="h-5 w-5" />
+                Pause
+              </Button>
+            </div>
+          ) : rec.paused ? (
+            <div className="flex w-full max-w-md gap-3">
+              <Button
+                size="xl"
+                className="flex-1 gap-2"
+                onClick={rec.resume}
+                disabled={rec.busy}
+              >
+                <Play className="h-5 w-5 fill-current" />
+                Resume
+              </Button>
+              <Button
+                size="xl"
+                variant="outline"
+                className="gap-2"
+                onClick={rec.stop}
+                disabled={rec.busy}
+              >
+                <Square className="h-5 w-5 fill-current" />
+                Stop
+              </Button>
+            </div>
           ) : (
             <Button
               size="xl"
@@ -138,7 +176,9 @@ export default function Record() {
             <p className="text-xs text-muted-foreground">
               {rec.recording
                 ? `Capturing ${rec.channels.length > 0 ? rec.channels.join(" + ") : "audio"} · transcribes automatically when you stop`
-                : "Mic + system audio in parallel · transcribes automatically when you stop"}
+                : rec.paused
+                  ? "Paused · Resume to continue this note, or Stop to finish"
+                  : "Mic + system audio in parallel · transcribes automatically when you stop"}
             </p>
           )}
           {rec.transcribing && (
@@ -153,7 +193,7 @@ export default function Record() {
           )}
           {rec.error && <p className="text-xs text-destructive">{rec.error}</p>}
 
-          {rec.recording && (
+          {(rec.recording || rec.paused) && (
             <LiveNotesEditor
               sessionDir={rec.liveSessionDir}
               elapsedSeconds={rec.elapsed}

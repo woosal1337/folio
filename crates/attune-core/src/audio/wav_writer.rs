@@ -8,7 +8,62 @@ use std::path::Path;
 use hound::{SampleFormat, WavSpec, WavWriter};
 use parking_lot::Mutex;
 
-use crate::error::Result;
+use crate::error::{AttuneError, Result};
+
+/// Concatenate mono 16-bit PCM WAV `parts`, in order, into `out`.
+///
+/// Used by the pause/resume flow (GET-149) to merge a note's capture
+/// segments into one continuous file on finalize. The output adopts the
+/// sample rate of the first part; parts at a different rate are an error
+/// (all parts of one note share a config, so this should not happen).
+/// Writes to a sibling temp file and renames into place so a crash
+/// mid-merge cannot leave a half-written WAV. Missing parts are skipped.
+pub fn concat_wavs(parts: &[std::path::PathBuf], out: &Path) -> Result<()> {
+    let existing: Vec<&std::path::PathBuf> = parts.iter().filter(|p| p.exists()).collect();
+    if existing.is_empty() {
+        return Err(AttuneError::Storage("concat_wavs: no input parts".into()));
+    }
+
+    let first = hound::WavReader::open(existing[0])
+        .map_err(|e| AttuneError::Storage(format!("open {}: {e}", existing[0].display())))?;
+    let spec = first.spec();
+    drop(first);
+
+    let tmp = out.with_extension("merging.wav");
+    {
+        let mut writer = WavWriter::create(&tmp, spec)
+            .map_err(|e| AttuneError::Storage(format!("create {}: {e}", tmp.display())))?;
+        for part in &existing {
+            let mut reader = hound::WavReader::open(part)
+                .map_err(|e| AttuneError::Storage(format!("open {}: {e}", part.display())))?;
+            if reader.spec().sample_rate != spec.sample_rate {
+                return Err(AttuneError::Storage(format!(
+                    "concat_wavs: {} is {} Hz, expected {} Hz",
+                    part.display(),
+                    reader.spec().sample_rate,
+                    spec.sample_rate
+                )));
+            }
+            for sample in reader.samples::<i16>() {
+                let s = sample.map_err(|e| AttuneError::Storage(format!("read sample: {e}")))?;
+                writer
+                    .write_sample(s)
+                    .map_err(|e| AttuneError::Storage(format!("write sample: {e}")))?;
+            }
+        }
+        writer
+            .finalize()
+            .map_err(|e| AttuneError::Storage(format!("finalize {}: {e}", tmp.display())))?;
+    }
+    std::fs::rename(&tmp, out).map_err(|e| {
+        AttuneError::Storage(format!(
+            "rename {} -> {}: {e}",
+            tmp.display(),
+            out.display()
+        ))
+    })?;
+    Ok(())
+}
 
 /// Thread-safe wrapper around `hound::WavWriter`. Capture callbacks lock,
 /// write, and release per buffer. The lock is contended only between the
@@ -114,6 +169,43 @@ mod tests {
         // 0.5 * 32767 = 16383.5 → 16383 (truncation)
         assert!((samples[2] as i32 - 16_383).abs() <= 1);
         assert!((samples[3] as i32 + 16_383).abs() <= 1);
+    }
+
+    #[test]
+    fn concat_wavs_merges_parts_in_order_and_preserves_rate() {
+        let dir = tempfile::tempdir().unwrap();
+        let p0 = dir.path().join("p0.wav");
+        let p1 = dir.path().join("p1.wav");
+        let out = dir.path().join("merged.wav");
+
+        let w0 = AudioWavWriter::create(&p0, 16_000).unwrap();
+        w0.append(&[0.25_f32; 100]).unwrap();
+        w0.finalize().unwrap();
+        let w1 = AudioWavWriter::create(&p1, 16_000).unwrap();
+        w1.append(&[0.5_f32; 200]).unwrap();
+        w1.finalize().unwrap();
+
+        concat_wavs(&[p0, p1], &out).unwrap();
+
+        let reader = hound::WavReader::open(&out).unwrap();
+        assert_eq!(reader.spec().sample_rate, 16_000);
+        assert_eq!(reader.spec().channels, 1);
+        assert_eq!(reader.len(), 300, "merged length is the sum of parts");
+    }
+
+    #[test]
+    fn concat_wavs_skips_missing_parts() {
+        let dir = tempfile::tempdir().unwrap();
+        let present = dir.path().join("present.wav");
+        let missing = dir.path().join("missing.wav");
+        let out = dir.path().join("out.wav");
+        let w = AudioWavWriter::create(&present, 16_000).unwrap();
+        w.append(&[0.1_f32; 50]).unwrap();
+        w.finalize().unwrap();
+
+        concat_wavs(&[missing, present], &out).unwrap();
+        let reader = hound::WavReader::open(&out).unwrap();
+        assert_eq!(reader.len(), 50);
     }
 
     #[test]
