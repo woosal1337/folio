@@ -702,6 +702,23 @@ export function loadLiveNotes(sessionDir: string): Promise<RawNoteLine[]> {
   return call<RawNoteLine[]>("load_live_notes", { sessionDir });
 }
 
+// ---- Per-note scoped chat (GET-150) ------------------------------
+
+/** One prior turn in a per-note conversation. */
+export interface ChatTurn {
+  role: "user" | "assistant";
+  content: string;
+}
+
+/** Ask a question scoped to a single note's transcript + notes + runs. */
+export function askNote(
+  sessionDir: string,
+  question: string,
+  history: ChatTurn[]
+): Promise<{ answer: string }> {
+  return call<{ answer: string }>("ask_note", { sessionDir, question, history });
+}
+
 /** Label of the webview window this code is running in. Falls back to
  *  "main" outside a Tauri context (e.g. unit tests). */
 export function currentWindowLabel(): string {
