@@ -379,15 +379,8 @@ pub async fn save_transcript(
         let path = canon_target.join(TRANSCRIPT_FILENAME);
         let json = serde_json::to_string_pretty(&transcript)
             .map_err(|e| format!("could not serialize transcript: {e}"))?;
-        let tmp = path.with_extension("json.tmp");
-        std::fs::write(&tmp, json).map_err(|e| {
-            format!(
-                "could not write transcript temp file {}: {e}",
-                tmp.display()
-            )
-        })?;
-        std::fs::rename(&tmp, &path)
-            .map_err(|e| format!("could not finalize transcript file {}: {e}", path.display()))?;
+        attune_core::storage::atomic_write::atomic_write(&path, json.as_bytes())
+            .map_err(|e| format!("could not write transcript file {}: {e}", path.display()))?;
         info!(path = %path.display(), "transcript saved (edited)");
         Ok(path)
     })

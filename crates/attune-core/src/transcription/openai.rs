@@ -94,6 +94,10 @@ impl Transcriber for OpenAiTranscriber {
             }
         }
 
+        let host = crate::cloud_guard::host_of(&self.endpoint).unwrap_or_default();
+        crate::cloud_guard::ensure_allowed(host)
+            .map_err(|e| AttuneError::Transcription(e.to_string()))?;
+
         let client = reqwest::blocking::Client::builder()
             .timeout(REQUEST_TIMEOUT)
             .build()

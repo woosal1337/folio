@@ -70,7 +70,13 @@ pub fn split(pcm: &[f32], config: ChunkerConfig) -> Vec<ChunkRange> {
         let end = if nominal_end == pcm.len() {
             pcm.len()
         } else {
+            // NOTE: the silence-nudge can land on a frame at or before
+            // `start` when the lookback window (silence_lookback_seconds)
+            // is wider than the chunk (small target_seconds). Reject any
+            // candidate that wouldn't advance the cursor, otherwise
+            // `start = end` loops forever. nominal_end is always > start.
             find_silence_split(pcm, nominal_end, lookback_samples, config.silence_rms_floor)
+                .filter(|&e| e > start)
                 .unwrap_or(nominal_end)
         };
         out.push(ChunkRange {

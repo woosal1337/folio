@@ -24,7 +24,7 @@ use tokio::sync::Mutex;
 use tracing::{debug, warn};
 
 use crate::backend::tokens::TokenStore;
-use crate::backend::types::{Envelope, ErrorBody, RefreshRequest, RefreshResponse};
+use crate::backend::types::{ErrorBody, RefreshRequest, RefreshResponse};
 
 /// Production base URL. Used when the binary is built in `--release`
 /// mode and no `ATTUNE_API_BASE_URL` env var is set.
@@ -171,8 +171,6 @@ impl BackendClient {
         self.request::<(), Resp>(Method::DELETE, path, None).await
     }
 
-    // ----- Internals ----------------------------------------------------
-
     fn url(&self, path: &str) -> String {
         let p = path.trim_start_matches('/');
         format!("{}/api/{}", self.base_url, p)
@@ -202,11 +200,10 @@ impl BackendClient {
     async fn refresh(&self) -> Result<String, BackendError> {
         let _guard = self.refresh_lock.lock().await;
 
-        // Re-read after acquiring the lock so two racing callers
-        // converge on the same refreshed token.
-        let current_access = TokenStore::access_token()
-            .map_err(|e| BackendError::Token(e.to_string()))?
-            .unwrap_or_default();
+        // NOTE: re-read the refresh token after acquiring the lock so
+        // two racing 401s converge on whichever token the first
+        // refresh already rotated in, instead of both replaying the
+        // now-stale one.
         let refresh = TokenStore::refresh_token()
             .map_err(|e| BackendError::Token(e.to_string()))?
             .ok_or(BackendError::Unauthorized)?;
@@ -235,7 +232,6 @@ impl BackendClient {
             .map_err(|e| BackendError::Token(e.to_string()))?;
         TokenStore::update_refresh_token(&new.refresh_token)
             .map_err(|e| BackendError::Token(e.to_string()))?;
-        let _ = current_access; // explicit drop of stale value
         Ok(new.access_token)
     }
 }
@@ -258,14 +254,14 @@ fn default_base_url() -> &'static str {
     }
 }
 
-/// Read the cached device id from the keychain identity blob, if any.
-/// The auth refresh endpoint accepts the value primarily for audit;
-/// an empty string is tolerated for first-launch corner cases.
+/// Device id sent on the refresh request. The backend uses it for
+/// session audit only; an empty string is tolerated for first-launch
+/// corner cases, and the access token rotates regardless of which
+/// device-id row the refresh matched.
+///
+// TODO(ege): persist a stable device_id in its own keychain slot and
+// return it here so "manage your devices" can attribute refreshes.
 fn device_id_or_empty() -> String {
-    // Future: store device_id in its own keychain slot. For now we
-    // accept that refresh against a stale device-id row produces a
-    // fresh session — acceptable because the access token rotates
-    // anyway.
     String::new()
 }
 

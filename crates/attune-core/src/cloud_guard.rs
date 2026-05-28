@@ -93,6 +93,15 @@ pub fn host_of(url: &str) -> Option<&str> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Mutex;
+
+    // NOTE: `AIRGAP` is a process-global atomic, so tests that flip it
+    // race each other (and any other test calling `ensure_allowed`)
+    // under cargo's default parallel runner. This mutex serialises the
+    // airgap-mutating tests; each takes the guard for its whole body
+    // and resets the flag before releasing. Tests that only read
+    // (`host_of_*`) don't need it.
+    static AIRGAP_LOCK: Mutex<()> = Mutex::new(());
 
     fn reset() {
         set_airgap(false);
@@ -100,6 +109,7 @@ mod tests {
 
     #[test]
     fn defaults_off_allows_everything() {
+        let _g = AIRGAP_LOCK.lock().unwrap();
         reset();
         assert!(ensure_allowed("api.openai.com").is_ok());
         assert!(ensure_allowed("huggingface.co").is_ok());
@@ -107,6 +117,7 @@ mod tests {
 
     #[test]
     fn airgap_blocks_external_hosts() {
+        let _g = AIRGAP_LOCK.lock().unwrap();
         reset();
         set_airgap(true);
         let err = ensure_allowed("api.openai.com").unwrap_err();
@@ -116,6 +127,7 @@ mod tests {
 
     #[test]
     fn airgap_allows_localhost_variants() {
+        let _g = AIRGAP_LOCK.lock().unwrap();
         reset();
         set_airgap(true);
         for h in [
@@ -147,6 +159,7 @@ mod tests {
 
     #[test]
     fn toggle_is_observable() {
+        let _g = AIRGAP_LOCK.lock().unwrap();
         reset();
         assert!(!is_airgap());
         set_airgap(true);

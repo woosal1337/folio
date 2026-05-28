@@ -27,6 +27,7 @@ pub use openai::OpenAiTranscriber;
 pub use stub::StubTranscriber;
 
 use crate::error::{AttuneError, Result};
+use crate::storage::atomic_write::atomic_write;
 
 /// A timestamped slice of recognised speech.
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
@@ -119,12 +120,7 @@ impl SessionTranscript {
             "{}{ZSTD_SUFFIX}",
             path.extension().and_then(|e| e.to_str()).unwrap_or("json")
         ));
-        std::fs::write(&zst_path, compressed).map_err(|e| {
-            AttuneError::Transcription(format!(
-                "could not write transcript {}: {e}",
-                zst_path.display()
-            ))
-        })?;
+        atomic_write(&zst_path, &compressed)?;
         // Best-effort cleanup of the legacy uncompressed file once the
         // compressed one is on disk. Missing-file is success.
         if zst_path != path && path.exists() {

@@ -40,6 +40,11 @@ pub fn parse_line(line: &str, anchor_seconds: f64) -> Option<LiveNote> {
         Some(("/decision", rest)) => (NoteKind::Decision, rest),
         Some(("/question", rest)) => (NoteKind::Question, rest),
         Some(("/highlight", rest)) => (NoteKind::Highlight, rest),
+        // A bare command keyword with no body (e.g. `/action` after
+        // trimming trailing whitespace) is an empty command — map it
+        // to an empty body so the is_empty() guard below drops it,
+        // rather than treating "/action" as plain note text.
+        None if is_command_keyword(trimmed) => (NoteKind::Plain, ""),
         _ => (NoteKind::Plain, trimmed),
     };
     let text = body.trim();
@@ -51,6 +56,10 @@ pub fn parse_line(line: &str, anchor_seconds: f64) -> Option<LiveNote> {
         kind,
         text: text.to_string(),
     })
+}
+
+fn is_command_keyword(s: &str) -> bool {
+    matches!(s, "/action" | "/decision" | "/question" | "/highlight")
 }
 
 /// Parse a full notes buffer. The caller passes the current

@@ -15,9 +15,8 @@ use attune_core::backend::tokens::TokenStore;
 use attune_core::backend::{BackendClient, UserIdentity};
 use serde::Serialize;
 
-// AuthStatus mirrors the TS shape declared in
-// src/shared/types/AuthStatus.ts (hand-written — too small to be
-// worth wiring through ts-rs).
+/// Boot-time auth probe result. Mirrors the hand-written TS shape in
+/// `src/shared/types/AuthStatus.ts` — too small to wire through ts-rs.
 #[derive(Debug, Clone, Serialize)]
 pub struct AuthStatus {
     pub signed_in: bool,
