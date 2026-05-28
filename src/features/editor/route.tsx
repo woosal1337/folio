@@ -8,9 +8,13 @@ import {
   FolderPlus,
   Loader2,
   MessageCircleQuestion,
+  Mic,
   MoreHorizontal,
+  Pause,
+  Play,
   RefreshCw,
   Sparkles,
+  Square,
   Trash2,
   User as UserIcon,
 } from "lucide-react";
@@ -18,6 +22,7 @@ import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 
 import { AudioPlayer } from "@/features/recording/audio-player";
+import { LiveNotesEditor } from "@/features/recording/live-notes-editor";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
 import { Markdown } from "@/shared/ui/markdown";
@@ -29,7 +34,6 @@ import {
   deleteRecording,
   getRecording,
   listAgentRuns,
-  loadLiveNotes,
   readTranscript,
   revealInFinder,
   runAgent,
@@ -38,7 +42,6 @@ import {
 import { useRecording } from "@/shared/stores/recording-store";
 import { useTranscriberCopy } from "@/shared/hooks/use-transcriber-copy";
 import type { AgentRun } from "@/shared/types/AgentRun";
-import type { RawNoteLine } from "@/shared/types/RawNoteLine";
 import type { RecordingSummary } from "@/shared/types/RecordingSummary";
 import type { SessionTranscript } from "@/shared/types/SessionTranscript";
 
@@ -80,10 +83,11 @@ export default function Editor() {
   const [transcript, setTranscript] = React.useState<SessionTranscript | null>(null);
   const [transcriptLoading, setTranscriptLoading] = React.useState(false);
   const [transcriptError, setTranscriptError] = React.useState<string | null>(null);
-  const [yourNotes, setYourNotes] = React.useState<RawNoteLine[]>([]);
 
   const transcribingDir = useRecording((s) => s.transcribingDir);
   const lastTranscriptPath = useRecording((s) => s.lastTranscriptPath);
+  // Recording-store state for the in-note record dock (GET-155).
+  const recState = useRecording();
 
   // Fetch the RecordingSummary when not provided via router state.
   React.useEffect(() => {
@@ -134,20 +138,6 @@ export default function Editor() {
       setTranscript(null);
     }
   }, [recording, loadTranscript, lastTranscriptPath]);
-
-  // The notes the user typed live during the meeting (GET-145).
-  React.useEffect(() => {
-    if (!recording?.session_dir) return;
-    let cancelled = false;
-    void loadLiveNotes(recording.session_dir)
-      .then((lines) => {
-        if (!cancelled) setYourNotes(lines);
-      })
-      .catch((e) => console.error("load_live_notes:", e));
-    return () => {
-      cancelled = true;
-    };
-  }, [recording?.session_dir]);
 
   // Refresh the recording metadata once a transcription completes.
   React.useEffect(() => {
@@ -324,13 +314,16 @@ export default function Editor() {
     : null;
   const isCurrentlyTranscribing = transcribingDir === recording.session_dir;
   const title = recording.suggested_title?.trim() || recording.label;
-  const yourNotesText = yourNotes
-    .map((l) => l.text)
-    .join("\n")
-    .trim();
+  const hasAudio = recording.mic_bytes !== null || recording.system_bytes !== null;
+  // Record-dock state (GET-155): is THIS note the active capture?
+  const isThisActive = recState.liveSessionDir === recording.session_dir;
+  const isRecordingThis = recState.recording && isThisActive;
+  const isPausedThis = recState.paused && isThisActive;
+  const otherActive = (recState.recording || recState.paused) && !isThisActive;
+  const dockElapsedLabel = formatElapsed(recState.elapsed);
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-8 py-8">
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-8 py-8 pb-28">
       {/* Header: back + ⋯ */}
       <div data-drag="" className="flex select-none items-center justify-between">
         <Link
@@ -407,7 +400,7 @@ export default function Editor() {
         </div>
       </div>
 
-      {/* No transcript / transcribing states */}
+      {/* Transcribing / transcribe-now (only when there's audio) */}
       {isCurrentlyTranscribing ? (
         <div
           className="flex items-center gap-2 text-sm text-muted-foreground"
@@ -417,11 +410,11 @@ export default function Editor() {
           <Loader2 className="h-4 w-4 animate-spin" />
           <span>{transcriber.progressLabel}</span>
         </div>
-      ) : !recording.has_transcript ? (
+      ) : hasAudio && !recording.has_transcript ? (
         <div className="flex flex-col items-start gap-3 rounded-lg border border-dashed border-border bg-card/40 px-4 py-6">
           <div className="flex items-center gap-2">
             <FileText className="h-4 w-4 text-muted-foreground" />
-            <p className="text-sm">No transcript yet for this note.</p>
+            <p className="text-sm">This note has audio but no transcript yet.</p>
           </div>
           <Button onClick={handleTranscribe} className="gap-2">
             <Sparkles className="h-3.5 w-3.5" />
@@ -431,15 +424,14 @@ export default function Editor() {
         </div>
       ) : null}
 
-      {/* Your notes (what you typed live) */}
-      {yourNotesText ? (
-        <section className="space-y-2">
-          <SectionLabel>Your notes</SectionLabel>
-          <div className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
-            {yourNotesText}
-          </div>
-        </section>
-      ) : null}
+      {/* Your notes — editable; autosaves to the note dir (GET-145/155) */}
+      <section className="space-y-2">
+        <SectionLabel>Your notes</SectionLabel>
+        <LiveNotesEditor
+          sessionDir={recording.session_dir}
+          elapsedSeconds={isRecordingThis ? recState.elapsed : 0}
+        />
+      </section>
 
       {/* Enhanced notes (the structured summary) */}
       {summaryRun ? (
@@ -517,6 +509,19 @@ export default function Editor() {
         </Disclosure>
       ) : null}
 
+      {/* Docked record panel (GET-155) — sticky to the bottom of the note */}
+      <RecordDock
+        recordingThis={isRecordingThis}
+        pausedThis={isPausedThis}
+        otherActive={otherActive}
+        elapsedLabel={dockElapsedLabel}
+        busy={recState.busy}
+        onRecord={() => void recState.start(recording.session_dir)}
+        onStop={() => void recState.stop()}
+        onPause={() => void recState.pause()}
+        onResume={() => void recState.resume()}
+      />
+
       <NoteChat
         sessionDir={recording.session_dir}
         open={chatOpen}
@@ -524,6 +529,108 @@ export default function Editor() {
       />
     </div>
   );
+}
+
+/** Sticky bottom record control for a note (GET-155). Live transcript
+ *  streaming isn't available (Attune transcribes on stop), so the dock
+ *  surfaces capture controls + status; the transcript lands in the
+ *  "Transcript & audio" disclosure after Stop. */
+function RecordDock({
+  recordingThis,
+  pausedThis,
+  otherActive,
+  elapsedLabel,
+  busy,
+  onRecord,
+  onStop,
+  onPause,
+  onResume,
+}: {
+  recordingThis: boolean;
+  pausedThis: boolean;
+  otherActive: boolean;
+  elapsedLabel: string;
+  busy: boolean;
+  onRecord: () => void;
+  onStop: () => void;
+  onPause: () => void;
+  onResume: () => void;
+}) {
+  return (
+    <div className="pointer-events-none sticky bottom-4 z-10 mt-2 flex justify-center">
+      <div className="pointer-events-auto flex items-center gap-2 rounded-full border border-border bg-popover/95 px-3 py-2 shadow-lg backdrop-blur">
+        {recordingThis ? (
+          <>
+            <span className="flex items-center gap-1.5 px-1 font-mono text-sm tabular-nums">
+              <span className="h-2 w-2 animate-pulse-record rounded-full bg-destructive" />
+              {elapsedLabel}
+            </span>
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5"
+              onClick={onPause}
+              disabled={busy}
+            >
+              <Pause className="h-3.5 w-3.5" />
+              Pause
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              className="gap-1.5"
+              onClick={onStop}
+              disabled={busy}
+            >
+              <Square className="h-3.5 w-3.5 fill-current" />
+              Stop
+            </Button>
+          </>
+        ) : pausedThis ? (
+          <>
+            <span className="flex items-center gap-1.5 px-1 font-mono text-sm tabular-nums text-muted-foreground">
+              <span className="h-2 w-2 rounded-full bg-amber-500" />
+              {elapsedLabel} paused
+            </span>
+            <Button size="sm" className="gap-1.5" onClick={onResume} disabled={busy}>
+              <Play className="h-3.5 w-3.5 fill-current" />
+              Resume
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              className="gap-1.5"
+              onClick={onStop}
+              disabled={busy}
+            >
+              <Square className="h-3.5 w-3.5 fill-current" />
+              Stop
+            </Button>
+          </>
+        ) : (
+          <Button
+            size="sm"
+            className="gap-1.5"
+            onClick={onRecord}
+            disabled={busy || otherActive}
+            title={
+              otherActive ? "Another recording is in progress" : "Record into this note"
+            }
+          >
+            <Mic className="h-3.5 w-3.5" />
+            {otherActive ? "Recording elsewhere" : "Record"}
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function formatElapsed(secs: number): string {
+  const s = Math.max(0, Math.floor(secs));
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  return `${m}:${r.toString().padStart(2, "0")}`;
 }
 
 // ---- Small building blocks ---------------------------------------------

@@ -18,7 +18,6 @@ import { verbSource } from "@/shared/lib/command-palette";
 // and the Settings modal each ride into their own chunk and only
 // arrive when the user navigates to them. The static fallback below
 // renders a near-empty frame so the route swap stays visually quiet.
-const Record = React.lazy(() => import("@/features/recording/route"));
 const Home = React.lazy(() => import("@/features/home/route"));
 const Chat = React.lazy(() => import("@/features/chat/route"));
 const MeetingHud = React.lazy(() => import("@/features/meeting-hud/route"));
@@ -48,6 +47,7 @@ import { useAuthStore } from "@/shared/stores/auth-store";
 import { useSettingsStore } from "@/shared/stores/settings-store";
 import { useSettingsUiStore } from "@/shared/stores/settings-ui-store";
 import { MEETING_HUD_WINDOW_LABEL, currentWindowLabel } from "@/shared/lib/ipc";
+import { useTakeNotes } from "@/shared/hooks/use-take-notes";
 
 export default function App() {
   // The meeting-detection HUD (GET-143) is a separate frameless window.
@@ -162,7 +162,8 @@ function MainApp() {
                 <Routes>
                   <Route path="/" element={<Home />} />
                   <Route path="/chat" element={<Chat />} />
-                  <Route path="/record" element={<Record />} />
+                  {/* /record retired (GET-155): recording is a note dock now */}
+                  <Route path="/record" element={<Navigate to="/" replace />} />
                   <Route path="/library" element={<Library />} />
                   <Route path="/editor" element={<Navigate to="/library" replace />} />
                   <Route path="/editor/:label" element={<Editor />} />
@@ -221,10 +222,11 @@ function PaletteHost({
   onOpenCheatsheet: () => void;
 }) {
   const navigate = useNavigate();
+  const takeNotes = useTakeNotes();
   const sources = React.useMemo(
     () => [
       verbSource({
-        startRecording: () => navigate("/record"),
+        startRecording: takeNotes,
         openChat: () => navigate("/chat"),
         openInbox: () => navigate("/inbox"),
         openLibrary: () => navigate("/library"),
@@ -234,7 +236,7 @@ function PaletteHost({
         openCheatsheet: onOpenCheatsheet,
       }),
     ],
-    [navigate, onOpenPreferences, onOpenCheatsheet]
+    [navigate, takeNotes, onOpenPreferences, onOpenCheatsheet]
   );
   return <CommandPalette open={open} onClose={onClose} sources={sources} />;
 }

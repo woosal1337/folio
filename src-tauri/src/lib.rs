@@ -75,6 +75,7 @@ pub fn run() {
             commands::settings::get_settings,
             commands::settings::save_settings,
             commands::recording::recording_status,
+            commands::recording::create_note,
             commands::recording::start_recording,
             commands::recording::stop_recording,
             commands::recording::pause_recording,

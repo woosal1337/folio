@@ -1,11 +1,13 @@
 //! Recording lifecycle: start, stop, pause, resume, and poll the
 //! current capture session.
 
+use std::path::PathBuf;
 use std::time::Instant;
 
 use attune_core::audio::{
     concat_wavs, CaptureArtifacts, CaptureConfig, CaptureSession, RecordingResult, RecordingStatus,
 };
+use attune_core::storage::RecordingSummary;
 use tauri::State;
 use tracing::{debug, info};
 
@@ -33,12 +35,53 @@ fn capture_config(state: &AppState) -> CaptureConfig {
     }
 }
 
+/// Create an empty note (GET-155): a timestamped session directory the
+/// user can write notes into before — or without — recording. Writes a
+/// `live_notes.json` marker so the note shows up in the library and
+/// opens in the editor even with no audio. Returns its summary.
+#[tauri::command]
+pub async fn create_note(state: State<'_, AppState>) -> Result<RecordingSummary, String> {
+    let output_dir = state.settings.lock().output_dir.clone();
+    tauri::async_runtime::spawn_blocking(move || -> Result<RecordingSummary, String> {
+        let label = chrono::Local::now().format("%Y-%m-%d-%H-%M-%S").to_string();
+        let dir = output_dir.join(&label);
+        std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+        attune_core::storage::atomic_write::atomic_write(&dir.join("live_notes.json"), b"[]")
+            .map_err(|e| e.to_string())?;
+        info!(dir = %dir.display(), "created empty note");
+        Ok(RecordingSummary {
+            session_dir: dir,
+            label,
+            duration_seconds: 0,
+            mic_bytes: None,
+            system_bytes: None,
+            mic_sample_rate: None,
+            system_sample_rate: None,
+            created_at: Some(chrono::Utc::now()),
+            has_transcript: false,
+            suggested_title: None,
+            suggested_tags: Vec::new(),
+            suggested_subtitle: None,
+            language_override: None,
+        })
+    })
+    .await
+    .map_err(|e| format!("create_note task panicked: {e}"))?
+}
+
 /// Start a new capture session. Building the cpal stream and the
 /// ScreenCaptureKit pipeline takes real OS calls; we run that work on
 /// a blocking task so the Tauri command runtime is free to dispatch
 /// other commands in the meantime.
+///
+/// When `session_dir` is given (GET-155, note-first recording) the
+/// capture writes into that existing note's directory instead of a
+/// fresh timestamped one, so recording attaches to the open note.
 #[tauri::command]
-pub async fn start_recording(state: State<'_, AppState>) -> Result<RecordingStatus, String> {
+pub async fn start_recording(
+    state: State<'_, AppState>,
+    session_dir: Option<String>,
+) -> Result<RecordingStatus, String> {
     if state.session.lock().is_some() {
         return Err("already recording".into());
     }
@@ -51,13 +94,17 @@ pub async fn start_recording(state: State<'_, AppState>) -> Result<RecordingStat
         system = config.system_enabled,
         voice_processing = config.voice_processing_enabled,
         output = %config.output_dir.display(),
+        into = ?session_dir,
         "starting capture"
     );
 
-    let session = tauri::async_runtime::spawn_blocking(move || CaptureSession::start(config))
-        .await
-        .map_err(|e| format!("start_recording task panicked: {e}"))?
-        .map_err(|e| e.to_string())?;
+    let session = tauri::async_runtime::spawn_blocking(move || match session_dir {
+        Some(dir) => CaptureSession::start_in(config, PathBuf::from(dir)),
+        None => CaptureSession::start(config),
+    })
+    .await
+    .map_err(|e| format!("start_recording task panicked: {e}"))?
+    .map_err(|e| e.to_string())?;
 
     let channels = session.channels_active();
     if channels.is_empty() {

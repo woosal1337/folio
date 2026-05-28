@@ -19,7 +19,7 @@ import { CalendarClock, FileAudio, Mic, Plus } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent } from "@/shared/ui/card";
 import { listRecordings } from "@/shared/lib/ipc";
-import { useTakeNotes } from "@/shared/hooks/use-take-notes";
+import { useQuickNote, useTakeNotes } from "@/shared/hooks/use-take-notes";
 import type { RecordingSummary } from "@/shared/types/RecordingSummary";
 
 type Group = "Today" | "Yesterday" | "Earlier";
@@ -47,6 +47,7 @@ function timeLabel(createdAt: string | null): string {
 export default function Home() {
   const navigate = useNavigate();
   const takeNotes = useTakeNotes();
+  const quickNote = useQuickNote();
   const [recordings, setRecordings] = React.useState<RecordingSummary[]>([]);
   const [loading, setLoading] = React.useState(true);
 
@@ -95,7 +96,7 @@ export default function Home() {
             {`What's coming up, and the notes you've taken.`}
           </p>
         </div>
-        <Button variant="outline" className="gap-2" onClick={takeNotes}>
+        <Button variant="outline" className="gap-2" onClick={quickNote}>
           <Plus className="h-4 w-4" />
           Quick note
         </Button>
