@@ -46,6 +46,12 @@ interface RecordingState {
   busy: boolean;
   /** Session directory of the most recently stopped recording. */
   lastSavedDir: string | null;
+  /**
+   * Session directory of the in-progress recording, or null when idle.
+   * Sourced from the backend RecordingStatus so the live-notes editor
+   * (GET-145) can autosave into it mid-recording.
+   */
+  liveSessionDir: string | null;
 
   /** True while an auto-transcription job is in flight. */
   transcribing: boolean;
@@ -438,6 +444,7 @@ export const useRecording = create<RecordingState>((set, get) => {
     transcribingDir: null,
     lastTranscriptPath: null,
     transcribeError: null,
+    liveSessionDir: null,
     _tickerId: null,
 
     syncFromBackend: async () => {
@@ -449,6 +456,7 @@ export const useRecording = create<RecordingState>((set, get) => {
           startedAt: Date.now() - Number(status.elapsed_secs) * 1000,
           elapsed: Number(status.elapsed_secs),
           channels: status.channels,
+          liveSessionDir: status.session_dir,
         });
         installTicker();
       } catch (e) {
@@ -473,6 +481,7 @@ export const useRecording = create<RecordingState>((set, get) => {
           elapsed: 0,
           channels: status.channels,
           lastSavedDir: null,
+          liveSessionDir: status.session_dir,
         });
         installTicker();
         const count = status.channels.length;
@@ -509,6 +518,7 @@ export const useRecording = create<RecordingState>((set, get) => {
           elapsed: 0,
           channels: [],
           lastSavedDir: sessionDir,
+          liveSessionDir: null,
         });
         playFeedback("stop");
         toast.success("Recording saved", {

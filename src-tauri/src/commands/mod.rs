@@ -12,6 +12,7 @@ pub mod calendar;
 pub mod devices;
 pub mod health;
 pub mod library;
+pub mod live_notes;
 pub mod llm;
 pub mod maintenance;
 pub mod meeting;

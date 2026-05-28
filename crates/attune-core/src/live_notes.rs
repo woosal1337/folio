@@ -8,9 +8,11 @@
 //! the bullets up unchanged.
 
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, TS)]
 #[serde(rename_all = "snake_case")]
+#[ts(export, export_to = "../../../src/shared/types/")]
 pub enum NoteKind {
     Plain,
     Action,
@@ -19,12 +21,34 @@ pub enum NoteKind {
     Highlight,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, TS)]
+#[ts(export, export_to = "../../../src/shared/types/")]
 pub struct LiveNote {
     /// Recording-relative timestamp the note was anchored to.
     pub anchor_seconds: f64,
     pub kind: NoteKind,
     pub text: String,
+}
+
+/// A raw editor line as the live-notes UI holds it: the verbatim text
+/// (slash command included) plus the timestamp the line was anchored
+/// to. This is the lossless round-trip shape persisted to disk so the
+/// editor can repopulate on resume; [`parse_line`] turns it into the
+/// grouped [`LiveNote`] shape only at render time.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, TS)]
+#[ts(export, export_to = "../../../src/shared/types/")]
+pub struct RawNoteLine {
+    pub text: String,
+    pub anchor_seconds: f64,
+}
+
+/// Parse raw editor lines into anchored notes, dropping blanks and bare
+/// command keywords. Each line keeps its own anchor.
+pub fn parse_lines(lines: &[RawNoteLine]) -> Vec<LiveNote> {
+    lines
+        .iter()
+        .filter_map(|l| parse_line(&l.text, l.anchor_seconds))
+        .collect()
 }
 
 /// Parse a single line of live notes. Recognises slash commands as
@@ -170,6 +194,31 @@ mod tests {
         let buffer = "/action one\n/decision two\n\n/question three";
         let notes = parse_buffer(buffer, 0.0);
         assert_eq!(notes.len(), 3);
+    }
+
+    #[test]
+    fn parse_lines_anchors_each_line_independently_and_drops_blanks() {
+        let lines = vec![
+            RawNoteLine {
+                text: "/action ship the build".into(),
+                anchor_seconds: 5.0,
+            },
+            RawNoteLine {
+                text: "".into(),
+                anchor_seconds: 7.0,
+            },
+            RawNoteLine {
+                text: "plain thought".into(),
+                anchor_seconds: 9.0,
+            },
+        ];
+        let notes = parse_lines(&lines);
+        assert_eq!(notes.len(), 2);
+        assert_eq!(notes[0].kind, NoteKind::Action);
+        assert_eq!(notes[0].text, "ship the build");
+        assert!((notes[0].anchor_seconds - 5.0).abs() < 1e-6);
+        assert_eq!(notes[1].kind, NoteKind::Plain);
+        assert!((notes[1].anchor_seconds - 9.0).abs() < 1e-6);
     }
 
     #[test]
