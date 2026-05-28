@@ -46,7 +46,7 @@ import type { RecordingSummary } from "@/shared/types/RecordingSummary";
 import type { SessionTranscript } from "@/shared/types/SessionTranscript";
 
 import { AgentPanel, type AgentPanelHandle } from "./agent-panel";
-import { serialiseAsPlainText } from "./briefing-card";
+import { serialiseAsPlainText } from "@/shared/lib/note-export";
 import { ParticipantCards } from "./participant-cards";
 import { TranscriptEditor } from "./transcript-editor";
 import { FollowupEmailButton } from "@/features/recording/followup-email-button";
