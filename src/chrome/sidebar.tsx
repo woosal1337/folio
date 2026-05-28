@@ -6,7 +6,6 @@ import {
   Inbox,
   KanbanSquare,
   Library,
-  MessageSquare,
   Moon,
   PanelLeftClose,
   PanelLeftOpen,
@@ -35,7 +34,6 @@ interface NavItem {
 
 const items: NavItem[] = [
   { to: "/", label: "Home", icon: HomeIcon },
-  { to: "/chat", label: "Chat", icon: MessageSquare },
   { to: "/inbox", label: "Inbox", icon: Inbox },
   { to: "/library", label: "Library", icon: Library, alsoActiveOn: ["/editor"] },
   { to: "/tasks", label: "Tasks", icon: KanbanSquare },

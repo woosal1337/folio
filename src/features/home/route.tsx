@@ -20,6 +20,7 @@ import { Button } from "@/shared/ui/button";
 import { Card, CardContent } from "@/shared/ui/card";
 import { listRecordings } from "@/shared/lib/ipc";
 import { useQuickNote, useTakeNotes } from "@/shared/hooks/use-take-notes";
+import { AskBar } from "@/chrome/ask-bar";
 import type { RecordingSummary } from "@/shared/types/RecordingSummary";
 
 type Group = "Today" | "Yesterday" | "Earlier";
@@ -176,6 +177,9 @@ export default function Home() {
           ))
         )}
       </section>
+
+      <div className="mt-auto" />
+      <AskBar />
     </div>
   );
 }

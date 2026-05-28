@@ -516,6 +516,8 @@ export default function Editor() {
         otherActive={otherActive}
         elapsedLabel={dockElapsedLabel}
         busy={recState.busy}
+        canAsk={recording.has_transcript}
+        onAsk={() => setChatOpen(true)}
         onRecord={() => void recState.start(recording.session_dir)}
         onStop={() => void recState.stop()}
         onPause={() => void recState.pause()}
@@ -541,6 +543,8 @@ function RecordDock({
   otherActive,
   elapsedLabel,
   busy,
+  canAsk,
+  onAsk,
   onRecord,
   onStop,
   onPause,
@@ -551,6 +555,8 @@ function RecordDock({
   otherActive: boolean;
   elapsedLabel: string;
   busy: boolean;
+  canAsk: boolean;
+  onAsk: () => void;
   onRecord: () => void;
   onStop: () => void;
   onPause: () => void;
@@ -559,6 +565,17 @@ function RecordDock({
   return (
     <div className="pointer-events-none sticky bottom-4 z-10 mt-2 flex justify-center">
       <div className="pointer-events-auto flex items-center gap-2 rounded-full border border-border bg-popover/95 px-3 py-2 shadow-lg backdrop-blur">
+        {canAsk ? (
+          <button
+            type="button"
+            onClick={onAsk}
+            className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <MessageCircleQuestion className="h-3.5 w-3.5" />
+            Ask
+          </button>
+        ) : null}
+        {canAsk ? <span className="h-4 w-px bg-border" /> : null}
         {recordingThis ? (
           <>
             <span className="flex items-center gap-1.5 px-1 font-mono text-sm tabular-nums">
