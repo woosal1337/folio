@@ -719,6 +719,15 @@ export function askNote(
   return call<{ answer: string }>("ask_note", { sessionDir, question, history });
 }
 
+/** Ask a question across the whole library (GET-152). Optional model id. */
+export function askLibrary(
+  question: string,
+  history: ChatTurn[],
+  model?: string
+): Promise<{ answer: string }> {
+  return call<{ answer: string }>("ask_library", { question, history, model });
+}
+
 /** Label of the webview window this code is running in. Falls back to
  *  "main" outside a Tauri context (e.g. unit tests). */
 export function currentWindowLabel(): string {

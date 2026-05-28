@@ -86,7 +86,7 @@ export function rank(items: CommandItem[], query: string): CommandItem[] {
   });
   return scored
     .filter((s) => s.score > 0)
-    .sort((a, b) => (b.score - a.score) || (a.idx - b.idx))
+    .sort((a, b) => b.score - a.score || a.idx - b.idx)
     .map((s) => s.item);
 }
 
@@ -98,6 +98,7 @@ export function rank(items: CommandItem[], query: string): CommandItem[] {
  */
 export function verbSource(actions: {
   startRecording: () => void;
+  openChat: () => void;
   openInbox: () => void;
   openLibrary: () => void;
   openMemory: () => void;
@@ -108,13 +109,69 @@ export function verbSource(actions: {
   return {
     kind: "verb",
     load: async () => [
-      { id: "verb:record", kind: "verb", title: "Start recording", keywords: ["record", "capture", "meeting"], shortcut: "⌘R", action: actions.startRecording },
-      { id: "verb:inbox", kind: "verb", title: "Open Inbox", keywords: ["today", "queue"], shortcut: "⌘2", action: actions.openInbox },
-      { id: "verb:library", kind: "verb", title: "Open Library", keywords: ["recordings", "list"], shortcut: "⌘3", action: actions.openLibrary },
-      { id: "verb:tasks", kind: "verb", title: "Open Tasks", keywords: ["kanban", "to-do"], shortcut: "⌘4", action: actions.openTasks },
-      { id: "verb:memory", kind: "verb", title: "Open Memory", keywords: ["facts", "claims"], shortcut: "⌘5", action: actions.openMemory },
-      { id: "verb:settings", kind: "verb", title: "Open Preferences", keywords: ["settings", "config"], shortcut: "⌘,", action: actions.openPreferences },
-      { id: "verb:cheatsheet", kind: "verb", title: "Keyboard cheat sheet", keywords: ["shortcuts", "help"], shortcut: "⌘⇧/", action: actions.openCheatsheet },
+      {
+        id: "verb:record",
+        kind: "verb",
+        title: "Start recording",
+        keywords: ["record", "capture", "meeting"],
+        shortcut: "⌘R",
+        action: actions.startRecording,
+      },
+      {
+        id: "verb:chat",
+        kind: "verb",
+        title: "Open Chat",
+        keywords: ["ask", "chat", "todos", "recap", "coach"],
+        action: actions.openChat,
+      },
+      {
+        id: "verb:inbox",
+        kind: "verb",
+        title: "Open Inbox",
+        keywords: ["today", "queue"],
+        shortcut: "⌘2",
+        action: actions.openInbox,
+      },
+      {
+        id: "verb:library",
+        kind: "verb",
+        title: "Open Library",
+        keywords: ["recordings", "list"],
+        shortcut: "⌘3",
+        action: actions.openLibrary,
+      },
+      {
+        id: "verb:tasks",
+        kind: "verb",
+        title: "Open Tasks",
+        keywords: ["kanban", "to-do"],
+        shortcut: "⌘4",
+        action: actions.openTasks,
+      },
+      {
+        id: "verb:memory",
+        kind: "verb",
+        title: "Open Memory",
+        keywords: ["facts", "claims"],
+        shortcut: "⌘5",
+        action: actions.openMemory,
+      },
+      {
+        id: "verb:settings",
+        kind: "verb",
+        title: "Open Preferences",
+        keywords: ["settings", "config"],
+        shortcut: "⌘,",
+        action: actions.openPreferences,
+      },
+      {
+        id: "verb:cheatsheet",
+        kind: "verb",
+        title: "Keyboard cheat sheet",
+        keywords: ["shortcuts", "help"],
+        shortcut: "⌘⇧/",
+        action: actions.openCheatsheet,
+      },
     ],
   };
 }

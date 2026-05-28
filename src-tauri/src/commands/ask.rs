@@ -12,6 +12,7 @@ use std::path::Path;
 
 use attune_core::llm::provider::LlmProvider;
 use attune_core::llm::{ChatMessage, ChatRequest, ChatRole, KeyStore, OpenAiProvider, ProviderId};
+use attune_core::storage::{scan_recordings, TaskStatus, TaskStore};
 use attune_core::transcription::SessionTranscript;
 use serde::{Deserialize, Serialize};
 use tauri::State;
@@ -207,6 +208,177 @@ fn format_timestamp(seconds: f64) -> String {
     } else {
         format!("{m:02}:{s:02}")
     }
+}
+
+// ====================================================================
+// Cross-library chat (GET-152)
+// ====================================================================
+
+/// How many recent recordings' summaries to fold into the library
+/// context. Bounded so the context stays inside the model budget.
+const LIBRARY_RECENT_NOTES: usize = 8;
+
+const LIBRARY_SYSTEM_PROMPT: &str = "You are the user's meeting brain. You \
+answer across their whole library — open action items, recent meeting \
+summaries, and remembered facts, all provided below. Use only that \
+context.\n\
+\n\
+Rules:\n\
+  - Ground every claim in the context. If something isn't there, say you \
+don't have it rather than inventing it.\n\
+  - When you reference a meeting, name it so the user can find it.\n\
+  - Be concise and well-structured; use short headers or bullets when it \
+helps the user act.";
+
+#[tauri::command]
+pub async fn ask_library(
+    state: State<'_, AppState>,
+    question: String,
+    history: Vec<ChatTurn>,
+    model: Option<String>,
+) -> Result<AskNoteAnswer, String> {
+    let (output_dir, tasks_path) = {
+        let s = state.settings.lock();
+        (s.output_dir.clone(), s.tasks_path.clone())
+    };
+    let memory_store = state.memory_store()?;
+    let query = question.clone();
+
+    let context = tauri::async_runtime::spawn_blocking(move || {
+        build_library_context(&output_dir, &tasks_path, &memory_store, &query)
+    })
+    .await
+    .map_err(|e| format!("library context panicked: {e}"))?;
+
+    if context.trim().is_empty() {
+        return Err("your library is empty — record a meeting first".into());
+    }
+
+    let api_key = tauri::async_runtime::spawn_blocking(move || KeyStore::get(ProviderId::OpenAi))
+        .await
+        .map_err(|e| format!("keystore lookup panicked: {e}"))?
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| {
+            "no OpenAI API key configured. Open Settings → AI and paste your key.".to_string()
+        })?;
+
+    let system_prompt =
+        format!("{LIBRARY_SYSTEM_PROMPT}\n\n<library_context>\n{context}\n</library_context>");
+    let mut messages: Vec<ChatMessage> = Vec::with_capacity(history.len() + 1);
+    for turn in history {
+        let role = match turn.role.as_str() {
+            "assistant" => ChatRole::Assistant,
+            _ => ChatRole::User,
+        };
+        messages.push(ChatMessage {
+            role,
+            content: turn.content,
+            tool_calls: None,
+            tool_call_id: None,
+        });
+    }
+    messages.push(ChatMessage {
+        role: ChatRole::User,
+        content: question,
+        tool_calls: None,
+        tool_call_id: None,
+    });
+
+    let provider = OpenAiProvider::new(api_key);
+    let response = provider
+        .chat(ChatRequest {
+            model: model.unwrap_or_else(|| DEFAULT_OPENAI_MODEL.to_string()),
+            system_prompt,
+            messages,
+            temperature: Some(0.3),
+            max_tokens: None,
+            tools: None,
+        })
+        .await
+        .map_err(|e| e.to_string())?;
+
+    info!("answered cross-library question");
+    Ok(AskNoteAnswer {
+        answer: response.text,
+    })
+}
+
+/// Assemble the cross-library context: open tasks, recent meeting
+/// summaries, and the memories most relevant to the question.
+fn build_library_context(
+    output_dir: &Path,
+    tasks_path: &Path,
+    memory_store: &attune_core::memory::MemoryStore,
+    query: &str,
+) -> String {
+    let mut out = String::new();
+
+    // Open action items.
+    let tasks = TaskStore::new(tasks_path.to_path_buf()).list();
+    let open: Vec<_> = tasks
+        .iter()
+        .filter(|t| t.status != TaskStatus::Done)
+        .collect();
+    if !open.is_empty() {
+        out.push_str("## Open action items\n");
+        for t in &open {
+            let owner = t
+                .owner
+                .as_deref()
+                .map(|o| format!(" ({o})"))
+                .unwrap_or_default();
+            let due = t
+                .due
+                .as_deref()
+                .map(|d| format!(" — due {d}"))
+                .unwrap_or_default();
+            let src = t
+                .source_session_label
+                .as_deref()
+                .map(|s| format!(" [from {s}]"))
+                .unwrap_or_default();
+            out.push_str(&format!("- {}{owner}{due}{src}\n", t.title));
+        }
+        out.push('\n');
+    }
+
+    // Recent meeting summaries.
+    let mut recordings = scan_recordings(output_dir);
+    recordings.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+    let mut included = 0;
+    for r in recordings.iter() {
+        if included >= LIBRARY_RECENT_NOTES {
+            break;
+        }
+        let dir = Path::new(&r.session_dir);
+        let summary = attune_core::llm::AgentRunStore::list(dir)
+            .ok()
+            .and_then(|runs| runs.into_iter().find(|run| run.agent_id == "summarize"))
+            .map(|run| run.response);
+        let Some(summary) = summary else { continue };
+        if summary.trim().is_empty() {
+            continue;
+        }
+        let title = r.suggested_title.as_deref().unwrap_or(&r.label);
+        out.push_str(&format!("## Meeting: {title}\n"));
+        out.push_str(summary.trim());
+        out.push_str("\n\n");
+        included += 1;
+    }
+
+    // Relevant memories.
+    if let Ok(memories) = memory_store.search(query, None, &[], 8) {
+        if !memories.is_empty() {
+            out.push_str("## Remembered facts\n");
+            for m in memories {
+                let key = m.key.as_deref().unwrap_or("");
+                out.push_str(&format!("- {key}: {}\n", m.content));
+            }
+            out.push('\n');
+        }
+    }
+
+    out.trim().to_string()
 }
 
 #[cfg(test)]
