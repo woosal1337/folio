@@ -47,8 +47,7 @@ impl EmbeddingClient {
     pub async fn embed(&self, text: &str) -> Result<Vec<f32>> {
         let url = format!("{}/embeddings", self.base_url);
         let host = crate::cloud_guard::host_of(&url).unwrap_or_default();
-        crate::cloud_guard::ensure_allowed(host)
-            .map_err(|e| AttuneError::Llm(e.to_string()))?;
+        crate::cloud_guard::ensure_allowed(host).map_err(|e| AttuneError::Llm(e.to_string()))?;
         let body = EmbeddingsRequest {
             model: MODEL.to_string(),
             input: text.to_string(),

@@ -26,7 +26,7 @@
 //! `cargo test` still exercises the path end-to-end without the full
 //! multilingual cost.
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use attune_core::transcription::local::LocalWhisperTranscriber;
 use attune_core::transcription::Transcriber;
@@ -38,16 +38,15 @@ fn model_path() -> Option<PathBuf> {
     }
     // Default macOS app-support location used by the running app.
     let home = std::env::var_os("HOME")?;
-    let pb = PathBuf::from(home)
-        .join("Library/Application Support/Attune/models/ggml-large-v3.bin");
+    let pb =
+        PathBuf::from(home).join("Library/Application Support/Attune/models/ggml-large-v3.bin");
     pb.is_file().then_some(pb)
 }
 
 fn fixtures_dir() -> PathBuf {
     // CARGO_MANIFEST_DIR is crates/attune-core; fixtures live at the
     // repo root under e2e/fixtures/audio.
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../e2e/fixtures/audio")
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../e2e/fixtures/audio")
 }
 
 fn wav(name: &str) -> Option<PathBuf> {
@@ -65,9 +64,14 @@ fn transcript_text(t: &attune_core::transcription::Transcript) -> String {
         .to_lowercase()
 }
 
-fn transcribe_fixture(file: &str, language_hint: Option<&str>) -> Option<attune_core::transcription::Transcript> {
+fn transcribe_fixture(
+    file: &str,
+    language_hint: Option<&str>,
+) -> Option<attune_core::transcription::Transcript> {
     let Some(model) = model_path() else {
-        eprintln!("SKIP: whisper model not found (set ATTUNE_WHISPER_MODEL or download via the app)");
+        eprintln!(
+            "SKIP: whisper model not found (set ATTUNE_WHISPER_MODEL or download via the app)"
+        );
         return None;
     };
     let Some(audio) = wav(file) else {
@@ -110,7 +114,13 @@ fn english_clinical_clip_transcribes() {
         return;
     };
     let text = transcript_text(&t);
-    let keywords = ["sleep", "medication", "side effects", "appetite", "nightmares"];
+    let keywords = [
+        "sleep",
+        "medication",
+        "side effects",
+        "appetite",
+        "nightmares",
+    ];
     let hits = keywords.iter().filter(|k| text.contains(**k)).count();
     assert!(hits >= 1, "expected clinical vocab in: {text}");
 }
@@ -124,10 +134,17 @@ fn turkish_clip_detects_language_and_transcribes() {
         return;
     };
     let text = transcript_text(&t);
-    assert!(!text.trim().is_empty(), "turkish transcript should not be empty");
+    assert!(
+        !text.trim().is_empty(),
+        "turkish transcript should not be empty"
+    );
     // whisper reports the detected language in `t.language`.
     if let Some(lang) = &t.language {
-        assert_eq!(lang.to_lowercase(), "tr", "expected Turkish detection, got {lang}");
+        assert_eq!(
+            lang.to_lowercase(),
+            "tr",
+            "expected Turkish detection, got {lang}"
+        );
     }
 }
 
@@ -179,7 +196,14 @@ fn action_items_clip_carries_assignees() {
     let text = transcript_text(&t);
     // Names from the prompt: Mira, Tony. Whisper may spell them
     // phonetically; require at least the action verbs.
-    let verbs = ["draft", "confirm", "embargo", "wednesday", "thursday", "friday"];
+    let verbs = [
+        "draft",
+        "confirm",
+        "embargo",
+        "wednesday",
+        "thursday",
+        "friday",
+    ];
     let hits = verbs.iter().filter(|k| text.contains(**k)).count();
     assert!(hits >= 2, "expected action vocab in: {text}");
 }
@@ -192,14 +216,17 @@ fn fixtures_and_model_presence_is_reported() {
     let fixture = wav("en-business-1min.wav");
     eprintln!(
         "transcription fixtures: model={} fixture={}",
-        model.map(|p| p.display().to_string()).unwrap_or_else(|| "ABSENT".into()),
-        fixture.map(|p| p.display().to_string()).unwrap_or_else(|| "ABSENT".into()),
+        model
+            .map(|p| p.display().to_string())
+            .unwrap_or_else(|| "ABSENT".into()),
+        fixture
+            .map(|p| p.display().to_string())
+            .unwrap_or_else(|| "ABSENT".into()),
     );
     // Also assert the fixtures directory exists at all (catches a
     // broken relative path).
     assert!(
-        fixtures_dir().exists()
-            || std::env::var("CI").is_ok(),
+        fixtures_dir().exists() || std::env::var("CI").is_ok(),
         "e2e/fixtures/audio dir not found at {}",
         fixtures_dir().display()
     );

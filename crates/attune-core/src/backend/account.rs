@@ -36,10 +36,7 @@ pub async fn list_devices(client: &BackendClient) -> Result<Vec<DeviceDoc>, Back
     Ok(resp.devices)
 }
 
-pub async fn revoke_device(
-    client: &BackendClient,
-    device_id: &str,
-) -> Result<(), BackendError> {
+pub async fn revoke_device(client: &BackendClient, device_id: &str) -> Result<(), BackendError> {
     let path = format!("/account/devices/{}", device_id);
     client.delete::<()>(&path).await
 }

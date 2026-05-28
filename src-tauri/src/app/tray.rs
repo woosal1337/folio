@@ -52,7 +52,7 @@ pub fn install<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
 
     let _tray = TrayIconBuilder::with_id(TRAY_ID)
         .menu(&menu)
-        .menu_on_left_click(true)
+        .show_menu_on_left_click(true)
         .tooltip("Attune — idle")
         .on_menu_event(|app, event| match event.id.as_ref() {
             MENU_START => emit_to_window(app, "tray:start-recording"),
@@ -88,10 +88,7 @@ pub fn set_recording_state<R: Runtime>(app: &AppHandle<R>, elapsed_secs: Option<
         None => "Attune — idle".to_string(),
     };
     let _ = tray.set_tooltip(Some(&tooltip));
-    let title = match elapsed_secs {
-        Some(secs) => Some(format!("● {}", format_elapsed(secs))),
-        None => None,
-    };
+    let title = elapsed_secs.map(|secs| format!("● {}", format_elapsed(secs)));
     let _ = tray.set_title(title.as_deref());
 }
 

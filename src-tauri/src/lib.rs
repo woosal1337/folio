@@ -63,6 +63,9 @@ pub fn run() {
             for window in app.webview_windows().values() {
                 app::vibrancy::install_window_vibrancy(window);
             }
+            // Meeting auto-detection watcher. GET-143. Polls
+            // NSWorkspace for conferencing apps and surfaces the HUD.
+            app::meeting_watcher::spawn(app.handle().clone());
             let _ = app;
             Ok(())
         })
@@ -103,6 +106,10 @@ pub fn run() {
             commands::windows::open_record_window,
             commands::windows::open_library_window,
             commands::windows::open_editor_window,
+            commands::meeting::get_pending_meeting,
+            commands::meeting::meeting_take_notes,
+            commands::meeting::dismiss_meeting_hud,
+            commands::meeting::suppress_meeting_app,
             commands::transcription::transcribe_recording,
             commands::vad::run_vad,
             commands::transcription::read_transcript,

@@ -80,7 +80,7 @@ pub fn host_of(url: &str) -> Option<&str> {
     let after_scheme = url.split_once("://").map(|(_, rest)| rest).unwrap_or(url);
     // Slash starts the path; '?' or '#' end the authority too.
     let end = after_scheme
-        .find(|c| c == '/' || c == '?' || c == '#')
+        .find(['/', '?', '#'])
         .unwrap_or(after_scheme.len());
     let authority = &after_scheme[..end];
     if authority.is_empty() {
