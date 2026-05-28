@@ -199,7 +199,7 @@ pub async fn run_agent(
     // the call so action items / decisions they captured seed the
     // structured note instead of being lost. Other agents read the
     // transcript only.
-    let live_notes_md = if agent.id == "summarize" {
+    let live_notes_md = if matches!(agent.id.as_str(), "summarize" | "write-followup-email") {
         let dir = session_dir.clone();
         tauri::async_runtime::spawn_blocking(move || read_live_notes_markdown(&dir))
             .await
