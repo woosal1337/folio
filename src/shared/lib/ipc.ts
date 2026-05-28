@@ -111,8 +111,16 @@ export function recordingStatus(): Promise<RecordingStatus> {
   return call<RecordingStatus>("recording_status");
 }
 
-export function startRecording(): Promise<RecordingStatus> {
-  return call<RecordingStatus>("start_recording");
+/** Create an empty note (GET-155) the user can write in before/without
+ *  recording. Returns its summary. */
+export function createNote(): Promise<RecordingSummary> {
+  return call<RecordingSummary>("create_note");
+}
+
+/** Start capture. With `sessionDir` (GET-155) it records into that
+ *  existing note's directory instead of a fresh one. */
+export function startRecording(sessionDir?: string): Promise<RecordingStatus> {
+  return call<RecordingStatus>("start_recording", { sessionDir });
 }
 
 export function stopRecording(): Promise<RecordingResult> {

@@ -83,7 +83,11 @@ pub fn scan_recordings(output_dir: &Path) -> Vec<RecordingSummary> {
         let system_path = path.join("system.wav");
         let mic_bytes = std::fs::metadata(&mic_path).ok().map(|m| m.len());
         let system_bytes = std::fs::metadata(&system_path).ok().map(|m| m.len());
-        if mic_bytes.is_none() && system_bytes.is_none() {
+        // Include empty notes (GET-155): a note created via `create_note`
+        // has no audio yet but writes a `live_notes.json` marker so it
+        // still appears in the library and opens in the editor.
+        let is_note = path.join("live_notes.json").is_file();
+        if mic_bytes.is_none() && system_bytes.is_none() && !is_note {
             continue;
         }
         let mic_sample_rate = wav_sample_rate(&mic_path);

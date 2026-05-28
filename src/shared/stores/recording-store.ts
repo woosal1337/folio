@@ -75,8 +75,9 @@ interface RecordingState {
 
   /** First-mount: ask the backend whether a session is already running. */
   syncFromBackend: () => Promise<void>;
-  /** Start a new recording session. */
-  start: () => Promise<void>;
+  /** Start a new recording session. With `sessionDir` (GET-155) it
+   *  records into that existing note's directory. */
+  start: (sessionDir?: string) => Promise<void>;
   /** Stop the current recording session. Auto-transcribes if configured. */
   stop: () => Promise<void>;
   /** Pause capture, keeping the note open (GET-149). */
@@ -488,7 +489,7 @@ export const useRecording = create<RecordingState>((set, get) => {
       }
     },
 
-    start: async () => {
+    start: async (sessionDir?: string) => {
       set({
         busy: true,
         error: null,
@@ -498,7 +499,7 @@ export const useRecording = create<RecordingState>((set, get) => {
         lastTranscriptPath: null,
       });
       try {
-        const status = await ipcStart();
+        const status = await ipcStart(sessionDir);
         set({
           recording: true,
           paused: false,
