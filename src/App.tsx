@@ -7,7 +7,6 @@ import { DragStrip } from "@/chrome/drag-strip";
 import { JobStrip } from "@/chrome/job-strip";
 import { CloudCostConfirmDialog } from "@/chrome/cloud-cost-confirm-dialog";
 import { DeepLinkHandler } from "@/chrome/deep-link-handler";
-import { HomeRedirect } from "@/chrome/home-redirect";
 import { EntryPointBridge } from "@/chrome/entry-points";
 import { GlobalShortcuts } from "@/chrome/global-shortcuts";
 import { CheatsheetOverlay } from "@/chrome/cheatsheet-overlay";
@@ -20,6 +19,7 @@ import { verbSource } from "@/shared/lib/command-palette";
 // arrive when the user navigates to them. The static fallback below
 // renders a near-empty frame so the route swap stays visually quiet.
 const Record = React.lazy(() => import("@/features/recording/route"));
+const Home = React.lazy(() => import("@/features/home/route"));
 const MeetingHud = React.lazy(() => import("@/features/meeting-hud/route"));
 const FirstRunConductor = React.lazy(() =>
   import("@/features/onboarding/first-run").then((m) => ({
@@ -159,7 +159,7 @@ function MainApp() {
             <main className="flex-1 overflow-y-auto">
               <React.Suspense fallback={<RouteLoading />}>
                 <Routes>
-                  <Route path="/" element={<HomeRedirect />} />
+                  <Route path="/" element={<Home />} />
                   <Route path="/record" element={<Record />} />
                   <Route path="/library" element={<Library />} />
                   <Route path="/editor" element={<Navigate to="/library" replace />} />
@@ -169,7 +169,7 @@ function MainApp() {
                   <Route path="/ai" element={<Navigate to="/inbox" replace />} />
                   <Route path="/tasks" element={<Tasks />} />
                   <Route path="/memory" element={<MemoryRoute />} />
-                  <Route path="*" element={<HomeRedirect />} />
+                  <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
               </React.Suspense>
             </main>
