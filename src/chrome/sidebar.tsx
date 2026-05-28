@@ -3,6 +3,7 @@ import { NavLink, useLocation } from "react-router-dom";
 import {
   AudioLines,
   Brain,
+  Home as HomeIcon,
   Inbox,
   KanbanSquare,
   Library,
@@ -33,6 +34,7 @@ interface NavItem {
 }
 
 const items: NavItem[] = [
+  { to: "/", label: "Home", icon: HomeIcon },
   { to: "/record", label: "Record", icon: AudioLines },
   { to: "/inbox", label: "Inbox", icon: Inbox },
   { to: "/library", label: "Library", icon: Library, alsoActiveOn: ["/editor"] },
@@ -110,6 +112,7 @@ export function Sidebar({ onOpenSettings }: SidebarProps) {
             <NavLink
               key={item.to}
               to={item.to}
+              end={item.to === "/"}
               title={collapsed ? item.label : undefined}
               aria-label={collapsed ? item.label : undefined}
               className={({ isActive }) =>
