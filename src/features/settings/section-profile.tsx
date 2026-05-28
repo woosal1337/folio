@@ -59,11 +59,10 @@ export function SectionProfile({ settings, onChange }: SectionProfileProps) {
   // input still mirrors a local-only string until we wire
   // PATCH /api/account on save.
   const identity = useAuthStore((s) => s.identity);
+  const signedIn = useAuthStore((s) => s.signedIn);
   const clearAuth = useAuthStore((s) => s.clear);
   const closeSettingsModal = useSettingsUiStore((s) => s.close);
-  const [displayName, setDisplayName] = React.useState(
-    identity?.display_name ?? "",
-  );
+  const [displayName, setDisplayName] = React.useState(identity?.display_name ?? "");
 
   React.useEffect(() => {
     setDisplayName(identity?.display_name ?? "");
@@ -87,8 +86,8 @@ export function SectionProfile({ settings, onChange }: SectionProfileProps) {
       <header className="space-y-1">
         <h2 className="font-serif text-2xl font-medium">Profile</h2>
         <p className="text-sm text-muted-foreground">
-          Your identity inside Attune. Used for shared notes, agent
-          attribution, and workspace membership.
+          Your identity inside Attune. Used for shared notes, agent attribution, and
+          workspace membership.
         </p>
       </header>
 
@@ -118,7 +117,9 @@ export function SectionProfile({ settings, onChange }: SectionProfileProps) {
           description="App language. Recording transcription language lives under Settings → Transcription."
         >
           <select
-            value={settings.briefing_language === "auto" ? "en" : settings.briefing_language}
+            value={
+              settings.briefing_language === "auto" ? "en" : settings.briefing_language
+            }
             onChange={(e) => onChange("briefing_language", e.target.value)}
             className="h-9 rounded-md border border-input bg-card px-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
@@ -131,14 +132,14 @@ export function SectionProfile({ settings, onChange }: SectionProfileProps) {
         </FieldRow>
       </Group>
 
-      {identity ? (
+      {signedIn ? (
         <Group title="Session">
           <div className="flex items-center justify-between gap-4 rounded-md border border-border bg-card p-3">
             <div className="min-w-0 flex-1 space-y-0.5">
               <p className="text-sm font-medium">Sign out</p>
               <p className="text-xs text-muted-foreground">
-                Clears tokens from this Mac&apos;s Keychain. You&apos;ll need to
-                sign back in to use Attune.
+                Clears tokens from this Mac&apos;s Keychain. You&apos;ll need to sign
+                back in to use Attune.
               </p>
             </div>
             <Button
@@ -187,19 +188,11 @@ export function SectionProfile({ settings, onChange }: SectionProfileProps) {
           href="https://attune.app/changelog"
         />
       </Group>
-
-      <SignOutFooter />
     </section>
   );
 }
 
-function Group({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
+function Group({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="space-y-3">
       <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
@@ -265,32 +258,5 @@ function HelpLink({
         <p className="max-w-prose text-xs text-muted-foreground">{description}</p>
       </div>
     </a>
-  );
-}
-
-function SignOutFooter() {
-  // v1 stub: hidden until OAuth signup lands (GET-127). After auth, this
-  // button clears the Keychain token, calls POST /auth/logout, and
-  // returns the user to the signup screen.
-  return (
-    <div className="rounded-lg border border-dashed border-border bg-card p-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm font-medium">Sign out</p>
-          <p className="text-xs text-muted-foreground">
-            Available once you sign in with Google, Microsoft, or SSO.
-          </p>
-        </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          disabled
-          className="gap-1.5 text-destructive disabled:opacity-50"
-        >
-          <LogOut className="h-3.5 w-3.5" />
-          Sign out
-        </Button>
-      </div>
-    </div>
   );
 }
