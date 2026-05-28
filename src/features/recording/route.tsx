@@ -6,6 +6,7 @@ import { Button } from "@/shared/ui/button";
 import { Card, CardContent } from "@/shared/ui/card";
 import { RecordingRow } from "@/features/recording/recording-row";
 import { LiveNotesEditor } from "@/features/recording/live-notes-editor";
+import { PostRecordingBar } from "@/features/recording/post-recording-bar";
 import { StatusPill } from "@/features/recording/status-pill";
 import { VoiceDebriefSheet } from "@/features/recording/voice-debrief-sheet";
 import { FirstRunConductor } from "@/features/onboarding/first-run";
@@ -160,6 +161,17 @@ export default function Record() {
           )}
         </CardContent>
       </Card>
+
+      {!rec.recording && rec.lastSavedDir && (
+        <PostRecordingBar
+          sessionDir={rec.lastSavedDir}
+          generating={rec.transcribing && rec.transcribingDir === rec.lastSavedDir}
+          generated={rec.lastTranscriptPath !== null}
+          onGenerate={() => {
+            if (rec.lastSavedDir) void rec.transcribe(rec.lastSavedDir);
+          }}
+        />
+      )}
 
       <div className="flex items-center justify-between">
         <h2 className="font-medium text-foreground">Recent recordings</h2>
