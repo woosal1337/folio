@@ -8,10 +8,11 @@
  * GET-147) and light up here as each ships.
  */
 
-import { Loader2, Mail, MessageCircleQuestion, Play, Sparkles } from "lucide-react";
+import { Loader2, MessageCircleQuestion, Play, Sparkles } from "lucide-react";
 
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent } from "@/shared/ui/card";
+import { FollowupEmailButton } from "@/features/recording/followup-email-button";
 
 interface Props {
   /** Session directory of the just-stopped recording. */
@@ -57,9 +58,8 @@ export function PostRecordingBar({
                 : "Generate notes"}
           </Button>
 
-          {/* Resume / Ask / Email land in GET-149 / GET-150 / GET-147.
-              Shown now so the bar is complete; each issue enables its
-              button. */}
+          {/* Resume / Ask land in GET-149 / GET-150. Shown now so the
+              bar is complete; each issue enables its button. */}
           <Button
             variant="outline"
             className="gap-2"
@@ -78,15 +78,7 @@ export function PostRecordingBar({
             <MessageCircleQuestion className="h-4 w-4" />
             Ask anything
           </Button>
-          <Button
-            variant="outline"
-            className="gap-2"
-            disabled
-            title="Write a follow-up email — lands in GET-147"
-          >
-            <Mail className="h-4 w-4" />
-            Follow-up email
-          </Button>
+          <FollowupEmailButton sessionDir={sessionDir} disabled={!generated} />
         </div>
       </CardContent>
     </Card>

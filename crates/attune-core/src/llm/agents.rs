@@ -35,6 +35,7 @@ pub fn defaults() -> Vec<Agent> {
         extract_tasks(),
         extract_memories(),
         find_decisions(),
+        write_followup_email(),
         qa(),
         autoname(),
     ]
@@ -81,6 +82,15 @@ fn find_decisions() -> Agent {
         name: "Find Decisions".to_string(),
         description: "List every decision the participants agreed on.".to_string(),
         system_prompt: FIND_DECISIONS_PROMPT.to_string(),
+    }
+}
+
+fn write_followup_email() -> Agent {
+    Agent {
+        id: "write-followup-email".to_string(),
+        name: "Follow-up email".to_string(),
+        description: "Draft a ready-to-send recap email with action items.".to_string(),
+        system_prompt: WRITE_FOLLOWUP_EMAIL_PROMPT.to_string(),
     }
 }
 
@@ -208,6 +218,36 @@ appear verbatim in the transcript — the UI surfaces an \"unverified\" \
 badge for decisions whose snippet cannot be located (#031). \
 If no decisions were reached, say \"No clear decisions found.\"";
 
+const WRITE_FOLLOWUP_EMAIL_PROMPT: &str = "You draft a follow-up email after \
+a meeting. Given the transcript and the notes the user typed live during \
+the call, write a concise, ready-to-send recap email.\n\
+\n\
+Output EXACTLY this shape and nothing else (no markdown headings, no \
+preamble, no code fences):\n\
+\n\
+Subject: <one-line subject under 80 characters>\n\
+\n\
+<greeting line>\n\
+\n\
+<2-4 sentence recap of what was discussed and decided>\n\
+\n\
+Action items:\n\
+- <action> (<owner>) — <due if stated>\n\
+\n\
+<sign-off line>\n\
+\n\
+Rules:\n\
+  - Ground every line in the transcript or the user's notes. Do not invent \
+attendees, commitments, or dates.\n\
+  - If owners or attendees are not named, use a neutral greeting (\"Hi \
+all,\") and omit the owner parentheses.\n\
+  - Keep it tight and professional. The only bullets allowed are under \
+\"Action items:\".\n\
+  - If there are no action items, omit the \"Action items:\" block entirely.\n\
+  - If the transcript is too thin to recap honestly, say so in one line \
+instead of inventing content.\n\
+  - Follow the LANGUAGE rule at the bottom of these instructions.";
+
 const QA_PROMPT: &str = "You are an assistant answering questions about \
 a meeting transcript. The user's first message contains the full \
 transcript. Subsequent messages are their questions about it.\n\
@@ -248,9 +288,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn six_defaults_in_known_order() {
+    fn defaults_in_known_order() {
         let agents = defaults();
-        assert_eq!(agents.len(), 6);
+        assert_eq!(agents.len(), 7);
         let ids: Vec<&str> = agents.iter().map(|a| a.id.as_str()).collect();
         assert_eq!(
             ids,
@@ -259,6 +299,7 @@ mod tests {
                 "extract-tasks",
                 "extract-memories",
                 "find-decisions",
+                "write-followup-email",
                 "qa",
                 "autoname",
             ]
@@ -271,6 +312,10 @@ mod tests {
         assert_eq!(by_id("extract-tasks").unwrap().name, "Extract Tasks");
         assert_eq!(by_id("extract-memories").unwrap().name, "Extract Memories");
         assert_eq!(by_id("autoname").unwrap().name, "Auto-name");
+        assert_eq!(
+            by_id("write-followup-email").unwrap().name,
+            "Follow-up email"
+        );
         assert!(by_id("nonexistent").is_none());
     }
 
