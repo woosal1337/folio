@@ -30,6 +30,7 @@ import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
 import { authLogout } from "@/shared/lib/ipc";
 import { useAuthStore } from "@/shared/stores/auth-store";
+import { useSettingsUiStore } from "@/shared/stores/settings-ui-store";
 import type { Settings } from "@/shared/types/Settings";
 
 interface SectionProfileProps {
@@ -59,6 +60,7 @@ export function SectionProfile({ settings, onChange }: SectionProfileProps) {
   // PATCH /api/account on save.
   const identity = useAuthStore((s) => s.identity);
   const clearAuth = useAuthStore((s) => s.clear);
+  const closeSettingsModal = useSettingsUiStore((s) => s.close);
   const [displayName, setDisplayName] = React.useState(
     identity?.display_name ?? "",
   );
@@ -74,6 +76,10 @@ export function SectionProfile({ settings, onChange }: SectionProfileProps) {
       console.error("logout:", e);
     }
     clearAuth();
+    // Close the Settings modal explicitly. Without this the modal's
+    // global `open` state stays true and the modal re-opens over
+    // the main app the next time the user signs back in.
+    closeSettingsModal();
   };
 
   return (

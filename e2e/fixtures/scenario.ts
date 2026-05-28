@@ -1,0 +1,441 @@
+/**
+ * Shared scenario setup for the e2e suite.
+ *
+ * Every spec calls `setupScenario(page, overrides)` to wire up the
+ * Tauri IPC stub with a sensible default in-memory backend. The
+ * defaults model a real signed-in user with onboarding complete, so
+ * specs that focus on the main app don't have to re-declare 50
+ * handler stubs.
+ *
+ * Overrides can patch initial settings, auth state, and the list of
+ * recordings / tasks / agents the IPC returns. Mutations issued by
+ * the React UI (`save_settings`, `account_update`, etc.) update the
+ * in-page mutable state so subsequent reads see the changes — the
+ * harness behaves like a real backend with no persistence between
+ * test runs.
+ *
+ * After a scenario is set up, tests can:
+ *   - `goto('/')` to load the app
+ *   - `await ipcLog(page)` to inspect the call trail
+ *   - `await readSettings(page)` to assert on the saved state
+ */
+
+import type { Page } from "@playwright/test";
+
+import { installTauriStub, ipcLog } from "./tauri-ipc";
+
+export interface MockSettings {
+  mic_device: string | null;
+  system_audio_enabled: boolean;
+  output_dir: string;
+  notes_dir: string;
+  tasks_path: string;
+  transcripts_dir: string;
+  theme: string;
+  transcriber: string;
+  transcription_language: string;
+  briefing_language: string;
+  dictionary_terms: string[];
+  local_whisper_model: string;
+  voice_processing_enabled: boolean;
+  auto_transcribe_enabled: boolean;
+  auto_vad_enabled: boolean;
+  memory_dir: string;
+  auto_extract_memories_enabled: boolean;
+  feedback_sounds_enabled: boolean;
+  auto_summarize_enabled: boolean;
+  auto_extract_tasks_enabled: boolean;
+  auto_name_enabled: boolean;
+  wav_retention_days: number | null;
+  share_aggregate_stats: boolean;
+  pro_license_key: string;
+  pro_trial_started_at: string;
+  voice_debrief_enabled: boolean;
+  privacy_mode: boolean;
+  onboarding_completed: boolean;
+  show_upcoming_meetings_in_menubar: boolean;
+  show_events_without_participants: boolean;
+  live_meeting_indicator: boolean;
+  open_at_login: boolean;
+  move_aside_in_meetings: boolean;
+  default_link_sharing: string;
+  always_open_shared_links: boolean;
+  privacy_tier_band_enabled: boolean;
+  auto_delete_period_days: number | null;
+  notify_scheduled_meetings: boolean;
+  notify_auto_detected_meetings: boolean;
+  notification_muted_apps: string[];
+  note_shared_notification: string;
+  signin_mode: string;
+  workspace_name: string;
+  workspace_bucket: string;
+  onboarding_calendar_deferred: boolean;
+  workspace_discoverable: boolean;
+  workspace_auto_join: boolean;
+  workspace_logo_path: string;
+}
+
+export function freshSettings(overrides: Partial<MockSettings> = {}): MockSettings {
+  return {
+    mic_device: null,
+    system_audio_enabled: true,
+    output_dir: "/tmp/Attune",
+    notes_dir: "/tmp/Attune/Notes",
+    tasks_path: "/tmp/Attune/Tasks.json",
+    transcripts_dir: "/tmp/Attune/Transcripts",
+    theme: "dark",
+    transcriber: "local_whisper",
+    transcription_language: "auto",
+    briefing_language: "en",
+    dictionary_terms: [],
+    local_whisper_model: "large-v3",
+    voice_processing_enabled: true,
+    auto_transcribe_enabled: true,
+    auto_vad_enabled: true,
+    memory_dir: "/tmp/Attune/Memory",
+    auto_extract_memories_enabled: false,
+    feedback_sounds_enabled: false,
+    auto_summarize_enabled: false,
+    auto_extract_tasks_enabled: false,
+    auto_name_enabled: false,
+    wav_retention_days: null,
+    share_aggregate_stats: false,
+    pro_license_key: "",
+    pro_trial_started_at: "",
+    voice_debrief_enabled: false,
+    privacy_mode: false,
+    onboarding_completed: false,
+    show_upcoming_meetings_in_menubar: true,
+    show_events_without_participants: false,
+    live_meeting_indicator: true,
+    open_at_login: false,
+    move_aside_in_meetings: false,
+    default_link_sharing: "workspace_only",
+    always_open_shared_links: true,
+    privacy_tier_band_enabled: false,
+    auto_delete_period_days: 90,
+    notify_scheduled_meetings: true,
+    notify_auto_detected_meetings: true,
+    notification_muted_apps: [],
+    note_shared_notification: "activity_and_email",
+    signin_mode: "",
+    workspace_name: "",
+    workspace_bucket: "",
+    onboarding_calendar_deferred: false,
+    workspace_discoverable: true,
+    workspace_auto_join: true,
+    workspace_logo_path: "",
+    ...overrides,
+  };
+}
+
+export interface ScenarioOptions {
+  initialSettings?: Partial<MockSettings>;
+  /** When true, the IPC stub returns a signed-in identity from
+   * `auth_status` on first call. */
+  startSignedIn?: boolean;
+  /** When true, no `__TAURI_INTERNALS__.invoke` handlers throw on
+   * unmapped commands. Useful for narrow spec files. Default true. */
+  passthroughUnknown?: boolean;
+  /** Pre-seeded recordings the IPC returns from `list_recordings`. */
+  recordings?: RecordingSummaryStub[];
+  /** Pre-seeded tasks the IPC returns from `list_tasks`. */
+  tasks?: TaskStub[];
+  /** Pre-seeded memories the IPC returns from `list_memories`. */
+  memories?: MemoryStub[];
+  /** Pre-seeded webhooks the IPC returns from `list_webhooks`. */
+  webhooks?: unknown[];
+  /** Pre-seeded LLM providers the IPC returns from `list_providers`. */
+  providers?: ProviderStub[];
+}
+
+/** Recording / task / memory stubs are passed straight through to
+ * the IPC as JSON. The Rust-side shapes are big and ts-rs-generated;
+ * tests pass partial records that exercise the specific UI bits
+ * they care about, so we keep the stub types open. */
+export type RecordingSummaryStub = Record<string, unknown>;
+export type TaskStub = Record<string, unknown>;
+export type MemoryStub = Record<string, unknown>;
+
+export interface ProviderStub {
+  id: string;
+  name: string;
+  has_key: boolean;
+  redacted_key: string | null;
+}
+
+export async function setupScenario(page: Page, options: ScenarioOptions = {}) {
+  const baseSettings = freshSettings({
+    onboarding_completed: true,
+    workspace_name: "Clinora",
+    workspace_bucket: "founder",
+    signin_mode: "email",
+    ...(options.initialSettings ?? {}),
+  });
+  const startSignedIn = options.startSignedIn ?? true;
+  const passthroughUnknown = options.passthroughUnknown ?? true;
+
+  // Each handler is serialised + run inside the page context. Closures
+  // can't capture across the boundary, so we stash mutable state on
+  // `window` (under `__ATTUNE_E2E_*` keys) and read/write it from the
+  // handler bodies.
+  await page.addInitScript(
+    ([seed, signedIn, recordings, tasks, memories, webhooks, providers]) => {
+      const w = window as unknown as Record<string, unknown>;
+      w.__ATTUNE_SETTINGS__ = JSON.parse(seed as string);
+      w.__ATTUNE_SIGNED_IN__ = signedIn as boolean;
+      w.__ATTUNE_INPUT_DEVICES__ = [
+        { id: "default", name: "MacBook Pro Microphone" },
+        { id: "blue-yeti", name: "Blue Yeti" },
+      ];
+      w.__ATTUNE_RECORDINGS__ = JSON.parse(recordings as string);
+      w.__ATTUNE_TASKS__ = JSON.parse(tasks as string);
+      w.__ATTUNE_MEMORIES__ = JSON.parse(memories as string);
+      w.__ATTUNE_WEBHOOKS__ = JSON.parse(webhooks as string);
+      w.__ATTUNE_PROVIDERS__ = JSON.parse(providers as string);
+      w.__ATTUNE_REFERRAL_STATS__ = {
+        token: "stub-token-aaa",
+        share_url: "https://join.attune.app/t/stub-token-aaa",
+        qualified_count: 0,
+        pending_count: 0,
+        free_months_earned: 0,
+        yearly_cap: 100,
+        yearly_remaining: 100,
+      };
+      w.__ATTUNE_DEVICES__ = [
+        {
+          device_id: "this-mac",
+          device_name: "MacBook Pro (this Mac)",
+          created_at: new Date().toISOString(),
+          last_seen_at: new Date().toISOString(),
+          user_agent: "Attune e2e",
+          ip: "127.0.0.1",
+        },
+      ];
+    },
+    [
+      JSON.stringify(baseSettings),
+      startSignedIn,
+      JSON.stringify(options.recordings ?? []),
+      JSON.stringify(options.tasks ?? []),
+      JSON.stringify(options.memories ?? []),
+      JSON.stringify(options.webhooks ?? []),
+      JSON.stringify(options.providers ?? []),
+    ] as const,
+  );
+
+  await installTauriStub(page, {
+    passthroughUnknown,
+    handlers: {
+      ping: () => "pong",
+
+      get_settings: () => {
+        return (window as unknown as Record<string, unknown>).__ATTUNE_SETTINGS__;
+      },
+      save_settings: (args) => {
+        const a = args as { settings: unknown };
+        (window as unknown as Record<string, unknown>).__ATTUNE_SETTINGS__ =
+          a.settings;
+        return null;
+      },
+
+      list_permissions: () => [
+        { permission: "microphone", status: "granted", rationale: "", settings_url: "" },
+        { permission: "screen_recording", status: "granted", rationale: "", settings_url: "" },
+        { permission: "calendar", status: "unknown", rationale: "", settings_url: "" },
+        { permission: "notifications", status: "unknown", rationale: "", settings_url: "" },
+      ],
+      open_permission_settings: () => null,
+      request_calendar_access: () => null,
+      list_attendee_suggestions: () => [],
+
+      auth_status: () => {
+        if ((window as unknown as Record<string, unknown>).__ATTUNE_SIGNED_IN__) {
+          return {
+            signed_in: true,
+            identity: {
+              user_id: "user-1",
+              email: "ege@clinora.ai",
+              display_name: "Ege Çelebi",
+              privacy_tier: "tier1",
+            },
+          };
+        }
+        return { signed_in: false, identity: null };
+      },
+      auth_request_signin_code: () => null,
+      auth_verify_signin_code: () => {
+        (window as unknown as Record<string, unknown>).__ATTUNE_SIGNED_IN__ = true;
+        return {
+          user_id: "user-1",
+          email: "ege@clinora.ai",
+          display_name: "Ege Çelebi",
+          privacy_tier: "tier1",
+        };
+      },
+      auth_logout: () => {
+        (window as unknown as Record<string, unknown>).__ATTUNE_SIGNED_IN__ = false;
+        return null;
+      },
+
+      account_get: () => ({
+        user: {
+          _id: "user-1",
+          email: "ege@clinora.ai",
+          display_name: "Ege Çelebi",
+          privacy_tier: "tier1",
+          subscription_tier: "free",
+        },
+        device_count: 1,
+      }),
+      account_update: (args) => {
+        const a = args as { displayName: string | null };
+        return {
+          user: {
+            _id: "user-1",
+            email: "ege@clinora.ai",
+            display_name: a.displayName,
+            privacy_tier: "tier1",
+            subscription_tier: "free",
+          },
+        };
+      },
+      account_devices: () => ({
+        devices: (window as unknown as Record<string, unknown>).__ATTUNE_DEVICES__,
+      }),
+      account_revoke_device: () => null,
+      account_soft_delete: () => null,
+
+      referrals_generate: () => ({
+        token: "stub-token-aaa",
+        share_url: "https://join.attune.app/t/stub-token-aaa",
+      }),
+      referrals_me: () => {
+        return (window as unknown as Record<string, unknown>).__ATTUNE_REFERRAL_STATS__;
+      },
+      referrals_redeem: () => null,
+
+      settings_sync_pull: () => ({ settings: null, updated_at: null }),
+      settings_sync_push: (args) => {
+        const a = args as { settings: unknown; updatedAt: string };
+        return { settings: a.settings, updated_at: a.updatedAt };
+      },
+
+      list_input_devices: () =>
+        (window as unknown as Record<string, unknown>).__ATTUNE_INPUT_DEVICES__,
+      list_recordings: () =>
+        (window as unknown as Record<string, unknown>).__ATTUNE_RECORDINGS__,
+      get_recording: () => null,
+      delete_recording: () => null,
+      reveal_in_finder: () => null,
+      share_paths: () => null,
+      save_debrief: () => null,
+      recording_status: () => ({
+        active: false,
+        elapsed_seconds: 0,
+        session_dir: null,
+      }),
+      start_recording: () => ({
+        active: true,
+        elapsed_seconds: 0,
+        session_dir: "/tmp/Attune/2026-05-28-fake",
+      }),
+      stop_recording: () => ({
+        session_dir: "/tmp/Attune/2026-05-28-fake",
+        transcript_path: null,
+      }),
+
+      list_providers: () => {
+        return (window as unknown as Record<string, unknown>).__ATTUNE_PROVIDERS__;
+      },
+      set_provider_key: () => null,
+      delete_provider_key: () => null,
+      test_provider: () => ({ ok: true, latency_ms: 120 }),
+      list_provider_models: () => [],
+
+      list_agents: () => [],
+      run_agent: () => null,
+      list_agent_runs: () => [],
+      delete_agent_run: () => null,
+
+      list_tasks: () => {
+        return (window as unknown as Record<string, unknown>).__ATTUNE_TASKS__;
+      },
+      create_task: (args) => {
+        const a = args as { task?: { title?: string } };
+        const title = a?.task?.title ?? "(untitled)";
+        const next = {
+          id: `t-${Date.now()}`,
+          title,
+          status: "todo",
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          due_at: null,
+          source_session: null,
+        };
+        const list = (window as unknown as Record<string, unknown>)
+          .__ATTUNE_TASKS__ as unknown[];
+        list.push(next);
+        return next;
+      },
+      update_task: () => null,
+      delete_task: () => null,
+      set_task_status: () => null,
+
+      list_memories: () => {
+        return (window as unknown as Record<string, unknown>).__ATTUNE_MEMORIES__;
+      },
+      get_memory: () => null,
+      create_memory: () => null,
+      update_memory: () => null,
+      delete_memory: () => null,
+      purge_memory: () => null,
+      pin_memory: () => null,
+      search_memories: () => [],
+      memory_file_path: () => "",
+      rebuild_memory_index: () => null,
+
+      list_webhooks: () => {
+        return (window as unknown as Record<string, unknown>).__ATTUNE_WEBHOOKS__;
+      },
+      save_webhook: () => null,
+      delete_webhook: () => null,
+      test_webhook: () => ({ ok: true, status: 200 }),
+
+      set_tray_recording: () => null,
+      open_preferences_window: () => null,
+      open_record_window: () => null,
+      open_library_window: () => null,
+      open_editor_window: () => null,
+
+      clear_recording_artifacts: () => null,
+      export_vault_snapshot: () => null,
+      purge_old_wav_files: () => null,
+      generate_weekly_digest: () => null,
+      export_share_bundle: () => null,
+      git_sync_vault: () => null,
+      git_vault_is_repo: () => false,
+      list_inbox_entries: () => [],
+      archive_inbox_entry: () => null,
+      get_showcase: () => null,
+      save_showcase: () => null,
+    },
+  });
+}
+
+/** Read the in-page settings snapshot after the React app has saved
+ * something. Drives assertions like "Save in Settings actually
+ * triggered a save_settings call with the toggle flipped". */
+export async function readSettings(page: Page): Promise<MockSettings> {
+  return await page.evaluate(
+    () => (window as unknown as Record<string, unknown>).__ATTUNE_SETTINGS__ as MockSettings,
+  );
+}
+
+/** Filter the IPC log to one command. Convenience for assertions. */
+export async function ipcCalls(page: Page, cmd: string) {
+  const log = await ipcLog(page);
+  return log.filter((e) => e.cmd === cmd);
+}
+
+export { ipcLog };

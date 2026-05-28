@@ -21,6 +21,7 @@
     "e2e:headed": "playwright test --headed",
     "e2e:ui": "playwright test --ui",
     "e2e:report": "playwright show-report",
+    "e2e:fixtures": "node scripts/generate-voice-fixtures.mjs",
     "icon:rasterize": "node scripts/rasterize-icon.mjs",
     "icon:generate": "bun run icon:rasterize && bun tauri icon src-tauri/icons/logo-source.png"
   },
