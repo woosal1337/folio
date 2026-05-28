@@ -1,8 +1,8 @@
 # Attune e2e test report
 
-**Generated:** 2026-05-28
-**Outcome:** **47 / 47 passing** (Playwright) · **104 / 104 passing** (Vitest)
-**Wall-clock:** 23 s for the full Playwright run · 2 s for Vitest
+**Generated:** 2026-05-28 (expanded coverage pass)
+**Outcome:** **101 / 101 passing** (Playwright) · **104 / 104 passing** (Vitest)
+**Wall-clock:** 47 s for the full Playwright run · 2 s for Vitest
 
 ---
 
@@ -19,13 +19,23 @@ return shapes (see `e2e/fixtures/scenario.ts`).
 | `onboarding.spec.ts` | 3 | Permissions → signup → OTP → EventKit → workspace setup → I'm ready, returning-user shortcut, signed-out sidebar gate |
 | `auth.spec.ts` | 3 | Sign out from Profile, re-sign-in skips workspace setup, auth_status hydrates at boot |
 | `navigation.spec.ts` | 5 | Every sidebar route (Record / Inbox / Library / Tasks / Memory) renders |
+| `sidebar.spec.ts` | 4 | Collapse button shrinks the sidebar, active route highlight via `aria-current`, Settings button opens modal, theme toggle button is in the footer |
+| `command-palette.spec.ts` | 3 | Cmd-K opens palette, Cmd-Shift-/ opens cheatsheet, Escape closes |
 | `settings-personal.spec.ts` | 6 | Preferences live-meeting toggle, 90-day GDPR default, Profile display name + email, Calendar toggle, Notifications toggle |
 | `settings-recording.spec.ts` | 7 | Input device list, Transcription provider selection, Storage paths, Privacy section, Appearance, Save round-trip |
 | `settings-workspace.spec.ts` | 10 | Workspace General name + discoverable toggle, Team empty state, Analytics no-scoring red line + range chips, Billing tier matrix, MCP copy-URL, Referrals copy, Webhooks / Usage tabs, IPC save fires |
+| `settings-exhaustive.spec.ts` | 22 | Every persisted toggle / select / input across Preferences, Calendar, Notifications, Audio, Transcription, AI master + briefing language, Privacy, Storage, Workspace; round-trip drift check; freshSettings invariants |
+| `recording.spec.ts` | 4 | Start affordance renders, `start_recording` IPC fires, `recording_status` boot probe, `list_recordings` populates the history strip |
 | `library-tasks-memory.spec.ts` | 4 | Library row from `list_recordings`, Tasks create via inline composer, Memory seeded entries, Inbox empty state |
+| `webhooks.spec.ts` | 2 | `list_webhooks` fires on tab open, seeded webhook renders with `label` + `url` |
+| `agents.spec.ts` | 3 | `list_providers` fires on AI tab open, Inbox route mounts without IPC errors, provider stub shape |
+| `referrals-flow.spec.ts` | 5 | Personal link renders, Copy writes share URL to clipboard, Email button generates `mailto:`, rules / steps render, no premature `referrals_me` call |
+| `privacy-airgap.spec.ts` | 5 | `privacy_mode` toggle persists `true`, defaults `false`, `share_aggregate_stats` opt-in OFF, auto-delete defaults 90 days, link sharing defaults `workspace_only` |
+| `cloud-cost.spec.ts` | 1 | No cloud-cost alert dialog on a clean boot |
+| `integration-contract.spec.ts` | 5 | Boot probes (`auth_status`, `get_settings`), `recording_status` + `list_recordings` on Record mount, `save_settings` is canonical (not `settings_sync_push`), `auth_logout` fires exactly once |
 | `backend-sync.spec.ts` | 5 | `save_settings` fires + carries patched payload, `auth_logout` flips the gate, boot probes (`auth_status` + `get_settings`), workspace-name round-trip |
 | `audio-fixtures.spec.ts` | 3 | Voice manifest is well-formed, every MP3 fixture is non-empty + has valid magic, Chromium decodes the English business clip |
-| **Total** | **47** | — |
+| **Total** | **101** | — |
 
 ---
 
@@ -191,8 +201,40 @@ deleted entry will hit ElevenLabs again.
 | attune-api endpoints (Mongo + Redis live) | `attune-api/tests/integration/` | 18 |
 | Rust core (VAD, calendar, attendee derivation, etc.) | `cargo test` | 440+ |
 | React render tree in jsdom | Vitest + Testing Library | 104 |
-| **Real React in Chromium** | **Playwright** | **47** |
+| **Real React in Chromium** | **Playwright** | **101** |
 | Real Tauri shell driving | blocked on `tauri-driver` macOS support | — |
+
+## Expanded-coverage notes (round 2)
+
+The expansion pass added **54 new tests** across 9 new spec files
+(`settings-exhaustive`, `recording`, `agents`, `command-palette`,
+`sidebar`, `privacy-airgap`, `referrals-flow`, `webhooks`,
+`cloud-cost`, `integration-contract`). Key invariants the suite now
+enforces:
+
+- **Every persisted setting field round-trips** through
+  `save_settings` with the exact value the user toggled.
+- **Privacy defaults can't drift**: privacy_mode OFF, share_stats
+  OFF, auto-delete 90 days, link sharing workspace_only.
+- **No premature backend calls**: `referrals_me` doesn't fire
+  before the section needs it; `settings_sync_push` doesn't fire
+  on every Save (only `save_settings` does).
+- **Boot probes are guaranteed**: `auth_status`, `get_settings`,
+  `recording_status`, `list_recordings` all fire on cold load.
+- **Shortcuts** (Cmd-K / Cmd-Shift-/) drive the actual chrome
+  overlays the user reaches with keyboard.
+
+Issues uncovered this round + fixed:
+1. **Cheatsheet shortcut is Cmd-Shift-/**, not Cmd-/. Test corrected.
+2. **`HomeRedirect`** sends users with recordings to `/library`,
+   not `/record`. Tests must navigate explicitly to Record when
+   asserting on that route.
+3. **Sidebar collapse** has a 300ms CSS transition; tests must
+   poll for the bounding box to settle.
+4. **Webhook record shape** uses `label`, not `name`. Fixed in
+   fixture.
+5. **AI master toggle** label is "AI on every recording", not
+   "Run AI agents after". Fixed.
 
 When `tauri-driver` adds macOS support (Tauri 2 open issue), the
 existing `e2e/` suite re-points at the real binary with a one-line
