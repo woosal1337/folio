@@ -3,7 +3,6 @@ import { NavLink, useLocation } from "react-router-dom";
 import {
   Brain,
   Home as HomeIcon,
-  Inbox,
   KanbanSquare,
   Library,
   Moon,
@@ -34,8 +33,7 @@ interface NavItem {
 
 const items: NavItem[] = [
   { to: "/", label: "Home", icon: HomeIcon },
-  { to: "/inbox", label: "Inbox", icon: Inbox },
-  { to: "/library", label: "Library", icon: Library, alsoActiveOn: ["/editor"] },
+  { to: "/library", label: "My Notes", icon: Library, alsoActiveOn: ["/editor"] },
   { to: "/tasks", label: "Tasks", icon: KanbanSquare },
   { to: "/memory", label: "Memory", icon: Brain },
 ];

@@ -99,7 +99,6 @@ export function rank(items: CommandItem[], query: string): CommandItem[] {
 export function verbSource(actions: {
   startRecording: () => void;
   openChat: () => void;
-  openInbox: () => void;
   openLibrary: () => void;
   openMemory: () => void;
   openTasks: () => void;
@@ -125,18 +124,10 @@ export function verbSource(actions: {
         action: actions.openChat,
       },
       {
-        id: "verb:inbox",
-        kind: "verb",
-        title: "Open Inbox",
-        keywords: ["today", "queue"],
-        shortcut: "⌘2",
-        action: actions.openInbox,
-      },
-      {
         id: "verb:library",
         kind: "verb",
-        title: "Open Library",
-        keywords: ["recordings", "list"],
+        title: "Open My Notes",
+        keywords: ["notes", "recordings", "list", "library"],
         shortcut: "⌘3",
         action: actions.openLibrary,
       },

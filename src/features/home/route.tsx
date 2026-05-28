@@ -14,7 +14,7 @@
 
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
-import { CalendarClock, FileAudio, Mic, Plus } from "lucide-react";
+import { CalendarClock, FileAudio, FileText, Lock, Mic, Plus } from "lucide-react";
 
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent } from "@/shared/ui/card";
@@ -157,16 +157,16 @@ export default function Home() {
                     onClick={() => openNote(r)}
                     className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card px-4 py-3 text-left transition-colors hover:bg-muted/40"
                   >
-                    <div className="min-w-0">
+                    <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium">
                         {r.suggested_title || r.label}
                       </p>
-                      {r.suggested_subtitle ? (
-                        <p className="truncate text-xs text-muted-foreground">
-                          {r.suggested_subtitle}
-                        </p>
-                      ) : null}
+                      <p className="truncate text-xs text-muted-foreground">
+                        {r.suggested_subtitle || "Me"}
+                      </p>
                     </div>
+                    <Lock className="h-3 w-3 shrink-0 text-muted-foreground" />
                     <span className="shrink-0 font-mono text-xs text-muted-foreground">
                       {timeLabel(r.created_at)}
                     </span>
