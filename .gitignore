@@ -90,3 +90,8 @@ tsconfig.tsbuildinfo
 # Playwright
 test-results/
 playwright-report/
+
+# E2E
+.env.e2e
+e2e/fixtures/audio/*.mp3
+e2e/fixtures/audio/*.json
