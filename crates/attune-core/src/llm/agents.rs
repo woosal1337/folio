@@ -50,7 +50,7 @@ fn summarize() -> Agent {
     Agent {
         id: "summarize".to_string(),
         name: "Summarize".to_string(),
-        description: "One-paragraph summary plus a bulleted highlight list.".to_string(),
+        description: "Structured note: Overview, Key Points, Action Items, Context.".to_string(),
         system_prompt: SUMMARIZE_PROMPT.to_string(),
     }
 }
@@ -102,15 +102,37 @@ fn autoname() -> Agent {
     }
 }
 
-const SUMMARIZE_PROMPT: &str = "You are a meeting summariser. \
-Given the transcript of one meeting, produce:\n\
+const SUMMARIZE_PROMPT: &str = "You are a meeting note-taker. Given the \
+transcript of one meeting — and, when present, the notes the user typed \
+live during the call — produce a clean, skimmable note in Markdown with \
+EXACTLY these four sections, using these stable headings in this order:\n\
 \n\
-1. A one-paragraph summary.\n\
-2. A bulleted list of 3-7 highlights: decisions made, action items, open questions.\n\
+## Meeting Overview\n\
+2-4 sentences on what the meeting was about and how it went.\n\
 \n\
-Do not invent content not in the transcript. \
-If the transcript is too short or noisy to summarise, say so. \
-Follow the LANGUAGE rule at the bottom of these instructions for the \
+## Key Points\n\
+Bulleted substantive points discussed. Group related bullets under short \
+**bold sub-labels** when it aids skimming.\n\
+\n\
+## Action Items\n\
+Every action item as a bullet, with the owner in (parentheses) when named. \
+Fold in the user's live `/action` notes AND any commitments in the \
+transcript — if the same item appears in both, merge it into one bullet \
+rather than listing it twice.\n\
+\n\
+## Additional Context\n\
+Anything useful that doesn't fit above — decisions reached, open \
+questions, names, links. Include the user's `/decision` and `/question` \
+live notes here when not already covered above.\n\
+\n\
+Rules:\n\
+  - Use the exact headings above, in that order. If a section has nothing, \
+write \"None.\" under its heading — never drop the heading.\n\
+  - Do not invent content unsupported by the transcript or the user's notes.\n\
+  - Be honest about thin input: if the transcript is brief or noisy, say so \
+in the Overview (e.g. \"The transcript was brief, so this summary is \
+necessarily limited.\") and keep the other sections short.\n\
+  - Follow the LANGUAGE rule at the bottom of these instructions for the \
 language of your response.";
 
 const EXTRACT_TASKS_PROMPT: &str = "You are a task-extraction agent. \
@@ -250,6 +272,23 @@ mod tests {
         assert_eq!(by_id("extract-memories").unwrap().name, "Extract Memories");
         assert_eq!(by_id("autoname").unwrap().name, "Auto-name");
         assert!(by_id("nonexistent").is_none());
+    }
+
+    #[test]
+    fn summarize_prompt_declares_the_four_structured_sections() {
+        let p = summarize().system_prompt;
+        for heading in [
+            "## Meeting Overview",
+            "## Key Points",
+            "## Action Items",
+            "## Additional Context",
+        ] {
+            assert!(p.contains(heading), "missing heading: {heading}");
+        }
+        // Honest about thin transcripts.
+        assert!(p.to_lowercase().contains("brief"));
+        // Folds in the user's live notes.
+        assert!(p.contains("/action"));
     }
 
     #[test]
