@@ -195,7 +195,19 @@ pub async fn run_agent(
     if transcript_text.trim().is_empty() {
         return Err("transcript is empty — there is nothing for the agent to read".to_string());
     }
-    let user_message = build_user_message(&transcript_text);
+    // GET-147: the summary folds in the notes the user typed live during
+    // the call so action items / decisions they captured seed the
+    // structured note instead of being lost. Other agents read the
+    // transcript only.
+    let live_notes_md = if agent.id == "summarize" {
+        let dir = session_dir.clone();
+        tauri::async_runtime::spawn_blocking(move || read_live_notes_markdown(&dir))
+            .await
+            .unwrap_or(None)
+    } else {
+        None
+    };
+    let user_message = build_user_message(&transcript_text, live_notes_md.as_deref());
 
     // Snapshot paths + briefing language from settings (cheap, won't
     // block agent run). The lock is dropped before any IPC.
@@ -810,18 +822,47 @@ fn flatten_transcript(transcript: &SessionTranscript) -> String {
     out.trim().to_string()
 }
 
-fn build_user_message(transcript_text: &str) -> String {
-    if transcript_text.len() <= TRANSCRIPT_CHAR_CAP {
-        return format!("Meeting transcript:\n\n{}", transcript_text);
+fn build_user_message(transcript_text: &str, live_notes_md: Option<&str>) -> String {
+    let mut out = if transcript_text.len() <= TRANSCRIPT_CHAR_CAP {
+        format!("Meeting transcript:\n\n{}", transcript_text)
+    } else {
+        let truncated = &transcript_text[..TRANSCRIPT_CHAR_CAP];
+        format!(
+            "Meeting transcript (truncated to first {} characters; full \
+            transcript was {} characters):\n\n{}",
+            TRANSCRIPT_CHAR_CAP,
+            transcript_text.len(),
+            truncated,
+        )
+    };
+    if let Some(notes) = live_notes_md {
+        let notes = notes.trim();
+        if !notes.is_empty() {
+            out.push_str(
+                "\n\n<user_live_notes>\n\
+                These are the notes the user typed live during the meeting. \
+                Treat them as high-signal: fold their action items / \
+                decisions / questions into the matching sections without \
+                duplicating what the transcript already covers.\n\n",
+            );
+            out.push_str(notes);
+            out.push_str("\n</user_live_notes>");
+        }
     }
-    let truncated = &transcript_text[..TRANSCRIPT_CHAR_CAP];
-    format!(
-        "Meeting transcript (truncated to first {} characters; full \
-        transcript was {} characters):\n\n{}",
-        TRANSCRIPT_CHAR_CAP,
-        transcript_text.len(),
-        truncated,
-    )
+    out
+}
+
+/// Read a session's live notes (GET-145) and render them as the grouped
+/// markdown the summary agent folds in. None when the session has no
+/// notes or the file is missing/unreadable.
+fn read_live_notes_markdown(session_dir: &Path) -> Option<String> {
+    let bytes = std::fs::read(session_dir.join("live_notes.json")).ok()?;
+    let lines: Vec<attune_core::live_notes::RawNoteLine> = serde_json::from_slice(&bytes).ok()?;
+    let notes = attune_core::live_notes::parse_lines(&lines);
+    if notes.is_empty() {
+        return None;
+    }
+    Some(attune_core::live_notes::render_markdown(&notes))
 }
 
 #[cfg(test)]
@@ -910,9 +951,20 @@ mod tests {
     #[test]
     fn user_message_truncates_oversized_input() {
         let huge = "x".repeat(TRANSCRIPT_CHAR_CAP * 2);
-        let msg = build_user_message(&huge);
+        let msg = build_user_message(&huge, None);
         assert!(msg.contains("truncated to first"));
         assert!(msg.len() < TRANSCRIPT_CHAR_CAP + 500);
+    }
+
+    #[test]
+    fn user_message_appends_live_notes_block_when_present() {
+        let msg = build_user_message("hello", Some("## Action items\n\n- `0:05` ship"));
+        assert!(msg.contains("<user_live_notes>"));
+        assert!(msg.contains("## Action items"));
+        assert!(msg.contains("ship"));
+        // Empty / whitespace notes add no block.
+        let bare = build_user_message("hello", Some("   "));
+        assert!(!bare.contains("<user_live_notes>"));
     }
 
     #[test]
