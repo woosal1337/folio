@@ -3,4 +3,10 @@
 /**
  * Snapshot of the current capture session, reported to the UI.
  */
-export type RecordingStatus = { recording: boolean, elapsed_secs: bigint, channels: Array<string>, };
+export type RecordingStatus = { recording: boolean, elapsed_secs: bigint, channels: Array<string>,
+/**
+ * Absolute path of the in-progress session directory, so the live
+ * notes editor (GET-145) can autosave into it mid-recording. None
+ * when idle.
+ */
+session_dir: string | null, };

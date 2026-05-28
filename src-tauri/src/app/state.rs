@@ -99,10 +99,14 @@ impl AppState {
                     .collect()
             })
             .unwrap_or_default();
+        let session_dir = session
+            .as_ref()
+            .map(|s| s.session_dir().to_string_lossy().into_owned());
         RecordingStatus {
             recording,
             elapsed_secs,
             channels,
+            session_dir,
         }
     }
 }

@@ -678,6 +678,20 @@ export async function onTrayEvent(
   return listen(event, () => handler());
 }
 
+// ---- Live notes (GET-145) ----------------------------------------
+
+import type { RawNoteLine } from "@/shared/types/RawNoteLine";
+
+/** Persist the anchored live-notes buffer for a session (atomic). */
+export function saveLiveNotes(sessionDir: string, lines: RawNoteLine[]): Promise<void> {
+  return call<void>("save_live_notes", { sessionDir, lines });
+}
+
+/** Load a session's raw live-note lines (empty when none yet). */
+export function loadLiveNotes(sessionDir: string): Promise<RawNoteLine[]> {
+  return call<RawNoteLine[]>("load_live_notes", { sessionDir });
+}
+
 /** Label of the webview window this code is running in. Falls back to
  *  "main" outside a Tauri context (e.g. unit tests). */
 export function currentWindowLabel(): string {

@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent } from "@/shared/ui/card";
 import { RecordingRow } from "@/features/recording/recording-row";
+import { LiveNotesEditor } from "@/features/recording/live-notes-editor";
 import { StatusPill } from "@/features/recording/status-pill";
 import { VoiceDebriefSheet } from "@/features/recording/voice-debrief-sheet";
 import { FirstRunConductor } from "@/features/onboarding/first-run";
@@ -75,7 +76,9 @@ export default function Record() {
   // route mounts we know the user is signed in. We still defer to the
   // conductor when `onboarding_completed === false` so post-signup
   // workspace setup still runs.
-  const onboardingCompleted = useSettingsStore((s) => s.settings?.onboarding_completed ?? false);
+  const onboardingCompleted = useSettingsStore(
+    (s) => s.settings?.onboarding_completed ?? false
+  );
   const reload = useSettingsStore((s) => s.load);
   if (!onboardingCompleted) {
     return <FirstRunConductor onFinish={() => reload()} />;
@@ -148,6 +151,13 @@ export default function Record() {
             </div>
           )}
           {rec.error && <p className="text-xs text-destructive">{rec.error}</p>}
+
+          {rec.recording && (
+            <LiveNotesEditor
+              sessionDir={rec.liveSessionDir}
+              elapsedSeconds={rec.elapsed}
+            />
+          )}
         </CardContent>
       </Card>
 

@@ -43,6 +43,7 @@ describe("recording-store: start", () => {
       recording: true,
       elapsed_secs: 0n,
       channels: ["mic", "system"],
+      session_dir: "/tmp/attune/2026-05-28-10-00-00",
     });
     const { result } = renderHook(() => useRecording());
     await act(async () => {
@@ -52,6 +53,9 @@ describe("recording-store: start", () => {
     expect(useRecording.getState().channels).toEqual(["mic", "system"]);
     expect(useRecording.getState().error).toBeNull();
     expect(useRecording.getState().busy).toBe(false);
+    expect(useRecording.getState().liveSessionDir).toBe(
+      "/tmp/attune/2026-05-28-10-00-00"
+    );
   });
 
   it("surfaces backend errors without transitioning", async () => {
@@ -100,6 +104,7 @@ describe("recording-store: syncFromBackend", () => {
       recording: false,
       elapsed_secs: 0n,
       channels: [],
+      session_dir: null,
     });
     const { result } = renderHook(() => useRecording());
     await act(async () => {
@@ -113,6 +118,7 @@ describe("recording-store: syncFromBackend", () => {
       recording: true,
       elapsed_secs: 42n,
       channels: ["mic", "system"],
+      session_dir: "/tmp/attune/2026-05-28-10-00-00",
     });
     const { result } = renderHook(() => useRecording());
     await act(async () => {

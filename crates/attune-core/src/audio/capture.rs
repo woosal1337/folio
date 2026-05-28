@@ -121,6 +121,10 @@ pub struct RecordingStatus {
     pub recording: bool,
     pub elapsed_secs: u64,
     pub channels: Vec<String>,
+    /// Absolute path of the in-progress session directory, so the live
+    /// notes editor (GET-145) can autosave into it mid-recording. None
+    /// when idle.
+    pub session_dir: Option<String>,
 }
 
 /// Result of [`CaptureSession::stop`] in a form ready to hand to the UI:
