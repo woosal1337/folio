@@ -29,11 +29,6 @@ const FirstRunConductor = React.lazy(() =>
 const Library = React.lazy(() => import("@/features/library/route"));
 const Editor = React.lazy(() => import("@/features/editor/route"));
 const Tasks = React.lazy(() => import("@/features/tasks/route"));
-// /ai was retired by GET-120 (flat agent-runs page) and is fully
-// replaced by /inbox per GET-50 — today's open actions, fresh memories,
-// and recent agent run-cards. /ai still redirects so old deep-links
-// land somewhere useful.
-const Inbox = React.lazy(() => import("@/features/inbox/route"));
 const PreferencesWindow = React.lazy(
   () => import("@/features/preferences-window/route")
 );
@@ -167,9 +162,11 @@ function MainApp() {
                   <Route path="/library" element={<Library />} />
                   <Route path="/editor" element={<Navigate to="/library" replace />} />
                   <Route path="/editor/:label" element={<Editor />} />
-                  <Route path="/inbox" element={<Inbox />} />
+                  {/* Inbox retired (GET-157): actions live in Tasks, memories
+                      in Memory, runs in the note. /inbox + /ai redirect home. */}
+                  <Route path="/inbox" element={<Navigate to="/" replace />} />
                   <Route path="/preferences-window" element={<PreferencesWindow />} />
-                  <Route path="/ai" element={<Navigate to="/inbox" replace />} />
+                  <Route path="/ai" element={<Navigate to="/" replace />} />
                   <Route path="/tasks" element={<Tasks />} />
                   <Route path="/memory" element={<MemoryRoute />} />
                   <Route path="*" element={<Navigate to="/" replace />} />
@@ -228,7 +225,6 @@ function PaletteHost({
       verbSource({
         startRecording: takeNotes,
         openChat: () => navigate("/chat"),
-        openInbox: () => navigate("/inbox"),
         openLibrary: () => navigate("/library"),
         openMemory: () => navigate("/memory"),
         openTasks: () => navigate("/tasks"),
