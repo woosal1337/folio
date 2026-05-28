@@ -6,6 +6,8 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
 
+use chrono::{DateTime, Utc};
+
 use attune_core::audio::{CaptureSession, RecordingStatus};
 use attune_core::memory::MemoryStore;
 use attune_core::storage::{Settings, SettingsStore};
@@ -37,6 +39,34 @@ pub struct AppState {
     /// HUD window; the HUD reads it on mount via `get_pending_meeting`,
     /// and Take Notes / Dismiss / Don't-ask clear it.
     pub pending_meeting: Mutex<Option<DetectedMeeting>>,
+    /// Multi-part note accumulator for pause/resume (GET-149). `None`
+    /// for a normal single-shot recording — the single-shot path never
+    /// touches this. Becomes `Some` the first time the user pauses, and
+    /// is cleared on the final stop after the parts are merged.
+    pub active_note: Mutex<Option<PausedNote>>,
+}
+
+/// A recording that spans multiple capture segments because the user
+/// paused and resumed. Each segment is finalized into its own WAV; the
+/// final stop merges them into one continuous `mic.wav` / `system.wav`
+/// in [`PausedNote::dir`]. GET-149.
+#[derive(Debug, Clone)]
+pub struct PausedNote {
+    /// The note's directory — the first segment's session dir. Live
+    /// notes and the merged WAVs live here; later segments capture into
+    /// `dir/parts/NNN/`.
+    pub dir: PathBuf,
+    /// Finalized mic WAVs, in capture order (part 0 is `dir/mic.wav`).
+    pub mic_parts: Vec<PathBuf>,
+    /// Finalized system WAVs, in capture order.
+    pub system_parts: Vec<PathBuf>,
+    /// Total elapsed seconds of the finalized parts, so the resumed
+    /// session reports a continuous elapsed time.
+    pub base_offset_secs: u64,
+    /// Index of the next part subdirectory (`dir/parts/NNN/`).
+    pub next_part: usize,
+    /// Wall-clock start of the first segment, for the final artifacts.
+    pub started_at: DateTime<Utc>,
 }
 
 impl AppState {
@@ -53,6 +83,7 @@ impl AppState {
             recording_started: Mutex::new(None),
             memory_store: Mutex::new(None),
             pending_meeting: Mutex::new(None),
+            active_note: Mutex::new(None),
         }
     }
 
@@ -88,8 +119,15 @@ impl AppState {
     pub fn recording_status(&self) -> RecordingStatus {
         let session = self.session.lock();
         let started = self.recording_started.lock();
+        let note = self.active_note.lock();
         let recording = session.is_some();
-        let elapsed_secs = started.map(|t| t.elapsed().as_secs()).unwrap_or(0);
+        // Elapsed is continuous across pause/resume: the finalized parts'
+        // duration plus the current segment's running time.
+        let base = note.as_ref().map(|n| n.base_offset_secs).unwrap_or(0);
+        let current = started.map(|t| t.elapsed().as_secs()).unwrap_or(0);
+        let elapsed_secs = base + current;
+        // Paused = a note is open but no segment is capturing.
+        let paused = session.is_none() && note.is_some();
         let channels = session
             .as_ref()
             .map(|s| {
@@ -99,14 +137,20 @@ impl AppState {
                     .collect()
             })
             .unwrap_or_default();
-        let session_dir = session
+        // Report the NOTE directory (stable across segments) so the live
+        // notes editor keeps autosaving to one place; fall back to the
+        // session dir for a normal single-shot recording.
+        let session_dir = note
             .as_ref()
-            .map(|s| s.session_dir().to_string_lossy().into_owned());
+            .map(|n| n.dir.clone())
+            .or_else(|| session.as_ref().map(|s| s.session_dir().clone()))
+            .map(|p| p.to_string_lossy().into_owned());
         RecordingStatus {
             recording,
             elapsed_secs,
             channels,
             session_dir,
+            paused,
         }
     }
 }

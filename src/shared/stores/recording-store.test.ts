@@ -5,6 +5,8 @@ vi.mock("@/shared/lib/ipc", () => ({
   recordingStatus: vi.fn(),
   startRecording: vi.fn(),
   stopRecording: vi.fn(),
+  pauseRecording: vi.fn(),
+  resumeRecording: vi.fn(),
   setTrayRecording: vi.fn(),
   getRecording: vi.fn(),
   runAgent: vi.fn(),
@@ -12,23 +14,33 @@ vi.mock("@/shared/lib/ipc", () => ({
   hasOpenAiKey: vi.fn().mockResolvedValue(false),
 }));
 
-import { recordingStatus, startRecording, stopRecording } from "@/shared/lib/ipc";
+import {
+  recordingStatus,
+  startRecording,
+  stopRecording,
+  pauseRecording,
+  resumeRecording,
+} from "@/shared/lib/ipc";
 import { useRecording } from "./recording-store";
 
 const mockedStatus = vi.mocked(recordingStatus);
 const mockedStart = vi.mocked(startRecording);
 const mockedStop = vi.mocked(stopRecording);
+const mockedPause = vi.mocked(pauseRecording);
+const mockedResume = vi.mocked(resumeRecording);
 
 beforeEach(() => {
   // Reset the store between tests.
   useRecording.setState({
     recording: false,
+    paused: false,
     startedAt: null,
     elapsed: 0,
     channels: [],
     error: null,
     busy: false,
     lastSavedDir: null,
+    liveSessionDir: null,
     _tickerId: null,
   });
 });
@@ -44,6 +56,7 @@ describe("recording-store: start", () => {
       elapsed_secs: 0n,
       channels: ["mic", "system"],
       session_dir: "/tmp/attune/2026-05-28-10-00-00",
+      paused: false,
     });
     const { result } = renderHook(() => useRecording());
     await act(async () => {
@@ -105,6 +118,7 @@ describe("recording-store: syncFromBackend", () => {
       elapsed_secs: 0n,
       channels: [],
       session_dir: null,
+      paused: false,
     });
     const { result } = renderHook(() => useRecording());
     await act(async () => {
@@ -119,6 +133,7 @@ describe("recording-store: syncFromBackend", () => {
       elapsed_secs: 42n,
       channels: ["mic", "system"],
       session_dir: "/tmp/attune/2026-05-28-10-00-00",
+      paused: false,
     });
     const { result } = renderHook(() => useRecording());
     await act(async () => {
@@ -127,5 +142,52 @@ describe("recording-store: syncFromBackend", () => {
     expect(useRecording.getState().recording).toBe(true);
     expect(useRecording.getState().elapsed).toBe(42);
     expect(useRecording.getState().channels).toEqual(["mic", "system"]);
+  });
+});
+
+describe("recording-store: pause/resume (GET-149)", () => {
+  it("pause freezes the timer and marks the note paused", async () => {
+    mockedPause.mockResolvedValueOnce({
+      recording: false,
+      paused: true,
+      elapsed_secs: 30n,
+      channels: [],
+      session_dir: "/tmp/attune/note",
+    });
+    useRecording.setState({
+      recording: true,
+      paused: false,
+      startedAt: Date.now() - 30_000,
+      elapsed: 30,
+      channels: ["mic"],
+    });
+    const { result } = renderHook(() => useRecording());
+    await act(async () => {
+      await result.current.pause();
+    });
+    const s = useRecording.getState();
+    expect(s.recording).toBe(false);
+    expect(s.paused).toBe(true);
+    expect(s.elapsed).toBe(30);
+    expect(s.liveSessionDir).toBe("/tmp/attune/note");
+  });
+
+  it("resume continues recording with continuous elapsed", async () => {
+    mockedResume.mockResolvedValueOnce({
+      recording: true,
+      paused: false,
+      elapsed_secs: 30n,
+      channels: ["mic", "system"],
+      session_dir: "/tmp/attune/note",
+    });
+    const { result } = renderHook(() => useRecording());
+    await act(async () => {
+      await result.current.resume();
+    });
+    const s = useRecording.getState();
+    expect(s.recording).toBe(true);
+    expect(s.paused).toBe(false);
+    expect(s.elapsed).toBe(30);
+    expect(s.channels).toEqual(["mic", "system"]);
   });
 });

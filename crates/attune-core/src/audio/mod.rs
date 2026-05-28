@@ -19,6 +19,7 @@ pub mod wav_writer;
 
 pub use capture::{CaptureArtifacts, CaptureSession, RecordingResult, RecordingStatus};
 pub use devices::{list_input_devices, DeviceInfo};
+pub use wav_writer::concat_wavs;
 
 /// Capture source channel. Used for routing and labeling downstream
 /// (`me` for [`Channel::Microphone`], `others` for [`Channel::System`]).

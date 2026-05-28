@@ -77,6 +77,8 @@ pub fn run() {
             commands::recording::recording_status,
             commands::recording::start_recording,
             commands::recording::stop_recording,
+            commands::recording::pause_recording,
+            commands::recording::resume_recording,
             commands::library::list_recordings,
             commands::library::get_recording,
             commands::library::delete_recording,
