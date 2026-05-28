@@ -8,11 +8,13 @@
  * GET-147) and light up here as each ships.
  */
 
+import * as React from "react";
 import { Loader2, MessageCircleQuestion, Play, Sparkles } from "lucide-react";
 
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent } from "@/shared/ui/card";
 import { FollowupEmailButton } from "@/features/recording/followup-email-button";
+import { NoteChat } from "@/features/recording/note-chat";
 
 interface Props {
   /** Session directory of the just-stopped recording. */
@@ -32,56 +34,70 @@ export function PostRecordingBar({
   onGenerate,
 }: Props) {
   const label = basename(sessionDir);
+  const [chatOpen, setChatOpen] = React.useState(false);
   return (
-    <Card>
-      <CardContent className="flex flex-col gap-3 py-4">
-        <div className="flex items-baseline justify-between">
-          <p className="text-sm font-medium text-foreground">Recording saved</p>
-          <p className="truncate pl-3 text-xs text-muted-foreground">{label}</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            className="gap-2"
-            onClick={onGenerate}
-            disabled={generating}
-            aria-busy={generating}
-          >
-            {generating ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Sparkles className="h-4 w-4" />
-            )}
-            {generating
-              ? "Generating notes…"
-              : generated
-                ? "Regenerate notes"
-                : "Generate notes"}
-          </Button>
+    <>
+      <Card>
+        <CardContent className="flex flex-col gap-3 py-4">
+          <div className="flex items-baseline justify-between">
+            <p className="text-sm font-medium text-foreground">Recording saved</p>
+            <p className="truncate pl-3 text-xs text-muted-foreground">{label}</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              className="gap-2"
+              onClick={onGenerate}
+              disabled={generating}
+              aria-busy={generating}
+            >
+              {generating ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Sparkles className="h-4 w-4" />
+              )}
+              {generating
+                ? "Generating notes…"
+                : generated
+                  ? "Regenerate notes"
+                  : "Generate notes"}
+            </Button>
 
-          {/* Resume / Ask land in GET-149 / GET-150. Shown now so the
-              bar is complete; each issue enables its button. */}
-          <Button
-            variant="outline"
-            className="gap-2"
-            disabled
-            title="Resume capture into the same note — lands in GET-149"
-          >
-            <Play className="h-4 w-4" />
-            Resume
-          </Button>
-          <Button
-            variant="outline"
-            className="gap-2"
-            disabled
-            title="Ask anything / What did I miss — lands in GET-150"
-          >
-            <MessageCircleQuestion className="h-4 w-4" />
-            Ask anything
-          </Button>
-          <FollowupEmailButton sessionDir={sessionDir} disabled={!generated} />
-        </div>
-      </CardContent>
-    </Card>
+            {/* Resume lands in GET-149's record-route controls; here it
+              stays a hint. */}
+            <Button
+              variant="outline"
+              className="gap-2"
+              disabled
+              title="Use Pause while recording to resume into the same note (GET-149)"
+            >
+              <Play className="h-4 w-4" />
+              Resume
+            </Button>
+            <Button
+              variant="outline"
+              className="gap-2"
+              onClick={() => setChatOpen(true)}
+              disabled={!generated}
+              title={
+                generated
+                  ? "Ask anything about this meeting"
+                  : "Generate notes first so there's a transcript to ask about"
+              }
+            >
+              <MessageCircleQuestion className="h-4 w-4" />
+              Ask anything
+            </Button>
+            <FollowupEmailButton sessionDir={sessionDir} disabled={!generated} />
+          </div>
+        </CardContent>
+      </Card>
+      <NoteChat
+        sessionDir={sessionDir}
+        open={chatOpen}
+        onOpenChange={setChatOpen}
+        seed="What did I miss?"
+      />
+    </>
   );
 }
 

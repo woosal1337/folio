@@ -1,5 +1,12 @@
 import * as React from "react";
-import { AlertTriangle, ArrowLeft, FileAudio, Loader2, Sparkles } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowLeft,
+  FileAudio,
+  Loader2,
+  MessageCircleQuestion,
+  Sparkles,
+} from "lucide-react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -24,6 +31,7 @@ import { AgentPanel, type AgentPanelHandle } from "./agent-panel";
 import { BriefingCard } from "./briefing-card";
 import { ParticipantCards } from "./participant-cards";
 import { TranscriptEditor } from "./transcript-editor";
+import { NoteChat } from "@/features/recording/note-chat";
 import { listAgentRuns } from "@/shared/lib/ipc";
 import type { AgentRun } from "@/shared/types/AgentRun";
 
@@ -45,6 +53,7 @@ export default function Editor() {
   const agentPanelRef = React.useRef<AgentPanelHandle>(null);
   const autoRunFiredRef = React.useRef(false);
   const [reTranscribing, setReTranscribing] = React.useState(false);
+  const [chatOpen, setChatOpen] = React.useState(false);
   const transcriber = useTranscriberCopy();
 
   const [recording, setRecording] = React.useState<RecordingSummary | null>(
@@ -387,11 +396,41 @@ export default function Editor() {
 
       {recording.has_transcript && transcript ? (
         <Card>
+          <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4">
+            <div>
+              <p className="text-sm font-medium text-foreground">
+                Chat with this transcript
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Ask questions scoped to this meeting. Answers cite timestamps you can
+                click to jump the player.
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              className="gap-2"
+              onClick={() => setChatOpen(true)}
+            >
+              <MessageCircleQuestion className="h-4 w-4" />
+              Chat
+            </Button>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {recording.has_transcript && transcript ? (
+        <Card>
           <CardContent className="py-5">
             <AgentPanel ref={agentPanelRef} sessionDir={recording.session_dir} />
           </CardContent>
         </Card>
       ) : null}
+
+      <NoteChat
+        sessionDir={recording.session_dir}
+        open={chatOpen}
+        onOpenChange={setChatOpen}
+      />
     </div>
   );
 }
