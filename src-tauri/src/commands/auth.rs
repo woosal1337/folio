@@ -40,15 +40,10 @@ pub async fn auth_verify_signin_code(
     device_name: String,
 ) -> Result<UserIdentity, String> {
     let client = BackendClient::new();
-    let session = backend_auth::verify_signin_code(
-        &client,
-        &email,
-        &code,
-        &device_id,
-        &device_name,
-    )
-    .await
-    .map_err(|e| e.to_string())?;
+    let session =
+        backend_auth::verify_signin_code(&client, &email, &code, &device_id, &device_name)
+            .await
+            .map_err(|e| e.to_string())?;
     Ok(session.identity)
 }
 

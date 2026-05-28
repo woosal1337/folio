@@ -44,15 +44,11 @@ pub struct McpConfig {
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
+#[derive(Default)]
 pub enum Transport {
+    #[default]
     Stdio,
     Http,
-}
-
-impl Default for Transport {
-    fn default() -> Self {
-        Transport::Stdio
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

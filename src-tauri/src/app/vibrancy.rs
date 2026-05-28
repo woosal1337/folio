@@ -35,6 +35,8 @@ const NS_VIEW_AUTORESIZE_FILL: u64 = 2 | 16;
 const NS_WINDOW_BELOW: i64 = -1;
 
 #[cfg(target_os = "macos")]
+#[allow(deprecated)] // cocoa 0.26 marks its surface deprecated in favour of
+                     // objc2; matches the dock-icon helper's allow.
 pub fn install_window_vibrancy(window: &tauri::WebviewWindow) {
     use cocoa::base::{id, nil};
     use cocoa::foundation::NSRect;

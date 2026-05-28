@@ -609,6 +609,66 @@ export function openEditorWindow(label: string): Promise<void> {
   return call<void>("open_editor_window", { label });
 }
 
+// ---- Meeting-detection HUD (GET-143) -----------------------------
+
+/** Tauri window label of the frameless meeting-detection HUD popover. */
+export const MEETING_HUD_WINDOW_LABEL = "meeting-hud";
+/** Event the watcher emits when a conferencing app is detected. */
+export const MEETING_DETECTED_EVENT = "meeting-detected";
+/** Event the HUD asks the main window to start the one-click flow with. */
+export const MEETING_TAKE_NOTES_EVENT = "meeting:take-notes";
+
+/** Payload of {@link MEETING_DETECTED_EVENT} + {@link getPendingMeeting}. */
+export interface DetectedMeeting {
+  bundle_id: string;
+  app_label: string;
+  detected_at_ms: number;
+}
+
+/** The detection awaiting a decision in the HUD, read on HUD mount. */
+export function getPendingMeeting(): Promise<DetectedMeeting | null> {
+  return call<DetectedMeeting | null>("get_pending_meeting");
+}
+
+/** Take Notes: focus the main window, start capture, close the HUD. */
+export function meetingTakeNotes(): Promise<void> {
+  return call<void>("meeting_take_notes");
+}
+
+/** Dismiss the HUD without muting the app. */
+export function dismissMeetingHud(): Promise<void> {
+  return call<void>("dismiss_meeting_hud");
+}
+
+/** Don't ask for this app again: mute its bundle id and close the HUD. */
+export function suppressMeetingApp(bundleId: string): Promise<void> {
+  return call<void>("suppress_meeting_app", { bundleId });
+}
+
+/** Subscribe to fresh meeting detections (HUD refresh while open). */
+export async function onMeetingDetected(
+  handler: (meeting: DetectedMeeting) => void
+): Promise<UnlistenFn> {
+  return listen<DetectedMeeting>(MEETING_DETECTED_EVENT, (event) =>
+    handler(event.payload)
+  );
+}
+
+/** Subscribe to the HUD's Take-Notes request (main window only). */
+export async function onMeetingTakeNotes(handler: () => void): Promise<UnlistenFn> {
+  return listen(MEETING_TAKE_NOTES_EVENT, () => handler());
+}
+
+/** Label of the webview window this code is running in. Falls back to
+ *  "main" outside a Tauri context (e.g. unit tests). */
+export function currentWindowLabel(): string {
+  try {
+    return getCurrentWindow().label;
+  } catch {
+    return "main";
+  }
+}
+
 // ---- Transcript backlinks (v2 #038 / GET-41) ---------------------
 
 import type { TranscriptHit } from "@/shared/types/TranscriptHit";

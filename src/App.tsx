@@ -8,6 +8,7 @@ import { JobStrip } from "@/chrome/job-strip";
 import { CloudCostConfirmDialog } from "@/chrome/cloud-cost-confirm-dialog";
 import { DeepLinkHandler } from "@/chrome/deep-link-handler";
 import { HomeRedirect } from "@/chrome/home-redirect";
+import { MeetingHudBridge } from "@/chrome/meeting-hud-bridge";
 import { GlobalShortcuts } from "@/chrome/global-shortcuts";
 import { CheatsheetOverlay } from "@/chrome/cheatsheet-overlay";
 import { CommandPalette } from "@/chrome/command-palette";
@@ -19,8 +20,11 @@ import { verbSource } from "@/shared/lib/command-palette";
 // arrive when the user navigates to them. The static fallback below
 // renders a near-empty frame so the route swap stays visually quiet.
 const Record = React.lazy(() => import("@/features/recording/route"));
+const MeetingHud = React.lazy(() => import("@/features/meeting-hud/route"));
 const FirstRunConductor = React.lazy(() =>
-  import("@/features/onboarding/first-run").then((m) => ({ default: m.FirstRunConductor })),
+  import("@/features/onboarding/first-run").then((m) => ({
+    default: m.FirstRunConductor,
+  }))
 );
 const Library = React.lazy(() => import("@/features/library/route"));
 const Editor = React.lazy(() => import("@/features/editor/route"));
@@ -30,7 +34,9 @@ const Tasks = React.lazy(() => import("@/features/tasks/route"));
 // and recent agent run-cards. /ai still redirects so old deep-links
 // land somewhere useful.
 const Inbox = React.lazy(() => import("@/features/inbox/route"));
-const PreferencesWindow = React.lazy(() => import("@/features/preferences-window/route"));
+const PreferencesWindow = React.lazy(
+  () => import("@/features/preferences-window/route")
+);
 const MemoryRoute = React.lazy(() => import("@/features/memory/route"));
 const SettingsModal = React.lazy(() =>
   import("@/features/settings/route").then((m) => ({ default: m.SettingsModal }))
@@ -40,8 +46,25 @@ import { useWindowDoubleClick, useWindowDrag } from "@/shared/hooks/use-window-d
 import { useAuthStore } from "@/shared/stores/auth-store";
 import { useSettingsStore } from "@/shared/stores/settings-store";
 import { useSettingsUiStore } from "@/shared/stores/settings-ui-store";
+import { MEETING_HUD_WINDOW_LABEL, currentWindowLabel } from "@/shared/lib/ipc";
 
 export default function App() {
+  // The meeting-detection HUD (GET-143) is a separate frameless window.
+  // It renders a standalone surface with no sidebar, chrome, or auth
+  // gate — short-circuit before any of that mounts.
+  if (currentWindowLabel() === MEETING_HUD_WINDOW_LABEL) {
+    return (
+      <ErrorBoundary>
+        <React.Suspense fallback={null}>
+          <MeetingHud />
+        </React.Suspense>
+      </ErrorBoundary>
+    );
+  }
+  return <MainApp />;
+}
+
+function MainApp() {
   // Settings modal open/section lives in a global store so any component
   // (sidebar button, agent-panel hints, future deep-links) can open it
   // at a specific section without prop-drilling.
@@ -75,13 +98,14 @@ export default function App() {
   const signedIn = useAuthStore((s) => s.signedIn);
   const settingsHydrated = useSettingsStore((s) => s.settings !== null);
   const onboardingCompleted = useSettingsStore(
-    (s) => s.settings?.onboarding_completed ?? false,
+    (s) => s.settings?.onboarding_completed ?? false
   );
   const reloadSettings = useSettingsStore((s) => s.load);
 
   if (!authHydrated || !settingsHydrated) {
     return (
       <ErrorBoundary>
+        {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions -- Tauri drag-region root, same pattern as the signed-in shell below. */}
         <div
           className="flex h-screen w-screen items-center justify-center bg-background text-sm text-muted-foreground"
           onMouseDown={onMouseDown}
@@ -155,6 +179,7 @@ export default function App() {
           </React.Suspense>
           <CloudCostConfirmDialog />
           <DeepLinkHandler />
+          <MeetingHudBridge />
           <GlobalShortcuts
             onOpenCheatsheet={() => setCheatsheetOpen(true)}
             onOpenPalette={() => setPaletteOpen(true)}

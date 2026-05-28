@@ -47,5 +47,7 @@ pub async fn push(
     // updated_at lost the LWW comparison — the envelope's `success`
     // is still true so the unwrapper returns the snapshot and the
     // caller resolves.
-    client.request(reqwest::Method::PUT, "/settings", Some(&body)).await
+    client
+        .request(reqwest::Method::PUT, "/settings", Some(&body))
+        .await
 }

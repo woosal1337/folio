@@ -121,9 +121,7 @@ impl BackendClient {
             .map_err(|e| BackendError::Token(e.to_string()))?
             .ok_or(BackendError::Unauthorized)?;
 
-        let res = self
-            .send_with_token(&method, path, body, &access)
-            .await?;
+        let res = self.send_with_token(&method, path, body, &access).await?;
 
         if res.status() != StatusCode::UNAUTHORIZED {
             return unwrap_envelope(res).await;
@@ -281,7 +279,11 @@ where
         } else {
             serde_json::from_str(&text).map_err(|e| BackendError::Decode(e.to_string()))?
         };
-        if !raw.get("success").and_then(|v| v.as_bool()).unwrap_or(false) {
+        if !raw
+            .get("success")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false)
+        {
             let msg = raw
                 .get("message")
                 .and_then(|v| v.as_str())
@@ -292,10 +294,7 @@ where
                 message: msg,
             });
         }
-        let data = raw
-            .get("data")
-            .cloned()
-            .unwrap_or(serde_json::Value::Null);
+        let data = raw.get("data").cloned().unwrap_or(serde_json::Value::Null);
         serde_json::from_value::<Resp>(data).map_err(|e| BackendError::Decode(e.to_string()))
     } else {
         let body: ErrorBody = serde_json::from_str(&text).unwrap_or(ErrorBody {

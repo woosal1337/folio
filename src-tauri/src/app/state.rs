@@ -12,6 +12,8 @@ use attune_core::storage::{Settings, SettingsStore};
 use parking_lot::Mutex;
 use tracing::warn;
 
+use crate::app::meeting_watcher::DetectedMeeting;
+
 /// Process-wide state.
 ///
 /// Each piece is wrapped in its own `parking_lot::Mutex` so commands lock
@@ -30,6 +32,11 @@ pub struct AppState {
     /// per page load. Invalidates + reopens when `settings.memory_dir`
     /// changes. v2 roadmap finding R14.
     memory_store: Mutex<Option<(PathBuf, Arc<MemoryStore>)>>,
+    /// The most recently auto-detected meeting awaiting a user decision
+    /// in the HUD (GET-143). The watcher writes it before opening the
+    /// HUD window; the HUD reads it on mount via `get_pending_meeting`,
+    /// and Take Notes / Dismiss / Don't-ask clear it.
+    pub pending_meeting: Mutex<Option<DetectedMeeting>>,
 }
 
 impl AppState {
@@ -45,6 +52,7 @@ impl AppState {
             session: Mutex::new(None),
             recording_started: Mutex::new(None),
             memory_store: Mutex::new(None),
+            pending_meeting: Mutex::new(None),
         }
     }
 

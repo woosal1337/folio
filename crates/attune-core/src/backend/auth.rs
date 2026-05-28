@@ -14,9 +14,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::backend::client::{BackendClient, BackendError};
 use crate::backend::tokens::{AuthTokens, TokenStore, UserIdentity};
-use crate::backend::types::{
-    CodeVerifyRequest, LogoutRequest, SignupRequest, VerifyResponse,
-};
+use crate::backend::types::{CodeVerifyRequest, LogoutRequest, SignupRequest, VerifyResponse};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SigninCodeResult {
@@ -64,11 +62,9 @@ pub async fn verify_signin_code(
         device_name,
     };
     let resp: VerifyResponse = client.post_anon("/auth/code-verify", &body).await?;
-    let user = resp.user.ok_or_else(|| {
-        BackendError::Api {
-            status: 200,
-            message: "verify response missing user payload".to_string(),
-        }
+    let user = resp.user.ok_or_else(|| BackendError::Api {
+        status: 200,
+        message: "verify response missing user payload".to_string(),
     })?;
     let tokens = AuthTokens {
         access_token: resp.access_token,
@@ -89,12 +85,13 @@ pub async fn verify_signin_code(
 /// Always clears the keychain even when the server call fails so the
 /// user can't get stuck in a half-signed-in state.
 pub async fn logout(client: &BackendClient) -> Result<(), BackendError> {
-    let refresh = TokenStore::refresh_token()
-        .map_err(|e| BackendError::Token(e.to_string()))?;
+    let refresh = TokenStore::refresh_token().map_err(|e| BackendError::Token(e.to_string()))?;
     let body = LogoutRequest {
         refresh_token: refresh.as_deref(),
     };
-    let server = client.post::<LogoutRequest<'_>, ()>("/auth/logout", &body).await;
+    let server = client
+        .post::<LogoutRequest<'_>, ()>("/auth/logout", &body)
+        .await;
     let _ = TokenStore::clear();
     match server {
         Ok(()) => Ok(()),

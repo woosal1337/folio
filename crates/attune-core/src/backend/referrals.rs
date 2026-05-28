@@ -3,16 +3,12 @@
 use serde::Serialize;
 
 use crate::backend::client::{BackendClient, BackendError};
-use crate::backend::types::{
-    ReferralRedeemPayload, ReferralStats, ReferralTokenResponse,
-};
+use crate::backend::types::{ReferralRedeemPayload, ReferralStats, ReferralTokenResponse};
 
 #[derive(Serialize)]
 struct EmptyBody {}
 
-pub async fn generate_token(
-    client: &BackendClient,
-) -> Result<ReferralTokenResponse, BackendError> {
+pub async fn generate_token(client: &BackendClient) -> Result<ReferralTokenResponse, BackendError> {
     client.post("/referrals/generate", &EmptyBody {}).await
 }
 

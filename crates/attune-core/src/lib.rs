@@ -20,10 +20,10 @@
 //!   keystore.
 //! - [`memory`] — Camp-2 memory layer: markdown pages on disk, FTS5
 //!   + sqlite-vec index, embedding cache + shard policy, fs-watcher,
-//!   git-commit hook, dream-loop consolidation.
+//!     git-commit hook, dream-loop consolidation.
 //! - [`storage`] — settings + sessions + tasks + decisions + showcase
 //!   + share bundles + vault layout + Spotlight sidecars + atomic
-//!   writes + retention.
+//!     writes + retention.
 //!
 //! Capabilities + cross-cutting concerns:
 //!
