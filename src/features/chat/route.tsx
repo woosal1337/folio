@@ -9,6 +9,7 @@
  */
 
 import * as React from "react";
+import { useLocation } from "react-router-dom";
 import {
   CalendarRange,
   Compass,
@@ -75,6 +76,10 @@ export default function Chat() {
     return name ? name.split(/[\s.]+/)[0] : "";
   }, [identity]);
 
+  const location = useLocation();
+  const seed = (location.state as { seed?: string } | null)?.seed;
+  const seededRef = React.useRef(false);
+
   const [messages, setMessages] = React.useState<Msg[]>([]);
   const [input, setInput] = React.useState("");
   const [busy, setBusy] = React.useState(false);
@@ -127,6 +132,14 @@ export default function Chat() {
     },
     [busy, messages, model]
   );
+
+  // Auto-ask the seed passed from the Home Ask bar (GET-156), once.
+  React.useEffect(() => {
+    if (seed && !seededRef.current) {
+      seededRef.current = true;
+      void ask(seed);
+    }
+  }, [seed, ask]);
 
   const empty = messages.length === 0 && !busy;
 
