@@ -1,11 +1,18 @@
 import * as React from "react";
 import {
-  AlertTriangle,
   ArrowLeft,
-  FileAudio,
+  Bot,
+  ChevronRight,
+  Copy,
+  FileText,
+  FolderPlus,
   Loader2,
   MessageCircleQuestion,
+  MoreHorizontal,
+  RefreshCw,
   Sparkles,
+  Trash2,
+  User as UserIcon,
 } from "lucide-react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -13,33 +20,38 @@ import { toast } from "sonner";
 import { AudioPlayer } from "@/features/recording/audio-player";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
-import { Card, CardContent } from "@/shared/ui/card";
+import { Markdown } from "@/shared/ui/markdown";
 import { Separator } from "@/shared/ui/separator";
+import { copyToClipboard } from "@/shared/lib/share";
 import { formatBytes, formatDuration } from "@/shared/lib/utils";
 import {
   clearRecordingArtifacts,
+  deleteRecording,
   getRecording,
+  listAgentRuns,
+  loadLiveNotes,
   readTranscript,
+  revealInFinder,
+  runAgent,
   transcribeRecording,
 } from "@/shared/lib/ipc";
 import { useRecording } from "@/shared/stores/recording-store";
 import { useTranscriberCopy } from "@/shared/hooks/use-transcriber-copy";
+import type { AgentRun } from "@/shared/types/AgentRun";
+import type { RawNoteLine } from "@/shared/types/RawNoteLine";
 import type { RecordingSummary } from "@/shared/types/RecordingSummary";
 import type { SessionTranscript } from "@/shared/types/SessionTranscript";
 
 import { AgentPanel, type AgentPanelHandle } from "./agent-panel";
-import { BriefingCard } from "./briefing-card";
+import { serialiseAsPlainText } from "./briefing-card";
 import { ParticipantCards } from "./participant-cards";
 import { TranscriptEditor } from "./transcript-editor";
+import { FollowupEmailButton } from "@/features/recording/followup-email-button";
 import { NoteChat } from "@/features/recording/note-chat";
-import { listAgentRuns } from "@/shared/lib/ipc";
-import type { AgentRun } from "@/shared/types/AgentRun";
 
 interface LocationState {
   recording?: RecordingSummary;
-  /** If set, the editor fires the named agent automatically once the
-   * transcript is loaded. Used by the library row's [Summarize] button
-   * for the one-tap UX rule in the vault plan. */
+  /** If set, fire the named agent once the transcript is loaded. */
   autoRun?: string;
 }
 
@@ -53,7 +65,10 @@ export default function Editor() {
   const agentPanelRef = React.useRef<AgentPanelHandle>(null);
   const autoRunFiredRef = React.useRef(false);
   const [reTranscribing, setReTranscribing] = React.useState(false);
+  const [regenerating, setRegenerating] = React.useState(false);
   const [chatOpen, setChatOpen] = React.useState(false);
+  const [transcriptOpen, setTranscriptOpen] = React.useState(false);
+  const [agentsOpen, setAgentsOpen] = React.useState(false);
   const transcriber = useTranscriberCopy();
 
   const [recording, setRecording] = React.useState<RecordingSummary | null>(
@@ -65,12 +80,12 @@ export default function Editor() {
   const [transcript, setTranscript] = React.useState<SessionTranscript | null>(null);
   const [transcriptLoading, setTranscriptLoading] = React.useState(false);
   const [transcriptError, setTranscriptError] = React.useState<string | null>(null);
+  const [yourNotes, setYourNotes] = React.useState<RawNoteLine[]>([]);
 
   const transcribingDir = useRecording((s) => s.transcribingDir);
   const lastTranscriptPath = useRecording((s) => s.lastTranscriptPath);
 
-  // Fetch the RecordingSummary when we don't already have it from
-  // router state (deep link or hard reload).
+  // Fetch the RecordingSummary when not provided via router state.
   React.useEffect(() => {
     if (recording) return;
     if (!label) {
@@ -112,8 +127,6 @@ export default function Editor() {
     }
   }, []);
 
-  // Load (or reload) the transcript whenever the recording's transcript
-  // status changes — including when a fresh transcription just landed.
   React.useEffect(() => {
     if (recording?.has_transcript) {
       loadTranscript(recording.session_dir);
@@ -122,8 +135,21 @@ export default function Editor() {
     }
   }, [recording, loadTranscript, lastTranscriptPath]);
 
-  // Refresh the recording metadata once a transcription completes for
-  // this session — flips has_transcript so the editor renders.
+  // The notes the user typed live during the meeting (GET-145).
+  React.useEffect(() => {
+    if (!recording?.session_dir) return;
+    let cancelled = false;
+    void loadLiveNotes(recording.session_dir)
+      .then((lines) => {
+        if (!cancelled) setYourNotes(lines);
+      })
+      .catch((e) => console.error("load_live_notes:", e));
+    return () => {
+      cancelled = true;
+    };
+  }, [recording?.session_dir]);
+
+  // Refresh the recording metadata once a transcription completes.
   React.useEffect(() => {
     if (!label || !lastTranscriptPath) return;
     let cancelled = false;
@@ -141,28 +167,23 @@ export default function Editor() {
   }, [label, lastTranscriptPath]);
 
   const [agentRuns, setAgentRuns] = React.useState<AgentRun[]>([]);
-  React.useEffect(() => {
+  const refreshRuns = React.useCallback(async () => {
     if (!recording?.session_dir || !recording.has_transcript) {
       setAgentRuns([]);
       return;
     }
-    let cancelled = false;
-    (async () => {
-      try {
-        const runs = await listAgentRuns(recording.session_dir);
-        if (!cancelled) setAgentRuns(runs);
-      } catch (e) {
-        if (!cancelled) console.error("list_agent_runs:", e);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [recording?.session_dir, recording?.has_transcript, lastTranscriptPath]);
+    try {
+      setAgentRuns(await listAgentRuns(recording.session_dir));
+    } catch (e) {
+      console.error("list_agent_runs:", e);
+    }
+  }, [recording?.session_dir, recording?.has_transcript]);
+
+  React.useEffect(() => {
+    void refreshRuns();
+  }, [refreshRuns, lastTranscriptPath]);
 
   const summaryRun = agentRuns.find((r) => r.agent_id === "summarize") ?? null;
-  const tasksRun = agentRuns.find((r) => r.agent_id === "extract-tasks") ?? null;
-  const memoriesRun = agentRuns.find((r) => r.agent_id === "extract-memories") ?? null;
 
   const handleTranscribe = async () => {
     if (!recording) return;
@@ -174,11 +195,62 @@ export default function Editor() {
     }
   };
 
-  // Legacy detection: transcripts produced before the dual-channel
-  // rewrite have a single channel labelled "legacy". They were also
-  // produced by the pre-PR-26 pipeline (no greedy sampling, no RMS
-  // guard, no hallucination filter) and so are noticeably worse than a
-  // re-transcribe today would produce.
+  const handleRegenerate = async () => {
+    if (!recording) return;
+    setRegenerating(true);
+    try {
+      await runAgent(recording.session_dir, "summarize");
+      await refreshRuns();
+      toast.success("Notes regenerated");
+    } catch (e) {
+      console.error("regenerate notes:", e);
+      toast.error("Could not regenerate notes", { description: String(e) });
+    } finally {
+      setRegenerating(false);
+    }
+  };
+
+  const handleCopy = async () => {
+    if (!recording) return;
+    try {
+      await copyToClipboard(
+        serialiseAsPlainText({
+          recording,
+          summary: summaryRun,
+          tasks: agentRuns.find((r) => r.agent_id === "extract-tasks") ?? null,
+          memories: agentRuns.find((r) => r.agent_id === "extract-memories") ?? null,
+        })
+      );
+      toast.success("Notes copied to clipboard");
+    } catch (e) {
+      toast.error("Could not copy", { description: String(e) });
+    }
+  };
+
+  const handleReveal = () => {
+    if (!recording) return;
+    revealInFinder(recording.session_dir).catch((e) => {
+      console.error("reveal_in_finder:", e);
+      toast.error("Could not open Finder", { description: String(e) });
+    });
+  };
+
+  const handleDelete = async () => {
+    if (!recording) return;
+    const ok = window.confirm(
+      `Delete this note?\n\n${recording.suggested_title?.trim() || recording.label}\n\nThis removes the session folder and every file inside it. Cannot be undone.`
+    );
+    if (!ok) return;
+    try {
+      await deleteRecording(recording.session_dir);
+      toast.success("Note deleted");
+      navigate("/library");
+    } catch (e) {
+      console.error("delete_recording:", e);
+      toast.error("Could not delete note", { description: String(e) });
+    }
+  };
+
   const isLegacyTranscript = React.useMemo(() => {
     if (!transcript) return false;
     return transcript.channels.some((c) => c.channel === "legacy");
@@ -187,7 +259,7 @@ export default function Editor() {
   const handleReTranscribe = async () => {
     if (!recording) return;
     const ok = window.confirm(
-      "Delete this recording's transcript and every saved agent result, then re-transcribe with the latest pipeline?\n\nAudio files are not touched."
+      "Delete this note's transcript and every saved AI result, then re-transcribe with the latest pipeline?\n\nAudio files are not touched."
     );
     if (!ok) return;
     setReTranscribing(true);
@@ -204,9 +276,7 @@ export default function Editor() {
     }
   };
 
-  // Auto-run the requested agent once both the transcript and the
-  // panel are ready. Fires at most once per navigation; subsequent
-  // taps on the same recording row do not re-trigger.
+  // Auto-run the requested agent once the transcript + panel are ready.
   React.useEffect(() => {
     if (!autoRunAgent) return;
     if (autoRunFiredRef.current) return;
@@ -222,10 +292,10 @@ export default function Editor() {
   if (notFound) {
     return (
       <CenteredPage>
-        <h1 className="font-serif text-2xl font-medium">Recording not found</h1>
+        <h1 className="font-serif text-2xl font-medium">Note not found</h1>
         <p className="max-w-md text-sm text-muted-foreground">
-          The recording <span className="font-mono">{label}</span> does not exist in
-          your configured recordings folder. It may have been deleted or renamed.
+          The note <span className="font-mono">{label}</span> does not exist in your
+          recordings folder. It may have been deleted or renamed.
         </p>
         <Button onClick={() => navigate("/library")} className="gap-2">
           <ArrowLeft className="h-3.5 w-3.5" />
@@ -239,7 +309,7 @@ export default function Editor() {
     return (
       <CenteredPage>
         <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">Loading recording…</p>
+        <p className="text-sm text-muted-foreground">Loading note…</p>
       </CenteredPage>
     );
   }
@@ -253,177 +323,198 @@ export default function Editor() {
     ? `${recording.session_dir}/system.wav`
     : null;
   const isCurrentlyTranscribing = transcribingDir === recording.session_dir;
+  const title = recording.suggested_title?.trim() || recording.label;
+  const yourNotesText = yourNotes
+    .map((l) => l.text)
+    .join("\n")
+    .trim();
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-8 py-10">
-      <header data-drag="" className="select-none">
-        <nav className="flex items-center gap-2 text-xs text-muted-foreground">
-          <Link
-            to="/library"
-            className="inline-flex items-center gap-1 hover:text-foreground"
-          >
-            <ArrowLeft className="h-3 w-3" />
-            Library
-          </Link>
-          <span>/</span>
-          <span className="font-mono">{recording.label}</span>
-        </nav>
-        <div className="mt-3 flex flex-wrap items-baseline justify-between gap-3">
-          <h1 className="font-serif text-3xl font-medium tracking-tight">
-            {recording.label}
-          </h1>
-          <div className="flex items-center gap-2 font-mono text-xs text-muted-foreground">
-            <span>{formatDuration(Number(recording.duration_seconds))}</span>
-            <span>·</span>
-            <span>{formatBytes(totalBytes)}</span>
-            {recording.has_transcript && (
-              <Badge variant="accent" className="gap-1.5 text-2xs">
-                <Sparkles className="h-3 w-3" />
-                transcribed
-              </Badge>
-            )}
-          </div>
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-8 py-8">
+      {/* Header: back + ⋯ */}
+      <div data-drag="" className="flex select-none items-center justify-between">
+        <Link
+          to="/library"
+          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          Library
+        </Link>
+        <div className="flex items-center gap-1.5">
+          {recording.has_transcript ? (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                onClick={handleRegenerate}
+                disabled={regenerating || isCurrentlyTranscribing}
+              >
+                {regenerating ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-3.5 w-3.5" />
+                )}
+                {summaryRun ? "Regenerate" : "Generate notes"}
+              </Button>
+              <FollowupEmailButton
+                sessionDir={recording.session_dir}
+                disabled={false}
+              />
+            </>
+          ) : null}
+          <NoteMenu
+            hasTranscript={recording.has_transcript}
+            hasSummary={summaryRun !== null}
+            reTranscribing={reTranscribing || isCurrentlyTranscribing}
+            onChat={() => setChatOpen(true)}
+            onCopy={handleCopy}
+            onReTranscribe={handleReTranscribe}
+            onReveal={handleReveal}
+            onDelete={handleDelete}
+          />
         </div>
-      </header>
+      </div>
 
-      <Card>
-        <CardContent className="flex flex-col gap-4 py-5">
-          {micPath ? (
-            <AudioPlayer filePath={micPath} label="Mic" channel="mic" />
-          ) : (
-            <p className="text-xs text-muted-foreground">No mic track.</p>
-          )}
-          {systemPath && <Separator />}
-          {systemPath && (
-            <AudioPlayer filePath={systemPath} label="System" channel="system" />
-          )}
-        </CardContent>
-      </Card>
+      {/* Title + chips */}
+      <div className="space-y-3">
+        <h1 className="font-serif text-3xl font-medium tracking-tight">{title}</h1>
+        <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+          <Chip>{formatNoteDate(recording.created_at)}</Chip>
+          <Chip>
+            <UserIcon className="h-3 w-3" />
+            Me
+          </Chip>
+          <button
+            type="button"
+            disabled
+            title="Folders are coming soon"
+            className="inline-flex cursor-default items-center gap-1 rounded-full border border-border bg-card px-2.5 py-1 opacity-60"
+          >
+            <FolderPlus className="h-3 w-3" />
+            Add to folder
+          </button>
+          <span className="font-mono">
+            {formatDuration(Number(recording.duration_seconds))} ·{" "}
+            {formatBytes(totalBytes)}
+          </span>
+          {recording.has_transcript ? (
+            <Badge variant="accent" className="gap-1 text-2xs">
+              <Sparkles className="h-3 w-3" />
+              transcribed
+            </Badge>
+          ) : null}
+        </div>
+      </div>
 
-      {recording.has_transcript ? (
-        <BriefingCard
-          recording={recording}
-          summary={summaryRun}
-          tasks={tasksRun}
-          memories={memoriesRun}
-        />
+      {/* No transcript / transcribing states */}
+      {isCurrentlyTranscribing ? (
+        <div
+          className="flex items-center gap-2 text-sm text-muted-foreground"
+          role="status"
+          aria-live="polite"
+        >
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span>{transcriber.progressLabel}</span>
+        </div>
+      ) : !recording.has_transcript ? (
+        <div className="flex flex-col items-start gap-3 rounded-lg border border-dashed border-border bg-card/40 px-4 py-6">
+          <div className="flex items-center gap-2">
+            <FileText className="h-4 w-4 text-muted-foreground" />
+            <p className="text-sm">No transcript yet for this note.</p>
+          </div>
+          <Button onClick={handleTranscribe} className="gap-2">
+            <Sparkles className="h-3.5 w-3.5" />
+            Transcribe now
+          </Button>
+          <p className="text-xs text-muted-foreground">{transcriber.emptyStateHint}</p>
+        </div>
+      ) : null}
+
+      {/* Your notes (what you typed live) */}
+      {yourNotesText ? (
+        <section className="space-y-2">
+          <SectionLabel>Your notes</SectionLabel>
+          <div className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
+            {yourNotesText}
+          </div>
+        </section>
+      ) : null}
+
+      {/* Enhanced notes (the structured summary) */}
+      {summaryRun ? (
+        <section className="space-y-2">
+          <SectionLabel>Enhanced notes</SectionLabel>
+          <div className="prose prose-sm prose-neutral dark:prose-invert max-w-none">
+            <Markdown>{summaryRun.response}</Markdown>
+          </div>
+        </section>
+      ) : recording.has_transcript && !isCurrentlyTranscribing ? (
+        <p className="text-sm text-muted-foreground">
+          No enhanced notes yet — hit{" "}
+          <span className="font-medium">Generate notes</span> above.
+        </p>
       ) : null}
 
       {transcript ? <ParticipantCards transcript={transcript} /> : null}
 
       {isLegacyTranscript ? (
-        <Card className="border-amber-500/40 bg-amber-500/5">
-          <CardContent className="flex flex-col items-start gap-3 py-5">
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-amber-500" />
-              <p className="text-sm font-medium">Legacy transcript</p>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              This transcript was produced by an older version of the transcription
-              pipeline (single channel, no hallucination filter, no silence guard).
-              Re-transcribing applies the current pipeline so the result matches
-              everything else in your library. The audio files are not touched; only the
-              transcript and any saved agent results are replaced.
-            </p>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleReTranscribe}
-              disabled={reTranscribing || isCurrentlyTranscribing}
-              className="gap-2"
-            >
-              {reTranscribing || isCurrentlyTranscribing ? (
-                <>
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  Re-transcribing…
-                </>
-              ) : (
-                <>
-                  <Sparkles className="h-3.5 w-3.5" />
-                  Delete transcript and re-transcribe
-                </>
-              )}
-            </Button>
-          </CardContent>
-        </Card>
+        <p className="rounded-md border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-2xs text-amber-700 dark:text-amber-300">
+          Legacy transcript (older pipeline). Use ⋯ → Re-transcribe to refresh it with
+          the current pipeline. Audio is not touched.
+        </p>
       ) : null}
 
-      <Card>
-        <CardContent className="py-5">
-          {isCurrentlyTranscribing ? (
-            <div
-              className="flex items-center gap-2 text-sm text-muted-foreground"
-              role="status"
-              aria-live="polite"
-            >
-              <Loader2 className="h-4 w-4 animate-spin" />
-              <span>{transcriber.progressLabel}</span>
-            </div>
-          ) : !recording.has_transcript ? (
-            <div className="flex flex-col items-start gap-3">
-              <div className="flex items-center gap-2">
-                <FileAudio className="h-4 w-4 text-muted-foreground" />
-                <p className="text-sm">No transcript yet for this recording.</p>
+      {/* AI agents — tucked, full control preserved */}
+      {recording.has_transcript && transcript ? (
+        <Disclosure
+          open={agentsOpen}
+          onToggle={() => setAgentsOpen((v) => !v)}
+          icon={Bot}
+          label="AI agents"
+        >
+          <AgentPanel ref={agentPanelRef} sessionDir={recording.session_dir} />
+        </Disclosure>
+      ) : null}
+
+      {/* Transcript dock — collapsible */}
+      {recording.has_transcript ? (
+        <Disclosure
+          open={transcriptOpen}
+          onToggle={() => setTranscriptOpen((v) => !v)}
+          icon={FileText}
+          label="Transcript & audio"
+        >
+          <div className="flex flex-col gap-4">
+            {micPath ? (
+              <AudioPlayer filePath={micPath} label="Mic" channel="mic" />
+            ) : (
+              <p className="text-xs text-muted-foreground">No mic track.</p>
+            )}
+            {systemPath ? <Separator /> : null}
+            {systemPath ? (
+              <AudioPlayer filePath={systemPath} label="System" channel="system" />
+            ) : null}
+            {transcriptLoading ? (
+              <div
+                className="flex items-center gap-2 text-sm text-muted-foreground"
+                role="status"
+                aria-live="polite"
+              >
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>Loading transcript…</span>
               </div>
-              <Button onClick={handleTranscribe} className="gap-2">
-                <Sparkles className="h-3.5 w-3.5" />
-                Transcribe now
-              </Button>
-              <p className="text-xs text-muted-foreground">
-                {transcriber.emptyStateHint}
-              </p>
-            </div>
-          ) : transcriptLoading ? (
-            <div
-              className="flex items-center gap-2 text-sm text-muted-foreground"
-              role="status"
-              aria-live="polite"
-            >
-              <Loader2 className="h-4 w-4 animate-spin" />
-              <span>Loading transcript…</span>
-            </div>
-          ) : transcriptError ? (
-            <p className="text-sm text-destructive">{transcriptError}</p>
-          ) : transcript ? (
-            <TranscriptEditor
-              sessionDir={recording.session_dir}
-              initial={transcript}
-              onSaved={(next) => setTranscript(next)}
-            />
-          ) : null}
-        </CardContent>
-      </Card>
-
-      {recording.has_transcript && transcript ? (
-        <Card>
-          <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4">
-            <div>
-              <p className="text-sm font-medium text-foreground">
-                Chat with this transcript
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Ask questions scoped to this meeting. Answers cite timestamps you can
-                click to jump the player.
-              </p>
-            </div>
-            <Button
-              variant="outline"
-              className="gap-2"
-              onClick={() => setChatOpen(true)}
-            >
-              <MessageCircleQuestion className="h-4 w-4" />
-              Chat
-            </Button>
-          </CardContent>
-        </Card>
-      ) : null}
-
-      {recording.has_transcript && transcript ? (
-        <Card>
-          <CardContent className="py-5">
-            <AgentPanel ref={agentPanelRef} sessionDir={recording.session_dir} />
-          </CardContent>
-        </Card>
+            ) : transcriptError ? (
+              <p className="text-sm text-destructive">{transcriptError}</p>
+            ) : transcript ? (
+              <TranscriptEditor
+                sessionDir={recording.session_dir}
+                initial={transcript}
+                onSaved={(next) => setTranscript(next)}
+              />
+            ) : null}
+          </div>
+        </Disclosure>
       ) : null}
 
       <NoteChat
@@ -433,6 +524,181 @@ export default function Editor() {
       />
     </div>
   );
+}
+
+// ---- Small building blocks ---------------------------------------------
+
+function Chip({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-2.5 py-1">
+      {children}
+    </span>
+  );
+}
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="text-2xs font-medium uppercase tracking-wider text-muted-foreground">
+      {children}
+    </p>
+  );
+}
+
+function Disclosure({
+  open,
+  onToggle,
+  icon: Icon,
+  label,
+  children,
+}: {
+  open: boolean;
+  onToggle: () => void;
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="rounded-lg border border-border bg-card">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        className="flex w-full items-center gap-2 px-3 py-2.5 text-sm font-medium text-foreground"
+      >
+        <ChevronRight
+          className={
+            "h-4 w-4 text-muted-foreground transition-transform " +
+            (open ? "rotate-90" : "")
+          }
+        />
+        <Icon className="h-4 w-4 text-muted-foreground" />
+        {label}
+      </button>
+      {open ? <div className="border-t border-border px-3 py-4">{children}</div> : null}
+    </section>
+  );
+}
+
+function NoteMenu({
+  hasTranscript,
+  hasSummary,
+  reTranscribing,
+  onChat,
+  onCopy,
+  onReTranscribe,
+  onReveal,
+  onDelete,
+}: {
+  hasTranscript: boolean;
+  hasSummary: boolean;
+  reTranscribing: boolean;
+  onChat: () => void;
+  onCopy: () => void;
+  onReTranscribe: () => void;
+  onReveal: () => void;
+  onDelete: () => void;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const run = (fn: () => void) => () => {
+    setOpen(false);
+    fn();
+  };
+  return (
+    <div className="relative">
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        aria-label="More actions"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <MoreHorizontal className="h-4 w-4" />
+      </Button>
+      {open ? (
+        <>
+          {/* click-away */}
+          <button
+            type="button"
+            aria-hidden="true"
+            tabIndex={-1}
+            className="fixed inset-0 z-10 cursor-default"
+            onClick={() => setOpen(false)}
+          />
+          <div
+            role="menu"
+            className="absolute right-0 top-full z-20 mt-1 w-52 overflow-hidden rounded-md border border-border bg-popover py-1 text-sm shadow-lg"
+          >
+            {hasTranscript ? (
+              <MenuItem icon={MessageCircleQuestion} onClick={run(onChat)}>
+                Chat with this note
+              </MenuItem>
+            ) : null}
+            {hasSummary ? (
+              <MenuItem icon={Copy} onClick={run(onCopy)}>
+                Copy notes
+              </MenuItem>
+            ) : null}
+            {hasTranscript ? (
+              <MenuItem
+                icon={RefreshCw}
+                onClick={run(onReTranscribe)}
+                disabled={reTranscribing}
+              >
+                Re-transcribe
+              </MenuItem>
+            ) : null}
+            <MenuItem icon={FileText} onClick={run(onReveal)}>
+              Reveal in Finder
+            </MenuItem>
+            <MenuItem icon={Trash2} onClick={run(onDelete)} destructive>
+              Delete note
+            </MenuItem>
+          </div>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+function MenuItem({
+  icon: Icon,
+  onClick,
+  children,
+  destructive,
+  disabled,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  onClick: () => void;
+  children: React.ReactNode;
+  destructive?: boolean;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      role="menuitem"
+      onClick={onClick}
+      disabled={disabled}
+      className={
+        "flex w-full items-center gap-2 px-3 py-1.5 text-left transition-colors disabled:opacity-50 " +
+        (destructive
+          ? "text-destructive hover:bg-destructive/10"
+          : "text-foreground hover:bg-accent hover:text-accent-foreground")
+      }
+    >
+      <Icon className="h-3.5 w-3.5" />
+      {children}
+    </button>
+  );
+}
+
+function formatNoteDate(createdAt: string | null): string {
+  if (!createdAt) return "Today";
+  const d = new Date(createdAt);
+  if (Number.isNaN(d.getTime())) return "Today";
+  return d.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" });
 }
 
 function CenteredPage({ children }: { children: React.ReactNode }) {
