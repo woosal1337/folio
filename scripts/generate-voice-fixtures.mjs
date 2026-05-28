@@ -19,6 +19,7 @@
  */
 
 import { promises as fs } from "node:fs";
+import { spawn } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -185,6 +186,39 @@ async function exists(p) {
   }
 }
 
+/**
+ * Transcode an MP3 to 16 kHz mono signed-16 WAV — exactly the shape
+ * `attune_core::transcription::local::decode_wav_to_mono_f32`
+ * expects. Used so the Rust transcription integration tests can run
+ * the real whisper.cpp pipeline against these fixtures without any
+ * decode step of their own. Skipped if ffmpeg is missing (the WAV
+ * fixtures are optional; MP3s are the source of truth).
+ */
+function mp3ToWav(mp3Path, wavPath) {
+  return new Promise((resolve, reject) => {
+    const ff = spawn(
+      "ffmpeg",
+      ["-y", "-i", mp3Path, "-ac", "1", "-ar", "16000", "-sample_fmt", "s16", wavPath],
+      { stdio: ["ignore", "ignore", "pipe"] },
+    );
+    let stderr = "";
+    ff.stderr.on("data", (d) => (stderr += d.toString()));
+    ff.on("error", (e) => reject(e));
+    ff.on("close", (code) => {
+      if (code === 0) resolve();
+      else reject(new Error(`ffmpeg exited ${code}: ${stderr.slice(-300)}`));
+    });
+  });
+}
+
+async function hasFfmpeg() {
+  return new Promise((resolve) => {
+    const ff = spawn("ffmpeg", ["-version"], { stdio: "ignore" });
+    ff.on("error", () => resolve(false));
+    ff.on("close", (code) => resolve(code === 0));
+  });
+}
+
 async function ttsViaElevenLabs({ apiKey, voice, text, model_id }) {
   const url = `https://api.elevenlabs.io/v1/text-to-speech/${voice}?output_format=mp3_44100_128`;
   const res = await fetch(url, {
@@ -236,50 +270,72 @@ async function main() {
     }
   }
 
+  const ffmpegAvailable = await hasFfmpeg();
+  if (!ffmpegAvailable) {
+    console.warn("  (ffmpeg not found — skipping WAV transcode; MP3s only)");
+  }
+
   let generated = 0;
   let skipped = 0;
+  let wavMade = 0;
 
   for (const fx of CATALOG) {
     const filename = `${fx.id}.mp3`;
     const filepath = path.join(OUTPUT_DIR, filename);
+    const wavName = `${fx.id}.wav`;
+    const wavPath = path.join(OUTPUT_DIR, wavName);
+
     if (await exists(filepath)) {
-      manifest.fixtures[fx.id] = {
-        file: filename,
-        language: fx.language,
-        context: fx.context,
-        voice: fx.voice,
-        chars: fx.text.length,
-      };
       skipped += 1;
       console.log(`  skip  ${filename} (cached)`);
-      continue;
+    } else {
+      process.stdout.write(`  gen   ${filename} (${fx.language}, ${fx.text.length} chars)…`);
+      const buf = await ttsViaElevenLabs({
+        apiKey,
+        voice: fx.voice,
+        text: fx.text,
+        model_id: fx.model_id,
+      });
+      await fs.writeFile(filepath, buf);
+      generated += 1;
+      process.stdout.write(` ${(buf.length / 1024).toFixed(1)} KB\n`);
     }
 
-    process.stdout.write(`  gen   ${filename} (${fx.language}, ${fx.text.length} chars)…`);
-    const buf = await ttsViaElevenLabs({
-      apiKey,
-      voice: fx.voice,
-      text: fx.text,
-      model_id: fx.model_id,
-    });
-    await fs.writeFile(filepath, buf);
+    // Always (re)derive the WAV when ffmpeg exists and it's missing —
+    // cheap + idempotent. The WAV is the input for the Rust whisper
+    // integration tests.
+    let transcript_text = fx.text;
+    if (ffmpegAvailable && !(await exists(wavPath))) {
+      try {
+        await mp3ToWav(filepath, wavPath);
+        wavMade += 1;
+        console.log(`  wav   ${wavName}`);
+      } catch (e) {
+        console.warn(`  wav   ${wavName} failed: ${e.message}`);
+      }
+    }
+
     manifest.fixtures[fx.id] = {
       file: filename,
+      wav: (await exists(wavPath)) ? wavName : null,
       language: fx.language,
       context: fx.context,
       voice: fx.voice,
       chars: fx.text.length,
-      bytes: buf.length,
+      // The exact prompt text is kept so the Rust transcription
+      // tests can assert the whisper output contains expected
+      // keywords from it (case-insensitive substring match).
+      transcript_text,
     };
-    generated += 1;
-    process.stdout.write(` ${(buf.length / 1024).toFixed(1)} KB\n`);
   }
 
   manifest.generated_at = new Date().toISOString();
   await fs.writeFile(MANIFEST_PATH, JSON.stringify(manifest, null, 2) + "\n");
 
   console.log("");
-  console.log(`done. ${generated} generated, ${skipped} cached.`);
+  console.log(
+    `done. ${generated} mp3 generated, ${skipped} cached, ${wavMade} wav transcoded.`,
+  );
   console.log(`manifest at ${path.relative(REPO_ROOT, MANIFEST_PATH)}`);
 }
 

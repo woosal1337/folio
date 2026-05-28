@@ -200,9 +200,40 @@ deleted entry will hit ElevenLabs again.
 |---|---|---|
 | attune-api endpoints (Mongo + Redis live) | `attune-api/tests/integration/` | 18 |
 | Rust core (VAD, calendar, attendee derivation, etc.) | `cargo test` | 440+ |
+| **Real whisper.cpp transcription on real audio** | `cargo test --test transcription_fixtures` | 8 |
 | React render tree in jsdom | Vitest + Testing Library | 104 |
 | **Real React in Chromium** | **Playwright** | **101** |
 | Real Tauri shell driving | blocked on `tauri-driver` macOS support | — |
+| Real mic / system-audio capture | needs TCC + live device — manual | — |
+
+## Real transcription tests (no mocking)
+
+`crates/attune-core/tests/transcription_fixtures.rs` runs the
+**actual** local Whisper pipeline — whisper-rs → whisper.cpp → the
+cached `ggml-large-v3.bin` model — against the ElevenLabs voice
+fixtures (transcoded to 16 kHz mono WAV by the fixture generator via
+ffmpeg). This is genuine end-to-end transcription, the same code path
+the app runs when you stop a recording. No IPC stub, no fake.
+
+- The fast default test (`english_business_clip…`) runs on every
+  `cargo test` — transcribes the English business clip and asserts
+  ≥2 of {launch, marketing, migration, referral} survive. **Verified
+  passing in 5.8 s (release).**
+- The multilingual sweep (en-clinical, tr, de, fr, es, action-items)
+  is `#[ignore]` because large-v3 is ~15-30 s per clip. Run with:
+  ```bash
+  bun run test:transcription
+  # = cargo test -p attune-core --test transcription_fixtures -- --ignored --nocapture
+  ```
+- Tests **skip gracefully** (early return + eprintln) when the model
+  or fixtures are absent, so CI without the 3 GB model stays green.
+  Override the model path with `ATTUNE_WHISPER_MODEL`.
+
+This closes the "can you actually test transcription?" gap: yes —
+the engine is tested headlessly against real generated speech in 6
+languages. What still can't be automated is *GUI-driving the native
+window* (`tauri-driver` macOS gap) and *live mic capture* (needs a
+real audio device + TCC grant).
 
 ## Expanded-coverage notes (round 2)
 

@@ -95,3 +95,4 @@ playwright-report/
 .env.e2e
 e2e/fixtures/audio/*.mp3
 e2e/fixtures/audio/*.json
+e2e/fixtures/audio/*.wav
