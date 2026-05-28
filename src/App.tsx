@@ -8,7 +8,7 @@ import { JobStrip } from "@/chrome/job-strip";
 import { CloudCostConfirmDialog } from "@/chrome/cloud-cost-confirm-dialog";
 import { DeepLinkHandler } from "@/chrome/deep-link-handler";
 import { HomeRedirect } from "@/chrome/home-redirect";
-import { MeetingHudBridge } from "@/chrome/meeting-hud-bridge";
+import { EntryPointBridge } from "@/chrome/entry-points";
 import { GlobalShortcuts } from "@/chrome/global-shortcuts";
 import { CheatsheetOverlay } from "@/chrome/cheatsheet-overlay";
 import { CommandPalette } from "@/chrome/command-palette";
@@ -179,7 +179,7 @@ function MainApp() {
           </React.Suspense>
           <CloudCostConfirmDialog />
           <DeepLinkHandler />
-          <MeetingHudBridge />
+          <EntryPointBridge />
           <GlobalShortcuts
             onOpenCheatsheet={() => setCheatsheetOpen(true)}
             onOpenPalette={() => setPaletteOpen(true)}

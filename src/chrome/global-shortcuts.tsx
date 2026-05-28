@@ -10,6 +10,7 @@ import {
 import { openPreferencesWindow } from "@/shared/lib/ipc";
 import { useRecording } from "@/shared/stores/recording-store";
 import { useSettingsUiStore } from "@/shared/stores/settings-ui-store";
+import { useTakeNotes } from "@/shared/hooks/use-take-notes";
 
 interface Props {
   onOpenCheatsheet: () => void;
@@ -31,8 +32,8 @@ export function GlobalShortcuts({ onOpenCheatsheet, onOpenPalette }: Props) {
   const navigate = useNavigate();
   const openPreferences = useSettingsUiStore((s) => s.openAt);
   const recording = useRecording((s) => s.recording);
-  const start = useRecording((s) => s.start);
   const stop = useRecording((s) => s.stop);
+  const takeNotes = useTakeNotes();
 
   React.useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -52,7 +53,7 @@ export function GlobalShortcuts({ onOpenCheatsheet, onOpenPalette }: Props) {
           openAsk: onOpenPalette,
           toggleRecording: () => {
             if (recording) void stop();
-            else void start();
+            else takeNotes();
           },
           newTask: () => navigate("/tasks"),
           segmentPrev: () => {
@@ -67,7 +68,15 @@ export function GlobalShortcuts({ onOpenCheatsheet, onOpenPalette }: Props) {
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [navigate, openPreferences, onOpenCheatsheet, onOpenPalette, recording, start, stop]);
+  }, [
+    navigate,
+    openPreferences,
+    onOpenCheatsheet,
+    onOpenPalette,
+    recording,
+    takeNotes,
+    stop,
+  ]);
 
   return null;
 }

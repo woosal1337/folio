@@ -659,6 +659,25 @@ export async function onMeetingTakeNotes(handler: () => void): Promise<UnlistenF
   return listen(MEETING_TAKE_NOTES_EVENT, () => handler());
 }
 
+// ---- Menu bar tray events (GET-144) ------------------------------
+// The tray menu (GET-25) emits these; GET-144 wires the main window to
+// them so every entry point — tray, Cmd-R, and the meeting HUD —
+// converges on one take-notes flow.
+
+export type TrayEvent =
+  | "tray:start-recording"
+  | "tray:stop-recording"
+  | "tray:open-library"
+  | "tray:open-inbox";
+
+/** Subscribe to a menu-bar tray event. */
+export async function onTrayEvent(
+  event: TrayEvent,
+  handler: () => void
+): Promise<UnlistenFn> {
+  return listen(event, () => handler());
+}
+
 /** Label of the webview window this code is running in. Falls back to
  *  "main" outside a Tauri context (e.g. unit tests). */
 export function currentWindowLabel(): string {
