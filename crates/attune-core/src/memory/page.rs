@@ -80,9 +80,10 @@ pub fn path_for(dir: &Path, memory: &Memory) -> PathBuf {
     dir.join(filename_for(memory))
 }
 
-/// Write a memory page to disk. Atomic: writes to a sibling temp file
-/// and renames into place so a crash mid-write cannot corrupt the
-/// final file. Creates the parent directory tree on first write.
+/// Write a memory page to disk via [`crate::storage::atomic_write`] —
+/// temp file + fsync + rename — so neither a crash nor a power loss
+/// mid-write can corrupt or truncate the final file. Creates the
+/// parent directory tree on first write.
 pub fn write_page(dir: &Path, memory: &Memory) -> Result<PathBuf> {
     fs::create_dir_all(dir).map_err(|e| {
         AttuneError::Storage(format!(
@@ -92,16 +93,7 @@ pub fn write_page(dir: &Path, memory: &Memory) -> Result<PathBuf> {
     })?;
     let path = path_for(dir, memory);
     let body = render_page(memory);
-    let tmp = path.with_extension("md.tmp");
-    fs::write(&tmp, body).map_err(|e| {
-        AttuneError::Storage(format!("could not write memory tmp {}: {e}", tmp.display()))
-    })?;
-    fs::rename(&tmp, &path).map_err(|e| {
-        AttuneError::Storage(format!(
-            "could not finalize memory file {}: {e}",
-            path.display()
-        ))
-    })?;
+    crate::storage::atomic_write::atomic_write(&path, body.as_bytes())?;
     Ok(path)
 }
 

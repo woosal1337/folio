@@ -31,16 +31,24 @@ impl EmbeddingClient {
     }
 
     pub fn with_base_url(api_key: impl Into<String>, base_url: impl Into<String>) -> Self {
+        let client = Client::builder()
+            .connect_timeout(std::time::Duration::from_secs(10))
+            .timeout(std::time::Duration::from_secs(60))
+            .build()
+            .unwrap_or_else(|_| Client::new());
         Self {
             api_key: api_key.into(),
             base_url: base_url.into().trim_end_matches('/').to_string(),
-            client: Client::new(),
+            client,
         }
     }
 
     /// Embed a single string. Returns a 3072-dim f32 vector.
     pub async fn embed(&self, text: &str) -> Result<Vec<f32>> {
         let url = format!("{}/embeddings", self.base_url);
+        let host = crate::cloud_guard::host_of(&url).unwrap_or_default();
+        crate::cloud_guard::ensure_allowed(host)
+            .map_err(|e| AttuneError::Llm(e.to_string()))?;
         let body = EmbeddingsRequest {
             model: MODEL.to_string(),
             input: text.to_string(),
@@ -90,4 +98,25 @@ struct EmbeddingsResponse {
 #[derive(Deserialize)]
 struct EmbeddingItem {
     embedding: Vec<f32>,
+}
+
+#[cfg(test)]
+mod egress_guard_tests {
+    use super::*;
+    use crate::cloud_guard;
+
+    /// §5.5 cloud-egress regression: the embeddings URL the client
+    /// builds must resolve to the real OpenAI host so the airgap
+    /// guard sees the host it needs to block. Paired with
+    /// `cloud_guard::tests::airgap_blocks_external_hosts` (which
+    /// proves `api.openai.com` is blocked under Privacy Mode), this
+    /// closes the loop end to end without mutating the process-global
+    /// airgap flag (which would race other parallel tests).
+    #[test]
+    fn embeddings_url_resolves_to_openai_host() {
+        let client = EmbeddingClient::new("sk-test-not-real");
+        let url = format!("{}/embeddings", client.base_url);
+        let host = cloud_guard::host_of(&url).expect("host must parse");
+        assert_eq!(host, "api.openai.com");
+    }
 }

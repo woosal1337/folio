@@ -1,21 +1,14 @@
-//! Wire envelope + request/response shapes shared across endpoint modules.
+//! Request/response shapes shared across endpoint modules.
+//!
+//! The success/error envelope (`{ success, message, data, error }`)
+//! is unwrapped by hand in [`crate::backend::client`] via a
+//! `serde_json::Value` pass, so there is no `Envelope<T>` struct —
+//! the two-step parse there tolerates both populated-data and
+//! data-less (`logout`) success bodies.
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-
-/// Standard envelope every attune-api endpoint returns. The `data`
-/// field is a typed payload per-endpoint; the client unwraps it via
-/// [`Envelope::into_data`].
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Envelope<T> {
-    pub success: bool,
-    #[serde(default)]
-    pub message: String,
-    #[serde(default)]
-    pub data: Option<T>,
-    #[serde(default)]
-    pub error: Option<String>,
-}
+use ts_rs::TS;
 
 /// Mirror of `ErrorResponse` in attune-api. Some endpoints return this
 /// shape directly when `success: false`.
@@ -74,9 +67,13 @@ pub struct RefreshResponse {
 }
 
 /// Server-side user document (the parts the client cares about).
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../src/shared/types/")]
 pub struct UserDoc {
-    #[serde(rename = "_id", alias = "id")]
+    // NOTE: the attune-api server sends Mongo's `_id`; we accept it via
+    // alias but re-serialize as `id` so the IPC payload to the frontend
+    // (and the ts-rs-generated `UserDoc.ts`) use the idiomatic `id`.
+    #[serde(rename = "id", alias = "_id")]
     pub id: String,
     pub email: String,
     #[serde(default)]
@@ -93,7 +90,8 @@ pub struct AccountUpdateRequest<'a> {
     pub display_name: Option<&'a str>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../src/shared/types/")]
 pub struct DeviceDoc {
     pub device_id: String,
     pub device_name: String,
@@ -112,13 +110,15 @@ pub struct ReferralRedeemPayload<'a> {
     pub new_user_email: &'a str,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../src/shared/types/")]
 pub struct ReferralTokenResponse {
     pub token: String,
     pub share_url: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../src/shared/types/")]
 pub struct ReferralStats {
     pub token: String,
     pub share_url: String,

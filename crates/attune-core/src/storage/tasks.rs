@@ -236,9 +236,10 @@ impl TaskStore {
         )
     }
 
-    /// Atomic write of the full task list. Creates the parent dir
-    /// if missing; writes to a sibling temp file then renames so a
-    /// crash mid-write cannot corrupt the on-disk file.
+    /// Atomic write of the full task list. Creates the parent dir if
+    /// missing, then writes via [`crate::storage::atomic_write`] —
+    /// temp file + fsync + rename — so neither a crash nor a power
+    /// loss mid-write can corrupt or truncate the on-disk file.
     fn save(&self, tasks: &[Task]) -> Result<()> {
         if let Some(parent) = self.path.parent() {
             fs::create_dir_all(parent).map_err(|e| {
@@ -250,19 +251,7 @@ impl TaskStore {
         }
         let json = serde_json::to_string_pretty(tasks)
             .map_err(|e| AttuneError::Storage(format!("could not serialize tasks: {e}")))?;
-        let tmp = self.path.with_extension("json.tmp");
-        fs::write(&tmp, json).map_err(|e| {
-            AttuneError::Storage(format!(
-                "could not write tasks temp file {}: {e}",
-                tmp.display()
-            ))
-        })?;
-        fs::rename(&tmp, &self.path).map_err(|e| {
-            AttuneError::Storage(format!(
-                "could not finalize tasks file {}: {e}",
-                self.path.display()
-            ))
-        })?;
+        crate::storage::atomic_write::atomic_write(&self.path, json.as_bytes())?;
         Ok(())
     }
 }

@@ -566,19 +566,7 @@ impl SettingsStore {
         let json = serde_json::to_string_pretty(settings)
             .map_err(|e| AttuneError::Storage(format!("could not serialize settings: {e}")))?;
 
-        let tmp = self.path.with_extension("json.tmp");
-        fs::write(&tmp, json).map_err(|e| {
-            AttuneError::Storage(format!(
-                "could not write settings temp file {}: {e}",
-                tmp.display()
-            ))
-        })?;
-        fs::rename(&tmp, &self.path).map_err(|e| {
-            AttuneError::Storage(format!(
-                "could not finalize settings file {}: {e}",
-                self.path.display()
-            ))
-        })?;
+        crate::storage::atomic_write::atomic_write(&self.path, json.as_bytes())?;
 
         info!(path = %self.path.display(), "settings saved");
         Ok(())

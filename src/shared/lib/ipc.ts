@@ -470,7 +470,7 @@ export function listAttendeeSuggestions(
   userEmail: string,
   domainFilter: string,
   windowDays: number,
-  minCount: number,
+  minCount: number
 ): Promise<AttendeeSuggestion[]> {
   return call<AttendeeSuggestion[]>("list_attendee_suggestions", {
     userEmail,
@@ -493,7 +493,7 @@ export function authVerifySigninCode(
   email: string,
   code: string,
   deviceId: string,
-  deviceName: string,
+  deviceName: string
 ): Promise<UserIdentity> {
   return call<UserIdentity>("auth_verify_signin_code", {
     email,
@@ -513,33 +513,21 @@ export function authLogout(): Promise<void> {
 
 // ---- Backend account ---------------------------------------------
 
-export interface BackendUser {
-  id: string;
-  email: string;
-  display_name?: string | null;
-  privacy_tier?: string | null;
-  subscription_tier?: string | null;
+import type { UserDoc } from "@/shared/types/UserDoc";
+import type { DeviceDoc } from "@/shared/types/DeviceDoc";
+import type { ReferralTokenResponse } from "@/shared/types/ReferralTokenResponse";
+import type { ReferralStats } from "@/shared/types/ReferralStats";
+
+export function accountGet(): Promise<UserDoc> {
+  return call<UserDoc>("account_get");
 }
 
-export interface BackendDevice {
-  device_id: string;
-  device_name: string;
-  created_at: string;
-  last_seen_at?: string | null;
-  user_agent?: string | null;
-  ip?: string | null;
+export function accountUpdate(displayName: string | null): Promise<UserDoc> {
+  return call<UserDoc>("account_update", { displayName });
 }
 
-export function accountGet(): Promise<BackendUser> {
-  return call<BackendUser>("account_get");
-}
-
-export function accountUpdate(displayName: string | null): Promise<BackendUser> {
-  return call<BackendUser>("account_update", { displayName });
-}
-
-export function accountDevices(): Promise<BackendDevice[]> {
-  return call<BackendDevice[]>("account_devices");
+export function accountDevices(): Promise<DeviceDoc[]> {
+  return call<DeviceDoc[]>("account_devices");
 }
 
 export function accountRevokeDevice(deviceId: string): Promise<void> {
@@ -552,21 +540,6 @@ export function accountSoftDelete(): Promise<void> {
 
 // ---- Backend referrals (GET-141) ---------------------------------
 
-export interface ReferralTokenResponse {
-  token: string;
-  share_url: string;
-}
-
-export interface ReferralStats {
-  token: string;
-  share_url: string;
-  qualified_count: number;
-  pending_count: number;
-  free_months_earned: number;
-  yearly_cap: number;
-  yearly_remaining: number;
-}
-
 export function referralsGenerate(): Promise<ReferralTokenResponse> {
   return call<ReferralTokenResponse>("referrals_generate");
 }
@@ -578,7 +551,7 @@ export function referralsMe(): Promise<ReferralStats> {
 export function referralsRedeem(
   token: string,
   newUserId: string,
-  newUserEmail: string,
+  newUserEmail: string
 ): Promise<void> {
   return call<void>("referrals_redeem", { token, newUserId, newUserEmail });
 }
@@ -596,7 +569,7 @@ export function settingsSyncPull(): Promise<SettingsSyncSnapshot> {
 
 export function settingsSyncPush(
   settings: unknown,
-  updatedAt: string,
+  updatedAt: string
 ): Promise<SettingsSyncSnapshot> {
   return call<SettingsSyncSnapshot>("settings_sync_push", {
     settings,
