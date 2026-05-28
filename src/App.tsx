@@ -20,6 +20,7 @@ import { verbSource } from "@/shared/lib/command-palette";
 // renders a near-empty frame so the route swap stays visually quiet.
 const Record = React.lazy(() => import("@/features/recording/route"));
 const Home = React.lazy(() => import("@/features/home/route"));
+const Chat = React.lazy(() => import("@/features/chat/route"));
 const MeetingHud = React.lazy(() => import("@/features/meeting-hud/route"));
 const FirstRunConductor = React.lazy(() =>
   import("@/features/onboarding/first-run").then((m) => ({
@@ -160,6 +161,7 @@ function MainApp() {
               <React.Suspense fallback={<RouteLoading />}>
                 <Routes>
                   <Route path="/" element={<Home />} />
+                  <Route path="/chat" element={<Chat />} />
                   <Route path="/record" element={<Record />} />
                   <Route path="/library" element={<Library />} />
                   <Route path="/editor" element={<Navigate to="/library" replace />} />
@@ -223,6 +225,7 @@ function PaletteHost({
     () => [
       verbSource({
         startRecording: () => navigate("/record"),
+        openChat: () => navigate("/chat"),
         openInbox: () => navigate("/inbox"),
         openLibrary: () => navigate("/library"),
         openMemory: () => navigate("/memory"),
