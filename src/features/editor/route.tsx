@@ -44,6 +44,7 @@ import {
 } from "@/shared/lib/ipc";
 import { useRecording } from "@/shared/stores/recording-store";
 import { useSettingsStore } from "@/shared/stores/settings-store";
+import { useJobsStore } from "@/shared/stores/jobs-store";
 import { useTranscriberCopy } from "@/shared/hooks/use-transcriber-copy";
 import type { AgentRun } from "@/shared/types/AgentRun";
 import type { RecordingSummary } from "@/shared/types/RecordingSummary";
@@ -199,7 +200,45 @@ export default function Editor() {
     void refreshRuns();
   }, [refreshRuns, lastTranscriptPath]);
 
+  // Live-refresh as background work for THIS note finishes. The auto-fire
+  // chain (transcribe → summarize → tasks/memories) runs after the page is
+  // already open, and each step pushes/pops a job in the jobs store. When a
+  // job for this session disappears (completed), re-fetch the agent runs so
+  // the enhanced notes appear the moment they're ready — no need to leave
+  // the page and come back.
+  const jobs = useJobsStore((s) => s.jobs);
+  const prevJobIds = React.useRef<Set<string>>(new Set());
+  React.useEffect(() => {
+    const dir = recording?.session_dir;
+    if (!dir) return;
+    const active = new Set(
+      Object.values(jobs)
+        .filter((j) => j.sessionDir === dir)
+        .map((j) => j.id)
+    );
+    let completed = false;
+    prevJobIds.current.forEach((id) => {
+      if (!active.has(id)) completed = true;
+    });
+    prevJobIds.current = active;
+    if (completed) void refreshRuns();
+  }, [jobs, recording?.session_dir, refreshRuns]);
+
   const summaryRun = agentRuns.find((r) => r.agent_id === "summarize") ?? null;
+
+  // Is the summary being generated right now (auto-fire after transcribe,
+  // or the manual Regenerate)? Used to show a loading state in place of the
+  // empty "no enhanced notes yet" prompt, and to keep the note locked until
+  // the pipeline settles.
+  const summarizing = React.useMemo(
+    () =>
+      !!recording?.session_dir &&
+      Object.values(jobs).some(
+        (j) =>
+          j.sessionDir === recording.session_dir && j.id.startsWith("agent:summarize:")
+      ),
+    [jobs, recording?.session_dir]
+  );
 
   const handleTranscribe = async () => {
     if (!recording) return;
@@ -378,7 +417,7 @@ export default function Editor() {
   // or folding the markdown notes into the AI summary — lock the notes
   // editor and the record dock (greyed) so the user can see those fields
   // are in-flight and can't race the pipeline that consumes them.
-  const isProcessing = isCurrentlyTranscribing || regenerating;
+  const isProcessing = isCurrentlyTranscribing || regenerating || summarizing;
   // GET-163: a user-set title wins; else the autoname suggestion; else the
   // timestamp label. The placeholder shown in the editable field is the
   // non-user fallback so clearing the field reveals what it'll fall back to.
@@ -515,6 +554,18 @@ export default function Editor() {
           <SectionLabel>Enhanced notes</SectionLabel>
           <div className="prose prose-sm prose-neutral dark:prose-invert max-w-none">
             <Markdown>{summaryRun.response}</Markdown>
+          </div>
+        </section>
+      ) : summarizing ? (
+        <section className="space-y-2">
+          <SectionLabel>Enhanced notes</SectionLabel>
+          <div
+            className="flex items-center gap-2 rounded-lg border border-dashed border-border bg-card/40 px-4 py-6 text-sm text-muted-foreground"
+            role="status"
+            aria-live="polite"
+          >
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span>Generating enhanced notes…</span>
           </div>
         </section>
       ) : recording.has_transcript && !isCurrentlyTranscribing ? (
