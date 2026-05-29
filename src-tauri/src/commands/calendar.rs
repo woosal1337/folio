@@ -11,7 +11,33 @@
 //! affordance. When the FFI reader lands, this command flips to
 //! reading real events without any frontend change.
 
-use attune_core::calendar::{derive_attendee_suggestions, AttendeeSuggestion};
+use attune_core::calendar::{
+    derive_attendee_suggestions, next_event, AttendeeSuggestion, CalendarEvent, DEFAULT_LOOKAHEAD,
+};
+
+use crate::app::event_kit;
+
+/// The window the Home "Coming up" card looks ahead (GET-161). Wider than
+/// the menu bar's 30-min default so the card can surface the next meeting
+/// earlier; `next_event` still picks the soonest within its lookahead.
+const COMING_UP_LOOKAHEAD_SECS: f64 = 2.0 * 60.0 * 60.0;
+
+/// Calendar authorization status for the Home empty/permission state
+/// (GET-161): "authorized" | "denied" | "restricted" | "not_determined".
+#[tauri::command]
+pub fn calendar_authorization_status() -> String {
+    event_kit::authorization_status().to_string()
+}
+
+/// The next upcoming meeting from Apple Calendar (GET-161), or `None`
+/// when nothing is coming up soon / access isn't granted. Reads a 2h
+/// window via EventKit, then applies the pure `next_event` selection
+/// (soonest within the menu-bar lookahead, all-day events skipped).
+#[tauri::command]
+pub fn next_calendar_event() -> Option<CalendarEvent> {
+    let events = event_kit::read_events(COMING_UP_LOOKAHEAD_SECS);
+    next_event(&events, chrono::Utc::now(), DEFAULT_LOOKAHEAD)
+}
 
 /// List teammate suggestions for the onboarding invite screen.
 ///

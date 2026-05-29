@@ -100,6 +100,8 @@ pub fn run() {
             commands::permissions::open_permission_settings,
             commands::permissions::request_calendar_access,
             commands::calendar::list_attendee_suggestions,
+            commands::calendar::calendar_authorization_status,
+            commands::calendar::next_calendar_event,
             commands::auth::auth_request_signin_code,
             commands::auth::auth_verify_signin_code,
             commands::auth::auth_status,
