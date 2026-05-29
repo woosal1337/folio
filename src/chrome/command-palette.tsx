@@ -24,6 +24,7 @@ interface Props {
  */
 export function CommandPalette({ open, onClose, sources }: Props) {
   const [items, setItems] = React.useState<CommandItem[]>([]);
+  const [dynamicItems, setDynamicItems] = React.useState<CommandItem[]>([]);
   const [query, setQuery] = React.useState("");
   const [activeIndex, setActiveIndex] = React.useState(0);
   const inputRef = React.useRef<HTMLInputElement>(null);
@@ -31,6 +32,7 @@ export function CommandPalette({ open, onClose, sources }: Props) {
   React.useEffect(() => {
     if (!open) {
       setItems([]);
+      setDynamicItems([]);
       setQuery("");
       setActiveIndex(0);
       return;
@@ -49,7 +51,41 @@ export function CommandPalette({ open, onClose, sources }: Props) {
     };
   }, [open, sources]);
 
-  const ranked = React.useMemo(() => rank(items, query).slice(0, 50), [items, query]);
+  // Query-aware sources (GET-165): re-run their search as the query
+  // changes, debounced, and fold the results into the ranked list.
+  React.useEffect(() => {
+    const searchers = sources
+      .map((s) => s.search)
+      .filter((fn): fn is NonNullable<typeof fn> => fn !== undefined);
+    const needle = query.trim();
+    if (!open || searchers.length === 0 || needle.length < 2) {
+      setDynamicItems([]);
+      return;
+    }
+    let cancelled = false;
+    const t = window.setTimeout(() => {
+      Promise.all(searchers.map((fn) => fn(needle)))
+        .then((batches) => {
+          if (!cancelled) setDynamicItems(batches.flat());
+        })
+        .catch((e) => console.error("command-palette source search:", e));
+    }, 150);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(t);
+    };
+  }, [open, query, sources]);
+
+  const ranked = React.useMemo(() => {
+    // Dedupe by id so a dynamic hit doesn't double a static item.
+    const seen = new Set<string>();
+    const merged = [...items, ...dynamicItems].filter((i) => {
+      if (seen.has(i.id)) return false;
+      seen.add(i.id);
+      return true;
+    });
+    return rank(merged, query).slice(0, 50);
+  }, [items, dynamicItems, query]);
 
   React.useEffect(() => {
     setActiveIndex(0);
@@ -131,11 +167,15 @@ export function CommandPalette({ open, onClose, sources }: Props) {
                 <div className="min-w-0 flex-1">
                   <p className="truncate">{item.title}</p>
                   {item.subtitle ? (
-                    <p className="truncate text-2xs text-muted-foreground">{item.subtitle}</p>
+                    <p className="truncate text-2xs text-muted-foreground">
+                      {item.subtitle}
+                    </p>
                   ) : null}
                 </div>
                 {item.shortcut ? (
-                  <span className="font-mono text-2xs text-muted-foreground">{item.shortcut}</span>
+                  <span className="font-mono text-2xs text-muted-foreground">
+                    {item.shortcut}
+                  </span>
                 ) : null}
               </li>
             ))
@@ -147,14 +187,16 @@ export function CommandPalette({ open, onClose, sources }: Props) {
 }
 
 function KindGlyph({ kind }: { kind: CommandItem["kind"] }) {
-  const label = ({
-    recording: "REC",
-    task: "TASK",
-    memory: "MEM",
-    "agent-run": "AI",
-    decision: "DEC",
-    verb: "GO",
-  } as const)[kind];
+  const label = (
+    {
+      recording: "REC",
+      task: "TASK",
+      memory: "MEM",
+      "agent-run": "AI",
+      decision: "DEC",
+      verb: "GO",
+    } as const
+  )[kind];
   return (
     <span className="rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
       {label}

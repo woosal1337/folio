@@ -21,6 +21,7 @@ import {
   deleteRecording,
   listRecordings,
   revealInFinder,
+  searchNoteContent,
 } from "@/shared/lib/ipc";
 import { t } from "@/shared/lib/i18n";
 import type { RecordingSummary } from "@/shared/types/RecordingSummary";
@@ -111,6 +112,34 @@ export default function Library() {
     [refresh]
   );
 
+  // Full-text content search (GET-165). When the query is non-empty we
+  // also scan note bodies (transcript / summary / live notes) in the
+  // backend and fold those matches into the list with a snippet. The
+  // map is session_dir → snippet; debounced so typing stays smooth.
+  const [contentHits, setContentHits] = React.useState<Map<string, string>>(
+    () => new Map()
+  );
+  React.useEffect(() => {
+    const needle = query.trim();
+    if (needle.length < 2) {
+      setContentHits(new Map());
+      return;
+    }
+    let cancelled = false;
+    const t = window.setTimeout(() => {
+      searchNoteContent(needle)
+        .then((hits) => {
+          if (cancelled) return;
+          setContentHits(new Map(hits.map((h) => [h.session_dir, h.snippet])));
+        })
+        .catch((e) => console.error("search_note_content:", e));
+    }, 150);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(t);
+    };
+  }, [query]);
+
   const visible = React.useMemo(() => {
     const needle = query.trim().toLowerCase();
     const out = recordings.filter((r) => {
@@ -120,7 +149,8 @@ export default function Library() {
       if (needle) {
         const hay =
           `${r.label} ${r.suggested_title ?? ""} ${r.title ?? ""}`.toLowerCase();
-        if (!hay.includes(needle)) return false;
+        // A metadata match OR a body (content) match keeps the note.
+        if (!hay.includes(needle) && !contentHits.has(r.session_dir)) return false;
       }
       return true;
     });
@@ -138,7 +168,7 @@ export default function Library() {
     };
     out.sort(compareBy);
     return out;
-  }, [recordings, query, filter, sort, folderFilter]);
+  }, [recordings, query, filter, sort, folderFilter, contentHits]);
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-8 py-8">
@@ -225,6 +255,7 @@ export default function Library() {
               key={item.session_dir}
               item={item}
               transcribing={transcribingDir === item.session_dir}
+              snippet={contentHits.get(item.session_dir) ?? null}
               onOpen={() => open(item)}
               onReveal={() => onReveal(item)}
               onReTranscribe={() => void onReTranscribe(item)}
@@ -240,6 +271,7 @@ export default function Library() {
 function NoteRow({
   item,
   transcribing,
+  snippet,
   onOpen,
   onReveal,
   onReTranscribe,
@@ -247,12 +279,16 @@ function NoteRow({
 }: {
   item: RecordingSummary;
   transcribing: boolean;
+  /** Content-search excerpt (GET-165); shown instead of the subtitle. */
+  snippet: string | null;
   onOpen: () => void;
   onReveal: () => void;
   onReTranscribe: () => void;
   onDelete: () => void;
 }) {
   const title = item.title?.trim() || item.suggested_title?.trim() || item.label;
+  // A content-match snippet takes the second line; else the subtitle.
+  const secondary = snippet ?? item.suggested_subtitle ?? null;
   return (
     <div className="group flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3 transition-colors hover:bg-muted/40">
       <button
@@ -263,10 +299,8 @@ function NoteRow({
         <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
         <div className="min-w-0">
           <p className="truncate text-sm font-medium">{title}</p>
-          {item.suggested_subtitle ? (
-            <p className="truncate text-xs text-muted-foreground">
-              {item.suggested_subtitle}
-            </p>
+          {secondary ? (
+            <p className="truncate text-xs text-muted-foreground">{secondary}</p>
           ) : null}
         </div>
       </button>

@@ -41,7 +41,11 @@ import { useWindowDoubleClick, useWindowDrag } from "@/shared/hooks/use-window-d
 import { useAuthStore } from "@/shared/stores/auth-store";
 import { useSettingsStore } from "@/shared/stores/settings-store";
 import { useSettingsUiStore } from "@/shared/stores/settings-ui-store";
-import { MEETING_HUD_WINDOW_LABEL, currentWindowLabel } from "@/shared/lib/ipc";
+import {
+  MEETING_HUD_WINDOW_LABEL,
+  currentWindowLabel,
+  searchNoteContent,
+} from "@/shared/lib/ipc";
 import { useTakeNotes } from "@/shared/hooks/use-take-notes";
 import { useRecording } from "@/shared/stores/recording-store";
 
@@ -237,6 +241,22 @@ function PaletteHost({
         openPreferences: onOpenPreferences,
         openCheatsheet: onOpenCheatsheet,
       }),
+      // Full-text note search (GET-165): query-aware so transcript /
+      // summary / live-note body matches surface here with a snippet.
+      {
+        kind: "recording" as const,
+        load: async () => [],
+        search: async (q: string) => {
+          const hits = await searchNoteContent(q);
+          return hits.map((h) => ({
+            id: `note:${h.label}`,
+            kind: "recording" as const,
+            title: h.title ?? h.label,
+            subtitle: h.snippet,
+            action: () => navigate(`/editor/${encodeURIComponent(h.label)}`),
+          }));
+        },
+      },
     ],
     [navigate, takeNotes, onOpenPreferences, onOpenCheatsheet]
   );
