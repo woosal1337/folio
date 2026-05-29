@@ -20,12 +20,15 @@ pub const RECORDING_BAR_LABEL: &str = "recording-bar";
 const MAIN_WINDOW_LABEL: &str = "main";
 /// Event the main window listens for to run its stop flow.
 const STOP_EVENT: &str = "recording-bar:stop";
+/// Events the main window listens for to pause / resume the capture.
+const PAUSE_EVENT: &str = "recording-bar:pause";
+const RESUME_EVENT: &str = "recording-bar:resume";
 
 // Vertical capsule (Granola-style): narrow column the user parks against
 // a screen edge. Width/height stay in sync with the CSS pill. The window
 // is transparent so only the rounded pill shows (no square backdrop).
 const BAR_W: f64 = 46.0;
-const BAR_H: f64 = 152.0;
+const BAR_H: f64 = 196.0;
 const MARGIN: f64 = 24.0;
 
 /// Create (or reveal) the floating recording bar, parked against the
@@ -84,10 +87,31 @@ pub fn hide_recording_bar(app: tauri::AppHandle) -> Result<(), String> {
 /// auto-transcribe + toast + tray-reset chain fires.
 #[tauri::command]
 pub fn recording_bar_stop(app: tauri::AppHandle) -> Result<(), String> {
-    if let Some(main) = app.get_webview_window(MAIN_WINDOW_LABEL) {
-        let _ = main.emit(STOP_EVENT, ());
-    } else {
-        let _ = app.emit(STOP_EVENT, ());
-    }
+    emit_to_main(&app, STOP_EVENT);
     Ok(())
+}
+
+/// Pause from the bar — routed through the main window's pause flow so
+/// the ticker, tray, and multi-part note bookkeeping all update.
+#[tauri::command]
+pub fn recording_bar_pause(app: tauri::AppHandle) -> Result<(), String> {
+    emit_to_main(&app, PAUSE_EVENT);
+    Ok(())
+}
+
+/// Resume from the bar — counterpart to [`recording_bar_pause`].
+#[tauri::command]
+pub fn recording_bar_resume(app: tauri::AppHandle) -> Result<(), String> {
+    emit_to_main(&app, RESUME_EVENT);
+    Ok(())
+}
+
+/// Emit an event to the main window, falling back to an app-wide
+/// broadcast if it can't be resolved.
+fn emit_to_main(app: &tauri::AppHandle, event: &str) {
+    if let Some(main) = app.get_webview_window(MAIN_WINDOW_LABEL) {
+        let _ = main.emit(event, ());
+    } else {
+        let _ = app.emit(event, ());
+    }
 }

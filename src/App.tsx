@@ -48,6 +48,8 @@ import {
   MEETING_HUD_WINDOW_LABEL,
   RECORDING_BAR_WINDOW_LABEL,
   currentWindowLabel,
+  onRecordingBarPause,
+  onRecordingBarResume,
   onRecordingBarStop,
   searchNoteContent,
 } from "@/shared/lib/ipc";
@@ -113,13 +115,17 @@ function MainApp() {
   // main window owns. Route it through the same stop() the in-app Stop
   // uses, so the auto-transcribe + toast + tray-reset chain fires once.
   React.useEffect(() => {
-    let unlisten: (() => void) | undefined;
-    void onRecordingBarStop(() => {
-      void useRecording.getState().stop();
-    }).then((fn) => {
-      unlisten = fn;
-    });
-    return () => unlisten?.();
+    const unlisteners: Array<() => void> = [];
+    const wire = (
+      subscribe: (h: () => void) => Promise<() => void>,
+      action: () => void
+    ) => {
+      void subscribe(action).then((fn) => unlisteners.push(fn));
+    };
+    wire(onRecordingBarStop, () => void useRecording.getState().stop());
+    wire(onRecordingBarPause, () => void useRecording.getState().pause());
+    wire(onRecordingBarResume, () => void useRecording.getState().resume());
+    return () => unlisteners.forEach((fn) => fn());
   }, []);
 
   // Force-login + post-signup setup: the sidebar + every route is

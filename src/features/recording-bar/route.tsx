@@ -16,10 +16,12 @@
  */
 
 import * as React from "react";
-import { GripHorizontal, Square } from "lucide-react";
+import { GripHorizontal, Pause, Play, Square } from "lucide-react";
 
 import {
   hideRecordingBar,
+  recordingBarPause,
+  recordingBarResume,
   recordingBarStop,
   recordingStatus,
   startWindowDrag,
@@ -91,6 +93,18 @@ export default function RecordingBar() {
     });
   }, []);
 
+  // Pause when recording, resume when paused. Optimistically flip the
+  // local state so the icon swaps instantly; the next poll reconciles.
+  const onPauseResume = React.useCallback(() => {
+    const wasPaused = paused;
+    setPaused(!wasPaused);
+    const action = wasPaused ? recordingBarResume : recordingBarPause;
+    void action().catch((e) => {
+      console.error("recording_bar_pause/resume:", e);
+      setPaused(wasPaused);
+    });
+  }, [paused]);
+
   // Whole-bar drag: start a window drag on press unless the press lands on
   // the Stop button (or another interactive control).
   const onMouseDown = React.useCallback((e: React.MouseEvent<HTMLDivElement>) => {
@@ -134,17 +148,35 @@ export default function RecordingBar() {
         {formatElapsed(elapsed)}
       </p>
 
-      {/* Stop — icon only, but labelled for screen readers + hover. */}
-      <button
-        type="button"
-        onClick={onStop}
-        disabled={stopping}
-        aria-label="Stop recording"
-        title="Stop recording"
-        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-500 text-white transition-colors hover:bg-red-600 disabled:opacity-60"
-      >
-        <Square className="h-3.5 w-3.5 fill-current" />
-      </button>
+      {/* Controls: pause/resume (neutral) above stop (red). */}
+      <div className="flex shrink-0 flex-col items-center gap-2">
+        <button
+          type="button"
+          onClick={onPauseResume}
+          disabled={stopping}
+          aria-label={paused ? "Resume recording" : "Pause recording"}
+          title={paused ? "Resume recording" : "Pause recording"}
+          className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20 disabled:opacity-60"
+        >
+          {paused ? (
+            <Play className="h-3.5 w-3.5 fill-current" />
+          ) : (
+            <Pause className="h-3.5 w-3.5 fill-current" />
+          )}
+        </button>
+
+        {/* Stop — icon only, but labelled for screen readers + hover. */}
+        <button
+          type="button"
+          onClick={onStop}
+          disabled={stopping}
+          aria-label="Stop recording"
+          title="Stop recording"
+          className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-red-500 text-white transition-colors hover:bg-red-600 disabled:opacity-60"
+        >
+          <Square className="h-3.5 w-3.5 fill-current" />
+        </button>
+      </div>
     </div>
   );
 }
