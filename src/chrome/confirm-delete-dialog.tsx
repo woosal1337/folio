@@ -1,12 +1,10 @@
 /**
  * Confirmation modal for destructive actions. Mounted once at App root;
  * any code path triggers it via `confirmDelete({ ... })` and awaits the
- * result. For irreversible deletes (`doubleConfirm`), the destructive
- * button stays disabled until the user ticks "I understand" — the second
- * confirmation, so nothing is removed on a single stray click.
+ * result. The dialog itself is the confirmation — nothing is removed
+ * until the user clicks the destructive button.
  */
 
-import * as React from "react";
 import { AlertTriangle } from "lucide-react";
 
 import {
@@ -24,16 +22,6 @@ export function ConfirmDeleteDialog() {
   const open = useConfirmDeleteStore((s) => s.open);
   const payload = useConfirmDeleteStore((s) => s.payload);
   const resolve = useConfirmDeleteStore((s) => s.resolve);
-
-  const [acknowledged, setAcknowledged] = React.useState(false);
-
-  // Reset the acknowledgement each time a new confirmation opens.
-  React.useEffect(() => {
-    if (open) setAcknowledged(false);
-  }, [open, payload]);
-
-  const doubleConfirm = payload?.doubleConfirm ?? false;
-  const confirmDisabled = doubleConfirm && !acknowledged;
 
   return (
     <Dialog
@@ -53,29 +41,11 @@ export function ConfirmDeleteDialog() {
           </DialogDescription>
         </DialogHeader>
 
-        {doubleConfirm ? (
-          <label className="flex items-start gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm">
-            <input
-              type="checkbox"
-              checked={acknowledged}
-              onChange={(e) => setAcknowledged(e.target.checked)}
-              className="mt-0.5 h-4 w-4 accent-[hsl(var(--destructive))]"
-            />
-            <span className="text-muted-foreground">
-              {payload?.acknowledgeLabel ?? "I understand this can't be undone."}
-            </span>
-          </label>
-        ) : null}
-
         <DialogFooter className="sm:justify-between">
           <Button variant="ghost" onClick={() => resolve(false)}>
             Cancel
           </Button>
-          <Button
-            variant="destructive"
-            disabled={confirmDisabled}
-            onClick={() => resolve(true)}
-          >
+          <Button variant="destructive" onClick={() => resolve(true)}>
             {payload?.confirmLabel ?? "Delete"}
           </Button>
         </DialogFooter>

@@ -2,10 +2,8 @@
  * Promise-based confirmation for destructive actions (delete a note,
  * space/folder, conversation…). A caller does
  * `if (await confirm({ ... })) { …delete }` without threading props.
- *
- * For irreversible deletes, set `doubleConfirm: true` — the dialog then
- * requires an explicit "I understand" acknowledgement before the delete
- * button enables, so nothing is removed on a single stray click.
+ * The dialog is the confirmation — nothing is removed until the user
+ * clicks the destructive button.
  *
  * Mirrors `useCloudCostConfirmStore`; the host dialog
  * (`ConfirmDeleteDialog`) is mounted once at App root.
@@ -20,11 +18,6 @@ export interface ConfirmDeletePayload {
   description: string;
   /** Destructive button label. Defaults to "Delete". */
   confirmLabel?: string;
-  /** When true, require an "I understand" checkbox before enabling the
-   *  destructive button — the second confirmation for irreversible work. */
-  doubleConfirm?: boolean;
-  /** Optional acknowledgement label shown next to the checkbox. */
-  acknowledgeLabel?: string;
 }
 
 interface ConfirmDeleteState {
