@@ -7,7 +7,7 @@
 
 import { expect, test } from "@playwright/test";
 
-import { ipcCalls, ipcLog, readSettings, setupScenario } from "./fixtures/scenario";
+import { ipcCalls, ipcLog, setupScenario } from "./fixtures/scenario";
 
 test("save_settings is fired on the global Save button", async ({ page }) => {
   await setupScenario(page, { startSignedIn: true });
@@ -67,18 +67,7 @@ test("the IPC trail contains the boot-time probes (auth_status, get_settings)", 
   expect(cmds).toContain("get_settings");
 });
 
-test("workspace name saved via Settings is visible on the next open", async ({
-  page,
-}) => {
-  await setupScenario(page, { startSignedIn: true });
-  await page.goto("/");
-  await page.getByRole("button", { name: /^settings$/i }).click();
-  await page
-    .getByRole("button", { name: /^general$/i })
-    .nth(1)
-    .click();
-  const nameInput = page.getByPlaceholder(/clinora/i);
-  await nameInput.fill("Acme Co");
-  await page.getByRole("button", { name: /^save$/i }).click();
-  expect((await readSettings(page)).workspace_name).toBe("Acme Co");
-});
+// (Removed) "workspace name saved via Settings" — the Workspace → General
+// section was deleted in the personal-only restructure (PR #266). The
+// workspace_name field is now set only during onboarding, not editable in
+// Settings, so there is no Settings surface left to drive this test.

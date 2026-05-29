@@ -52,6 +52,29 @@ test("Transcription — language preference saves", async ({ page }) => {
   expect(calls.length).toBeGreaterThanOrEqual(1);
 });
 
+test("Transcription — live transcription (Beta) is off by default", async ({
+  page,
+}) => {
+  await page.getByRole("button", { name: /^transcription$/i }).click();
+  const toggle = page.getByRole("switch", { name: /live transcription/i });
+  await expect(toggle).toBeVisible();
+  await expect(toggle).not.toBeChecked();
+  // The bordered Beta pill sits next to the label.
+  await expect(page.getByText("Beta", { exact: true })).toBeVisible();
+});
+
+test("Transcription — enabling live transcription persists live_transcript_enabled", async ({
+  page,
+}) => {
+  await page.getByRole("button", { name: /^transcription$/i }).click();
+  await page.getByRole("switch", { name: /live transcription/i }).click();
+  await page
+    .getByRole("button", { name: /^save$/i })
+    .last()
+    .click();
+  expect((await readSettings(page)).live_transcript_enabled).toBe(true);
+});
+
 test("Storage — sections render the configured paths", async ({ page }) => {
   await page.getByRole("button", { name: /^storage$/i }).click();
   await expect(page.getByText("/tmp/Attune").first()).toBeVisible();
