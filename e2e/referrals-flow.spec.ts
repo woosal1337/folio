@@ -24,7 +24,10 @@ test("Personal referral link renders in monospace", async ({ page }) => {
 
 test("Copy button writes the link to the clipboard", async ({ page, context }) => {
   await context.grantPermissions(["clipboard-write", "clipboard-read"]);
-  await page.getByRole("button", { name: /^copy$/i }).first().click();
+  await page
+    .getByRole("button", { name: /^copy$/i })
+    .first()
+    .click();
   const text = await page.evaluate(() => navigator.clipboard.readText());
   expect(text).toMatch(/join\.attune\.app\/t\//i);
 });

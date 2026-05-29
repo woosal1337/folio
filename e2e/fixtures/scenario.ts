@@ -221,7 +221,7 @@ export async function setupScenario(page: Page, options: ScenarioOptions = {}) {
       JSON.stringify(options.memories ?? []),
       JSON.stringify(options.webhooks ?? []),
       JSON.stringify(options.providers ?? []),
-    ] as const,
+    ] as const
   );
 
   await installTauriStub(page, {
@@ -234,16 +234,30 @@ export async function setupScenario(page: Page, options: ScenarioOptions = {}) {
       },
       save_settings: (args) => {
         const a = args as { settings: unknown };
-        (window as unknown as Record<string, unknown>).__ATTUNE_SETTINGS__ =
-          a.settings;
+        (window as unknown as Record<string, unknown>).__ATTUNE_SETTINGS__ = a.settings;
         return null;
       },
 
       list_permissions: () => [
-        { permission: "microphone", status: "granted", rationale: "", settings_url: "" },
-        { permission: "screen_recording", status: "granted", rationale: "", settings_url: "" },
+        {
+          permission: "microphone",
+          status: "granted",
+          rationale: "",
+          settings_url: "",
+        },
+        {
+          permission: "screen_recording",
+          status: "granted",
+          rationale: "",
+          settings_url: "",
+        },
         { permission: "calendar", status: "unknown", rationale: "", settings_url: "" },
-        { permission: "notifications", status: "unknown", rationale: "", settings_url: "" },
+        {
+          permission: "notifications",
+          status: "unknown",
+          rationale: "",
+          settings_url: "",
+        },
       ],
       open_permission_settings: () => null,
       request_calendar_access: () => null,
@@ -329,21 +343,69 @@ export async function setupScenario(page: Page, options: ScenarioOptions = {}) {
       delete_recording: () => null,
       reveal_in_finder: () => null,
       share_paths: () => null,
-      save_debrief: () => null,
       recording_status: () => ({
-        active: false,
-        elapsed_seconds: 0,
+        recording: false,
+        elapsed_secs: 0,
+        channels: [],
         session_dir: null,
+        paused: false,
+      }),
+      // Note-first recording (GET-155): create_note returns a fresh
+      // empty-note summary the UI navigates into.
+      create_note: () => ({
+        session_dir: "/tmp/Attune/2026-05-28-note",
+        label: "2026-05-28-note",
+        duration_seconds: 0,
+        mic_bytes: null,
+        system_bytes: null,
+        mic_sample_rate: null,
+        system_sample_rate: null,
+        created_at: new Date().toISOString(),
+        has_transcript: false,
+        suggested_tags: [],
       }),
       start_recording: () => ({
-        active: true,
-        elapsed_seconds: 0,
-        session_dir: "/tmp/Attune/2026-05-28-fake",
+        recording: true,
+        elapsed_secs: 0,
+        channels: ["mic", "system"],
+        session_dir: "/tmp/Attune/2026-05-28-note",
+        paused: false,
       }),
       stop_recording: () => ({
-        session_dir: "/tmp/Attune/2026-05-28-fake",
-        transcript_path: null,
+        artifacts: {
+          session_dir: "/tmp/Attune/2026-05-28-note",
+          mic_path: "/tmp/Attune/2026-05-28-note/mic.wav",
+          system_path: null,
+          started_at: "2026-05-28T14:00:00Z",
+          stopped_at: "2026-05-28T14:01:00Z",
+        },
+        label: "2026-05-28-note",
       }),
+      pause_recording: () => ({
+        recording: false,
+        elapsed_secs: 5,
+        channels: [],
+        session_dir: "/tmp/Attune/2026-05-28-note",
+        paused: true,
+      }),
+      resume_recording: () => ({
+        recording: true,
+        elapsed_secs: 5,
+        channels: ["mic", "system"],
+        session_dir: "/tmp/Attune/2026-05-28-note",
+        paused: false,
+      }),
+      save_live_notes: () => null,
+      load_live_notes: () => [],
+      ask_note: () => ({ answer: "That isn't covered in this meeting." }),
+      ask_library: () => ({ answer: "No open action items found." }),
+      transcribe_recording: () => ({
+        transcript_path: "/tmp/Attune/2026-05-28-note/transcript.json",
+        session_transcript: { channels: [] },
+      }),
+      read_transcript: () => ({ channels: [] }),
+      save_transcript: () => "/tmp/Attune/2026-05-28-note/transcript.json",
+      run_vad: () => ({ session_dir: "", channels: [], channel_errors: [] }),
 
       list_providers: () => {
         return (window as unknown as Record<string, unknown>).__ATTUNE_PROVIDERS__;
@@ -404,9 +466,6 @@ export async function setupScenario(page: Page, options: ScenarioOptions = {}) {
 
       set_tray_recording: () => null,
       open_preferences_window: () => null,
-      open_record_window: () => null,
-      open_library_window: () => null,
-      open_editor_window: () => null,
 
       clear_recording_artifacts: () => null,
       export_vault_snapshot: () => null,
@@ -428,7 +487,8 @@ export async function setupScenario(page: Page, options: ScenarioOptions = {}) {
  * triggered a save_settings call with the toggle flipped". */
 export async function readSettings(page: Page): Promise<MockSettings> {
   return await page.evaluate(
-    () => (window as unknown as Record<string, unknown>).__ATTUNE_SETTINGS__ as MockSettings,
+    () =>
+      (window as unknown as Record<string, unknown>).__ATTUNE_SETTINGS__ as MockSettings
   );
 }
 

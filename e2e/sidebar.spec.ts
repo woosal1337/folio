@@ -10,7 +10,7 @@ import { setupScenario } from "./fixtures/scenario";
 test.beforeEach(async ({ page }) => {
   await setupScenario(page, { startSignedIn: true });
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: /^record$/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /^home$/i })).toBeVisible();
 });
 
 test("Collapse button toggles the sidebar width", async ({ page }) => {
@@ -23,13 +23,13 @@ test("Collapse button toggles the sidebar width", async ({ page }) => {
     .toBeLessThan(beforeWidth);
 });
 
-test("Navigating to Library highlights its sidebar entry as the active route", async ({
+test("Navigating to My Notes highlights its sidebar entry as the active route", async ({
   page,
 }) => {
-  await page.getByRole("link", { name: /library/i }).click();
+  await page.getByRole("link", { name: /my notes/i }).click();
   // Active route gets aria-current="page" via NavLink.
   await expect(
-    page.getByRole("link", { name: /library/i, includeHidden: false }),
+    page.getByRole("link", { name: /my notes/i, includeHidden: false })
   ).toHaveAttribute("aria-current", "page");
 });
 
@@ -44,6 +44,6 @@ test("Theme toggle button appears in the sidebar footer", async ({ page }) => {
   // The theme switcher swaps between 'Light mode' / 'Dark mode'
   // labels depending on the current theme.
   await expect(
-    page.getByRole("button", { name: /(light|dark|system) mode/i }).first(),
+    page.getByRole("button", { name: /(light|dark|system) mode/i }).first()
   ).toBeVisible();
 });

@@ -13,7 +13,7 @@ import { ipcCalls, readSettings, setupScenario } from "./fixtures/scenario";
 test.beforeEach(async ({ page }) => {
   await setupScenario(page, { startSignedIn: true });
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: /^record$/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /^home$/i })).toBeVisible();
   await page.getByRole("button", { name: /^settings$/i }).click();
 });
 
@@ -73,9 +73,7 @@ test("Calendar — toggling 'show upcoming meetings' updates settings", async ({
   expect(saved.show_upcoming_meetings_in_menubar).toBe(false);
 });
 
-test("Notifications — toggling scheduled-meeting alerts persists", async ({
-  page,
-}) => {
+test("Notifications — toggling scheduled-meeting alerts persists", async ({ page }) => {
   await page.getByRole("button", { name: /^notifications$/i }).click();
   const toggle = page.getByRole("switch", { name: /scheduled meetings/i });
   await toggle.click();

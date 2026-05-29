@@ -10,17 +10,24 @@ import { ipcCalls, readSettings, setupScenario } from "./fixtures/scenario";
 test.beforeEach(async ({ page }) => {
   await setupScenario(page, { startSignedIn: true });
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: /^record$/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /^home$/i })).toBeVisible();
   await page.getByRole("button", { name: /^settings$/i }).click();
 });
 
 test("General — input device list populates from list_input_devices", async ({
   page,
 }) => {
-  await page.getByRole("button", { name: /^general$/i }).first().click();
+  await page
+    .getByRole("button", { name: /^general$/i })
+    .first()
+    .click();
   // The mic-device picker is a native <select>. Options aren't
   // rendered as DOM text — we read them off the element instead.
-  const options = await page.locator("select").first().locator("option").allTextContents();
+  const options = await page
+    .locator("select")
+    .first()
+    .locator("option")
+    .allTextContents();
   expect(options.join(" ")).toContain("MacBook Pro Microphone");
 });
 
