@@ -3,7 +3,6 @@ import {
   BarChart3,
   Bell,
   Bot,
-  Building2,
   Calendar as CalendarIcon,
   CreditCard,
   Folder,
@@ -15,7 +14,6 @@ import {
   Settings as SettingsIcon,
   Sparkles,
   User,
-  Users,
   Wallet,
   Waves,
   Workflow,
@@ -57,10 +55,8 @@ import { SectionStorage } from "./section-storage";
 import { SectionTranscription } from "./section-transcription";
 import { SectionUsage } from "./section-usage";
 import { SectionWebhooks } from "./section-webhooks";
-import { SectionWorkspaceAnalytics } from "./section-workspace-analytics";
-import { SectionWorkspaceBilling } from "./section-workspace-billing";
-import { SectionWorkspaceGeneral } from "./section-workspace-general";
-import { SectionWorkspaceTeam } from "./section-workspace-team";
+import { SectionAnalytics } from "./section-analytics";
+import { SectionBilling } from "./section-billing";
 import { SectionReferrals } from "./section-referrals";
 
 type Section = SettingsSection;
@@ -81,15 +77,17 @@ interface NavGroup {
   items: NavItem[];
 }
 
-// Granola-style two-section sidebar: personal-level config under
-// the user's name, workspace-level config under the workspace name.
-// (Sprint 1 ships Personal only; Workspace lights up in Sprint 2.)
+// Personal-only sidebar — Attune ships as a single-user app, so there
+// is no workspace/team grouping. "Personal" holds identity + activity,
+// "Recording" holds capture config, "Account" holds billing + the
+// account-level integrations.
 const NAV_GROUPS: NavGroup[] = [
   {
     label: "Personal",
     items: [
       { id: "preferences", label: "Preferences", icon: SettingsIcon },
       { id: "profile", label: "Profile", icon: User },
+      { id: "analytics", label: "Analytics", icon: BarChart3 },
       { id: "calendar", label: "Calendar", icon: CalendarIcon },
       { id: "notifications", label: "Notifications", icon: Bell },
     ],
@@ -107,16 +105,13 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    label: "Workspace",
+    label: "Account",
     items: [
-      { id: "workspace-general", label: "General", icon: Building2 },
-      { id: "workspace-team", label: "Team", icon: Users },
-      { id: "workspace-analytics", label: "Analytics", icon: BarChart3 },
-      { id: "workspace-billing", label: "Billing", icon: CreditCard },
-      { id: "connectors", label: "Connectors", icon: Plug },
-      { id: "webhooks", label: "Webhooks", icon: Workflow },
+      { id: "billing", label: "Billing", icon: CreditCard },
       { id: "usage", label: "Usage", icon: Wallet },
       { id: "referrals", label: "Referrals", icon: Gift },
+      { id: "connectors", label: "Connectors", icon: Plug },
+      { id: "webhooks", label: "Webhooks", icon: Workflow },
       // Pro tab is hidden until payment + license verification land
       // end-to-end. SectionPro + the `id: "pro"` branch below stay on
       // disk so re-enabling is a one-line uncomment.
@@ -263,14 +258,10 @@ export function SettingsModal({ open, onOpenChange }: Props) {
                 <SectionAi settings={settings} onChange={update} />
               ) : section === "storage" ? (
                 <SectionStorage settings={settings} onChange={update} />
-              ) : section === "workspace-general" ? (
-                <SectionWorkspaceGeneral settings={settings} onChange={update} />
-              ) : section === "workspace-team" ? (
-                <SectionWorkspaceTeam settings={settings} />
-              ) : section === "workspace-analytics" ? (
-                <SectionWorkspaceAnalytics />
-              ) : section === "workspace-billing" ? (
-                <SectionWorkspaceBilling />
+              ) : section === "analytics" ? (
+                <SectionAnalytics />
+              ) : section === "billing" ? (
+                <SectionBilling />
               ) : section === "connectors" ? (
                 <SectionConnectors />
               ) : section === "webhooks" ? (

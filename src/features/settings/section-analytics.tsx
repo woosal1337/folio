@@ -1,11 +1,11 @@
 /**
- * GET-139 — Settings → Workspace → Analytics.
+ * GET-139 — Settings → Analytics (personal).
  *
- * Aggregate workspace stats only — no per-user engagement scoring.
+ * Your own activity totals only — no per-user engagement scoring.
  * Read.ai's "attention surveillance" pattern is explicitly rejected.
  *
  * v1 reads local counts from the library where possible (recordings,
- * minutes); workspace-level aggregates ship with attune-api.
+ * minutes); richer aggregates ship with attune-api.
  */
 
 import * as React from "react";
@@ -30,7 +30,7 @@ const RANGES: { id: Range; label: string }[] = [
   { id: "all", label: "All time" },
 ];
 
-export function SectionWorkspaceAnalytics() {
+export function SectionAnalytics() {
   const [range, setRange] = React.useState<Range>("30d");
 
   return (
@@ -38,8 +38,8 @@ export function SectionWorkspaceAnalytics() {
       <header className="space-y-1">
         <h2 className="font-serif text-2xl font-medium">Analytics</h2>
         <p className="text-sm text-muted-foreground">
-          Aggregate activity for the workspace. No per-user surveillance —
-          we don&apos;t score attention, engagement, or talk-time.
+          Your own activity totals. No surveillance — we don&apos;t score attention,
+          engagement, or talk-time.
         </p>
       </header>
 
@@ -71,7 +71,7 @@ export function SectionWorkspaceAnalytics() {
           <Stat icon={BarChart3} label="Notes shared" value="—" />
         </div>
         <p className="text-2xs text-muted-foreground">
-          Numbers populate once the workspace activity feed ships server-side.
+          Numbers populate once the activity feed ships server-side.
         </p>
       </Group>
 
@@ -106,9 +106,7 @@ function Stat({
         <Icon className="h-3.5 w-3.5" />
         <p className="text-2xs uppercase tracking-wider">{label}</p>
       </div>
-      <p className="mt-2 font-serif text-2xl font-medium tabular-nums">
-        {value}
-      </p>
+      <p className="mt-2 font-serif text-2xl font-medium tabular-nums">{value}</p>
     </div>
   );
 }
@@ -120,10 +118,9 @@ function RejectedFeatureCard() {
       <div className="min-w-0 flex-1 space-y-0.5">
         <p className="text-sm font-medium">No engagement scoring</p>
         <p className="max-w-prose text-xs text-muted-foreground">
-          Attune does not compute per-person talk-time, attention, or
-          engagement scores. Meeting analytics that surveil individuals are
-          out of scope by policy — the only counts you&apos;ll ever see are
-          workspace-level aggregates.
+          Attune does not compute per-person talk-time, attention, or engagement scores.
+          Meeting analytics that surveil individuals are out of scope by policy — the
+          only counts you&apos;ll ever see are your own totals.
         </p>
       </div>
     </div>

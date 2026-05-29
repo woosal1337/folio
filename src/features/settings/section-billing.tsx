@@ -1,5 +1,5 @@
 /**
- * GET-139 — Settings → Workspace → Billing.
+ * GET-139 — Settings → Billing (personal).
  *
  * Tier badge, per-tier feature matrix, Stripe-hosted payment surface
  * (never touch card data ourselves), invoice history.
@@ -16,39 +16,36 @@ import { toast } from "sonner";
 import { Button } from "@/shared/ui/button";
 import { Label } from "@/shared/ui/label";
 
-type Tier = "free" | "pro" | "team" | "enterprise";
+type Tier = "free" | "pro";
 
 const TIER_LABEL: Record<Tier, string> = {
   free: "Free",
   pro: "Pro",
-  team: "Team",
-  enterprise: "Enterprise",
 };
 
 interface FeatureMatrixRow {
   feature: string;
   free: string | boolean;
   pro: string | boolean;
-  team: string | boolean;
-  enterprise: string | boolean;
 }
 
 const MATRIX: FeatureMatrixRow[] = [
-  { feature: "Unlimited local recording", free: true, pro: true, team: true, enterprise: true },
-  { feature: "Local Whisper transcription", free: true, pro: true, team: true, enterprise: true },
-  { feature: "Cloud transcription (OpenAI / others)", free: "Bring your own key", pro: true, team: true, enterprise: true },
-  { feature: "AI agents (summarise, tasks, memory)", free: "5/mo", pro: "Unlimited", team: "Unlimited", enterprise: "Unlimited" },
-  { feature: "Shared notes across workspace", free: false, pro: false, team: true, enterprise: true },
-  { feature: "MCP server (local)", free: true, pro: true, team: true, enterprise: true },
-  { feature: "Auto-record on calendar match", free: false, pro: true, team: true, enterprise: true },
-  { feature: "Custom AI agents", free: false, pro: true, team: true, enterprise: true },
-  { feature: "SSO + SCIM", free: false, pro: false, team: false, enterprise: true },
-  { feature: "Workspace audit log", free: false, pro: false, team: true, enterprise: true },
+  { feature: "Unlimited local recording", free: true, pro: true },
+  { feature: "Local Whisper transcription", free: true, pro: true },
+  {
+    feature: "Cloud transcription (OpenAI / others)",
+    free: "Bring your own key",
+    pro: true,
+  },
+  { feature: "AI agents (summarise, tasks, memory)", free: "5/mo", pro: "Unlimited" },
+  { feature: "MCP server (local)", free: true, pro: true },
+  { feature: "Auto-record on calendar match", free: false, pro: true },
+  { feature: "Custom AI agents", free: false, pro: true },
 ];
 
-export function SectionWorkspaceBilling() {
+export function SectionBilling() {
   // v1: tier is Free until the licensing backend lands. Once the
-  // pro_license_key field is populated (existing) or the workspace
+  // pro_license_key field is populated (existing) or the account
   // tier ships server-side, this resolves to the real tier.
   const tier: Tier = "free";
 
@@ -64,7 +61,7 @@ export function SectionWorkspaceBilling() {
       <header className="space-y-1">
         <h2 className="font-serif text-2xl font-medium">Billing</h2>
         <p className="text-sm text-muted-foreground">
-          Tier, payment, and invoice history for your workspace.
+          Tier, payment, and invoice history for your account.
         </p>
       </header>
 
@@ -80,9 +77,8 @@ export function SectionWorkspaceBilling() {
           <div className="min-w-0 flex-1 space-y-0.5">
             <p className="text-sm font-medium">No invoices yet</p>
             <p className="max-w-prose text-xs text-muted-foreground">
-              Past invoices appear here once you upgrade to a paid plan.
-              Downloads are served by Stripe — Attune never sees the payment
-              data itself.
+              Past invoices appear here once you upgrade to a paid plan. Downloads are
+              served by Stripe — Attune never sees the payment data itself.
             </p>
           </div>
         </div>
@@ -94,7 +90,7 @@ export function SectionWorkspaceBilling() {
 }
 
 function CurrentTierCard({ tier, onManage }: { tier: Tier; onManage: () => void }) {
-  const Icon = tier === "free" ? Sparkles : tier === "enterprise" ? Shield : Zap;
+  const Icon = tier === "free" ? Sparkles : Zap;
   return (
     <div className="rounded-lg border border-border bg-card p-5">
       <div className="flex flex-wrap items-start gap-3">
@@ -107,13 +103,11 @@ function CurrentTierCard({ tier, onManage }: { tier: Tier; onManage: () => void 
               Current tier
             </p>
           </div>
-          <p className="mt-0.5 font-serif text-2xl font-medium">
-            {TIER_LABEL[tier]}
-          </p>
+          <p className="mt-0.5 font-serif text-2xl font-medium">{TIER_LABEL[tier]}</p>
           {tier === "free" ? (
             <p className="mt-1 text-xs text-muted-foreground">
-              All core recording + local transcription features. Upgrade to
-              unlock cloud transcription, shared notes, and custom agents.
+              All core recording + local transcription features. Upgrade to unlock cloud
+              transcription and custom agents.
             </p>
           ) : (
             <p className="mt-1 text-xs text-muted-foreground">
@@ -130,10 +124,10 @@ function CurrentTierCard({ tier, onManage }: { tier: Tier; onManage: () => void 
 }
 
 function FeatureMatrix({ current }: { current: Tier }) {
-  const tiers: Tier[] = ["free", "pro", "team", "enterprise"];
+  const tiers: Tier[] = ["free", "pro"];
   return (
     <div className="overflow-hidden rounded-lg border border-border bg-card">
-      <div className="grid grid-cols-[1fr_repeat(4,minmax(0,90px))] border-b border-border bg-muted/40 text-2xs font-medium uppercase tracking-wider text-muted-foreground">
+      <div className="grid grid-cols-[1fr_repeat(2,minmax(0,90px))] border-b border-border bg-muted/40 text-2xs font-medium uppercase tracking-wider text-muted-foreground">
         <div className="px-4 py-3">Feature</div>
         {tiers.map((t) => (
           <div
@@ -147,7 +141,7 @@ function FeatureMatrix({ current }: { current: Tier }) {
       {MATRIX.map((row, i) => (
         <div
           key={row.feature}
-          className={`grid grid-cols-[1fr_repeat(4,minmax(0,90px))] text-xs ${
+          className={`grid grid-cols-[1fr_repeat(2,minmax(0,90px))] text-xs ${
             i % 2 ? "bg-muted/20" : ""
           }`}
         >
@@ -194,9 +188,8 @@ function SecurityNote() {
     <div className="flex items-start gap-3 rounded-lg border border-border bg-muted/30 p-4">
       <Shield className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
       <p className="flex-1 text-xs text-muted-foreground">
-        Payments are processed by Stripe. Attune never stores or sees your
-        card number, expiry, or CVV — only the last four digits + brand for
-        display.
+        Payments are processed by Stripe. Attune never stores or sees your card number,
+        expiry, or CVV — only the last four digits + brand for display.
       </p>
     </div>
   );
