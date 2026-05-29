@@ -22,6 +22,8 @@ import {
   stopRecording,
   pauseRecording,
   resumeRecording,
+  showRecordingBar,
+  hideRecordingBar,
 } from "@/shared/lib/ipc";
 import { useRecording } from "./recording-store";
 
@@ -30,6 +32,8 @@ const mockedStart = vi.mocked(startRecording);
 const mockedStop = vi.mocked(stopRecording);
 const mockedPause = vi.mocked(pauseRecording);
 const mockedResume = vi.mocked(resumeRecording);
+const mockedShowBar = vi.mocked(showRecordingBar);
+const mockedHideBar = vi.mocked(hideRecordingBar);
 
 beforeEach(() => {
   // Reset the store between tests.
@@ -194,5 +198,92 @@ describe("recording-store: pause/resume (GET-149)", () => {
     expect(s.paused).toBe(false);
     expect(s.elapsed).toBe(30);
     expect(s.channels).toEqual(["mic", "system"]);
+  });
+});
+
+describe("recording-store: pause/resume/stop guards (re-entrancy + state)", () => {
+  it("pause is a no-op when not recording", async () => {
+    const { result } = renderHook(() => useRecording());
+    await act(async () => {
+      await result.current.pause();
+    });
+    expect(mockedPause).not.toHaveBeenCalled();
+    expect(useRecording.getState().error).toBeNull();
+  });
+
+  it("resume is a no-op when not paused", async () => {
+    const { result } = renderHook(() => useRecording());
+    await act(async () => {
+      await result.current.resume();
+    });
+    expect(mockedResume).not.toHaveBeenCalled();
+    expect(useRecording.getState().error).toBeNull();
+  });
+
+  it("stop is a no-op when idle", async () => {
+    const { result } = renderHook(() => useRecording());
+    await act(async () => {
+      await result.current.stop();
+    });
+    expect(mockedStop).not.toHaveBeenCalled();
+  });
+
+  it("a second pause while one is in flight is ignored (no double-fire)", async () => {
+    useRecording.setState({ recording: true, paused: false });
+    mockedPause.mockResolvedValue({
+      recording: false,
+      elapsed_secs: 5n,
+      channels: [],
+      session_dir: "/tmp/attune/note",
+      paused: true,
+    });
+    const { result } = renderHook(() => useRecording());
+    await act(async () => {
+      // Fire two pauses without awaiting the first — the busy guard must
+      // drop the second so the backend pause runs exactly once.
+      await Promise.all([result.current.pause(), result.current.pause()]);
+    });
+    expect(mockedPause).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("recording-store: floating bar lifecycle", () => {
+  it("shows the bar on start and hides it on stop", async () => {
+    mockedStart.mockResolvedValueOnce({
+      recording: true,
+      elapsed_secs: 0n,
+      channels: ["mic"],
+      session_dir: "/tmp/attune/note",
+      paused: false,
+    });
+    mockedStop.mockResolvedValueOnce({
+      artifacts: { session_dir: "/tmp/attune/note" },
+    } as never);
+    const { result } = renderHook(() => useRecording());
+    await act(async () => {
+      await result.current.start();
+    });
+    expect(mockedShowBar).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      await result.current.stop();
+    });
+    expect(mockedHideBar).toHaveBeenCalledTimes(1);
+  });
+
+  it("re-shows the bar on resume (stays up across pause/resume)", async () => {
+    useRecording.setState({ recording: false, paused: true, elapsed: 10 });
+    mockedResume.mockResolvedValueOnce({
+      recording: true,
+      elapsed_secs: 10n,
+      channels: ["mic"],
+      session_dir: "/tmp/attune/note",
+      paused: false,
+    });
+    const { result } = renderHook(() => useRecording());
+    await act(async () => {
+      await result.current.resume();
+    });
+    expect(mockedShowBar).toHaveBeenCalled();
+    expect(mockedHideBar).not.toHaveBeenCalled();
   });
 });

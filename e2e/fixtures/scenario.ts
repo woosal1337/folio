@@ -40,6 +40,7 @@ export interface MockSettings {
   voice_processing_enabled: boolean;
   auto_transcribe_enabled: boolean;
   auto_vad_enabled: boolean;
+  live_transcript_enabled: boolean;
   memory_dir: string;
   auto_extract_memories_enabled: boolean;
   feedback_sounds_enabled: boolean;
@@ -92,6 +93,7 @@ export function freshSettings(overrides: Partial<MockSettings> = {}): MockSettin
     voice_processing_enabled: true,
     auto_transcribe_enabled: true,
     auto_vad_enabled: true,
+    live_transcript_enabled: false,
     memory_dir: "/tmp/Attune/Memory",
     auto_extract_memories_enabled: false,
     feedback_sounds_enabled: false,
@@ -309,16 +311,17 @@ export async function setupScenario(page: Page, options: ScenarioOptions = {}) {
         },
         device_count: 1,
       }),
+      // Real `account_update` returns a flat UserDoc (the command
+      // unwraps the API's { user } envelope). Match that shape so the
+      // frontend reads `display_name` off the top level.
       account_update: (args) => {
         const a = args as { displayName: string | null };
         return {
-          user: {
-            _id: "user-1",
-            email: "ege@clinora.ai",
-            display_name: a.displayName,
-            privacy_tier: "tier1",
-            subscription_tier: "free",
-          },
+          id: "user-1",
+          email: "ege@clinora.ai",
+          display_name: a.displayName,
+          privacy_tier: "tier1",
+          subscription_tier: "free",
         };
       },
       account_devices: () => ({
@@ -435,6 +438,14 @@ export async function setupScenario(page: Page, options: ScenarioOptions = {}) {
         session_dir: null,
         paused: false,
       }),
+      // Floating recording-bar window controls. The bar is a real OS
+      // window in the app; in the mocked browser harness these are no-ops
+      // so recording flows that show/hide it don't hit "unmapped IPC".
+      show_recording_bar: () => null,
+      hide_recording_bar: () => null,
+      recording_bar_stop: () => null,
+      recording_bar_pause: () => null,
+      recording_bar_resume: () => null,
       // Note-first recording (GET-155): create_note returns a fresh
       // empty-note summary the UI navigates into.
       create_note: () => ({

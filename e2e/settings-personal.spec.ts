@@ -42,16 +42,40 @@ test("Preferences — auto-delete period default is 90 days (GDPR red line)", as
   await expect(select).toHaveValue("90");
 });
 
-test("Profile — display name update calls save_settings", async ({ page }) => {
+test("Profile — display name persists to the backend on blur (account_update)", async ({
+  page,
+}) => {
   await page.getByRole("button", { name: /^profile$/i }).click();
-  const nameInput = page.getByPlaceholder(/your name/i);
+  const nameInput = page.getByLabel(/display name/i);
   await nameInput.fill("Ege Çelebi (e2e)");
-  await page.getByRole("button", { name: /^save$/i }).click();
+  // Commit on blur — the field now PATCHes /account rather than riding on
+  // save_settings (the display name was never part of the Settings struct).
+  await nameInput.blur();
 
-  // Save fires; the locally-cached display-name input flushes
-  // through the React state into a save_settings call.
-  const calls = await ipcCalls(page, "save_settings");
-  expect(calls.length).toBeGreaterThanOrEqual(1);
+  await expect
+    .poll(async () => (await ipcCalls(page, "account_update")).length)
+    .toBeGreaterThanOrEqual(1);
+  const calls = await ipcCalls(page, "account_update");
+  expect(calls[calls.length - 1].args).toMatchObject({
+    displayName: "Ege Çelebi (e2e)",
+  });
+});
+
+test("Profile — editing then re-opening keeps the saved display name", async ({
+  page,
+}) => {
+  await page.getByRole("button", { name: /^profile$/i }).click();
+  const nameInput = page.getByLabel(/display name/i);
+  await nameInput.fill("Persisted Name");
+  await nameInput.blur();
+  await expect
+    .poll(async () => (await ipcCalls(page, "account_update")).length)
+    .toBeGreaterThanOrEqual(1);
+  // Switch sections and back — the name should still be there (it was
+  // committed to the store, not lost on remount, which was the bug).
+  await page.getByRole("button", { name: /^preferences$/i }).click();
+  await page.getByRole("button", { name: /^profile$/i }).click();
+  await expect(page.getByLabel(/display name/i)).toHaveValue("Persisted Name");
 });
 
 test("Profile — email surfaces from the auth store identity", async ({ page }) => {

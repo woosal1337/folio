@@ -55,3 +55,44 @@ describe("ipc wrappers", () => {
     expect(mockedInvoke).toHaveBeenCalledWith("ping", { name: "ada" });
   });
 });
+
+describe("floating recording-bar IPC wrappers", () => {
+  it("show/hide/stop/pause/resume invoke the matching commands", async () => {
+    const {
+      showRecordingBar,
+      hideRecordingBar,
+      recordingBarStop,
+      recordingBarPause,
+      recordingBarResume,
+    } = await import("./ipc");
+
+    mockedInvoke.mockResolvedValue(undefined);
+
+    await showRecordingBar();
+    await hideRecordingBar();
+    await recordingBarStop();
+    await recordingBarPause();
+    await recordingBarResume();
+
+    expect(mockedInvoke).toHaveBeenCalledWith("show_recording_bar", undefined);
+    expect(mockedInvoke).toHaveBeenCalledWith("hide_recording_bar", undefined);
+    expect(mockedInvoke).toHaveBeenCalledWith("recording_bar_stop", undefined);
+    expect(mockedInvoke).toHaveBeenCalledWith("recording_bar_pause", undefined);
+    expect(mockedInvoke).toHaveBeenCalledWith("recording_bar_resume", undefined);
+  });
+
+  it("account_update forwards the display name", async () => {
+    const { accountUpdate } = await import("./ipc");
+    mockedInvoke.mockResolvedValueOnce({
+      id: "u1",
+      email: "x@y.z",
+      display_name: "New Name",
+      privacy_tier: null,
+      subscription_tier: null,
+    });
+    await accountUpdate("New Name");
+    expect(mockedInvoke).toHaveBeenCalledWith("account_update", {
+      displayName: "New Name",
+    });
+  });
+});
