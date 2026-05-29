@@ -16,7 +16,7 @@
  */
 
 import * as React from "react";
-import { Square } from "lucide-react";
+import { GripHorizontal, Square } from "lucide-react";
 
 import {
   hideRecordingBar,
@@ -88,37 +88,45 @@ export default function RecordingBar() {
     // eslint-disable-next-line jsx-a11y/no-static-element-interactions -- frameless-window drag region, same pattern as the main shell.
     <div
       onMouseDown={onMouseDown}
-      className="fixed inset-0 flex select-none items-center gap-3 overflow-hidden rounded-2xl border border-white/10 bg-neutral-900/95 px-3.5 text-white shadow-2xl backdrop-blur"
+      className="fixed inset-0 flex select-none flex-col items-center justify-between overflow-hidden rounded-full border border-white/10 bg-neutral-900/95 py-3 text-white shadow-2xl backdrop-blur"
     >
-      <span className="relative flex h-5 w-5 shrink-0 items-center justify-center">
+      {/* Drag grip — the explicit "grab here" affordance, set apart from
+          the controls so it reads as a handle (the whole pill drags). */}
+      <GripHorizontal
+        aria-hidden="true"
+        className="h-4 w-4 shrink-0 text-neutral-500"
+      />
+
+      {/* Recording / paused indicator. */}
+      <span
+        className="relative flex h-5 w-5 shrink-0 items-center justify-center"
+        title={paused ? "Paused" : "Recording"}
+      >
         {paused ? (
           <span className="h-2.5 w-2.5 rounded-full bg-amber-400" />
         ) : (
           <>
-            <span className="absolute h-3.5 w-3.5 animate-ping rounded-full bg-red-500/40" />
+            <span className="absolute h-4 w-4 animate-ping rounded-full bg-red-500/40" />
             <span className="h-2.5 w-2.5 rounded-full bg-red-500" />
           </>
         )}
       </span>
 
-      <div className="min-w-0 flex-1 leading-tight">
-        <p className="text-[10px] font-medium uppercase tracking-wider text-neutral-400">
-          {paused ? "Paused" : "Recording"}
-        </p>
-        <p className="font-mono text-sm font-semibold tabular-nums">
-          {formatElapsed(elapsed)}
-        </p>
-      </div>
+      {/* Elapsed time. */}
+      <p className="shrink-0 font-mono text-[11px] font-semibold tabular-nums text-neutral-200">
+        {formatElapsed(elapsed)}
+      </p>
 
+      {/* Stop — icon only, but labelled for screen readers + hover. */}
       <button
         type="button"
         onClick={onStop}
         disabled={stopping}
         aria-label="Stop recording"
-        className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-red-500 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-red-600 disabled:opacity-60"
+        title="Stop recording"
+        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-red-500 text-white transition-colors hover:bg-red-600 disabled:opacity-60"
       >
         <Square className="h-3.5 w-3.5 fill-current" />
-        {stopping ? "Stopping…" : "Stop"}
       </button>
     </div>
   );
