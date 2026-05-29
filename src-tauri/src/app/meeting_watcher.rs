@@ -109,6 +109,10 @@ pub fn spawn<R: Runtime>(app: AppHandle<R>) {
                 std::collections::HashSet::new();
             let mut last_fired: HashMap<String, Instant> = HashMap::new();
             let mut seeded = false;
+            // Bounds the main window held before we docked it aside for a
+            // meeting (move_aside_in_meetings). `Some` only while we've
+            // actively moved the window, so we restore exactly once.
+            let mut aside_bounds: Option<crate::app::window_aside::SavedBounds> = None;
 
             loop {
                 let running = running_monitored_bundle_ids();
@@ -124,7 +128,29 @@ pub fn spawn<R: Runtime>(app: AppHandle<R>) {
 
                 let newly_appeared: Vec<String> =
                     running.difference(&prev_running).cloned().collect();
+                let any_running = !running.is_empty();
+                let just_appeared = !newly_appeared.is_empty();
                 prev_running = running;
+
+                // Move-aside: independent of the notify/HUD setting — the
+                // user can want their window out of the way without the
+                // detection toast. Dock aside on the same off→on edge the
+                // HUD fires on; restore once every monitored app is gone
+                // (or the setting gets turned off mid-meeting).
+                {
+                    let state = app.state::<AppState>();
+                    let (move_enabled, onboarded) = {
+                        let s = state.settings.lock();
+                        (s.move_aside_in_meetings, s.onboarding_completed)
+                    };
+                    if move_enabled && onboarded && just_appeared && aside_bounds.is_none() {
+                        aside_bounds = crate::app::window_aside::move_aside(&app);
+                    } else if aside_bounds.is_some() && (!any_running || !move_enabled) {
+                        if let Some(bounds) = aside_bounds.take() {
+                            crate::app::window_aside::restore(&app, bounds);
+                        }
+                    }
+                }
 
                 if !newly_appeared.is_empty() {
                     let state = app.state::<AppState>();
