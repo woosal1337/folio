@@ -636,6 +636,9 @@ export const useRecording = create<RecordingState>((set, get) => {
           liveSessionDir: status.session_dir,
         });
         installTicker();
+        // Keep the floating bar alive across pause→resume — it only goes
+        // away on a full stop. Idempotent if it's still open.
+        void ipcShowRecordingBar().catch(() => {});
         playFeedback("start");
       } catch (e) {
         const message = String(e);
