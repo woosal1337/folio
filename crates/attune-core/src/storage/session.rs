@@ -49,6 +49,11 @@ pub struct RecordingSummary {
     /// v2 finding 046 / GET-89.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub language_override: Option<String>,
+    /// User-set note title from `<session_dir>/title.txt` (GET-163).
+    /// Takes precedence over `suggested_title` + `label` in the UI.
+    /// None when the user has not renamed the note.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
 }
 
 /// Scan `output_dir` for recording sessions and return one summary per
@@ -107,6 +112,7 @@ pub fn scan_recordings(output_dir: &Path) -> Vec<RecordingSummary> {
             || path.join(format!("{TRANSCRIPT_FILENAME}.zst")).is_file();
         let autoname = read_autoname_run(&path);
         let language_override = read_language_override(&path);
+        let title = read_user_title(&path);
         out.push(RecordingSummary {
             session_dir: path,
             label,
@@ -136,6 +142,7 @@ pub fn scan_recordings(output_dir: &Path) -> Vec<RecordingSummary> {
                 }
             }),
             language_override,
+            title,
         });
     }
     // Newest first. Recordings that have a created_at sort by that;
@@ -163,6 +170,18 @@ fn wav_sample_rate(path: &Path) -> Option<u32> {
 fn read_language_override(session_dir: &Path) -> Option<String> {
     let path = session_dir.join("language.txt");
     let raw = std::fs::read_to_string(&path).ok()?;
+    let trimmed = raw.lines().next()?.trim();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed.to_string())
+    }
+}
+
+/// Read the user-set note title from `<session_dir>/title.txt` (GET-163).
+/// First non-empty line, trimmed; None when missing or blank.
+fn read_user_title(session_dir: &Path) -> Option<String> {
+    let raw = std::fs::read_to_string(session_dir.join("title.txt")).ok()?;
     let trimmed = raw.lines().next()?.trim();
     if trimmed.is_empty() {
         None

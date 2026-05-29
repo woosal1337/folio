@@ -364,6 +364,8 @@ export async function setupScenario(page: Page, options: ScenarioOptions = {}) {
         has_transcript: false,
         suggested_tags: [],
       }),
+      // Rename a note (GET-163): persists title.txt; mock just acks.
+      rename_note: () => null,
       start_recording: () => ({
         recording: true,
         elapsed_secs: 0,

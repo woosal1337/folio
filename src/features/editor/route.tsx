@@ -35,6 +35,7 @@ import {
   getRecording,
   listAgentRuns,
   readTranscript,
+  renameNote,
   revealInFinder,
   runAgent,
   transcribeRecording,
@@ -217,6 +218,25 @@ export default function Editor() {
     }
   };
 
+  // GET-163: persist an edited title to `title.txt`. An empty value clears
+  // it (falls back to the autoname/label). Optimistically updates local
+  // state so the header reflects the change without a re-fetch.
+  const handleRename = React.useCallback(
+    async (next: string) => {
+      if (!recording) return;
+      const trimmed = next.trim();
+      if ((recording.title ?? "") === trimmed) return;
+      setRecording((prev) => (prev ? { ...prev, title: trimmed || null } : prev));
+      try {
+        await renameNote(recording.session_dir, trimmed);
+      } catch (e) {
+        console.error("rename_note:", e);
+        toast.error("Could not rename note", { description: String(e) });
+      }
+    },
+    [recording]
+  );
+
   const handleReveal = () => {
     if (!recording) return;
     revealInFinder(recording.session_dir).catch((e) => {
@@ -313,7 +333,11 @@ export default function Editor() {
     ? `${recording.session_dir}/system.wav`
     : null;
   const isCurrentlyTranscribing = transcribingDir === recording.session_dir;
-  const title = recording.suggested_title?.trim() || recording.label;
+  // GET-163: a user-set title wins; else the autoname suggestion; else the
+  // timestamp label. The placeholder shown in the editable field is the
+  // non-user fallback so clearing the field reveals what it'll fall back to.
+  const fallbackTitle = recording.suggested_title?.trim() || recording.label;
+  const title = recording.title?.trim() || fallbackTitle;
   const hasAudio = recording.mic_bytes !== null || recording.system_bytes !== null;
   // Record-dock state (GET-155): is THIS note the active capture?
   const isThisActive = recState.liveSessionDir === recording.session_dir;
@@ -371,7 +395,11 @@ export default function Editor() {
 
       {/* Title + chips */}
       <div className="space-y-3">
-        <h1 className="font-serif text-3xl font-medium tracking-tight">{title}</h1>
+        <EditableTitle
+          value={title}
+          placeholder={fallbackTitle}
+          onCommit={handleRename}
+        />
         <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
           <Chip>{formatNoteDate(recording.created_at)}</Chip>
           <Chip>
@@ -651,6 +679,57 @@ function formatElapsed(secs: number): string {
 }
 
 // ---- Small building blocks ---------------------------------------------
+
+/** Inline-editable note title (GET-163). Renders as an unstyled input that
+ *  looks like the heading; commits on blur or Enter, reverts on Escape.
+ *  `value` is the resolved title (user title or fallback); `placeholder`
+ *  is the non-user fallback shown when the field is emptied. */
+function EditableTitle({
+  value,
+  placeholder,
+  onCommit,
+}: {
+  value: string;
+  placeholder: string;
+  onCommit: (next: string) => void;
+}) {
+  const [draft, setDraft] = React.useState(value);
+  const [editing, setEditing] = React.useState(false);
+
+  // Keep the field in sync with upstream changes (e.g. autoname landing)
+  // while the user isn't actively editing.
+  React.useEffect(() => {
+    if (!editing) setDraft(value);
+  }, [value, editing]);
+
+  const commit = () => {
+    setEditing(false);
+    onCommit(draft);
+  };
+
+  return (
+    <input
+      type="text"
+      aria-label="Note title"
+      value={draft}
+      placeholder={placeholder}
+      onChange={(e) => setDraft(e.target.value)}
+      onFocus={() => setEditing(true)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          e.currentTarget.blur();
+        } else if (e.key === "Escape") {
+          setDraft(value);
+          setEditing(false);
+          e.currentTarget.blur();
+        }
+      }}
+      className="w-full bg-transparent font-serif text-3xl font-medium tracking-tight outline-none placeholder:text-muted-foreground/50 focus:placeholder:text-transparent"
+    />
+  );
+}
 
 function Chip({ children }: { children: React.ReactNode }) {
   return (

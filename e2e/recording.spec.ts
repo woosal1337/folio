@@ -33,3 +33,17 @@ test('"Take notes" on the Coming-up card records into a fresh note', async ({
     .toBeGreaterThanOrEqual(1);
   await expect(page).toHaveURL(/#\/editor\//);
 });
+
+test("editing the note title persists it (GET-163)", async ({ page }) => {
+  await setupScenario(page, { startSignedIn: true });
+  await page.goto("/");
+  await page.getByRole("button", { name: /quick note/i }).click();
+  await expect(page).toHaveURL(/#\/editor\//);
+
+  const title = page.getByRole("textbox", { name: /note title/i });
+  await title.fill("Strategy sync");
+  await title.press("Enter");
+
+  await expect.poll(async () => (await ipcCalls(page, "rename_note")).length).toBe(1);
+  await expect(title).toHaveValue("Strategy sync");
+});
