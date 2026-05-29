@@ -287,7 +287,10 @@ export default function Editor() {
   const handleDelete = async () => {
     if (!recording) return;
     const noteName =
-      recording.title?.trim() || recording.suggested_title?.trim() || recording.label;
+      recording.title?.trim() ||
+      recording.suggested_title?.trim() ||
+      recording.draft_name ||
+      recording.label;
     const ok = await confirmDelete({
       title: "Delete this note?",
       description: `"${noteName}" — this removes the session folder and every file inside it (audio, transcript, notes). Cannot be undone.`,
@@ -368,7 +371,8 @@ export default function Editor() {
   // GET-163: a user-set title wins; else the autoname suggestion; else the
   // timestamp label. The placeholder shown in the editable field is the
   // non-user fallback so clearing the field reveals what it'll fall back to.
-  const fallbackTitle = recording.suggested_title?.trim() || recording.label;
+  const fallbackTitle =
+    recording.suggested_title?.trim() || recording.draft_name || recording.label;
   const title = recording.title?.trim() || fallbackTitle;
   const hasAudio = recording.mic_bytes !== null || recording.system_bytes !== null;
   // Record-dock state (GET-155): is THIS note the active capture?
@@ -742,7 +746,11 @@ function EditableTitle({
 
   const commit = () => {
     setEditing(false);
-    onCommit(draft);
+    // Only persist a real edit. Without this, focusing+blurring a note
+    // whose displayed title is a fallback (a "Draft N" placeholder or an
+    // autoname suggestion) would save that fallback as a user title and
+    // freeze it — defeating the auto-rename once agents run.
+    if (draft !== value) onCommit(draft);
   };
 
   return (

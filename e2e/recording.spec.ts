@@ -34,6 +34,17 @@ test('"Take notes" on the Coming-up card records into a fresh note', async ({
   await expect(page).toHaveURL(/#\/editor\//);
 });
 
+test("a fresh note shows a Draft name, not the timestamp", async ({ page }) => {
+  await setupScenario(page, { startSignedIn: true });
+  await page.goto("/");
+  await page.getByRole("button", { name: /quick note/i }).click();
+  await expect(page).toHaveURL(/#\/editor\//);
+  // The editable title shows the Draft placeholder, not "2026-05-28-note".
+  await expect(page.getByRole("textbox", { name: /note title/i })).toHaveValue(
+    "Draft 1"
+  );
+});
+
 test("editing the note title persists it (GET-163)", async ({ page }) => {
   await setupScenario(page, { startSignedIn: true });
   await page.goto("/");

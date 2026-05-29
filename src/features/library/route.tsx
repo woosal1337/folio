@@ -121,7 +121,11 @@ export default function Library() {
 
   const onDelete = React.useCallback(
     async (item: RecordingSummary) => {
-      const noteName = item.title?.trim() || item.suggested_title?.trim() || item.label;
+      const noteName =
+        item.title?.trim() ||
+        item.suggested_title?.trim() ||
+        item.draft_name ||
+        item.label;
       const ok = await confirmDelete({
         title: "Delete this note?",
         description: `"${noteName}" — this removes the session folder and every file inside it (audio, transcript, notes). Cannot be undone.`,
@@ -321,7 +325,8 @@ function NoteRow({
   onMove: (folder: string | null) => void;
 }) {
   const openMenu = useContextMenu((s) => s.openMenu);
-  const title = item.title?.trim() || item.suggested_title?.trim() || item.label;
+  const title =
+    item.title?.trim() || item.suggested_title?.trim() || item.draft_name || item.label;
   // A content-match snippet takes the second line; else the subtitle.
   const secondary = snippet ?? item.suggested_subtitle ?? null;
 

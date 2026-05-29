@@ -59,6 +59,13 @@ pub struct RecordingSummary {
     /// Spaces filter and My Notes grouping.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub folder: Option<String>,
+    /// Placeholder name for an as-yet-unnamed note, from
+    /// `<session_dir>/draft.txt` (e.g. "Draft 3"). Shown only when there's
+    /// no user title and no autoname suggestion yet; once the note is
+    /// named (agents or the user), those take precedence. None for older
+    /// notes created before drafts existed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub draft_name: Option<String>,
 }
 
 /// Scan `output_dir` for recording sessions and return one summary per
@@ -119,6 +126,7 @@ pub fn scan_recordings(output_dir: &Path) -> Vec<RecordingSummary> {
         let language_override = read_language_override(&path);
         let title = read_user_title(&path);
         let folder = read_note_folder(&path);
+        let draft_name = read_draft_name(&path);
         out.push(RecordingSummary {
             session_dir: path,
             label,
@@ -150,6 +158,7 @@ pub fn scan_recordings(output_dir: &Path) -> Vec<RecordingSummary> {
             language_override,
             title,
             folder,
+            draft_name,
         });
     }
     // Newest first. Recordings that have a created_at sort by that;
@@ -195,6 +204,34 @@ fn read_user_title(session_dir: &Path) -> Option<String> {
     } else {
         Some(trimmed.to_string())
     }
+}
+
+/// Read a note's draft placeholder name from `<session_dir>/draft.txt`
+/// (e.g. "Draft 3"). First non-empty line, trimmed; None when missing.
+fn read_draft_name(session_dir: &Path) -> Option<String> {
+    let raw = std::fs::read_to_string(session_dir.join("draft.txt")).ok()?;
+    let trimmed = raw.lines().next()?.trim();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed.to_string())
+    }
+}
+
+/// Allocate the next monotonic draft name ("Draft N") for a freshly
+/// created note. Backed by a small counter at
+/// `<output_dir>/.attune/draft_counter` so numbers keep increasing even
+/// as drafts are named or deleted. Best-effort: a write failure just
+/// means the next note may reuse the number, which is harmless.
+pub fn allocate_draft_name(output_dir: &Path) -> String {
+    let path = output_dir.join(".attune").join("draft_counter");
+    let last = std::fs::read_to_string(&path)
+        .ok()
+        .and_then(|s| s.trim().parse::<u64>().ok())
+        .unwrap_or(0);
+    let next = last + 1;
+    let _ = crate::storage::atomic_write::atomic_write(&path, next.to_string().as_bytes());
+    format!("Draft {next}")
 }
 
 /// Read the folder a note is filed under from `<session_dir>/folder.txt`
