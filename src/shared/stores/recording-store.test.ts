@@ -182,6 +182,9 @@ describe("recording-store: pause/resume (GET-149)", () => {
       channels: ["mic", "system"],
       session_dir: "/tmp/attune/note",
     });
+    // Resume only acts on a paused note (matches the real precondition —
+    // and the store guard that ignores a stray resume otherwise).
+    useRecording.setState({ recording: false, paused: true, elapsed: 30 });
     const { result } = renderHook(() => useRecording());
     await act(async () => {
       await result.current.resume();

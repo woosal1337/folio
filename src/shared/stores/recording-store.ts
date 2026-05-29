@@ -537,6 +537,11 @@ export const useRecording = create<RecordingState>((set, get) => {
     },
 
     stop: async () => {
+      // Re-entrancy + state guard: ignore a stop while another transition
+      // is in flight, or when there's nothing to stop. Makes a duplicate
+      // trigger (e.g. widget + app) a silent no-op instead of an error.
+      const s = get();
+      if (s.busy || (!s.recording && !s.paused)) return;
       set({ busy: true, error: null });
       // Snapshot duration before we reset elapsed, so the toast can
       // surface "0:42" instead of always saying "0:00".
@@ -597,6 +602,10 @@ export const useRecording = create<RecordingState>((set, get) => {
     },
 
     pause: async () => {
+      // Only an actively-recording session can pause; ignore if busy or
+      // already paused/idle so a double-trigger is a no-op, not an error.
+      const s = get();
+      if (s.busy || !s.recording) return;
       set({ busy: true, error: null });
       try {
         const status = await ipcPause();
@@ -621,6 +630,12 @@ export const useRecording = create<RecordingState>((set, get) => {
     },
 
     resume: async () => {
+      // Only a paused note can resume; ignore if busy or already
+      // recording so a double-trigger (the StrictMode listener race that
+      // caused the stop→start→resume jank, or widget+app both firing) is
+      // a silent no-op instead of an "already recording" error.
+      const s = get();
+      if (s.busy || !s.paused) return;
       set({ busy: true, error: null });
       try {
         const status = await ipcResume();

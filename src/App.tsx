@@ -115,17 +115,30 @@ function MainApp() {
   // main window owns. Route it through the same stop() the in-app Stop
   // uses, so the auto-transcribe + toast + tray-reset chain fires once.
   React.useEffect(() => {
+    // `listen()` is async; the cleanup is sync. Under StrictMode (and any
+    // remount) the cleanup runs before these promises resolve, so without
+    // a disposed-guard the first registration leaks and every event would
+    // fire twice — which made pausing/resuming from the widget double-fire
+    // (stop→start→resume jank). Guard so a listener that resolves after
+    // cleanup unsubscribes itself immediately.
+    let disposed = false;
     const unlisteners: Array<() => void> = [];
     const wire = (
       subscribe: (h: () => void) => Promise<() => void>,
       action: () => void
     ) => {
-      void subscribe(action).then((fn) => unlisteners.push(fn));
+      void subscribe(action).then((fn) => {
+        if (disposed) fn();
+        else unlisteners.push(fn);
+      });
     };
     wire(onRecordingBarStop, () => void useRecording.getState().stop());
     wire(onRecordingBarPause, () => void useRecording.getState().pause());
     wire(onRecordingBarResume, () => void useRecording.getState().resume());
-    return () => unlisteners.forEach((fn) => fn());
+    return () => {
+      disposed = true;
+      unlisteners.forEach((fn) => fn());
+    };
   }, []);
 
   // Force-login + post-signup setup: the sidebar + every route is
