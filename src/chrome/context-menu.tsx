@@ -98,7 +98,7 @@ function Row({ item, onClose }: { item: ContextMenuItem; onClose: () => void }) 
           type="button"
           role="menuitem"
           disabled={item.disabled}
-          className={cn(base, tone)}
+          className={cn(base, tone, submenuOpen && "bg-accent text-accent-foreground")}
         >
           {Icon ? (
             <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
@@ -107,9 +107,12 @@ function Row({ item, onClose }: { item: ContextMenuItem; onClose: () => void }) 
           <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
         </button>
         {submenuOpen ? (
+          // `-mt-1` cancels the submenu's own py-1 so its first item lines
+          // up with the parent row; `-ml-1` overlaps the parent edge so the
+          // cursor can cross into the submenu without a gap closing it.
           <div
             role="menu"
-            className="absolute left-full top-0 -ml-1 max-h-72 w-52 overflow-y-auto rounded-md border border-border bg-popover py-1 shadow-lg"
+            className="absolute left-full top-0 -ml-1 -mt-1 max-h-72 w-52 overflow-y-auto rounded-md border border-border bg-popover py-1 shadow-lg"
           >
             {(item.children ?? []).map((child) => (
               <Row key={child.id} item={child} onClose={onClose} />
