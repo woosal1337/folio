@@ -115,8 +115,12 @@ export function Sidebar({ onOpenSettings }: SidebarProps) {
                 aria-label={collapsed ? item.label : undefined}
                 className={({ isActive }) =>
                   cn(
-                    "group flex items-center rounded-md text-sm font-medium transition-colors",
-                    collapsed ? "h-9 w-full justify-center" : "gap-3 px-3 py-2",
+                    "group flex items-center text-sm font-medium transition-colors",
+                    // Collapsed: a centred fixed-size rounded square behind the
+                    // icon (not a full-width bar). Expanded: a normal row pill.
+                    collapsed
+                      ? "mx-auto h-9 w-9 justify-center rounded-xl"
+                      : "gap-3 rounded-md px-3 py-2",
                     isActive || alsoActive
                       ? "bg-accent text-accent-foreground"
                       : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"

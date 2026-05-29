@@ -54,3 +54,13 @@ test("Escape closes the context menu", async ({ page }) => {
   await page.keyboard.press("Escape");
   await expect(page.getByRole("menu")).toHaveCount(0);
 });
+
+test("right-click works on Home's recent notes too", async ({ page }) => {
+  await setupScenario(page, { startSignedIn: true, recordings: [RECORDING] });
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: /^home$/i })).toBeVisible();
+  await page.getByText("Quarterly review").first().click({ button: "right" });
+  const menu = page.getByRole("menu");
+  await expect(menu.getByRole("menuitem", { name: /^open$/i })).toBeVisible();
+  await expect(menu.getByRole("menuitem", { name: /delete note/i })).toBeVisible();
+});

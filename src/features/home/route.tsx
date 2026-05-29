@@ -25,6 +25,7 @@ import {
   requestCalendarAccess,
 } from "@/shared/lib/ipc";
 import { useQuickNote, useTakeNotes } from "@/shared/hooks/use-take-notes";
+import { useNoteContextMenu } from "@/shared/hooks/use-note-context-menu";
 import { AskBar } from "@/chrome/ask-bar";
 import type { CalendarEvent } from "@/shared/types/CalendarEvent";
 import type { RecordingSummary } from "@/shared/types/RecordingSummary";
@@ -80,22 +81,23 @@ export default function Home() {
   const [nextEvent, setNextEvent] = React.useState<CalendarEvent | null>(null);
   const [calAccess, setCalAccess] = React.useState<string>("not_determined");
 
-  React.useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const rs = await listRecordings();
-        if (!cancelled) setRecordings(rs);
-      } catch (e) {
-        console.error("home: listRecordings failed", e);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+  const reload = React.useCallback(async () => {
+    try {
+      setRecordings(await listRecordings());
+    } catch (e) {
+      console.error("home: listRecordings failed", e);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  React.useEffect(() => {
+    void reload();
+  }, [reload]);
+
+  // Shared right-click menu (Open / Move to folder / Re-transcribe /
+  // Reveal / Delete) — same as My Notes.
+  const openContextMenu = useNoteContextMenu(reload);
 
   const loadCalendar = React.useCallback(async () => {
     try {
@@ -229,6 +231,7 @@ export default function Home() {
                     key={r.session_dir}
                     type="button"
                     onClick={() => openNote(r)}
+                    onContextMenu={(e) => openContextMenu(r, e)}
                     className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card px-4 py-3 text-left transition-colors hover:bg-muted/40"
                   >
                     <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
