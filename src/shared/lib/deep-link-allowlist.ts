@@ -23,9 +23,7 @@ const ALLOWED_AUDIO_EXTENSIONS = [".wav", ".m4a", ".mp3"] as const;
  * cannot drive the app into arbitrary state.
  */
 const ALLOWED_ATTUNE_ROUTES: ReadonlySet<string> = new Set([
-  "record",
   "library",
-  "inbox",
   "tasks",
   "memory",
   "editor",

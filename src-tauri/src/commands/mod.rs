@@ -29,4 +29,3 @@ pub mod transcription;
 pub mod tray;
 pub mod vad;
 pub mod webhooks;
-pub mod windows;

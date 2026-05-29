@@ -4,18 +4,25 @@ import { classifyDeepLink } from "./deep-link-allowlist";
 
 describe("classifyDeepLink", () => {
   it("classifies an allowed attune:// route", () => {
-    const verdict = classifyDeepLink("attune://record");
+    const verdict = classifyDeepLink("attune://library");
     expect(verdict.kind).toBe("allowed-attune-route");
     if (verdict.kind === "allowed-attune-route") {
-      expect(verdict.route).toBe("record");
+      expect(verdict.route).toBe("library");
     }
   });
 
   it("preserves the allowlisted autoStart query param", () => {
-    const verdict = classifyDeepLink("attune://record?autoStart=1");
+    const verdict = classifyDeepLink("attune://library?autoStart=1");
     expect(verdict.kind).toBe("allowed-attune-route");
     if (verdict.kind === "allowed-attune-route") {
       expect(verdict.params.autoStart).toBe("1");
+    }
+  });
+
+  it("rejects routes retired by the Granola overhaul (record, inbox)", () => {
+    for (const dead of ["attune://record", "attune://inbox"]) {
+      const verdict = classifyDeepLink(dead);
+      expect(verdict.kind).toBe("rejected");
     }
   });
 
@@ -37,7 +44,7 @@ describe("classifyDeepLink", () => {
   });
 
   it("rejects an unknown query parameter", () => {
-    const verdict = classifyDeepLink("attune://record?evil=1");
+    const verdict = classifyDeepLink("attune://library?evil=1");
     expect(verdict.kind).toBe("rejected");
     if (verdict.kind === "rejected") {
       expect(verdict.reason).toContain("evil");
