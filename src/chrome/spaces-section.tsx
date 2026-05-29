@@ -4,6 +4,7 @@ import { Folder, Plus, X } from "lucide-react";
 
 import { cn } from "@/shared/lib/utils";
 import { useFolders } from "@/shared/stores/folders-store";
+import { confirmDelete } from "@/shared/stores/confirm-delete-store";
 
 /**
  * Sidebar "Spaces" section (GET-162). Lists the user's note folders;
@@ -168,13 +169,14 @@ function FolderRow({
       </button>
       <button
         type="button"
-        onClick={() => {
-          if (
-            window.confirm(
-              `Delete folder "${name}"?\n\nNotes inside it are kept, just unfiled.`
-            )
-          )
-            onDelete();
+        onClick={async () => {
+          const ok = await confirmDelete({
+            title: `Delete the "${name}" space?`,
+            description: `The "${name}" folder is removed. Notes inside it are kept, just unfiled.`,
+            confirmLabel: "Delete space",
+            doubleConfirm: true,
+          });
+          if (ok) onDelete();
         }}
         aria-label={`Delete folder ${name}`}
         title="Delete folder"

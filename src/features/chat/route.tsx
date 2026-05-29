@@ -33,6 +33,7 @@ import {
   type ChatTurn,
 } from "@/shared/lib/ipc";
 import { useAuthStore } from "@/shared/stores/auth-store";
+import { confirmDelete } from "@/shared/stores/confirm-delete-store";
 import type { ChatThread } from "@/shared/types/ChatThread";
 import type { ModelInfo } from "@/shared/types/ModelInfo";
 
@@ -214,13 +215,20 @@ export default function Chat() {
   }, []);
 
   const removeThread = React.useCallback(
-    (id: string) => {
-      deleteChatThread(id)
-        .then(() => {
-          if (threadIdRef.current === id) newChat();
-          loadRecents();
-        })
-        .catch((e) => console.error("delete_chat_thread:", e));
+    async (id: string, title: string) => {
+      const ok = await confirmDelete({
+        title: "Delete this conversation?",
+        description: `"${title}" and its messages will be removed. This can't be undone.`,
+        confirmLabel: "Delete conversation",
+      });
+      if (!ok) return;
+      try {
+        await deleteChatThread(id);
+        if (threadIdRef.current === id) newChat();
+        loadRecents();
+      } catch (e) {
+        console.error("delete_chat_thread:", e);
+      }
     },
     [loadRecents, newChat]
   );
@@ -297,7 +305,7 @@ export default function Chat() {
                         </button>
                         <button
                           type="button"
-                          onClick={() => removeThread(t.id)}
+                          onClick={() => void removeThread(t.id, t.title)}
                           aria-label={`Delete conversation ${t.title}`}
                           className="rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
                         >

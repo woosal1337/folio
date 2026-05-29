@@ -16,6 +16,7 @@ import { Button } from "@/shared/ui/button";
 import { Card, CardContent } from "@/shared/ui/card";
 import { useQuickNote } from "@/shared/hooks/use-take-notes";
 import { useRecording } from "@/shared/stores/recording-store";
+import { confirmDelete } from "@/shared/stores/confirm-delete-store";
 import {
   clearRecordingArtifacts,
   deleteRecording,
@@ -96,9 +97,13 @@ export default function Library() {
 
   const onDelete = React.useCallback(
     async (item: RecordingSummary) => {
-      const ok = window.confirm(
-        `Delete this note?\n\n${item.title?.trim() || item.suggested_title?.trim() || item.label}\n\nThis removes the session folder and every file inside it. Cannot be undone.`
-      );
+      const noteName = item.title?.trim() || item.suggested_title?.trim() || item.label;
+      const ok = await confirmDelete({
+        title: "Delete this note?",
+        description: `"${noteName}" — this removes the session folder and every file inside it (audio, transcript, notes). Cannot be undone.`,
+        confirmLabel: "Delete note",
+        doubleConfirm: true,
+      });
       if (!ok) return;
       try {
         await deleteRecording(item.session_dir);

@@ -52,6 +52,7 @@ import type { RecordingSummary } from "@/shared/types/RecordingSummary";
 import type { SessionTranscript } from "@/shared/types/SessionTranscript";
 
 import { FolderChip } from "./folder-chip";
+import { confirmDelete } from "@/shared/stores/confirm-delete-store";
 import { serialiseAsPlainText } from "@/shared/lib/note-export";
 import { ParticipantCards } from "./participant-cards";
 import { TranscriptEditor } from "./transcript-editor";
@@ -313,9 +314,14 @@ export default function Editor() {
 
   const handleDelete = async () => {
     if (!recording) return;
-    const ok = window.confirm(
-      `Delete this note?\n\n${recording.suggested_title?.trim() || recording.label}\n\nThis removes the session folder and every file inside it. Cannot be undone.`
-    );
+    const noteName =
+      recording.title?.trim() || recording.suggested_title?.trim() || recording.label;
+    const ok = await confirmDelete({
+      title: "Delete this note?",
+      description: `"${noteName}" — this removes the session folder and every file inside it (audio, transcript, notes). Cannot be undone.`,
+      confirmLabel: "Delete note",
+      doubleConfirm: true,
+    });
     if (!ok) return;
     try {
       await deleteRecording(recording.session_dir);

@@ -48,5 +48,9 @@ test("deleting a conversation removes it from Recents", async ({ page }) => {
   await page
     .getByRole("button", { name: /delete conversation delete me later/i })
     .click();
-  await expect(page.getByRole("menu").getByText("delete me later")).toHaveCount(0);
+  // A confirmation dialog pops — nothing is deleted until it's confirmed.
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByText(/delete this conversation/i)).toBeVisible();
+  await dialog.getByRole("button", { name: /delete conversation/i }).click();
+  await expect(page.getByText("delete me later")).toHaveCount(0);
 });
