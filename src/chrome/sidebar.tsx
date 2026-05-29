@@ -75,7 +75,7 @@ export function Sidebar({ onOpenSettings }: SidebarProps) {
             draggable={false}
           />
           {!collapsed && (
-            <span className="font-serif text-2xl font-medium tracking-tight">
+            <span className="font-wordmark text-2xl font-medium tracking-tight">
               attune
             </span>
           )}
