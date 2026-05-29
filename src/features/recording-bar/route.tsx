@@ -29,6 +29,13 @@ import {
 
 /** Poll cadence for the live elapsed/paused state. */
 const POLL_MS = 500;
+/** Consecutive fully-idle polls before the bar self-closes as a safety
+ *  net. A real stop closes the bar instantly via the store; this only
+ *  catches an orphaned bar (app went away without hiding us). Set high
+ *  (~10s) because pausing looks idle while the segment WAV finalizes —
+ *  which can take a few seconds for a long recording — and that must
+ *  never be mistaken for "done". */
+const IDLE_HIDE_TICKS = 20;
 
 function formatElapsed(secs: number): string {
   const safe = Math.max(0, Math.floor(secs));
@@ -62,15 +69,28 @@ export default function RecordingBar() {
   // Poll the backend for the live capture state.
   React.useEffect(() => {
     let cancelled = false;
+    // Self-close is only a safety net for "the app went away without
+    // hiding us" — the real teardown is the store's hideRecordingBar() on
+    // stop. Pausing briefly looks idle (the segment is torn down a beat
+    // before the paused-note is recorded), so require the idle state to
+    // *persist* before closing; otherwise a pause would wrongly kill the
+    // bar. ~IDLE_HIDE_TICKS × POLL_MS of sustained idle = genuinely over.
+    let idleTicks = 0;
     const poll = async () => {
       try {
         const status = await recordingStatus();
         if (cancelled) return;
         setElapsed(Number(status.elapsed_secs));
         setPaused(status.paused);
-        // Idle and not paused → the capture is fully over. Close the bar
-        // in case the main window never hid it (e.g. it was closed).
-        if (!status.recording && !status.paused && !stopping) {
+        if (status.recording || status.paused) {
+          idleTicks = 0;
+          return;
+        }
+        // Fully idle (neither recording nor paused). Don't count the brief
+        // window right after the user hit Stop here — that path closes us
+        // explicitly via the store.
+        idleTicks += 1;
+        if (idleTicks >= IDLE_HIDE_TICKS && !stopping) {
           void hideRecordingBar().catch(() => {});
         }
       } catch {
