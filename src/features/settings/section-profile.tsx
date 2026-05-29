@@ -15,20 +15,23 @@
 import * as React from "react";
 import {
   BookOpen,
+  Check,
   ExternalLink,
   FileText,
   Heart,
   Keyboard,
+  Loader2,
   LogOut,
   Mail,
   User,
   Languages as LanguagesIcon,
 } from "lucide-react";
+import { toast } from "sonner";
 
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
-import { authLogout } from "@/shared/lib/ipc";
+import { accountUpdate, authLogout } from "@/shared/lib/ipc";
 import { useAuthStore } from "@/shared/stores/auth-store";
 import { useSettingsUiStore } from "@/shared/stores/settings-ui-store";
 import type { Settings } from "@/shared/types/Settings";
@@ -61,12 +64,45 @@ export function SectionProfile({ settings, onChange }: SectionProfileProps) {
   const identity = useAuthStore((s) => s.identity);
   const signedIn = useAuthStore((s) => s.signedIn);
   const clearAuth = useAuthStore((s) => s.clear);
+  const setAuthDisplayName = useAuthStore((s) => s.setDisplayName);
   const closeSettingsModal = useSettingsUiStore((s) => s.close);
   const [displayName, setDisplayName] = React.useState(identity?.display_name ?? "");
+  const [saveState, setSaveState] = React.useState<"idle" | "saving" | "saved">("idle");
 
   React.useEffect(() => {
     setDisplayName(identity?.display_name ?? "");
   }, [identity?.display_name]);
+
+  // Persist the display name to the backend (PATCH /account) on commit —
+  // blur or Enter. The cached Keychain identity is refreshed server-side
+  // so the change also survives a restart. Optimistic: update the store
+  // on success, revert + toast on failure.
+  const commitDisplayName = React.useCallback(async () => {
+    const next = displayName.trim();
+    const current = identity?.display_name ?? "";
+    if (next === current) {
+      setSaveState("idle");
+      return;
+    }
+    if (!signedIn) {
+      // Unreachable in practice (the app is gated behind sign-in), but
+      // guard so a stray render can't fire an unauthenticated PATCH.
+      return;
+    }
+    setSaveState("saving");
+    try {
+      const user = await accountUpdate(next.length > 0 ? next : null);
+      setAuthDisplayName(user.display_name);
+      setDisplayName(user.display_name ?? "");
+      setSaveState("saved");
+      window.setTimeout(() => setSaveState("idle"), 1500);
+    } catch (e) {
+      console.error("account_update:", e);
+      toast.error("Couldn't save your display name", { description: String(e) });
+      setDisplayName(current);
+      setSaveState("idle");
+    }
+  }, [displayName, identity?.display_name, signedIn, setAuthDisplayName]);
 
   const handleSignOut = async () => {
     try {
@@ -93,12 +129,33 @@ export function SectionProfile({ settings, onChange }: SectionProfileProps) {
 
       <Group title="Identity">
         <FieldRow icon={User} title="Display name">
-          <Input
-            value={displayName}
-            onChange={(e) => setDisplayName(e.target.value)}
-            placeholder="Your name"
-            className="max-w-xs"
-          />
+          <div className="flex items-center gap-2">
+            <span
+              className="flex h-4 w-4 shrink-0 items-center justify-center text-muted-foreground"
+              aria-hidden={saveState === "idle"}
+            >
+              {saveState === "saving" ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : saveState === "saved" ? (
+                <Check className="h-3.5 w-3.5 text-emerald-500" />
+              ) : null}
+            </span>
+            <Input
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              onBlur={() => void commitDisplayName()}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  e.currentTarget.blur();
+                }
+              }}
+              disabled={saveState === "saving"}
+              placeholder="Your name"
+              aria-label="Display name"
+              className="max-w-xs"
+            />
+          </div>
         </FieldRow>
         <FieldRow
           icon={Mail}
