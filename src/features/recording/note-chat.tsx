@@ -182,7 +182,7 @@ export function NoteChat({ sessionDir, open, onOpenChange, seed }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[80vh] max-w-2xl flex-col">
+      <DialogContent className="flex max-h-[85vh] w-full max-w-2xl flex-col p-6">
         <DialogHeader>
           <DialogTitle>Chat with this transcript</DialogTitle>
           <DialogDescription>
@@ -192,7 +192,7 @@ export function NoteChat({ sessionDir, open, onOpenChange, seed }: Props) {
 
         <div
           ref={scrollRef}
-          className="min-h-[12rem] flex-1 space-y-3 overflow-y-auto rounded-lg border border-border bg-card p-3"
+          className="max-h-[55vh] min-h-[12rem] flex-1 space-y-3 overflow-y-auto rounded-lg border border-border bg-background p-3"
         >
           {messages.length === 0 && !busy ? (
             <div className="flex h-full flex-col items-center justify-center gap-2 py-8 text-center text-sm text-muted-foreground">

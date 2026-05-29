@@ -1,6 +1,11 @@
 import * as React from "react";
 
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/shared/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/shared/ui/dialog";
 import { SHORTCUTS, formatChord, type Shortcut } from "@/shared/lib/shortcuts";
 
 interface Props {
@@ -28,8 +33,10 @@ export function CheatsheetOverlay({ open, onClose }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-2xl">
-        <DialogTitle className="font-serif text-xl font-medium">Keyboard shortcuts</DialogTitle>
+      <DialogContent className="max-w-2xl p-6">
+        <DialogTitle className="font-serif text-xl font-medium">
+          Keyboard shortcuts
+        </DialogTitle>
         <DialogDescription className="text-sm text-muted-foreground">
           Press Esc to close.
         </DialogDescription>
@@ -44,7 +51,10 @@ export function CheatsheetOverlay({ open, onClose }: Props) {
                 </h2>
                 <dl className="flex flex-col gap-1.5">
                   {items.map((s) => (
-                    <div key={s.action} className="flex items-baseline justify-between gap-3">
+                    <div
+                      key={s.action}
+                      className="flex items-baseline justify-between gap-3"
+                    >
                       <dt className="text-sm text-foreground">{s.label}</dt>
                       <dd className="rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground">
                         {formatChord(s.keys)}
