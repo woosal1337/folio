@@ -16,19 +16,22 @@
  */
 
 import * as React from "react";
-import { Bell, Inbox, Mic2, Video } from "lucide-react";
-import {
-  SiArc,
-  SiDiscord,
-  SiFirefoxbrowser,
-  SiGooglechrome,
-  SiGooglemeet,
-  SiSafari,
-  SiSlack,
-  SiWebex,
-  SiZoom,
-} from "react-icons/si";
-import { BsMicrosoftTeams } from "react-icons/bs";
+import { Bell, Inbox, Mic2 } from "lucide-react";
+
+// Brand glyphs vendored under src/assets/app-icons (Simple Icons CC0 +
+// Bootstrap Icons MIT). Imported as React components via vite-plugin-svgr
+// so they render inline and inherit currentColor.
+import ChromeIcon from "@/assets/app-icons/chrome.svg?react";
+import SafariIcon from "@/assets/app-icons/safari.svg?react";
+import FirefoxIcon from "@/assets/app-icons/firefox.svg?react";
+import ArcIcon from "@/assets/app-icons/arc.svg?react";
+import ZoomIcon from "@/assets/app-icons/zoom.svg?react";
+import TeamsIcon from "@/assets/app-icons/teams.svg?react";
+import MeetIcon from "@/assets/app-icons/meet.svg?react";
+import WebexIcon from "@/assets/app-icons/webex.svg?react";
+import SlackIcon from "@/assets/app-icons/slack.svg?react";
+import DiscordIcon from "@/assets/app-icons/discord.svg?react";
+import FacetimeIcon from "@/assets/app-icons/facetime.svg?react";
 
 import { Badge } from "@/shared/ui/badge";
 import { Label } from "@/shared/ui/label";
@@ -40,27 +43,22 @@ interface SectionNotificationsProps {
   onChange: <K extends keyof Settings>(key: K, value: Settings[K]) => void;
 }
 
-type IconComponent = React.ComponentType<{ className?: string }>;
+type IconComponent = React.ComponentType<React.SVGProps<SVGSVGElement>>;
 
-// Brand icons come from a maintained icon library (react-icons /
-// simple-icons + bootstrap-icons for Teams). FaceTime has no brand glyph
-// in the set (Apple), so it uses a neutral video icon.
+// FaceTime has no brand glyph in these sets, so it uses a neutral video
+// icon vendored alongside the others.
 const MONITORABLE_APPS: { bundleId: string; label: string; icon: IconComponent }[] = [
-  { bundleId: "com.google.Chrome", label: "Chrome", icon: SiGooglechrome },
-  { bundleId: "com.apple.Safari", label: "Safari", icon: SiSafari },
-  { bundleId: "org.mozilla.firefox", label: "Firefox", icon: SiFirefoxbrowser },
-  { bundleId: "company.thebrowser.Browser", label: "Arc", icon: SiArc },
-  { bundleId: "us.zoom.xos", label: "Zoom", icon: SiZoom },
-  {
-    bundleId: "com.microsoft.teams2",
-    label: "Microsoft Teams",
-    icon: BsMicrosoftTeams,
-  },
-  { bundleId: "com.google.meetings", label: "Google Meet", icon: SiGooglemeet },
-  { bundleId: "Cisco-Systems.Spark", label: "Webex", icon: SiWebex },
-  { bundleId: "com.tinyspeck.slackmacgap", label: "Slack", icon: SiSlack },
-  { bundleId: "com.hnc.Discord", label: "Discord", icon: SiDiscord },
-  { bundleId: "com.apple.FaceTime", label: "FaceTime", icon: Video },
+  { bundleId: "com.google.Chrome", label: "Chrome", icon: ChromeIcon },
+  { bundleId: "com.apple.Safari", label: "Safari", icon: SafariIcon },
+  { bundleId: "org.mozilla.firefox", label: "Firefox", icon: FirefoxIcon },
+  { bundleId: "company.thebrowser.Browser", label: "Arc", icon: ArcIcon },
+  { bundleId: "us.zoom.xos", label: "Zoom", icon: ZoomIcon },
+  { bundleId: "com.microsoft.teams2", label: "Microsoft Teams", icon: TeamsIcon },
+  { bundleId: "com.google.meetings", label: "Google Meet", icon: MeetIcon },
+  { bundleId: "Cisco-Systems.Spark", label: "Webex", icon: WebexIcon },
+  { bundleId: "com.tinyspeck.slackmacgap", label: "Slack", icon: SlackIcon },
+  { bundleId: "com.hnc.Discord", label: "Discord", icon: DiscordIcon },
+  { bundleId: "com.apple.FaceTime", label: "FaceTime", icon: FacetimeIcon },
 ];
 
 const NOTE_SHARED_OPTIONS: { value: string; label: string }[] = [
@@ -136,7 +134,11 @@ export function SectionNotifications({
                       : "border-border bg-card text-muted-foreground hover:text-foreground")
                   }
                 >
-                  <AppIcon className="h-3.5 w-3.5 shrink-0" />
+                  <AppIcon
+                    aria-hidden="true"
+                    focusable="false"
+                    className="h-3.5 w-3.5 shrink-0 fill-current"
+                  />
                   {app.label}
                 </button>
               );

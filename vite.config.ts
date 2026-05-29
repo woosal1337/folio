@@ -2,10 +2,13 @@ import path from "node:path";
 import { readFileSync } from "node:fs";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import svgr from "vite-plugin-svgr";
 
 // Read the app version once at build time from package.json so the
 // UI doesn't drift from the manifest. Phase-3 audit D-tier P2.
-const pkg = JSON.parse(readFileSync(path.resolve(__dirname, "package.json"), "utf8")) as {
+const pkg = JSON.parse(
+  readFileSync(path.resolve(__dirname, "package.json"), "utf8")
+) as {
   version: string;
 };
 
@@ -13,7 +16,9 @@ const pkg = JSON.parse(readFileSync(path.resolve(__dirname, "package.json"), "ut
 const host = process.env.TAURI_DEV_HOST;
 
 export default defineConfig(() => ({
-  plugins: [react()],
+  // `svgr` turns `*.svg?react` imports into React components so the
+  // vendored app-icon glyphs render inline and inherit currentColor.
+  plugins: [react(), svgr()],
   define: {
     __ATTUNE_VERSION__: JSON.stringify(pkg.version),
   },
