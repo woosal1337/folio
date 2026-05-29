@@ -444,25 +444,6 @@ export function sharePaths(paths: string[]): Promise<void> {
   return call<void>("share_paths", { paths });
 }
 
-// ---- Voice debrief (v2 #027 / GET-53) ----------------------------
-
-/**
- * Save a voice-debrief blob next to an existing recording. `bytes`
- * is the raw container body (typically `audio/webm;codecs=opus`).
- * Returns the final on-disk path.
- */
-export function saveDebrief(
-  sessionDir: string,
-  filename: string,
-  bytes: Uint8Array
-): Promise<string> {
-  return call<string>("save_debrief", {
-    sessionDir,
-    filename,
-    bytes: Array.from(bytes),
-  });
-}
-
 // ---- Permission walkthrough (v2 #003 / GET-31) -------------------
 
 import type { PermissionRow } from "@/shared/types/PermissionRow";
@@ -611,20 +592,6 @@ export function setTrayRecording(elapsedSecs: number | null): Promise<void> {
 /** Open the dedicated Preferences NSWindow. Replaces the in-app modal. */
 export function openPreferencesWindow(): Promise<void> {
   return call<void>("open_preferences_window");
-}
-
-// ---- Multi-window (v2 #014 / GET-48) -----------------------------
-
-export function openRecordWindow(): Promise<void> {
-  return call<void>("open_record_window");
-}
-
-export function openLibraryWindow(): Promise<void> {
-  return call<void>("open_library_window");
-}
-
-export function openEditorWindow(label: string): Promise<void> {
-  return call<void>("open_editor_window", { label });
 }
 
 // ---- Meeting-detection HUD (GET-143) -----------------------------
