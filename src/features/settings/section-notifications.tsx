@@ -16,12 +16,23 @@
  */
 
 import * as React from "react";
-import { Bell, Inbox, Mic2 } from "lucide-react";
+import { Bell, Inbox, Mic2, Video } from "lucide-react";
+import {
+  SiArc,
+  SiDiscord,
+  SiFirefoxbrowser,
+  SiGooglechrome,
+  SiGooglemeet,
+  SiSafari,
+  SiSlack,
+  SiWebex,
+  SiZoom,
+} from "react-icons/si";
+import { BsMicrosoftTeams } from "react-icons/bs";
 
 import { Badge } from "@/shared/ui/badge";
 import { Label } from "@/shared/ui/label";
 import { Switch } from "@/shared/ui/switch";
-import { appIcon } from "@/shared/lib/ipc";
 import type { Settings } from "@/shared/types/Settings";
 
 interface SectionNotificationsProps {
@@ -29,18 +40,27 @@ interface SectionNotificationsProps {
   onChange: <K extends keyof Settings>(key: K, value: Settings[K]) => void;
 }
 
-const MONITORABLE_APPS: { bundleId: string; label: string }[] = [
-  { bundleId: "com.google.Chrome", label: "Chrome" },
-  { bundleId: "com.apple.Safari", label: "Safari" },
-  { bundleId: "org.mozilla.firefox", label: "Firefox" },
-  { bundleId: "company.thebrowser.Browser", label: "Arc" },
-  { bundleId: "us.zoom.xos", label: "Zoom" },
-  { bundleId: "com.microsoft.teams2", label: "Microsoft Teams" },
-  { bundleId: "com.google.meetings", label: "Google Meet" },
-  { bundleId: "Cisco-Systems.Spark", label: "Webex" },
-  { bundleId: "com.tinyspeck.slackmacgap", label: "Slack" },
-  { bundleId: "com.hnc.Discord", label: "Discord" },
-  { bundleId: "com.apple.FaceTime", label: "FaceTime" },
+type IconComponent = React.ComponentType<{ className?: string }>;
+
+// Brand icons come from a maintained icon library (react-icons /
+// simple-icons + bootstrap-icons for Teams). FaceTime has no brand glyph
+// in the set (Apple), so it uses a neutral video icon.
+const MONITORABLE_APPS: { bundleId: string; label: string; icon: IconComponent }[] = [
+  { bundleId: "com.google.Chrome", label: "Chrome", icon: SiGooglechrome },
+  { bundleId: "com.apple.Safari", label: "Safari", icon: SiSafari },
+  { bundleId: "org.mozilla.firefox", label: "Firefox", icon: SiFirefoxbrowser },
+  { bundleId: "company.thebrowser.Browser", label: "Arc", icon: SiArc },
+  { bundleId: "us.zoom.xos", label: "Zoom", icon: SiZoom },
+  {
+    bundleId: "com.microsoft.teams2",
+    label: "Microsoft Teams",
+    icon: BsMicrosoftTeams,
+  },
+  { bundleId: "com.google.meetings", label: "Google Meet", icon: SiGooglemeet },
+  { bundleId: "Cisco-Systems.Spark", label: "Webex", icon: SiWebex },
+  { bundleId: "com.tinyspeck.slackmacgap", label: "Slack", icon: SiSlack },
+  { bundleId: "com.hnc.Discord", label: "Discord", icon: SiDiscord },
+  { bundleId: "com.apple.FaceTime", label: "FaceTime", icon: Video },
 ];
 
 const NOTE_SHARED_OPTIONS: { value: string; label: string }[] = [
@@ -58,24 +78,6 @@ export function SectionNotifications({
     () => new Set(settings.notification_muted_apps),
     [settings.notification_muted_apps]
   );
-
-  // Real macOS icon per app (PNG data URL), fetched once by bundle id.
-  // Apps that aren't installed resolve to null → generic fallback glyph.
-  const [icons, setIcons] = React.useState<Record<string, string | null>>({});
-  React.useEffect(() => {
-    let cancelled = false;
-    void Promise.all(
-      MONITORABLE_APPS.map(
-        async (app) =>
-          [app.bundleId, await appIcon(app.bundleId).catch(() => null)] as const
-      )
-    ).then((pairs) => {
-      if (!cancelled) setIcons(Object.fromEntries(pairs));
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const toggleMuted = React.useCallback(
     (bundleId: string) => {
@@ -119,6 +121,7 @@ export function SectionNotifications({
           <div className="flex flex-wrap gap-1.5">
             {MONITORABLE_APPS.map((app) => {
               const isMuted = muted.has(app.bundleId);
+              const AppIcon = app.icon;
               return (
                 <button
                   key={app.bundleId}
@@ -133,26 +136,7 @@ export function SectionNotifications({
                       : "border-border bg-card text-muted-foreground hover:text-foreground")
                   }
                 >
-                  {icons[app.bundleId] ? (
-                    <img
-                      src={icons[app.bundleId] as string}
-                      alt=""
-                      aria-hidden="true"
-                      className={
-                        "h-4 w-4 rounded-[3px] " +
-                        (isMuted ? "opacity-60 grayscale" : "")
-                      }
-                    />
-                  ) : (
-                    // App isn't installed (no macOS icon to read) — show a
-                    // neutral monogram so the chip looks intentional.
-                    <span
-                      aria-hidden="true"
-                      className="flex h-4 w-4 items-center justify-center rounded-[3px] bg-muted text-[9px] font-semibold uppercase text-muted-foreground"
-                    >
-                      {app.label.charAt(0)}
-                    </span>
-                  )}
+                  <AppIcon className="h-3.5 w-3.5 shrink-0" />
                   {app.label}
                 </button>
               );

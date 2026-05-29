@@ -7,7 +7,6 @@
 
 pub mod account;
 pub mod agents;
-pub mod app_icons;
 pub mod ask;
 pub mod auth;
 pub mod calendar;

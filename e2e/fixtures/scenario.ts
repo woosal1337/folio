@@ -229,10 +229,6 @@ export async function setupScenario(page: Page, options: ScenarioOptions = {}) {
     passthroughUnknown,
     handlers: {
       ping: () => "pong",
-      // App icons (GET notifications picker): a 1x1 transparent PNG data
-      // URL stands in for the real macOS icon in tests.
-      app_icon: () =>
-        "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
 
       get_settings: () => {
         return (window as unknown as Record<string, unknown>).__ATTUNE_SETTINGS__;

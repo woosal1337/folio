@@ -71,7 +71,6 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::health::ping,
-            commands::app_icons::app_icon,
             commands::devices::list_input_devices,
             commands::settings::get_settings,
             commands::settings::save_settings,
