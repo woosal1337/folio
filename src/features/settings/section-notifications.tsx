@@ -16,11 +16,12 @@
  */
 
 import * as React from "react";
-import { Bell, BellOff, Inbox, Mic2, X } from "lucide-react";
+import { AppWindow, Bell, Inbox, Mic2 } from "lucide-react";
 
 import { Badge } from "@/shared/ui/badge";
 import { Label } from "@/shared/ui/label";
 import { Switch } from "@/shared/ui/switch";
+import { appIcon } from "@/shared/lib/ipc";
 import type { Settings } from "@/shared/types/Settings";
 
 interface SectionNotificationsProps {
@@ -57,6 +58,24 @@ export function SectionNotifications({
     () => new Set(settings.notification_muted_apps),
     [settings.notification_muted_apps]
   );
+
+  // Real macOS icon per app (PNG data URL), fetched once by bundle id.
+  // Apps that aren't installed resolve to null → generic fallback glyph.
+  const [icons, setIcons] = React.useState<Record<string, string | null>>({});
+  React.useEffect(() => {
+    let cancelled = false;
+    void Promise.all(
+      MONITORABLE_APPS.map(
+        async (app) =>
+          [app.bundleId, await appIcon(app.bundleId).catch(() => null)] as const
+      )
+    ).then((pairs) => {
+      if (!cancelled) setIcons(Object.fromEntries(pairs));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const toggleMuted = React.useCallback(
     (bundleId: string) => {
@@ -95,7 +114,7 @@ export function SectionNotifications({
         />
         <div className="space-y-2 px-3 pb-3 pt-1">
           <Label className="text-2xs font-medium uppercase tracking-wider text-muted-foreground">
-            Don't notify me in these apps
+            {"Don't notify me in these apps"}
           </Label>
           <div className="flex flex-wrap gap-1.5">
             {MONITORABLE_APPS.map((app) => {
@@ -106,17 +125,26 @@ export function SectionNotifications({
                   type="button"
                   onClick={() => toggleMuted(app.bundleId)}
                   aria-pressed={isMuted}
+                  title={isMuted ? `${app.label} — muted` : app.label}
                   className={
-                    "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs transition-colors " +
+                    "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors " +
                     (isMuted
                       ? "border-amber-500/40 bg-amber-500/10 text-amber-800 dark:text-amber-200"
                       : "border-border bg-card text-muted-foreground hover:text-foreground")
                   }
                 >
-                  {isMuted ? (
-                    <BellOff className="h-3 w-3" />
+                  {icons[app.bundleId] ? (
+                    <img
+                      src={icons[app.bundleId] as string}
+                      alt=""
+                      aria-hidden="true"
+                      className={
+                        "h-4 w-4 rounded-[3px] " +
+                        (isMuted ? "opacity-60 grayscale" : "")
+                      }
+                    />
                   ) : (
-                    <X className="h-3 w-3 opacity-0" />
+                    <AppWindow className="h-3.5 w-3.5 opacity-70" />
                   )}
                   {app.label}
                 </button>
@@ -124,10 +152,9 @@ export function SectionNotifications({
             })}
           </div>
           <p className="text-2xs text-muted-foreground">
-            Detection uses NSRunningApplication bundle IDs. Granting macOS
-            Accessibility access (System Settings → Privacy & Security →
-            Accessibility) is optional and only sharpens detection — Attune
-            works fine without it.
+            Detection uses NSRunningApplication bundle IDs. Granting macOS Accessibility
+            access (System Settings → Privacy & Security → Accessibility) is optional
+            and only sharpens detection — Attune works fine without it.
           </p>
         </div>
       </Group>
@@ -147,14 +174,17 @@ export function SectionNotifications({
       {/* Marketing emails — explicit absence note. */}
       <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-4 py-3 text-2xs text-emerald-900 dark:text-emerald-200">
         <p className="flex items-center gap-1.5 font-medium">
-          <Badge variant="outline" className="border-emerald-500/40 text-emerald-700 dark:text-emerald-300">
-            What's missing
+          <Badge
+            variant="outline"
+            className="border-emerald-500/40 text-emerald-700 dark:text-emerald-300"
+          >
+            {"What's missing"}
           </Badge>
         </p>
         <p className="mt-1.5 leading-relaxed">
-          There is no marketing-emails preference because Attune does not send
-          marketing email. Account-critical mail (sign-in links, password
-          resets, billing receipts) is the only thing you'll ever receive.
+          There is no marketing-emails preference because Attune does not send marketing
+          email. Account-critical mail (sign-in links, password resets, billing
+          receipts) is the only thing you&apos;ll ever receive.
         </p>
       </div>
     </section>
@@ -165,13 +195,7 @@ export function SectionNotifications({
 // Building blocks
 // ---------------------------------------------------------------
 
-function Group({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
+function Group({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="space-y-3">
       <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">

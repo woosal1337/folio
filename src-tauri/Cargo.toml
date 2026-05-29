@@ -44,6 +44,9 @@ tokio = { workspace = true }
 # feature flags are brittle across versions.
 objc = "0.2"
 cocoa = "0.26"
+# Encode installed-app icons (read at runtime via NSWorkspace) as PNG
+# data URLs for the notifications app picker.
+base64 = "0.22"
 
 # State + IO
 serde = { workspace = true }

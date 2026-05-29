@@ -91,6 +91,12 @@ export function ping(name?: string): Promise<string> {
   return call<string>("ping", { name });
 }
 
+/** The installed app's real macOS icon as a PNG `data:` URL, or null
+ *  when the app isn't installed / has no resolvable icon. */
+export function appIcon(bundleId: string): Promise<string | null> {
+  return call<string | null>("app_icon", { bundleId });
+}
+
 // ---- Devices ------------------------------------------------------------
 
 export function listInputDevices(): Promise<DeviceInfo[]> {
