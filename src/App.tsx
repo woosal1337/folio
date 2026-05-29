@@ -6,6 +6,7 @@ import { Sidebar } from "@/chrome/sidebar";
 import { DragStrip } from "@/chrome/drag-strip";
 import { JobStrip } from "@/chrome/job-strip";
 import { CloudCostConfirmDialog } from "@/chrome/cloud-cost-confirm-dialog";
+import { ConfirmDeleteDialog } from "@/chrome/confirm-delete-dialog";
 import { DeepLinkHandler } from "@/chrome/deep-link-handler";
 import { EntryPointBridge } from "@/chrome/entry-points";
 import { GlobalShortcuts } from "@/chrome/global-shortcuts";
@@ -188,6 +189,7 @@ function MainApp() {
             <SettingsModal open={settingsOpen} onOpenChange={setSettingsOpen} />
           </React.Suspense>
           <CloudCostConfirmDialog />
+          <ConfirmDeleteDialog />
           <DeepLinkHandler />
           <EntryPointBridge />
           <GlobalShortcuts
