@@ -362,7 +362,6 @@ version = "1.0.0"
 dependencies = [
  "anyhow",
  "attune-core",
- "base64 0.22.1",
  "chrono",
  "cocoa",
  "hound",

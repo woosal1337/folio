@@ -83,11 +83,15 @@ test("Notifications — toggling scheduled-meeting alerts persists", async ({ pa
   expect(saved.notify_scheduled_meetings).toBe(false);
 });
 
-test("Notifications — app chips render their icons", async ({ page }) => {
+test("Notifications — app chips render their brand icons", async ({ page }) => {
   await page.getByRole("button", { name: /^notifications$/i }).click();
-  // Each muteable app chip shows an icon (real macOS icon, or fallback).
-  const chip = page.getByRole("button", { name: /^chrome$/i });
-  await expect(chip).toBeVisible();
-  // The mocked app_icon returns a PNG data URL → an <img> renders in the chip.
-  await expect(chip.locator("img")).toBeVisible();
+  // Each muteable app chip renders its brand icon (an inline SVG from the
+  // icon library). Spot-check a couple, including an app that isn't
+  // installed locally (Zoom) — the icon is library-sourced, not local.
+  await expect(
+    page.getByRole("button", { name: /^chrome$/i }).locator("svg")
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /^zoom$/i }).locator("svg")
+  ).toBeVisible();
 });
