@@ -716,6 +716,9 @@ export async function onMeetingTakeNotes(handler: () => void): Promise<UnlistenF
 export const RECORDING_BAR_WINDOW_LABEL = "recording-bar";
 /** Event the bar's Stop button asks the main window to stop with. */
 export const RECORDING_BAR_STOP_EVENT = "recording-bar:stop";
+/** Events the bar's pause/resume control asks the main window with. */
+export const RECORDING_BAR_PAUSE_EVENT = "recording-bar:pause";
+export const RECORDING_BAR_RESUME_EVENT = "recording-bar:resume";
 
 /** Open (or reveal) the floating recording bar. Called on capture start. */
 export function showRecordingBar(): Promise<void> {
@@ -732,9 +735,29 @@ export function recordingBarStop(): Promise<void> {
   return call<void>("recording_bar_stop");
 }
 
+/** Pause from the bar — routes through the main window's pause flow. */
+export function recordingBarPause(): Promise<void> {
+  return call<void>("recording_bar_pause");
+}
+
+/** Resume from the bar — routes through the main window's resume flow. */
+export function recordingBarResume(): Promise<void> {
+  return call<void>("recording_bar_resume");
+}
+
 /** Subscribe to the bar's Stop request (main window only). */
 export async function onRecordingBarStop(handler: () => void): Promise<UnlistenFn> {
   return listen(RECORDING_BAR_STOP_EVENT, () => handler());
+}
+
+/** Subscribe to the bar's Pause request (main window only). */
+export async function onRecordingBarPause(handler: () => void): Promise<UnlistenFn> {
+  return listen(RECORDING_BAR_PAUSE_EVENT, () => handler());
+}
+
+/** Subscribe to the bar's Resume request (main window only). */
+export async function onRecordingBarResume(handler: () => void): Promise<UnlistenFn> {
+  return listen(RECORDING_BAR_RESUME_EVENT, () => handler());
 }
 
 // ---- Live transcript preview (GET-160) ---------------------------

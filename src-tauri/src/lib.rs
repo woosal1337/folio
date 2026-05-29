@@ -120,6 +120,8 @@ pub fn run() {
             commands::recording_bar::show_recording_bar,
             commands::recording_bar::hide_recording_bar,
             commands::recording_bar::recording_bar_stop,
+            commands::recording_bar::recording_bar_pause,
+            commands::recording_bar::recording_bar_resume,
             commands::preferences::open_preferences_window,
             commands::meeting::get_pending_meeting,
             commands::meeting::meeting_take_notes,
