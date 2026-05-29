@@ -542,26 +542,30 @@ export const useRecording = create<RecordingState>((set, get) => {
       // trigger (e.g. widget + app) a silent no-op instead of an error.
       const s = get();
       if (s.busy || (!s.recording && !s.paused)) return;
-      set({ busy: true, error: null });
       // Snapshot duration before we reset elapsed, so the toast can
       // surface "0:42" instead of always saying "0:00".
-      const elapsedAtStop = get().elapsed;
+      const elapsedAtStop = s.elapsed;
+      // Optimistic, INSTANT teardown: stop the ticker, drop the bar, and
+      // flip the UI to idle now — the backend `stop` then finalizes/merges
+      // the WAVs (which can take ~1s on a long note). Without this the bar
+      // kept showing "recording" for that whole second after the user hit
+      // Stop. If the backend stop fails we re-sync to recover the truth.
+      clearTicker();
+      void ipcHideRecordingBar().catch(() => {});
+      set({
+        busy: true,
+        error: null,
+        recording: false,
+        paused: false,
+        startedAt: null,
+        elapsed: 0,
+        channels: [],
+      });
       let sessionDir: string | null = null;
       try {
         const result = await ipcStop();
         sessionDir = result.artifacts.session_dir;
-        clearTicker();
-        // Capture is fully over — tear down the floating recording bar.
-        void ipcHideRecordingBar().catch(() => {});
-        set({
-          recording: false,
-          paused: false,
-          startedAt: null,
-          elapsed: 0,
-          channels: [],
-          lastSavedDir: sessionDir,
-          liveSessionDir: null,
-        });
+        set({ lastSavedDir: sessionDir, liveSessionDir: null });
         playFeedback("stop");
         toast.success("Recording saved", {
           description: `${formatDurationSeconds(elapsedAtStop)} · ${basename(sessionDir)}`,
@@ -571,6 +575,9 @@ export const useRecording = create<RecordingState>((set, get) => {
         set({ error: message });
         playFeedback("error");
         toast.error("Could not stop recording", { description: message });
+        // The optimistic teardown assumed success; reconcile with the
+        // backend in case the capture is actually still running.
+        void get().syncFromBackend();
       } finally {
         set({ busy: false });
       }
@@ -606,15 +613,16 @@ export const useRecording = create<RecordingState>((set, get) => {
       // already paused/idle so a double-trigger is a no-op, not an error.
       const s = get();
       if (s.busy || !s.recording) return;
-      set({ busy: true, error: null });
+      // Optimistic: stop the ticker and show "paused" immediately so the
+      // dock + bar respond on the click, not after the (off-thread) segment
+      // finalize. The backend then returns the authoritative frozen
+      // elapsed, which we reconcile below.
+      clearTicker();
+      void ipcSetTrayRecording(null);
+      set({ busy: true, error: null, recording: false, paused: true, startedAt: null });
       try {
         const status = await ipcPause();
-        clearTicker();
-        void ipcSetTrayRecording(null);
         set({
-          recording: false,
-          paused: true,
-          startedAt: null,
           elapsed: Number(status.elapsed_secs),
           channels: [],
           liveSessionDir: status.session_dir,
@@ -624,6 +632,7 @@ export const useRecording = create<RecordingState>((set, get) => {
         const message = String(e);
         set({ error: message });
         toast.error("Could not pause", { description: message });
+        void get().syncFromBackend();
       } finally {
         set({ busy: false });
       }
@@ -636,30 +645,37 @@ export const useRecording = create<RecordingState>((set, get) => {
       // a silent no-op instead of an "already recording" error.
       const s = get();
       if (s.busy || !s.paused) return;
-      set({ busy: true, error: null });
+      const resumeFrom = s.elapsed;
+      // Optimistic: flip to "recording" + restart the ticker from the
+      // accumulated elapsed right away, so the dock is instant. The bar is
+      // reused (hidden, not closed) so show is a cheap no-op-ish call. The
+      // backend's authoritative elapsed reconciles below.
+      set({
+        busy: true,
+        error: null,
+        recording: true,
+        paused: false,
+        startedAt: Date.now() - resumeFrom * 1000,
+      });
+      installTicker();
+      void ipcShowRecordingBar().catch(() => {});
       try {
         const status = await ipcResume();
         const elapsed = Number(status.elapsed_secs);
         set({
-          recording: true,
-          paused: false,
-          // Anchor startedAt so the ticker continues from the accumulated
-          // elapsed across the pause gap (monotonic timer).
           startedAt: Date.now() - elapsed * 1000,
           elapsed,
           channels: status.channels,
           liveSessionDir: status.session_dir,
         });
-        installTicker();
-        // Keep the floating bar alive across pause→resume — it only goes
-        // away on a full stop. Idempotent if it's still open.
-        void ipcShowRecordingBar().catch(() => {});
         playFeedback("start");
       } catch (e) {
         const message = String(e);
-        set({ error: message });
+        clearTicker();
+        set({ error: message, recording: false, paused: true, startedAt: null });
         playFeedback("error");
         toast.error("Could not resume", { description: message });
+        void get().syncFromBackend();
       } finally {
         set({ busy: false });
       }

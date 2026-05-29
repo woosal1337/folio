@@ -73,11 +73,15 @@ pub fn show_recording_bar(app: tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-/// Close the floating recording bar. No-op when it isn't open.
+/// Hide the floating recording bar. We `hide()` (not `close()`) so the
+/// webview persists and the next `show_recording_bar` is an instant
+/// `.show()` instead of rebuilding a whole WKWebView on the main thread —
+/// that rebuild was freezing the app for ~1s on every start/resume.
+/// No-op when the window doesn't exist yet.
 #[tauri::command]
 pub fn hide_recording_bar(app: tauri::AppHandle) -> Result<(), String> {
     if let Some(window) = app.get_webview_window(RECORDING_BAR_LABEL) {
-        let _ = window.close();
+        let _ = window.hide();
     }
     Ok(())
 }

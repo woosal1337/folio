@@ -286,4 +286,27 @@ describe("recording-store: floating bar lifecycle", () => {
     expect(mockedShowBar).toHaveBeenCalled();
     expect(mockedHideBar).not.toHaveBeenCalled();
   });
+
+  it("tears the UI down instantly on stop, before the backend finalize resolves", async () => {
+    useRecording.setState({ recording: true, paused: false, elapsed: 5 });
+    let resolveStop!: (v: unknown) => void;
+    mockedStop.mockImplementationOnce(
+      () =>
+        new Promise((res) => {
+          resolveStop = res as (v: unknown) => void;
+        }) as never
+    );
+    // Kick off stop but don't await — the optimistic teardown is
+    // synchronous and must have already run while ipcStop is still pending.
+    const stopPromise = useRecording.getState().stop();
+    expect(useRecording.getState().recording).toBe(false);
+    expect(useRecording.getState().paused).toBe(false);
+    expect(mockedHideBar).toHaveBeenCalledTimes(1);
+    // Now let the (slow) finalize complete and confirm the saved dir lands.
+    await act(async () => {
+      resolveStop({ artifacts: { session_dir: "/tmp/attune/note" } });
+      await stopPromise;
+    });
+    expect(useRecording.getState().lastSavedDir).toBe("/tmp/attune/note");
+  });
 });
