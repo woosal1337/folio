@@ -727,6 +727,22 @@ export async function onMeetingTakeNotes(handler: () => void): Promise<UnlistenF
   return listen(MEETING_TAKE_NOTES_EVENT, () => handler());
 }
 
+// ---- Live transcript preview (GET-160) ---------------------------
+
+/** Rolling-window live transcript preview emitted while recording. */
+export interface LiveTranscript {
+  session_dir: string;
+  text: string;
+}
+
+/** Subscribe to live-transcript previews. The handler fires with the
+ *  latest rolling-window text for the capturing note. */
+export async function onLiveTranscript(
+  handler: (preview: LiveTranscript) => void
+): Promise<UnlistenFn> {
+  return listen<LiveTranscript>("live-transcript", (event) => handler(event.payload));
+}
+
 // ---- Menu bar tray events (GET-144) ------------------------------
 // The tray menu (GET-25) emits these; GET-144 wires the main window to
 // them so every entry point — tray, Cmd-R, and the meeting HUD —

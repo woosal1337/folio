@@ -14,6 +14,39 @@ use tracing::{debug, info};
 use crate::app::state::PausedNote;
 use crate::app::AppState;
 
+/// Start the live-transcript preview loop (GET-160) for a just-started
+/// capture, if local Whisper is configured and its model is downloaded.
+/// No-op otherwise (OpenAI transcriber, or model missing) — the preview
+/// is local-only and degrades silently to "no live caption". Stores the
+/// stop flag on `AppState` so stop/pause can end the loop.
+fn maybe_start_live_transcript(app: &tauri::AppHandle, state: &AppState, session_dir: PathBuf) {
+    use attune_core::transcription::{WhisperModel, WhisperModelStore};
+
+    let (kind, model_id, language) = {
+        let s = state.settings.lock();
+        (
+            s.transcriber.clone(),
+            s.local_whisper_model.clone(),
+            s.transcription_language.clone(),
+        )
+    };
+    if kind != "local_whisper" {
+        return;
+    }
+    let Some(model) = WhisperModel::from_id(&model_id) else {
+        return;
+    };
+    let status = WhisperModelStore::default_location().status(model);
+    if !status.present {
+        return;
+    }
+    let hint = (!language.is_empty() && language != "auto").then_some(language);
+
+    let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    *state.live_transcript_stop.lock() = Some(stop.clone());
+    crate::app::live_transcript::spawn(app.clone(), session_dir, status.path, hint, stop);
+}
+
 /// Snapshot of the current recording session for the UI. Pure
 /// in-memory read so this stays sync.
 #[tauri::command]
@@ -109,6 +142,7 @@ pub async fn rename_note(session_dir: String, title: String) -> Result<(), Strin
 /// fresh timestamped one, so recording attaches to the open note.
 #[tauri::command]
 pub async fn start_recording(
+    app: tauri::AppHandle,
     state: State<'_, AppState>,
     session_dir: Option<String>,
 ) -> Result<RecordingStatus, String> {
@@ -143,8 +177,12 @@ pub async fn start_recording(
         );
     }
 
+    let live_dir = session.session_dir().clone();
     *state.session.lock() = Some(session);
     *state.recording_started.lock() = Some(Instant::now());
+
+    // Live-transcript preview (GET-160) — local Whisper only, best-effort.
+    maybe_start_live_transcript(&app, &state, live_dir);
 
     Ok(state.recording_status())
 }
@@ -155,6 +193,8 @@ pub async fn start_recording(
 /// note rooted at its session dir.
 #[tauri::command]
 pub async fn pause_recording(state: State<'_, AppState>) -> Result<RecordingStatus, String> {
+    // End the live-transcript preview for this segment (GET-160).
+    state.stop_live_transcript();
     let session = state
         .session
         .lock()
@@ -204,7 +244,10 @@ pub async fn pause_recording(state: State<'_, AppState>) -> Result<RecordingStat
 /// records into `dir/parts/NNN/`; the final stop merges every segment
 /// into one continuous file.
 #[tauri::command]
-pub async fn resume_recording(state: State<'_, AppState>) -> Result<RecordingStatus, String> {
+pub async fn resume_recording(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+) -> Result<RecordingStatus, String> {
     if state.session.lock().is_some() {
         return Err("already recording".into());
     }
@@ -230,8 +273,10 @@ pub async fn resume_recording(state: State<'_, AppState>) -> Result<RecordingSta
         );
     }
 
+    let live_dir = session.session_dir().clone();
     *state.session.lock() = Some(session);
     *state.recording_started.lock() = Some(Instant::now());
+    maybe_start_live_transcript(&app, &state, live_dir);
     info!("recording resumed");
     Ok(state.recording_status())
 }
@@ -242,6 +287,9 @@ pub async fn resume_recording(state: State<'_, AppState>) -> Result<RecordingSta
 /// before returning.
 #[tauri::command]
 pub async fn stop_recording(state: State<'_, AppState>) -> Result<RecordingResult, String> {
+    // End the live-transcript preview (GET-160); the final on-stop
+    // transcript below is the source of truth.
+    state.stop_live_transcript();
     let session = state
         .session
         .lock()
