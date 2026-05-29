@@ -21,12 +21,14 @@ const MAIN_WINDOW_LABEL: &str = "main";
 /// Event the main window listens for to run its stop flow.
 const STOP_EVENT: &str = "recording-bar:stop";
 
-const BAR_W: f64 = 248.0;
-const BAR_H: f64 = 56.0;
+// Vertical capsule (Granola-style): narrow column the user parks against
+// a screen edge. Width/height stay in sync with the CSS pill.
+const BAR_W: f64 = 52.0;
+const BAR_H: f64 = 176.0;
 const MARGIN: f64 = 24.0;
 
-/// Create (or reveal) the floating recording bar, parked bottom-centre of
-/// the active monitor. Never steals focus. Idempotent.
+/// Create (or reveal) the floating recording bar, parked against the
+/// right edge, vertically centred. Never steals focus. Idempotent.
 #[tauri::command]
 pub fn show_recording_bar(app: tauri::AppHandle) -> Result<(), String> {
     if let Some(existing) = app.get_webview_window(RECORDING_BAR_LABEL) {
@@ -50,15 +52,16 @@ pub fn show_recording_bar(app: tauri::AppHandle) -> Result<(), String> {
     .build()
     .map_err(|e| e.to_string())?;
 
-    // Park bottom-centre of the monitor it landed on.
+    // Park against the right edge, vertically centred — the user drags it
+    // wherever from there.
     if let Ok(Some(monitor)) = window.current_monitor() {
         let size = monitor.size();
         let scale = monitor.scale_factor();
         let pos = monitor.position();
         let logical_w = size.width as f64 / scale;
         let logical_h = size.height as f64 / scale;
-        let x = pos.x as f64 / scale + (logical_w - BAR_W) / 2.0;
-        let y = pos.y as f64 / scale + logical_h - BAR_H - MARGIN * 2.0;
+        let x = pos.x as f64 / scale + logical_w - BAR_W - MARGIN;
+        let y = pos.y as f64 / scale + (logical_h - BAR_H) / 2.0;
         let _ = window.set_position(tauri::LogicalPosition::new(x, y));
     }
 
