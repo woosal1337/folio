@@ -140,7 +140,7 @@ urlencoding = "2"
 # TypeScript binding generation for the Tauri IPC surface. Types in
 # attune-core that cross the IPC boundary derive `TS` and the bindings
 # are emitted into `src/lib/generated/` during `cargo test`.
-ts-rs = { version = "10", features = ["serde-compat", "chrono-impl"] }
+ts-rs = { version = "12", features = ["serde-compat", "chrono-impl"] }
 
 # Local Whisper inference via whisper.cpp. Builds whisper.cpp from
 # source the first time — first cargo build picks up a noticeable
