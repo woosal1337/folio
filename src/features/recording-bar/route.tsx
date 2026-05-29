@@ -40,6 +40,23 @@ export default function RecordingBar() {
   const [paused, setPaused] = React.useState(false);
   const [stopping, setStopping] = React.useState(false);
 
+  // The window is transparent (see show_recording_bar). The app's <body>
+  // ships an opaque `bg-background`, which would fill the window's square
+  // corners and defeat the rounded pill — so blank out the page chrome in
+  // this dedicated window and let only the capsule paint.
+  React.useEffect(() => {
+    const els = [document.documentElement, document.body];
+    const prev = els.map((el) => el.style.background);
+    els.forEach((el) => {
+      el.style.background = "transparent";
+    });
+    return () => {
+      els.forEach((el, i) => {
+        el.style.background = prev[i] ?? "";
+      });
+    };
+  }, []);
+
   // Poll the backend for the live capture state.
   React.useEffect(() => {
     let cancelled = false;
@@ -88,32 +105,32 @@ export default function RecordingBar() {
     // eslint-disable-next-line jsx-a11y/no-static-element-interactions -- frameless-window drag region, same pattern as the main shell.
     <div
       onMouseDown={onMouseDown}
-      className="fixed inset-0 flex select-none flex-col items-center justify-between overflow-hidden rounded-full border border-white/10 bg-neutral-900/95 py-3 text-white shadow-2xl backdrop-blur"
+      className="fixed inset-0 flex select-none flex-col items-center justify-between overflow-hidden rounded-[20px] border border-white/10 bg-neutral-900/95 py-2.5 text-white shadow-2xl backdrop-blur"
     >
       {/* Drag grip — the explicit "grab here" affordance, set apart from
           the controls so it reads as a handle (the whole pill drags). */}
       <GripHorizontal
         aria-hidden="true"
-        className="h-4 w-4 shrink-0 text-neutral-500"
+        className="h-3.5 w-3.5 shrink-0 text-neutral-500"
       />
 
       {/* Recording / paused indicator. */}
       <span
-        className="relative flex h-5 w-5 shrink-0 items-center justify-center"
+        className="relative flex h-4 w-4 shrink-0 items-center justify-center"
         title={paused ? "Paused" : "Recording"}
       >
         {paused ? (
-          <span className="h-2.5 w-2.5 rounded-full bg-amber-400" />
+          <span className="h-2 w-2 rounded-full bg-amber-400" />
         ) : (
           <>
-            <span className="absolute h-4 w-4 animate-ping rounded-full bg-red-500/40" />
-            <span className="h-2.5 w-2.5 rounded-full bg-red-500" />
+            <span className="absolute h-3.5 w-3.5 animate-ping rounded-full bg-red-500/40" />
+            <span className="h-2 w-2 rounded-full bg-red-500" />
           </>
         )}
       </span>
 
       {/* Elapsed time. */}
-      <p className="shrink-0 font-mono text-[11px] font-semibold tabular-nums text-neutral-200">
+      <p className="shrink-0 font-mono text-[10px] font-semibold tabular-nums text-neutral-200">
         {formatElapsed(elapsed)}
       </p>
 
@@ -124,7 +141,7 @@ export default function RecordingBar() {
         disabled={stopping}
         aria-label="Stop recording"
         title="Stop recording"
-        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-red-500 text-white transition-colors hover:bg-red-600 disabled:opacity-60"
+        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-500 text-white transition-colors hover:bg-red-600 disabled:opacity-60"
       >
         <Square className="h-3.5 w-3.5 fill-current" />
       </button>

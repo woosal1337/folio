@@ -22,9 +22,10 @@ const MAIN_WINDOW_LABEL: &str = "main";
 const STOP_EVENT: &str = "recording-bar:stop";
 
 // Vertical capsule (Granola-style): narrow column the user parks against
-// a screen edge. Width/height stay in sync with the CSS pill.
-const BAR_W: f64 = 52.0;
-const BAR_H: f64 = 176.0;
+// a screen edge. Width/height stay in sync with the CSS pill. The window
+// is transparent so only the rounded pill shows (no square backdrop).
+const BAR_W: f64 = 46.0;
+const BAR_H: f64 = 152.0;
 const MARGIN: f64 = 24.0;
 
 /// Create (or reveal) the floating recording bar, parked against the
@@ -45,6 +46,7 @@ pub fn show_recording_bar(app: tauri::AppHandle) -> Result<(), String> {
     .inner_size(BAR_W, BAR_H)
     .resizable(false)
     .decorations(false)
+    .transparent(true)
     .always_on_top(true)
     .skip_taskbar(true)
     .focused(false)
