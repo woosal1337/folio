@@ -81,7 +81,15 @@ pub async fn create_note(state: State<'_, AppState>) -> Result<RecordingSummary,
         std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
         attune_core::storage::atomic_write::atomic_write(&dir.join("live_notes.json"), b"[]")
             .map_err(|e| e.to_string())?;
-        info!(dir = %dir.display(), "created empty note");
+        // Give the unnamed note a "Draft N" placeholder so the UI never
+        // shows the raw timestamp label; autoname/user title supersede it.
+        let draft_name = attune_core::storage::session::allocate_draft_name(&output_dir);
+        attune_core::storage::atomic_write::atomic_write(
+            &dir.join("draft.txt"),
+            draft_name.as_bytes(),
+        )
+        .map_err(|e| e.to_string())?;
+        info!(dir = %dir.display(), draft = %draft_name, "created empty note");
         Ok(RecordingSummary {
             session_dir: dir,
             label,
@@ -94,6 +102,7 @@ pub async fn create_note(state: State<'_, AppState>) -> Result<RecordingSummary,
             has_transcript: false,
             title: None,
             folder: None,
+            draft_name: Some(draft_name),
             suggested_title: None,
             suggested_tags: Vec::new(),
             suggested_subtitle: None,

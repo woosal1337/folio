@@ -234,7 +234,10 @@ export default function Home() {
                     <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium">
-                        {r.title?.trim() || r.suggested_title || r.label}
+                        {r.title?.trim() ||
+                          r.suggested_title ||
+                          r.draft_name ||
+                          r.label}
                       </p>
                       <p className="truncate text-xs text-muted-foreground">
                         {r.suggested_subtitle || "Me"}

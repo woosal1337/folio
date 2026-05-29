@@ -47,4 +47,12 @@ title: string | null,
  * (GET-162). None when the note is unfiled. Used by the sidebar
  * Spaces filter and My Notes grouping.
  */
-folder: string | null, };
+folder: string | null,
+/**
+ * Placeholder name for an as-yet-unnamed note, from
+ * `<session_dir>/draft.txt` (e.g. "Draft 3"). Shown only when there's
+ * no user title and no autoname suggestion yet; once the note is
+ * named (agents or the user), those take precedence. None for older
+ * notes created before drafts existed.
+ */
+draft_name: string | null, };

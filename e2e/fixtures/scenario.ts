@@ -448,6 +448,7 @@ export async function setupScenario(page: Page, options: ScenarioOptions = {}) {
         created_at: new Date().toISOString(),
         has_transcript: false,
         suggested_tags: [],
+        draft_name: "Draft 1",
       }),
       // Rename a note (GET-163): persists title.txt; mock just acks.
       rename_note: () => null,
