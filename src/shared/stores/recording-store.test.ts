@@ -8,6 +8,8 @@ vi.mock("@/shared/lib/ipc", () => ({
   pauseRecording: vi.fn(),
   resumeRecording: vi.fn(),
   setTrayRecording: vi.fn(),
+  showRecordingBar: vi.fn().mockResolvedValue(undefined),
+  hideRecordingBar: vi.fn().mockResolvedValue(undefined),
   getRecording: vi.fn(),
   runAgent: vi.fn(),
   transcribeRecording: vi.fn(),

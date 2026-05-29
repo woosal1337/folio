@@ -23,6 +23,7 @@ pub mod memory;
 pub mod permissions;
 pub mod preferences;
 pub mod recording;
+pub mod recording_bar;
 pub mod referrals;
 pub mod settings;
 pub mod settings_sync;

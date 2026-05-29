@@ -23,6 +23,7 @@ import { verbSource } from "@/shared/lib/command-palette";
 const Home = React.lazy(() => import("@/features/home/route"));
 const Chat = React.lazy(() => import("@/features/chat/route"));
 const MeetingHud = React.lazy(() => import("@/features/meeting-hud/route"));
+const RecordingBar = React.lazy(() => import("@/features/recording-bar/route"));
 const FirstRunConductor = React.lazy(() =>
   import("@/features/onboarding/first-run").then((m) => ({
     default: m.FirstRunConductor,
@@ -45,7 +46,9 @@ import { useSettingsStore } from "@/shared/stores/settings-store";
 import { useSettingsUiStore } from "@/shared/stores/settings-ui-store";
 import {
   MEETING_HUD_WINDOW_LABEL,
+  RECORDING_BAR_WINDOW_LABEL,
   currentWindowLabel,
+  onRecordingBarStop,
   searchNoteContent,
 } from "@/shared/lib/ipc";
 import { useTakeNotes } from "@/shared/hooks/use-take-notes";
@@ -60,6 +63,17 @@ export default function App() {
       <ErrorBoundary>
         <React.Suspense fallback={null}>
           <MeetingHud />
+        </React.Suspense>
+      </ErrorBoundary>
+    );
+  }
+  // The floating recording bar (frameless, always-on-top) is likewise a
+  // standalone window with no sidebar, chrome, or auth gate.
+  if (currentWindowLabel() === RECORDING_BAR_WINDOW_LABEL) {
+    return (
+      <ErrorBoundary>
+        <React.Suspense fallback={null}>
+          <RecordingBar />
         </React.Suspense>
       </ErrorBoundary>
     );
@@ -93,6 +107,20 @@ function MainApp() {
     void hydrateAuth();
     void syncRecording();
   }, [loadSettings, hydrateAuth, syncRecording]);
+
+  // The floating recording bar's Stop button can't reach the recording
+  // store directly (separate window/JS context), so it emits an event the
+  // main window owns. Route it through the same stop() the in-app Stop
+  // uses, so the auto-transcribe + toast + tray-reset chain fires once.
+  React.useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    void onRecordingBarStop(() => {
+      void useRecording.getState().stop();
+    }).then((fn) => {
+      unlisten = fn;
+    });
+    return () => unlisten?.();
+  }, []);
 
   // Force-login + post-signup setup: the sidebar + every route is
   // invisible until BOTH the user holds a valid Keychain session AND
