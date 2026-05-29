@@ -33,6 +33,7 @@ import type { Agent } from "@/shared/types/Agent";
 import type { AgentRun } from "@/shared/types/AgentRun";
 import type { NoteTemplate } from "@/shared/types/NoteTemplate";
 import type { NoteSearchHit } from "@/shared/types/NoteSearchHit";
+import type { ChatThread } from "@/shared/types/ChatThread";
 import type { DeviceInfo } from "@/shared/types/DeviceInfo";
 import type { ModelInfo } from "@/shared/types/ModelInfo";
 import type { ProviderId } from "@/shared/types/ProviderId";
@@ -769,6 +770,27 @@ export function askLibrary(
   model?: string
 ): Promise<{ answer: string }> {
   return call<{ answer: string }>("ask_library", { question, history, model });
+}
+
+// ---- Chat history + Recents (GET-167) ----------------------------------
+
+/** Persisted chat threads, newest first. `scope` is "library" or "note";
+ *  `sessionDir` narrows note threads to one note. */
+export function listChatThreads(
+  scope?: "library" | "note",
+  sessionDir?: string
+): Promise<ChatThread[]> {
+  return call<ChatThread[]>("list_chat_threads", { scope, sessionDir });
+}
+
+/** Save (upsert) a chat thread. */
+export function saveChatThread(thread: ChatThread): Promise<void> {
+  return call<void>("save_chat_thread", { thread });
+}
+
+/** Delete a chat thread by id. */
+export function deleteChatThread(id: string): Promise<void> {
+  return call<void>("delete_chat_thread", { id });
 }
 
 /** Label of the webview window this code is running in. Falls back to

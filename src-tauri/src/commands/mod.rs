@@ -10,6 +10,7 @@ pub mod agents;
 pub mod ask;
 pub mod auth;
 pub mod calendar;
+pub mod chats;
 pub mod devices;
 pub mod folders;
 pub mod health;

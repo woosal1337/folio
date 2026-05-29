@@ -22,7 +22,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/shared/ui/dialog";
-import { askNote, type ChatTurn } from "@/shared/lib/ipc";
+import {
+  askNote,
+  listChatThreads,
+  saveChatThread,
+  type ChatTurn,
+} from "@/shared/lib/ipc";
+import type { ChatThread } from "@/shared/types/ChatThread";
 import { dispatchSeekAudio } from "@/features/editor/seek-audio";
 
 interface Props {
@@ -81,11 +87,65 @@ export function NoteChat({ sessionDir, open, onOpenChange, seed }: Props) {
   const [busy, setBusy] = React.useState(false);
   const scrollRef = React.useRef<HTMLDivElement>(null);
 
+  // Persisted per-note thread (GET-167): stable id + creation time so each
+  // turn upserts the same file.
+  const threadIdRef = React.useRef<string | null>(null);
+  const createdAtRef = React.useRef<string | null>(null);
+
+  // On open, restore this note's most recent conversation (if any) so the
+  // history is there when the user comes back; seed the input otherwise.
   React.useEffect(() => {
-    if (open && seed && messages.length === 0) setInput(seed);
-    // Only on open.
+    if (!open) return;
+    let cancelled = false;
+    listChatThreads("note", sessionDir)
+      .then((threads) => {
+        if (cancelled) return;
+        const latest = threads[0];
+        if (latest) {
+          threadIdRef.current = latest.id;
+          createdAtRef.current = latest.created_at;
+          setMessages(
+            latest.messages.map((m) => ({
+              role: m.role as Msg["role"],
+              content: m.content,
+            }))
+          );
+        } else if (seed) {
+          setInput(seed);
+        }
+      })
+      .catch((e) => console.error("list_chat_threads:", e));
+    return () => {
+      cancelled = true;
+    };
+    // Only on open / note change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, [open, sessionDir]);
+
+  const persist = React.useCallback(
+    (msgs: Msg[]) => {
+      if (msgs.length === 0) return;
+      if (!threadIdRef.current) {
+        threadIdRef.current = (globalThis.crypto?.randomUUID?.() ??
+          `t-${Date.now()}`) as string;
+        createdAtRef.current = new Date().toISOString();
+      }
+      const firstUser = msgs.find((m) => m.role === "user")?.content ?? "Conversation";
+      const title = firstUser.length > 60 ? `${firstUser.slice(0, 57)}…` : firstUser;
+      const now = new Date().toISOString();
+      const thread: ChatThread = {
+        id: threadIdRef.current,
+        scope: "note",
+        session_dir: sessionDir,
+        title,
+        created_at: createdAtRef.current ?? now,
+        updated_at: now,
+        messages: msgs.map((m) => ({ role: m.role, content: m.content })),
+      };
+      saveChatThread(thread).catch((e) => console.error("save_chat_thread:", e));
+    },
+    [sessionDir]
+  );
 
   React.useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
@@ -103,7 +163,11 @@ export function NoteChat({ sessionDir, open, onOpenChange, seed }: Props) {
     setBusy(true);
     try {
       const { answer } = await askNote(sessionDir, question, history);
-      setMessages((prev) => [...prev, { role: "assistant", content: answer }]);
+      setMessages((prev) => {
+        const next: Msg[] = [...prev, { role: "assistant", content: answer }];
+        persist(next);
+        return next;
+      });
     } catch (e) {
       console.error("ask_note:", e);
       toast.error("Couldn't answer that", { description: String(e) });
@@ -114,7 +178,7 @@ export function NoteChat({ sessionDir, open, onOpenChange, seed }: Props) {
     } finally {
       setBusy(false);
     }
-  }, [input, busy, messages, sessionDir]);
+  }, [input, busy, messages, sessionDir, persist]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

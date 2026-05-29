@@ -496,6 +496,40 @@ export async function setupScenario(page: Page, options: ScenarioOptions = {}) {
       test_provider: () => ({ ok: true, latency_ms: 120 }),
       list_provider_models: () => [],
 
+      // Chat history + Recents (GET-167): persisted in localStorage so it
+      // survives a page reload, emulating the real on-disk store.
+      list_chat_threads: (args) => {
+        const a = args as { scope?: string; sessionDir?: string };
+        const all = JSON.parse(
+          localStorage.getItem("__ATTUNE_CHATS__") ?? "[]"
+        ) as Array<Record<string, unknown>>;
+        return all
+          .filter((t) => (a.scope ? t.scope === a.scope : true))
+          .filter((t) => (a.sessionDir ? t.session_dir === a.sessionDir : true))
+          .sort((x, y) => String(y.updated_at).localeCompare(String(x.updated_at)));
+      },
+      save_chat_thread: (args) => {
+        const a = args as { thread: Record<string, unknown> };
+        const all = JSON.parse(
+          localStorage.getItem("__ATTUNE_CHATS__") ?? "[]"
+        ) as Array<Record<string, unknown>>;
+        const next = all.filter((t) => t.id !== a.thread.id);
+        next.push(a.thread);
+        localStorage.setItem("__ATTUNE_CHATS__", JSON.stringify(next));
+        return null;
+      },
+      delete_chat_thread: (args) => {
+        const a = args as { id: string };
+        const all = JSON.parse(
+          localStorage.getItem("__ATTUNE_CHATS__") ?? "[]"
+        ) as Array<Record<string, unknown>>;
+        localStorage.setItem(
+          "__ATTUNE_CHATS__",
+          JSON.stringify(all.filter((t) => t.id !== a.id))
+        );
+        return null;
+      },
+
       list_agents: () => [],
       run_agent: () => null,
       list_agent_runs: () => [],

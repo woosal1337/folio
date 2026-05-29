@@ -8,6 +8,7 @@
 //! capture pipeline creates.
 
 pub mod atomic_write;
+pub mod chats;
 pub mod decisions;
 pub mod digest;
 pub mod egress_log;
