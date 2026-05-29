@@ -16,7 +16,7 @@
  */
 
 import * as React from "react";
-import { AppWindow, Bell, Inbox, Mic2 } from "lucide-react";
+import { Bell, Inbox, Mic2 } from "lucide-react";
 
 import { Badge } from "@/shared/ui/badge";
 import { Label } from "@/shared/ui/label";
@@ -144,7 +144,14 @@ export function SectionNotifications({
                       }
                     />
                   ) : (
-                    <AppWindow className="h-3.5 w-3.5 opacity-70" />
+                    // App isn't installed (no macOS icon to read) — show a
+                    // neutral monogram so the chip looks intentional.
+                    <span
+                      aria-hidden="true"
+                      className="flex h-4 w-4 items-center justify-center rounded-[3px] bg-muted text-[9px] font-semibold uppercase text-muted-foreground"
+                    >
+                      {app.label.charAt(0)}
+                    </span>
                   )}
                   {app.label}
                 </button>
