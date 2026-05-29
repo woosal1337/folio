@@ -43,6 +43,7 @@ import { useSettingsStore } from "@/shared/stores/settings-store";
 import { useSettingsUiStore } from "@/shared/stores/settings-ui-store";
 import { MEETING_HUD_WINDOW_LABEL, currentWindowLabel } from "@/shared/lib/ipc";
 import { useTakeNotes } from "@/shared/hooks/use-take-notes";
+import { useRecording } from "@/shared/stores/recording-store";
 
 export default function App() {
   // The meeting-detection HUD (GET-143) is a separate frameless window.
@@ -73,14 +74,19 @@ function MainApp() {
   const onDoubleClick = useWindowDoubleClick();
   const loadSettings = useSettingsStore((s) => s.load);
   const hydrateAuth = useAuthStore((s) => s.hydrate);
+  const syncRecording = useRecording((s) => s.syncFromBackend);
 
   // Load settings once at mount. The recording store reads from this
   // cache when deciding whether to auto-transcribe after stop, so the
   // settings need to be in memory before the first stop fires.
+  // Also probe the backend for an in-progress capture (GET-155): with
+  // the Record screen gone, this is the one place that re-adopts a
+  // recording after a reload so the in-note dock reflects it.
   React.useEffect(() => {
     loadSettings();
     void hydrateAuth();
-  }, [loadSettings, hydrateAuth]);
+    void syncRecording();
+  }, [loadSettings, hydrateAuth, syncRecording]);
 
   // Force-login + post-signup setup: the sidebar + every route is
   // invisible until BOTH the user holds a valid Keychain session AND

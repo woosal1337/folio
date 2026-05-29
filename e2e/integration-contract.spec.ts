@@ -13,10 +13,12 @@ import { ipcLog, setupScenario } from "./fixtures/scenario";
 
 const BOOT_COMMANDS = ["auth_status", "get_settings"];
 
-test("the React app emits the documented boot probes on cold load", async ({ page }) => {
+test("the React app emits the documented boot probes on cold load", async ({
+  page,
+}) => {
   await setupScenario(page, { startSignedIn: true });
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: /^record$/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /^home$/i })).toBeVisible();
   const log = await ipcLog(page);
   const cmds = new Set(log.map((e) => e.cmd));
   for (const expected of BOOT_COMMANDS) {
@@ -24,20 +26,24 @@ test("the React app emits the documented boot probes on cold load", async ({ pag
   }
 });
 
-test("recording_status fires on Record route mount", async ({ page }) => {
+test("recording_status probe fires on app mount (re-adopts in-progress capture)", async ({
+  page,
+}) => {
   await setupScenario(page, { startSignedIn: true });
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: /^record$/i })).toBeVisible();
-  const log = await ipcLog(page);
-  expect(log.map((e) => e.cmd)).toContain("recording_status");
+  await expect(page.getByRole("heading", { name: /^home$/i })).toBeVisible();
+  await expect
+    .poll(async () => (await ipcLog(page)).map((e) => e.cmd))
+    .toContain("recording_status");
 });
 
-test("list_recordings fires on Record route mount", async ({ page }) => {
+test("list_recordings fires on Home mount (recent notes)", async ({ page }) => {
   await setupScenario(page, { startSignedIn: true });
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: /^record$/i })).toBeVisible();
-  const log = await ipcLog(page);
-  expect(log.map((e) => e.cmd)).toContain("list_recordings");
+  await expect(page.getByRole("heading", { name: /^home$/i })).toBeVisible();
+  await expect
+    .poll(async () => (await ipcLog(page)).map((e) => e.cmd))
+    .toContain("list_recordings");
 });
 
 test("save_settings is the canonical persist call (not settings_sync_push)", async ({
@@ -47,7 +53,10 @@ test("save_settings is the canonical persist call (not settings_sync_push)", asy
   await page.goto("/");
   await page.getByRole("button", { name: /^settings$/i }).click();
   await page.getByRole("button", { name: /^preferences$/i }).click();
-  await page.getByRole("button", { name: /^save$/i }).last().click();
+  await page
+    .getByRole("button", { name: /^save$/i })
+    .last()
+    .click();
   const log = await ipcLog(page);
   const save = log.filter((e) => e.cmd === "save_settings");
   expect(save.length).toBeGreaterThanOrEqual(1);
@@ -63,7 +72,10 @@ test("auth_logout fires exactly once per sign-out click", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: /^settings$/i }).click();
   await page.getByRole("button", { name: /^profile$/i }).click();
-  await page.getByRole("button", { name: /^sign out$/i }).first().click();
+  await page
+    .getByRole("button", { name: /^sign out$/i })
+    .first()
+    .click();
   const log = await ipcLog(page);
   expect(log.filter((e) => e.cmd === "auth_logout")).toHaveLength(1);
 });

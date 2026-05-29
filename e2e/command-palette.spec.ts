@@ -14,7 +14,7 @@ import { setupScenario } from "./fixtures/scenario";
 test.beforeEach(async ({ page }) => {
   await setupScenario(page, { startSignedIn: true });
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: /^record$/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /^home$/i })).toBeVisible();
 });
 
 test("Cmd-K opens the command palette", async ({ page }) => {

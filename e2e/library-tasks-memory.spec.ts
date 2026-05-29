@@ -6,9 +6,7 @@ import { expect, test } from "@playwright/test";
 
 import { ipcCalls, setupScenario } from "./fixtures/scenario";
 
-test("Library — recording row renders from list_recordings IPC", async ({
-  page,
-}) => {
+test("Library — recording row renders from list_recordings IPC", async ({ page }) => {
   await setupScenario(page, {
     startSignedIn: true,
     recordings: [
@@ -34,14 +32,12 @@ test("Library — recording row renders from list_recordings IPC", async ({
     ],
   });
   await page.goto("/");
-  await page.getByRole("link", { name: /library/i }).click();
-  await expect(page.getByRole("heading", { name: /^library$/i })).toBeVisible();
+  await page.getByRole("link", { name: /my notes/i }).click();
+  await expect(page.getByRole("heading", { name: /^my notes$/i })).toBeVisible();
   await expect(page.getByText("Product review").first()).toBeVisible();
 });
 
-test("Tasks — empty state, add a task via the UI, see it appear", async ({
-  page,
-}) => {
+test("Tasks — empty state, add a task via the UI, see it appear", async ({ page }) => {
   await setupScenario(page, { startSignedIn: true, tasks: [] });
   await page.goto("/");
   await page.getByRole("link", { name: /tasks/i }).click();
@@ -49,7 +45,10 @@ test("Tasks — empty state, add a task via the UI, see it appear", async ({
 
   // Composer is collapsed per column — click the first "Add task"
   // dashed button to reveal the textarea, then fill + submit.
-  await page.getByRole("button", { name: /^add task$/i }).first().click();
+  await page
+    .getByRole("button", { name: /^add task$/i })
+    .first()
+    .click();
   const input = page.getByPlaceholder(/what needs doing/i);
   await input.fill("Confirm the Resend domain at chele.bi");
   await input.press("Enter");
@@ -90,11 +89,4 @@ test("Memory — seeded entries render in the list", async ({ page }) => {
   await page.getByRole("link", { name: /memory/i }).click();
   await expect(page.getByRole("heading", { name: /^memory$/i })).toBeVisible();
   await expect(page.getByText(/founder prefers otp/i)).toBeVisible();
-});
-
-test("Inbox — empty state renders without crashing", async ({ page }) => {
-  await setupScenario(page, { startSignedIn: true });
-  await page.goto("/");
-  await page.getByRole("link", { name: /inbox/i }).click();
-  await expect(page.getByRole("heading", { name: /^inbox$/i })).toBeVisible();
 });

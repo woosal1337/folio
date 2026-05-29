@@ -44,7 +44,10 @@ test("auth_logout clears identity + flips the gate back to signup", async ({
   await page.goto("/");
   await page.getByRole("button", { name: /^settings$/i }).click();
   await page.getByRole("button", { name: /^profile$/i }).click();
-  await page.getByRole("button", { name: /^sign out$/i }).first().click();
+  await page
+    .getByRole("button", { name: /^sign out$/i })
+    .first()
+    .click();
 
   const logoutCalls = await ipcCalls(page, "auth_logout");
   expect(logoutCalls).toHaveLength(1);
@@ -56,7 +59,7 @@ test("the IPC trail contains the boot-time probes (auth_status, get_settings)", 
 }) => {
   await setupScenario(page, { startSignedIn: true });
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: /^record$/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /^home$/i })).toBeVisible();
 
   const log = await ipcLog(page);
   const cmds = log.map((e) => e.cmd);
@@ -70,7 +73,10 @@ test("workspace name saved via Settings is visible on the next open", async ({
   await setupScenario(page, { startSignedIn: true });
   await page.goto("/");
   await page.getByRole("button", { name: /^settings$/i }).click();
-  await page.getByRole("button", { name: /^general$/i }).nth(1).click();
+  await page
+    .getByRole("button", { name: /^general$/i })
+    .nth(1)
+    .click();
   const nameInput = page.getByPlaceholder(/clinora/i);
   await nameInput.fill("Acme Co");
   await page.getByRole("button", { name: /^save$/i }).click();

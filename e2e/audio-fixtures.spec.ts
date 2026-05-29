@@ -49,9 +49,7 @@ async function loadManifest(): Promise<Manifest> {
 
 test("manifest is present + lists at least one fixture per major language", async () => {
   const manifest = await loadManifest();
-  const languages = new Set(
-    Object.values(manifest.fixtures).map((f) => f.language),
-  );
+  const languages = new Set(Object.values(manifest.fixtures).map((f) => f.language));
   // The corpus is intentionally multilingual so we can run UI tests
   // that exercise the Settings → Transcription language picker
   // against representative inputs.
@@ -69,8 +67,7 @@ test("every fixture file exists on disk + has MP3 magic", async () => {
     // sync (`FF Ex`). Tolerate both.
     const head = buf.subarray(0, 4);
     const isId3 = head[0] === 0x49 && head[1] === 0x44 && head[2] === 0x33;
-    const isMpegSync =
-      head[0] === 0xff && (head[1]! & 0xe0) === 0xe0;
+    const isMpegSync = head[0] === 0xff && (head[1]! & 0xe0) === 0xe0;
     expect(isId3 || isMpegSync, `${id} is not an MP3`).toBe(true);
   }
 });
@@ -82,7 +79,7 @@ test("Chromium decodes the English business fixture and metadata loads", async (
   const bytes = await fs.readFile(file);
 
   await page.setContent(
-    `<!doctype html><html><body><audio id="player" preload="metadata" controls></audio></body></html>`,
+    `<!doctype html><html><body><audio id="player" preload="metadata" controls></audio></body></html>`
   );
 
   // Stuff the bytes into the audio element via an object URL set
@@ -97,11 +94,9 @@ test("Chromium decodes the English business fixture and metadata loads", async (
     audio.src = URL.createObjectURL(blob);
     await new Promise<void>((resolve, reject) => {
       audio.addEventListener("loadedmetadata", () => resolve(), { once: true });
-      audio.addEventListener(
-        "error",
-        () => reject(new Error("audio decode failed")),
-        { once: true },
-      );
+      audio.addEventListener("error", () => reject(new Error("audio decode failed")), {
+        once: true,
+      });
       // Belt + braces — kick the load explicitly.
       audio.load();
     });

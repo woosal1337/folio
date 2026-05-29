@@ -15,7 +15,7 @@ test("Cloud-cost dialog is dormant on the main app when nothing's pending", asyn
 }) => {
   await setupScenario(page, { startSignedIn: true });
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: /^record$/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /^home$/i })).toBeVisible();
   // No confirm dialog should be visible on a clean boot.
   const dialogs = await page.getByRole("alertdialog").count();
   expect(dialogs).toBe(0);

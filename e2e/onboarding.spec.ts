@@ -27,51 +27,56 @@ test.describe("Onboarding — fresh signup", () => {
 
     // 1. Permissions screen renders first.
     await expect(
-      page.getByRole("heading", { name: /allow attune to transcribe/i }),
+      page.getByRole("heading", { name: /allow attune to transcribe/i })
     ).toBeVisible();
     await page.getByRole("button", { name: /^continue$/i }).click();
 
     // 2. Signup.
-    await expect(page.getByRole("heading", { name: /welcome to attune/i })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: /welcome to attune/i })
+    ).toBeVisible();
     await page.getByPlaceholder(/you@company\.com/i).fill("ege@clinora.ai");
-    await page.getByRole("button", { name: /^continue$/i }).first().click();
+    await page
+      .getByRole("button", { name: /^continue$/i })
+      .first()
+      .click();
 
     // 3. Code entry.
     await expect(
-      page.getByRole("heading", { name: /check your email/i }),
+      page.getByRole("heading", { name: /check your email/i })
     ).toBeVisible();
     await page.locator('input[id="code-0"]').fill("123456");
     await page.getByRole("button", { name: /verify and continue/i }).click();
 
     // 4. EventKit rationale (PR #215 fix — must appear post-signup).
     await expect(
-      page.getByRole("heading", { name: /read your mac.s calendar locally/i }),
+      page.getByRole("heading", { name: /read your mac.s calendar locally/i })
     ).toBeVisible();
     await page.getByRole("button", { name: /skip for now/i }).click();
 
     // 5. Workspace name — auto-populated from the email domain.
     await expect(
-      page.getByRole("heading", { name: /name your workspace/i }),
+      page.getByRole("heading", { name: /name your workspace/i })
     ).toBeVisible();
     await expect(page.getByLabel(/workspace name/i)).toHaveValue("Clinora");
     await page.getByRole("button", { name: /^continue$/i }).click();
 
     // 6. Bucket — calendar deferred so this routes to transcriber.
     await expect(
-      page.getByRole("heading", { name: /what do you do\?/i }),
+      page.getByRole("heading", { name: /what do you do\?/i })
     ).toBeVisible();
     await page.getByRole("radio", { name: /founder/i }).click();
     await page.getByRole("button", { name: /^continue$/i }).click();
 
     // 7. Transcriber.
     await expect(
-      page.getByRole("heading", { name: /welcome to attune/i }),
+      page.getByRole("heading", { name: /welcome to attune/i })
     ).toBeVisible();
     await page.getByRole("button", { name: /i.?m ready/i }).click();
 
     // 8. Main app renders with the sidebar.
-    await expect(page.getByRole("heading", { name: /^record$/i })).toBeVisible();
-    await expect(page.getByRole("navigation").getByText(/inbox/i)).toBeVisible();
+    await expect(page.getByRole("heading", { name: /^home$/i })).toBeVisible();
+    await expect(page.getByRole("navigation").getByText(/my notes/i)).toBeVisible();
 
     // 9. Backend received the right IPC calls.
     const signupCalls = await ipcCalls(page, "auth_request_signin_code");
@@ -95,7 +100,7 @@ test.describe("Onboarding — fresh signup", () => {
     });
     await page.goto("/");
     await expect(
-      page.getByRole("heading", { name: /allow attune to transcribe/i }),
+      page.getByRole("heading", { name: /allow attune to transcribe/i })
     ).toBeVisible();
     await expect(page.getByRole("navigation")).toHaveCount(0);
   });
@@ -111,16 +116,21 @@ test.describe("Onboarding — returning user", () => {
     });
     await page.goto("/");
 
-    await expect(page.getByRole("heading", { name: /welcome to attune/i })).toBeVisible();
-    await page.getByPlaceholder(/you@company\.com/i).fill("ege@clinora.ai");
-    await page.getByRole("button", { name: /^continue$/i }).first().click();
     await expect(
-      page.getByRole("heading", { name: /check your email/i }),
+      page.getByRole("heading", { name: /welcome to attune/i })
+    ).toBeVisible();
+    await page.getByPlaceholder(/you@company\.com/i).fill("ege@clinora.ai");
+    await page
+      .getByRole("button", { name: /^continue$/i })
+      .first()
+      .click();
+    await expect(
+      page.getByRole("heading", { name: /check your email/i })
     ).toBeVisible();
     await page.locator('input[id="code-0"]').fill("987654");
     await page.getByRole("button", { name: /verify and continue/i }).click();
 
     // Straight to main app — no EventKit / workspace screens.
-    await expect(page.getByRole("heading", { name: /^record$/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /^home$/i })).toBeVisible();
   });
 });

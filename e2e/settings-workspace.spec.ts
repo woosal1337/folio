@@ -14,7 +14,7 @@ import { ipcCalls, readSettings, setupScenario } from "./fixtures/scenario";
 test.beforeEach(async ({ page }) => {
   await setupScenario(page, { startSignedIn: true });
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: /^record$/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /^home$/i })).toBeVisible();
   await page.getByRole("button", { name: /^settings$/i }).click();
 });
 
@@ -23,7 +23,10 @@ test("Workspace General — workspace name input is editable + persists", async 
 }) => {
   // There are two General entries (Recording → General + Workspace → General)
   // — disambiguate by clicking the second one in DOM order.
-  await page.getByRole("button", { name: /^general$/i }).nth(1).click();
+  await page
+    .getByRole("button", { name: /^general$/i })
+    .nth(1)
+    .click();
   const nameInput = page.getByPlaceholder(/clinora/i);
   await nameInput.fill("Acme Co");
   await page.getByRole("button", { name: /^save$/i }).click();
@@ -32,7 +35,10 @@ test("Workspace General — workspace name input is editable + persists", async 
 });
 
 test("Workspace General — discoverable toggle persists", async ({ page }) => {
-  await page.getByRole("button", { name: /^general$/i }).nth(1).click();
+  await page
+    .getByRole("button", { name: /^general$/i })
+    .nth(1)
+    .click();
   const toggle = page.getByRole("switch", {
     name: /discoverable by matching email domain/i,
   });
@@ -42,9 +48,7 @@ test("Workspace General — discoverable toggle persists", async ({ page }) => {
   expect(saved.workspace_discoverable).toBe(false);
 });
 
-test("Workspace Team — empty state renders for a fresh workspace", async ({
-  page,
-}) => {
+test("Workspace Team — empty state renders for a fresh workspace", async ({ page }) => {
   await page.getByRole("button", { name: /^team$/i }).click();
   await expect(page.getByText(/no pending invites/i)).toBeVisible();
 });
@@ -61,9 +65,7 @@ test("Workspace Analytics — range chips switch active state", async ({ page })
   await expect(sevenDay).toHaveAttribute("aria-pressed", "true");
 });
 
-test("Workspace Billing — Free tier card + 10-row feature matrix", async ({
-  page,
-}) => {
+test("Workspace Billing — Free tier card + 10-row feature matrix", async ({ page }) => {
   await page.getByRole("button", { name: /^billing$/i }).click();
   await expect(page.getByText(/^free$/i).first()).toBeVisible();
   // The matrix lists Pro / Team / Enterprise tiers.
@@ -71,15 +73,16 @@ test("Workspace Billing — Free tier card + 10-row feature matrix", async ({
   await expect(page.getByText(/^enterprise$/i).first()).toBeVisible();
 });
 
-test("Connectors — featured MCP card + copy-URL is interactive", async ({
-  page,
-}) => {
+test("Connectors — featured MCP card + copy-URL is interactive", async ({ page }) => {
   await page.getByRole("button", { name: /^connectors$/i }).click();
   await expect(page.getByText(/local mcp server/i)).toBeVisible();
   // Granting clipboard write to Chromium so copy actually works in
   // the headless run.
   await page.context().grantPermissions(["clipboard-write", "clipboard-read"]);
-  await page.getByRole("button", { name: /^copy$/i }).first().click();
+  await page
+    .getByRole("button", { name: /^copy$/i })
+    .first()
+    .click();
   const text = await page.evaluate(() => navigator.clipboard.readText());
   expect(text).toContain("http://127.0.0.1:7438/mcp");
 });
@@ -88,7 +91,10 @@ test("Referrals — personal link is visible and copyable", async ({ page }) => 
   await page.getByRole("button", { name: /^referrals$/i }).click();
   await expect(page.getByText(/join\.attune\.app/i).first()).toBeVisible();
   await page.context().grantPermissions(["clipboard-write", "clipboard-read"]);
-  await page.getByRole("button", { name: /^copy$/i }).first().click();
+  await page
+    .getByRole("button", { name: /^copy$/i })
+    .first()
+    .click();
   const text = await page.evaluate(() => navigator.clipboard.readText());
   expect(text).toContain("join.attune.app");
 });
