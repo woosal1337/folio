@@ -112,7 +112,7 @@ fn autoname() -> Agent {
     }
 }
 
-const SUMMARIZE_PROMPT: &str = "You are a meeting note-taker. Given the \
+pub(crate) const SUMMARIZE_PROMPT: &str = "You are a meeting note-taker. Given the \
 transcript of one meeting — and, when present, the notes the user typed \
 live during the call — produce a clean, skimmable note in Markdown with \
 EXACTLY these four sections, using these stable headings in this order:\n\
