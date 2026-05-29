@@ -12,6 +12,7 @@ import {
   Pause,
   Play,
   RefreshCw,
+  Share,
   Sparkles,
   Square,
   Trash2,
@@ -31,6 +32,7 @@ import { formatBytes, formatDuration } from "@/shared/lib/utils";
 import {
   clearRecordingArtifacts,
   deleteRecording,
+  exportNoteMarkdown,
   getRecording,
   listAgentRuns,
   listNoteTemplates,
@@ -39,6 +41,7 @@ import {
   revealInFinder,
   runAgent,
   setNoteTemplate,
+  sharePaths,
   transcribeRecording,
 } from "@/shared/lib/ipc";
 import type { NoteTemplate } from "@/shared/types/NoteTemplate";
@@ -246,6 +249,26 @@ export default function Editor() {
     }
   };
 
+  // GET-166: export the note as a self-contained Markdown file and hand
+  // it to the OS share sheet (AirDrop / Mail / Messages / Notes). If the
+  // share sheet isn't available, reveal the file in Finder instead. All
+  // local — no cloud egress, so it's safe under privacy_mode.
+  const handleShare = async () => {
+    if (!recording) return;
+    try {
+      const path = await exportNoteMarkdown(recording.session_dir);
+      try {
+        await sharePaths([path]);
+      } catch {
+        await revealInFinder(path);
+      }
+      toast.success("Note exported", { description: "Markdown ready to share" });
+    } catch (e) {
+      console.error("share note:", e);
+      toast.error("Could not export note", { description: String(e) });
+    }
+  };
+
   // GET-163: persist an edited title to `title.txt`. An empty value clears
   // it (falls back to the autoname/label). Optimistically updates local
   // state so the header reflects the change without a re-fetch.
@@ -420,6 +443,7 @@ export default function Editor() {
             reTranscribing={reTranscribing || isCurrentlyTranscribing}
             onChat={() => setChatOpen(true)}
             onCopy={handleCopy}
+            onShare={handleShare}
             onReTranscribe={handleReTranscribe}
             onReveal={handleReveal}
             onDelete={handleDelete}
@@ -857,6 +881,7 @@ function NoteMenu({
   reTranscribing,
   onChat,
   onCopy,
+  onShare,
   onReTranscribe,
   onReveal,
   onDelete,
@@ -866,6 +891,7 @@ function NoteMenu({
   reTranscribing: boolean;
   onChat: () => void;
   onCopy: () => void;
+  onShare: () => void;
   onReTranscribe: () => void;
   onReveal: () => void;
   onDelete: () => void;
@@ -912,6 +938,9 @@ function NoteMenu({
                 Copy notes
               </MenuItem>
             ) : null}
+            <MenuItem icon={Share} onClick={run(onShare)}>
+              Share / export
+            </MenuItem>
             {hasTranscript ? (
               <MenuItem
                 icon={RefreshCw}
