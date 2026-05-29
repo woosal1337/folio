@@ -144,8 +144,6 @@ pub fn run() {
             commands::agents::run_agent,
             commands::agents::list_agent_runs,
             commands::agents::delete_agent_run,
-            commands::agents::list_note_templates,
-            commands::agents::set_note_template,
             commands::tasks::list_tasks,
             commands::tasks::create_task,
             commands::tasks::update_task,

@@ -31,7 +31,6 @@ import {
 
 import type { Agent } from "@/shared/types/Agent";
 import type { AgentRun } from "@/shared/types/AgentRun";
-import type { NoteTemplate } from "@/shared/types/NoteTemplate";
 import type { NoteSearchHit } from "@/shared/types/NoteSearchHit";
 import type { ChatThread } from "@/shared/types/ChatThread";
 import type { DeviceInfo } from "@/shared/types/DeviceInfo";
@@ -328,22 +327,6 @@ export function listAgentRuns(sessionDir: string): Promise<AgentRun[]> {
 
 export function deleteAgentRun(sessionDir: string, agentId: string): Promise<void> {
   return call<void>("delete_agent_run", { sessionDir, agentId });
-}
-
-// ---- Enhanced-notes templates (GET-164) --------------------------------
-
-/** The built-in enhanced-notes formats for the per-note picker. */
-export function listNoteTemplates(): Promise<NoteTemplate[]> {
-  return call<NoteTemplate[]>("list_note_templates");
-}
-
-/** Set (or clear with `templateId = null`) a note's enhanced-notes
- *  template. Regenerate then uses the chosen format. */
-export function setNoteTemplate(
-  sessionDir: string,
-  templateId: string | null
-): Promise<void> {
-  return call<void>("set_note_template", { sessionDir, templateId });
 }
 
 // ---- Tasks -------------------------------------------------------------

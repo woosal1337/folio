@@ -20,7 +20,6 @@ pub mod keystore;
 pub mod live_agent;
 pub mod local_llm;
 pub mod marketplace;
-pub mod note_templates;
 pub mod provider;
 pub mod providers;
 pub mod rate_limit;
