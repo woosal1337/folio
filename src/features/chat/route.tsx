@@ -16,14 +16,24 @@ import {
   Eye,
   ListTodo,
   Loader2,
+  Plus,
   Send,
   Sparkles,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/shared/ui/button";
-import { askLibrary, listProviderModels, type ChatTurn } from "@/shared/lib/ipc";
+import {
+  askLibrary,
+  deleteChatThread,
+  listChatThreads,
+  listProviderModels,
+  saveChatThread,
+  type ChatTurn,
+} from "@/shared/lib/ipc";
 import { useAuthStore } from "@/shared/stores/auth-store";
+import type { ChatThread } from "@/shared/types/ChatThread";
 import type { ModelInfo } from "@/shared/types/ModelInfo";
 
 interface Recipe {
@@ -69,6 +79,13 @@ interface Msg {
   content: string;
 }
 
+/** Short relative-ish label for a Recents row's updated time. */
+function formatRecentTime(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleDateString([], { month: "short", day: "numeric" });
+}
+
 export default function Chat() {
   const identity = useAuthStore((s) => s.identity);
   const firstName = React.useMemo(() => {
@@ -86,6 +103,21 @@ export default function Chat() {
   const [models, setModels] = React.useState<ModelInfo[]>([]);
   const [model, setModel] = React.useState<string>("");
   const scrollRef = React.useRef<HTMLDivElement>(null);
+
+  // Persisted conversation (GET-167): a thread id + creation time we keep
+  // stable across turns so each save upserts the same file, plus the
+  // Recents list shown in the header.
+  const threadIdRef = React.useRef<string | null>(null);
+  const createdAtRef = React.useRef<string | null>(null);
+  const [recents, setRecents] = React.useState<ChatThread[]>([]);
+  const [recentsOpen, setRecentsOpen] = React.useState(false);
+
+  const loadRecents = React.useCallback(() => {
+    listChatThreads("library")
+      .then(setRecents)
+      .catch((e) => console.error("list_chat_threads:", e));
+  }, []);
+  React.useEffect(() => loadRecents(), [loadRecents]);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -105,6 +137,34 @@ export default function Chat() {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
   }, [messages, busy]);
 
+  // Persist the conversation after each completed turn (GET-167).
+  const persist = React.useCallback(
+    (msgs: Msg[]) => {
+      if (msgs.length === 0) return;
+      if (!threadIdRef.current) {
+        threadIdRef.current = (globalThis.crypto?.randomUUID?.() ??
+          `t-${Date.now()}`) as string;
+        createdAtRef.current = new Date().toISOString();
+      }
+      const firstUser = msgs.find((m) => m.role === "user")?.content ?? "Conversation";
+      const title = firstUser.length > 60 ? `${firstUser.slice(0, 57)}…` : firstUser;
+      const now = new Date().toISOString();
+      const thread: ChatThread = {
+        id: threadIdRef.current,
+        scope: "library",
+        session_dir: null,
+        title,
+        created_at: createdAtRef.current ?? now,
+        updated_at: now,
+        messages: msgs.map((m) => ({ role: m.role, content: m.content })),
+      };
+      saveChatThread(thread)
+        .then(loadRecents)
+        .catch((e) => console.error("save_chat_thread:", e));
+    },
+    [loadRecents]
+  );
+
   const ask = React.useCallback(
     async (question: string) => {
       const q = question.trim();
@@ -118,7 +178,11 @@ export default function Chat() {
       setBusy(true);
       try {
         const { answer } = await askLibrary(q, history, model || undefined);
-        setMessages((prev) => [...prev, { role: "assistant", content: answer }]);
+        setMessages((prev) => {
+          const next: Msg[] = [...prev, { role: "assistant", content: answer }];
+          persist(next);
+          return next;
+        });
       } catch (e) {
         console.error("ask_library:", e);
         toast.error("Couldn't answer that", { description: String(e) });
@@ -130,7 +194,35 @@ export default function Chat() {
         setBusy(false);
       }
     },
-    [busy, messages, model]
+    [busy, messages, model, persist]
+  );
+
+  const openThread = React.useCallback((t: ChatThread) => {
+    threadIdRef.current = t.id;
+    createdAtRef.current = t.created_at;
+    setMessages(
+      t.messages.map((m) => ({ role: m.role as Msg["role"], content: m.content }))
+    );
+    setRecentsOpen(false);
+  }, []);
+
+  const newChat = React.useCallback(() => {
+    threadIdRef.current = null;
+    createdAtRef.current = null;
+    setMessages([]);
+    setRecentsOpen(false);
+  }, []);
+
+  const removeThread = React.useCallback(
+    (id: string) => {
+      deleteChatThread(id)
+        .then(() => {
+          if (threadIdRef.current === id) newChat();
+          loadRecents();
+        })
+        .catch((e) => console.error("delete_chat_thread:", e));
+    },
+    [loadRecents, newChat]
   );
 
   // Auto-ask the seed passed from the Home Ask bar (GET-156), once.
@@ -149,20 +241,90 @@ export default function Chat() {
         <h1 className="font-serif text-3xl font-medium tracking-tight">
           {firstName ? `Hi ${firstName}, ask anything` : "Ask anything"}
         </h1>
-        {models.length > 0 ? (
-          <select
-            value={model}
-            onChange={(e) => setModel(e.target.value)}
-            aria-label="Model"
-            className="h-8 rounded-md border border-input bg-card px-2 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        <div className="flex items-center gap-1.5">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-1.5"
+            onClick={newChat}
+            title="New conversation"
           >
-            {models.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.display_name}
-              </option>
-            ))}
-          </select>
-        ) : null}
+            <Plus className="h-3.5 w-3.5" />
+            New
+          </Button>
+          <div className="relative">
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-haspopup="menu"
+              aria-expanded={recentsOpen}
+              onClick={() => setRecentsOpen((v) => !v)}
+            >
+              Recents
+            </Button>
+            {recentsOpen ? (
+              <>
+                <button
+                  type="button"
+                  aria-hidden="true"
+                  tabIndex={-1}
+                  className="fixed inset-0 z-10 cursor-default"
+                  onClick={() => setRecentsOpen(false)}
+                />
+                <div
+                  role="menu"
+                  className="absolute right-0 top-full z-20 mt-1 max-h-80 w-80 overflow-y-auto rounded-md border border-border bg-popover py-1 text-sm shadow-lg"
+                >
+                  {recents.length === 0 ? (
+                    <p className="px-3 py-3 text-xs text-muted-foreground">
+                      No conversations yet.
+                    </p>
+                  ) : (
+                    recents.map((t) => (
+                      <div
+                        key={t.id}
+                        className="group flex items-center gap-2 px-2 py-1.5 hover:bg-accent"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => openThread(t)}
+                          className="min-w-0 flex-1 text-left"
+                        >
+                          <p className="truncate text-foreground">{t.title}</p>
+                          <p className="truncate text-2xs text-muted-foreground">
+                            {formatRecentTime(t.updated_at)}
+                          </p>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removeThread(t.id)}
+                          aria-label={`Delete conversation ${t.title}`}
+                          className="rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </>
+            ) : null}
+          </div>
+          {models.length > 0 ? (
+            <select
+              value={model}
+              onChange={(e) => setModel(e.target.value)}
+              aria-label="Model"
+              className="h-8 rounded-md border border-input bg-card px-2 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {models.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.display_name}
+                </option>
+              ))}
+            </select>
+          ) : null}
+        </div>
       </header>
 
       <div ref={scrollRef} className="mt-6 flex-1 space-y-3 overflow-y-auto">
