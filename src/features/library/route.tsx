@@ -10,13 +10,18 @@ import {
 } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
-import { Folder, X } from "lucide-react";
+import { Folder, FolderInput, FolderOpen, FolderX, X } from "lucide-react";
 
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent } from "@/shared/ui/card";
 import { useQuickNote } from "@/shared/hooks/use-take-notes";
 import { useRecording } from "@/shared/stores/recording-store";
 import { confirmDelete } from "@/shared/stores/confirm-delete-store";
+import { useFolders } from "@/shared/stores/folders-store";
+import {
+  useContextMenu,
+  type ContextMenuItem,
+} from "@/shared/stores/context-menu-store";
 import {
   clearRecordingArtifacts,
   deleteRecording,
@@ -49,6 +54,12 @@ export default function Library() {
   const [filter, setFilter] = React.useState<TranscriptFilter>("all");
   const [sort, setSort] = React.useState<SortOrder>("newest");
 
+  // Folders for the right-click "Move to folder" submenu (GET-162).
+  const folders = useFolders((s) => s.folders);
+  const loadFolders = useFolders((s) => s.load);
+  const assignFolder = useFolders((s) => s.assign);
+  React.useEffect(() => void loadFolders(), [loadFolders]);
+
   const refresh = React.useCallback(async () => {
     setLoading(true);
     try {
@@ -60,6 +71,19 @@ export default function Library() {
       setLoading(false);
     }
   }, []);
+
+  const onMove = React.useCallback(
+    async (item: RecordingSummary, folder: string | null) => {
+      try {
+        await assignFolder(item.session_dir, folder);
+        refresh();
+      } catch (e) {
+        console.error("set_note_folder:", e);
+        toast.error("Could not move note", { description: String(e) });
+      }
+    },
+    [assignFolder, refresh]
+  );
 
   React.useEffect(() => {
     refresh();
@@ -260,10 +284,12 @@ export default function Library() {
               item={item}
               transcribing={transcribingDir === item.session_dir}
               snippet={contentHits.get(item.session_dir) ?? null}
+              folders={folders}
               onOpen={() => open(item)}
               onReveal={() => onReveal(item)}
               onReTranscribe={() => void onReTranscribe(item)}
               onDelete={() => void onDelete(item)}
+              onMove={(folder) => void onMove(item, folder)}
             />
           ))}
         </div>
@@ -276,25 +302,90 @@ function NoteRow({
   item,
   transcribing,
   snippet,
+  folders,
   onOpen,
   onReveal,
   onReTranscribe,
   onDelete,
+  onMove,
 }: {
   item: RecordingSummary;
   transcribing: boolean;
   /** Content-search excerpt (GET-165); shown instead of the subtitle. */
   snippet: string | null;
+  folders: string[];
   onOpen: () => void;
   onReveal: () => void;
   onReTranscribe: () => void;
   onDelete: () => void;
+  onMove: (folder: string | null) => void;
 }) {
+  const openMenu = useContextMenu((s) => s.openMenu);
   const title = item.title?.trim() || item.suggested_title?.trim() || item.label;
   // A content-match snippet takes the second line; else the subtitle.
   const secondary = snippet ?? item.suggested_subtitle ?? null;
+
+  // Right-click → quick actions (delete, move to folder, …).
+  const onContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const folderChildren: ContextMenuItem[] = [
+      ...folders.map((f) => ({
+        id: `mv:${f}`,
+        label: f,
+        icon: Folder,
+        disabled: item.folder === f,
+        onSelect: () => onMove(f),
+      })),
+      ...(item.folder
+        ? [
+            {
+              id: "mv:none",
+              label: "Remove from folder",
+              icon: FolderX,
+              separatorBefore: folders.length > 0,
+              onSelect: () => onMove(null),
+            },
+          ]
+        : []),
+    ];
+    const items: ContextMenuItem[] = [
+      { id: "open", label: "Open", icon: FileText, onSelect: onOpen },
+      {
+        id: "move",
+        label: "Move to folder",
+        icon: FolderInput,
+        disabled: folderChildren.length === 0,
+        children: folderChildren.length ? folderChildren : undefined,
+      },
+      ...(item.has_transcript
+        ? [
+            {
+              id: "retr",
+              label: "Re-transcribe",
+              icon: RefreshCw,
+              onSelect: onReTranscribe,
+            },
+          ]
+        : []),
+      { id: "reveal", label: "Reveal in Finder", icon: FolderOpen, onSelect: onReveal },
+      {
+        id: "del",
+        label: "Delete note",
+        icon: Trash2,
+        destructive: true,
+        separatorBefore: true,
+        onSelect: onDelete,
+      },
+    ];
+    openMenu(e.clientX, e.clientY, items);
+  };
+
   return (
-    <div className="group flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3 transition-colors hover:bg-muted/40">
+    // eslint-disable-next-line jsx-a11y/no-static-element-interactions -- right-click affordance; all actions are also reachable via the ⋯ button
+    <div
+      onContextMenu={onContextMenu}
+      className="group flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3 transition-colors hover:bg-muted/40"
+    >
       <button
         type="button"
         onClick={onOpen}
