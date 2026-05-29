@@ -189,6 +189,7 @@ export async function setupScenario(page: Page, options: ScenarioOptions = {}) {
         { id: "blue-yeti", name: "Blue Yeti" },
       ];
       w.__ATTUNE_RECORDINGS__ = JSON.parse(recordings as string);
+      w.__ATTUNE_FOLDERS__ = [];
       w.__ATTUNE_TASKS__ = JSON.parse(tasks as string);
       w.__ATTUNE_MEMORIES__ = JSON.parse(memories as string);
       w.__ATTUNE_WEBHOOKS__ = JSON.parse(webhooks as string);
@@ -343,6 +344,44 @@ export async function setupScenario(page: Page, options: ScenarioOptions = {}) {
       delete_recording: () => null,
       reveal_in_finder: () => null,
       share_paths: () => null,
+      // Folders / Spaces (GET-162): a stateful in-page registry. Each
+      // handler returns a FRESH array (like the Rust backend's Vec over
+      // IPC) so zustand selectors see a new reference and re-render.
+      list_folders: () => [
+        ...((window as unknown as Record<string, unknown>)
+          .__ATTUNE_FOLDERS__ as string[]),
+      ],
+      create_folder: (args) => {
+        const a = args as { name: string };
+        const w = window as unknown as Record<string, unknown>;
+        const list = w.__ATTUNE_FOLDERS__ as string[];
+        const name = a.name.trim();
+        if (name && !list.some((f) => f.toLowerCase() === name.toLowerCase()))
+          w.__ATTUNE_FOLDERS__ = [...list, name];
+        return [...(w.__ATTUNE_FOLDERS__ as string[])];
+      },
+      rename_folder: (args) => {
+        const a = args as { from: string; to: string };
+        const w = window as unknown as Record<string, unknown>;
+        const list = w.__ATTUNE_FOLDERS__ as string[];
+        w.__ATTUNE_FOLDERS__ = list.map((f) => (f === a.from ? a.to : f));
+        return [...(w.__ATTUNE_FOLDERS__ as string[])];
+      },
+      delete_folder: (args) => {
+        const a = args as { name: string };
+        const w = window as unknown as Record<string, unknown>;
+        const list = w.__ATTUNE_FOLDERS__ as string[];
+        w.__ATTUNE_FOLDERS__ = list.filter((f) => f !== a.name);
+        return [...(w.__ATTUNE_FOLDERS__ as string[])];
+      },
+      set_note_folder: (args) => {
+        const a = args as { sessionDir: string; folder: string | null };
+        const w = window as unknown as Record<string, unknown>;
+        const list = w.__ATTUNE_FOLDERS__ as string[];
+        if (a.folder && !list.some((f) => f.toLowerCase() === a.folder!.toLowerCase()))
+          w.__ATTUNE_FOLDERS__ = [...list, a.folder];
+        return null;
+      },
       recording_status: () => ({
         recording: false,
         elapsed_secs: 0,

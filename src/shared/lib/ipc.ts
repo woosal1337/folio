@@ -162,6 +162,37 @@ export function deleteRecording(sessionDir: string): Promise<void> {
   return call<void>("delete_recording", { sessionDir });
 }
 
+// ---- Folders / Spaces (GET-162) -----------------------------------------
+
+/** Every folder name (registry order, then in-use orphans). */
+export function listFolders(): Promise<string[]> {
+  return call<string[]>("list_folders");
+}
+
+/** Create a folder; idempotent on a case-insensitive name match.
+ *  Returns the updated folder list. */
+export function createFolder(name: string): Promise<string[]> {
+  return call<string[]>("create_folder", { name });
+}
+
+/** Rename a folder, rewriting every member note. Returns the new list. */
+export function renameFolder(from: string, to: string): Promise<string[]> {
+  return call<string[]>("rename_folder", { from, to });
+}
+
+/** Delete a folder, clearing its notes' assignments. Returns the new list. */
+export function deleteFolder(name: string): Promise<string[]> {
+  return call<string[]>("delete_folder", { name });
+}
+
+/** Assign a note to a folder, or clear it with `folder = null`. */
+export function setNoteFolder(
+  sessionDir: string,
+  folder: string | null
+): Promise<void> {
+  return call<void>("set_note_folder", { sessionDir, folder });
+}
+
 // ---- Transcription ------------------------------------------------------
 
 export function transcribeRecording(sessionDir: string): Promise<TranscriptionResult> {

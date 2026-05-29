@@ -8,8 +8,9 @@ import {
   Sparkles,
   Trash2,
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
+import { Folder, X } from "lucide-react";
 
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent } from "@/shared/ui/card";
@@ -32,6 +33,8 @@ import {
 
 export default function Library() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const folderFilter = searchParams.get("folder");
   const quickNote = useQuickNote();
   const transcribingDir = useRecording((s) => s.transcribingDir);
   const lastSavedDir = useRecording((s) => s.lastSavedDir);
@@ -111,6 +114,7 @@ export default function Library() {
   const visible = React.useMemo(() => {
     const needle = query.trim().toLowerCase();
     const out = recordings.filter((r) => {
+      if (folderFilter && r.folder !== folderFilter) return false;
       if (filter === "transcribed" && !r.has_transcript) return false;
       if (filter === "untranscribed" && r.has_transcript) return false;
       if (needle) {
@@ -134,15 +138,19 @@ export default function Library() {
     };
     out.sort(compareBy);
     return out;
-  }, [recordings, query, filter, sort]);
+  }, [recordings, query, filter, sort, folderFilter]);
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-8 py-8">
       <header data-drag="" className="flex select-none items-baseline justify-between">
         <div>
-          <h1 className="font-serif text-3xl font-medium tracking-tight">My Notes</h1>
+          <h1 className="font-serif text-3xl font-medium tracking-tight">
+            {folderFilter ?? "My Notes"}
+          </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Every note, searchable. Click one to open it.
+            {folderFilter
+              ? "Notes filed in this folder."
+              : "Every note, searchable. Click one to open it."}
           </p>
         </div>
         <Button variant="ghost" size="sm" onClick={refresh} className="gap-2">
@@ -150,6 +158,23 @@ export default function Library() {
           Refresh
         </Button>
       </header>
+
+      {folderFilter ? (
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-2.5 py-1">
+            <Folder className="h-3 w-3" />
+            {folderFilter}
+          </span>
+          <button
+            type="button"
+            onClick={() => setSearchParams({})}
+            className="inline-flex items-center gap-1 rounded-full px-2 py-1 transition-colors hover:text-foreground"
+          >
+            <X className="h-3 w-3" />
+            Clear folder
+          </button>
+        </div>
+      ) : null}
 
       <LibraryFilters
         query={query}

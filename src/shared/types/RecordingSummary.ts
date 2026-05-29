@@ -41,4 +41,10 @@ language_override: string | null,
  * Takes precedence over `suggested_title` + `label` in the UI.
  * None when the user has not renamed the note.
  */
-title: string | null, };
+title: string | null,
+/**
+ * Folder this note is filed under, from `<session_dir>/folder.txt`
+ * (GET-162). None when the note is unfiled. Used by the sidebar
+ * Spaces filter and My Notes grouping.
+ */
+folder: string | null, };

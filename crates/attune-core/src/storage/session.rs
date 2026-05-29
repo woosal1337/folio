@@ -54,6 +54,11 @@ pub struct RecordingSummary {
     /// None when the user has not renamed the note.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
+    /// Folder this note is filed under, from `<session_dir>/folder.txt`
+    /// (GET-162). None when the note is unfiled. Used by the sidebar
+    /// Spaces filter and My Notes grouping.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub folder: Option<String>,
 }
 
 /// Scan `output_dir` for recording sessions and return one summary per
@@ -113,6 +118,7 @@ pub fn scan_recordings(output_dir: &Path) -> Vec<RecordingSummary> {
         let autoname = read_autoname_run(&path);
         let language_override = read_language_override(&path);
         let title = read_user_title(&path);
+        let folder = read_note_folder(&path);
         out.push(RecordingSummary {
             session_dir: path,
             label,
@@ -143,6 +149,7 @@ pub fn scan_recordings(output_dir: &Path) -> Vec<RecordingSummary> {
             }),
             language_override,
             title,
+            folder,
         });
     }
     // Newest first. Recordings that have a created_at sort by that;
@@ -182,6 +189,18 @@ fn read_language_override(session_dir: &Path) -> Option<String> {
 /// First non-empty line, trimmed; None when missing or blank.
 fn read_user_title(session_dir: &Path) -> Option<String> {
     let raw = std::fs::read_to_string(session_dir.join("title.txt")).ok()?;
+    let trimmed = raw.lines().next()?.trim();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed.to_string())
+    }
+}
+
+/// Read the folder a note is filed under from `<session_dir>/folder.txt`
+/// (GET-162). First non-empty line, trimmed; None when missing or blank.
+fn read_note_folder(session_dir: &Path) -> Option<String> {
+    let raw = std::fs::read_to_string(session_dir.join("folder.txt")).ok()?;
     let trimmed = raw.lines().next()?.trim();
     if trimmed.is_empty() {
         None

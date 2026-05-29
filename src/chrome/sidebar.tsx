@@ -16,6 +16,7 @@ import { cn } from "@/shared/lib/utils";
 import { useTheme } from "@/shared/hooks/use-theme";
 import { useSidebarCollapsed } from "@/shared/hooks/use-sidebar-collapsed";
 import { Button } from "@/shared/ui/button";
+import { SpacesSection } from "@/chrome/spaces-section";
 import logoUrl from "@/assets/logo.svg";
 
 interface NavItem {
@@ -97,36 +98,41 @@ export function Sidebar({ onOpenSettings }: SidebarProps) {
       </div>
       <div className="pb-4" />
 
-      {/* Primary nav */}
-      <nav className={cn("flex-1 space-y-0.5", collapsed ? "w-full px-1.5" : "px-2")}>
-        {items.map((item) => {
-          const Icon = item.icon;
-          const alsoActive = item.alsoActiveOn?.some((prefix) =>
-            location.pathname.startsWith(prefix)
-          );
-          return (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.to === "/"}
-              title={collapsed ? item.label : undefined}
-              aria-label={collapsed ? item.label : undefined}
-              className={({ isActive }) =>
-                cn(
-                  "group flex items-center rounded-md text-sm font-medium transition-colors",
-                  collapsed ? "h-9 w-full justify-center" : "gap-3 px-3 py-2",
-                  isActive || alsoActive
-                    ? "bg-accent text-accent-foreground"
-                    : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
-                )
-              }
-            >
-              <Icon className="h-4 w-4 shrink-0" />
-              {!collapsed && <span>{item.label}</span>}
-            </NavLink>
-          );
-        })}
-      </nav>
+      {/* Primary nav + Spaces (scrolls together when the list grows) */}
+      <div className="flex-1 overflow-y-auto">
+        <nav className={cn("space-y-0.5", collapsed ? "w-full px-1.5" : "px-2")}>
+          {items.map((item) => {
+            const Icon = item.icon;
+            const alsoActive = item.alsoActiveOn?.some((prefix) =>
+              location.pathname.startsWith(prefix)
+            );
+            return (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.to === "/"}
+                title={collapsed ? item.label : undefined}
+                aria-label={collapsed ? item.label : undefined}
+                className={({ isActive }) =>
+                  cn(
+                    "group flex items-center rounded-md text-sm font-medium transition-colors",
+                    collapsed ? "h-9 w-full justify-center" : "gap-3 px-3 py-2",
+                    isActive || alsoActive
+                      ? "bg-accent text-accent-foreground"
+                      : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+                  )
+                }
+              >
+                <Icon className="h-4 w-4 shrink-0" />
+                {!collapsed && <span>{item.label}</span>}
+              </NavLink>
+            );
+          })}
+        </nav>
+
+        {/* Spaces / folders (GET-162) */}
+        <SpacesSection collapsed={collapsed} />
+      </div>
 
       {/* Footer */}
       <div
