@@ -51,6 +51,13 @@ auto_transcribe_enabled: boolean,
  */
 auto_vad_enabled: boolean,
 /**
+ * Beta: stream a live transcript preview into the record dock while
+ * capturing (local Whisper over a rolling window). Off by default —
+ * when off, transcription happens only once on Stop. macOS-only,
+ * requires a downloaded local Whisper model.
+ */
+live_transcript_enabled: boolean,
+/**
  * Root directory for the local memory layer. Defaults to a
  * subtree of the user's Obsidian vault per the
  * `ai-chat-multi-provider.md` plan; falls back to

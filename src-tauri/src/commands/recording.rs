@@ -22,14 +22,20 @@ use crate::app::AppState;
 fn maybe_start_live_transcript(app: &tauri::AppHandle, state: &AppState, session_dir: PathBuf) {
     use attune_core::transcription::{WhisperModel, WhisperModelStore};
 
-    let (kind, model_id, language) = {
+    let (enabled, kind, model_id, language) = {
         let s = state.settings.lock();
         (
+            s.live_transcript_enabled,
             s.transcriber.clone(),
             s.local_whisper_model.clone(),
             s.transcription_language.clone(),
         )
     };
+    // Beta opt-in: skip the live preview unless the user enabled it in
+    // Settings. When off, transcription happens only on Stop.
+    if !enabled {
+        return;
+    }
     if kind != "local_whisper" {
         return;
     }
