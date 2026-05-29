@@ -98,7 +98,7 @@ export function FollowupEmailButton({ sessionDir, disabled }: Props) {
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl p-6">
           <DialogHeader>
             <DialogTitle>Follow-up email</DialogTitle>
             <DialogDescription>
