@@ -43,6 +43,7 @@ import {
   transcribeRecording,
 } from "@/shared/lib/ipc";
 import { useRecording } from "@/shared/stores/recording-store";
+import { useSettingsStore } from "@/shared/stores/settings-store";
 import { useTranscriberCopy } from "@/shared/hooks/use-transcriber-copy";
 import type { AgentRun } from "@/shared/types/AgentRun";
 import type { RecordingSummary } from "@/shared/types/RecordingSummary";
@@ -89,7 +90,12 @@ export default function Editor() {
 
   // Live-transcript preview (GET-160): the latest rolling-window caption
   // for THIS note while it's the active capture. Cleared when capture
-  // stops; the final on-stop transcript is the source of truth.
+  // stops; the final on-stop transcript is the source of truth. Gated
+  // behind the Beta opt-in — when off, the backend never emits previews,
+  // so the dock should not advertise a live caption either.
+  const liveTranscriptEnabled = useSettingsStore(
+    (s) => s.settings?.live_transcript_enabled ?? false
+  );
   const [livePreview, setLivePreview] = React.useState("");
   const liveSessionDir = recState.liveSessionDir;
   const isCapturingThis =
@@ -573,6 +579,7 @@ export default function Editor() {
         pausedThis={isPausedThis}
         otherActive={otherActive}
         locked={isProcessing}
+        liveTranscript={liveTranscriptEnabled}
         elapsedLabel={dockElapsedLabel}
         livePreview={isCapturingThis ? livePreview : ""}
         busy={recState.busy}
@@ -602,6 +609,7 @@ function RecordDock({
   pausedThis,
   otherActive,
   locked,
+  liveTranscript,
   elapsedLabel,
   livePreview,
   busy,
@@ -618,6 +626,9 @@ function RecordDock({
   /** Note is being processed (transcribe / summarize) — grey out and
    *  block the record controls until it settles. */
   locked: boolean;
+  /** Live-transcript Beta opt-in. When off, the dock shows no live
+   *  caption preview (the backend emits none either). */
+  liveTranscript: boolean;
   elapsedLabel: string;
   livePreview: string;
   busy: boolean;
@@ -647,7 +658,7 @@ function RecordDock({
   }
   return (
     <div className="pointer-events-none sticky bottom-4 z-10 mt-2 flex flex-col items-center gap-2">
-      {recordingThis ? (
+      {recordingThis && liveTranscript ? (
         <div
           className="pointer-events-auto max-w-xl rounded-2xl border border-border bg-popover/95 px-4 py-2 text-sm leading-relaxed text-muted-foreground shadow-lg backdrop-blur"
           aria-live="polite"
