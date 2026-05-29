@@ -60,6 +60,30 @@ pub async fn search_note_content(
         .map_err(|e| format!("search_note_content task panicked: {e}"))
 }
 
+/// Export a note as a clean, self-contained Markdown file (GET-166) and
+/// return its path. Local-first: assembles title + enhanced notes + live
+/// notes + transcript and writes `<session_dir>/<label>.md`. Nothing
+/// leaves the machine, so it's safe under `privacy_mode`. The frontend
+/// then reveals it or hands it to the OS share sheet.
+#[tauri::command]
+pub async fn export_note_markdown(
+    state: State<'_, AppState>,
+    session_dir: String,
+) -> Result<String, String> {
+    let output_dir = state.settings.lock().output_dir.clone();
+    let session = PathBuf::from(&session_dir);
+    tauri::async_runtime::spawn_blocking(move || -> Result<String, String> {
+        let canon = attune_core::paths::canonicalize_under(&output_dir, &session)
+            .map_err(|e| e.to_string())?;
+        let path = attune_core::storage::note_export::write_markdown(&output_dir, &canon)
+            .map_err(|e| e.to_string())?;
+        Ok(path.to_string_lossy().into_owned())
+    })
+    .await
+    .map_err(|e| format!("export_note_markdown task panicked: {e}"))?
+    .inspect(|path| info!(path = %path, "note exported to markdown"))
+}
+
 /// Delete a recording session directory.
 ///
 /// Refuses to delete unless the path lies under the user's configured

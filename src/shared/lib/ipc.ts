@@ -166,6 +166,12 @@ export function revealInFinder(path: string): Promise<void> {
   return call<void>("reveal_in_finder", { path });
 }
 
+/** Export a note as a self-contained Markdown file (GET-166). Returns
+ *  the written path — hand it to `sharePaths` or `revealInFinder`. */
+export function exportNoteMarkdown(sessionDir: string): Promise<string> {
+  return call<string>("export_note_markdown", { sessionDir });
+}
+
 export function deleteRecording(sessionDir: string): Promise<void> {
   return call<void>("delete_recording", { sessionDir });
 }

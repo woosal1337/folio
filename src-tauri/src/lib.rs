@@ -90,6 +90,7 @@ pub fn run() {
             commands::library::search_note_content,
             commands::library::get_recording,
             commands::library::delete_recording,
+            commands::library::export_note_markdown,
             commands::library::reveal_in_finder,
             commands::library::share_paths,
             commands::permissions::list_permissions,

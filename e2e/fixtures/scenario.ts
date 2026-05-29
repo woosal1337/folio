@@ -379,6 +379,11 @@ export async function setupScenario(page: Page, options: ScenarioOptions = {}) {
       delete_recording: () => null,
       reveal_in_finder: () => null,
       share_paths: () => null,
+      // Markdown export (GET-166): pretend we wrote the file, return path.
+      export_note_markdown: (args) => {
+        const a = args as { sessionDir: string };
+        return `${a.sessionDir}/note.md`;
+      },
       // Folders / Spaces (GET-162): a stateful in-page registry. Each
       // handler returns a FRESH array (like the Rust backend's Vec over
       // IPC) so zustand selectors see a new reference and re-render.

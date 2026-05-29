@@ -14,6 +14,7 @@ pub mod egress_log;
 pub mod folders;
 pub mod fs_io;
 pub mod git_sync;
+pub mod note_export;
 pub mod retention;
 pub mod search;
 pub mod session;
