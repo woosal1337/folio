@@ -24,6 +24,9 @@ interface AuthState {
 
   hydrate: () => Promise<void>;
   setSignedIn: (identity: UserIdentity) => void;
+  /** Patch the cached display name after a successful profile save, so
+   *  the UI reflects it without a full re-hydrate. */
+  setDisplayName: (displayName: string | null) => void;
   clear: () => void;
 }
 
@@ -47,5 +50,9 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   setSignedIn: (identity) => set({ signedIn: true, identity, hydrated: true }),
+  setDisplayName: (displayName) =>
+    set((s) =>
+      s.identity ? { identity: { ...s.identity, display_name: displayName } } : {}
+    ),
   clear: () => set({ signedIn: false, identity: null }),
 }));

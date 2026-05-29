@@ -77,6 +77,19 @@ impl TokenStore {
         read(ACCOUNT_REFRESH)
     }
 
+    /// Overwrite just the cached identity blob, leaving the access /
+    /// refresh tokens untouched. Used when the profile changes
+    /// (e.g. display name) so `auth_status` — which reads identity from
+    /// this cache, not the API — reflects the change across restarts.
+    pub fn update_identity(identity: &UserIdentity) -> Result<()> {
+        let identity_json =
+            serde_json::to_string(identity).map_err(|e| AttuneError::Other(e.to_string()))?;
+        entry(ACCOUNT_IDENTITY)?
+            .set_password(&identity_json)
+            .map_err(map_keychain)?;
+        Ok(())
+    }
+
     pub fn identity() -> Result<Option<UserIdentity>> {
         let Some(json) = read(ACCOUNT_IDENTITY)? else {
             return Ok(None);
