@@ -79,6 +79,10 @@ const config: Config = {
           "sans-serif",
         ],
         serif: ["Spectral", "Georgia", "ui-serif", "serif"],
+        // Brand wordmark only ("attune" in the sidebar). Every other
+        // heading uses the configured system font; see the `.font-serif`
+        // neutraliser in globals.css.
+        wordmark: ["Spectral", "Georgia", "ui-serif", "serif"],
         mono: ["JetBrains Mono", "ui-monospace", "monospace"],
       },
       fontSize: {

@@ -263,14 +263,13 @@ html[data-reading-font="opendyslexic"] body {
  * (titles + body) follows the user's choice. `system` keeps the
  * Tailwind default Spectral so the SF Pro body + Spectral headings
  * pairing the original design ships with is preserved. */
-html[data-reading-font="fraunces"] .font-serif {
-  font-family: "Fraunces", "Spectral", Georgia, ui-serif, serif;
-}
-html[data-reading-font="atkinson-hyperlegible"] .font-serif {
-  font-family: "Atkinson Hyperlegible", "Inter", system-ui, sans-serif;
-}
-html[data-reading-font="opendyslexic"] .font-serif {
-  font-family: "OpenDyslexic", "Atkinson Hyperlegible", "Inter", system-ui, sans-serif;
+/* Only the brand wordmark (`.font-wordmark`, sidebar "attune") uses a
+ * display serif. Every other heading follows the configured system font:
+ * neutralise Tailwind's `.font-serif` (which hardcodes Spectral above the
+ * body rule) so the ~40 headings using it inherit the body font — which
+ * the reading-font rules above already rebind. */
+.font-serif {
+  font-family: inherit;
 }
 html[data-reading-size="s"] {
   font-size: 14px;
