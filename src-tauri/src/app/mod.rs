@@ -9,5 +9,6 @@ pub mod share_sheet;
 pub mod state;
 pub mod tray;
 pub mod vibrancy;
+pub mod window_aside;
 
 pub use state::AppState;
