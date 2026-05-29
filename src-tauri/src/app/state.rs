@@ -44,6 +44,10 @@ pub struct AppState {
     /// touches this. Becomes `Some` the first time the user pauses, and
     /// is cleared on the final stop after the parts are merged.
     pub active_note: Mutex<Option<PausedNote>>,
+    /// Stop signal for the live-transcript preview loop (GET-160). Set
+    /// when a capture starts (when local Whisper is configured) and
+    /// flipped to `true` on stop/pause so the background thread exits.
+    pub live_transcript_stop: Mutex<Option<Arc<std::sync::atomic::AtomicBool>>>,
 }
 
 /// A recording that spans multiple capture segments because the user
@@ -84,6 +88,15 @@ impl AppState {
             memory_store: Mutex::new(None),
             pending_meeting: Mutex::new(None),
             active_note: Mutex::new(None),
+            live_transcript_stop: Mutex::new(None),
+        }
+    }
+
+    /// Signal the live-transcript preview loop (if any) to stop. Called
+    /// from stop/pause. Idempotent.
+    pub fn stop_live_transcript(&self) {
+        if let Some(flag) = self.live_transcript_stop.lock().take() {
+            flag.store(true, std::sync::atomic::Ordering::Relaxed);
         }
     }
 

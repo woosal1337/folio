@@ -36,6 +36,7 @@ import {
   getRecording,
   listAgentRuns,
   listNoteTemplates,
+  onLiveTranscript,
   readTranscript,
   renameNote,
   revealInFinder,
@@ -95,6 +96,28 @@ export default function Editor() {
   const lastTranscriptPath = useRecording((s) => s.lastTranscriptPath);
   // Recording-store state for the in-note record dock (GET-155).
   const recState = useRecording();
+
+  // Live-transcript preview (GET-160): the latest rolling-window caption
+  // for THIS note while it's the active capture. Cleared when capture
+  // stops; the final on-stop transcript is the source of truth.
+  const [livePreview, setLivePreview] = React.useState("");
+  const liveSessionDir = recState.liveSessionDir;
+  const isCapturingThis =
+    (recState.recording || recState.paused) &&
+    liveSessionDir === recording?.session_dir;
+  React.useEffect(() => {
+    if (!isCapturingThis) {
+      setLivePreview("");
+      return;
+    }
+    let unlisten: (() => void) | undefined;
+    void onLiveTranscript((p) => {
+      if (p.session_dir === recording?.session_dir) setLivePreview(p.text);
+    }).then((fn) => {
+      unlisten = fn;
+    });
+    return () => unlisten?.();
+  }, [isCapturingThis, recording?.session_dir]);
 
   // Fetch the RecordingSummary when not provided via router state.
   React.useEffect(() => {
@@ -599,6 +622,7 @@ export default function Editor() {
         pausedThis={isPausedThis}
         otherActive={otherActive}
         elapsedLabel={dockElapsedLabel}
+        livePreview={isCapturingThis ? livePreview : ""}
         busy={recState.busy}
         canAsk={recording.has_transcript}
         onAsk={() => setChatOpen(true)}
@@ -617,15 +641,16 @@ export default function Editor() {
   );
 }
 
-/** Sticky bottom record control for a note (GET-155). Live transcript
- *  streaming isn't available (Attune transcribes on stop), so the dock
- *  surfaces capture controls + status; the transcript lands in the
- *  "Transcript & audio" disclosure after Stop. */
+/** Sticky bottom record control for a note (GET-155). While capturing,
+ *  a live rolling-window transcript preview (GET-160) streams in above
+ *  the controls; the final on-stop transcript remains the source of
+ *  truth and lands in the "Transcript & audio" disclosure after Stop. */
 function RecordDock({
   recordingThis,
   pausedThis,
   otherActive,
   elapsedLabel,
+  livePreview,
   busy,
   canAsk,
   onAsk,
@@ -638,6 +663,7 @@ function RecordDock({
   pausedThis: boolean;
   otherActive: boolean;
   elapsedLabel: string;
+  livePreview: string;
   busy: boolean;
   canAsk: boolean;
   onAsk: () => void;
@@ -647,7 +673,22 @@ function RecordDock({
   onResume: () => void;
 }) {
   return (
-    <div className="pointer-events-none sticky bottom-4 z-10 mt-2 flex justify-center">
+    <div className="pointer-events-none sticky bottom-4 z-10 mt-2 flex flex-col items-center gap-2">
+      {recordingThis ? (
+        <div
+          className="pointer-events-auto max-w-xl rounded-2xl border border-border bg-popover/95 px-4 py-2 text-sm leading-relaxed text-muted-foreground shadow-lg backdrop-blur"
+          aria-live="polite"
+        >
+          {livePreview ? (
+            <span className="line-clamp-3">
+              {livePreview}
+              <span className="ml-0.5 animate-pulse">▍</span>
+            </span>
+          ) : (
+            <span className="italic">Listening… live transcript will appear here.</span>
+          )}
+        </div>
+      ) : null}
       <div className="pointer-events-auto flex items-center gap-2 rounded-full border border-border bg-popover/95 px-3 py-2 shadow-lg backdrop-blur">
         {canAsk ? (
           <button
