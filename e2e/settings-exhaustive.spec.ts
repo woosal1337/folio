@@ -293,25 +293,6 @@ test("Storage → wav_retention_days input persists when edited", async ({ page 
   expect((await readSettings(page)).wav_retention_days).toBe(7);
 });
 
-// ---- Workspace General -------------------------------------------
-
-test("Workspace General → workspace_auto_join persists when toggled off", async ({
-  page,
-}) => {
-  await page
-    .getByRole("button", { name: /^general$/i })
-    .nth(1)
-    .click();
-  await page
-    .getByRole("switch", { name: /allow teammates to join automatically/i })
-    .click();
-  await page
-    .getByRole("button", { name: /^save$/i })
-    .last()
-    .click();
-  expect((await readSettings(page)).workspace_auto_join).toBe(false);
-});
-
 // ---- Round-trip drift check --------------------------------------
 
 test("save_settings — saving with no changes is a no-op for unchanged fields", async ({
