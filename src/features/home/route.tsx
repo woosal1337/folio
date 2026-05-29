@@ -132,7 +132,7 @@ export default function Home() {
   );
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-8 py-8">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-8 py-8">
       <header data-drag="" className="flex select-none items-baseline justify-between">
         <div>
           <h1 className="font-serif text-3xl font-medium tracking-tight">Home</h1>
