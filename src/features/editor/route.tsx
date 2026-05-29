@@ -1,7 +1,6 @@
 import * as React from "react";
 import {
   ArrowLeft,
-  Bot,
   ChevronRight,
   Copy,
   FileText,
@@ -22,7 +21,7 @@ import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 
 import { AudioPlayer } from "@/features/recording/audio-player";
-import { LiveNotesEditor } from "@/features/recording/live-notes-editor";
+import { MarkdownNotesEditor } from "@/features/recording/markdown-notes-editor";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
 import { Markdown } from "@/shared/ui/markdown";
@@ -52,7 +51,6 @@ import type { AgentRun } from "@/shared/types/AgentRun";
 import type { RecordingSummary } from "@/shared/types/RecordingSummary";
 import type { SessionTranscript } from "@/shared/types/SessionTranscript";
 
-import { AgentPanel, type AgentPanelHandle } from "./agent-panel";
 import { FolderChip } from "./folder-chip";
 import { serialiseAsPlainText } from "@/shared/lib/note-export";
 import { ParticipantCards } from "./participant-cards";
@@ -62,8 +60,6 @@ import { NoteChat } from "@/features/recording/note-chat";
 
 interface LocationState {
   recording?: RecordingSummary;
-  /** If set, fire the named agent once the transcript is loaded. */
-  autoRun?: string;
 }
 
 export default function Editor() {
@@ -72,14 +68,10 @@ export default function Editor() {
   const location = useLocation();
   const navState = location.state as LocationState | null;
   const stateFromNav = navState?.recording;
-  const autoRunAgent = navState?.autoRun;
-  const agentPanelRef = React.useRef<AgentPanelHandle>(null);
-  const autoRunFiredRef = React.useRef(false);
   const [reTranscribing, setReTranscribing] = React.useState(false);
   const [regenerating, setRegenerating] = React.useState(false);
   const [chatOpen, setChatOpen] = React.useState(false);
   const [transcriptOpen, setTranscriptOpen] = React.useState(false);
-  const [agentsOpen, setAgentsOpen] = React.useState(false);
   const transcriber = useTranscriberCopy();
 
   const [recording, setRecording] = React.useState<RecordingSummary | null>(
@@ -360,17 +352,6 @@ export default function Editor() {
     }
   };
 
-  // Auto-run the requested agent once the transcript + panel are ready.
-  React.useEffect(() => {
-    if (!autoRunAgent) return;
-    if (autoRunFiredRef.current) return;
-    if (!transcript) return;
-    const panel = agentPanelRef.current;
-    if (!panel) return;
-    autoRunFiredRef.current = true;
-    panel.runAgent(autoRunAgent);
-  }, [autoRunAgent, transcript]);
-
   // ---- Render guards ---------------------------------------------------
 
   if (notFound) {
@@ -531,10 +512,11 @@ export default function Editor() {
         </div>
       ) : null}
 
-      {/* Your notes — editable; autosaves to the note dir (GET-145/155) */}
+      {/* Your notes — a live markdown editor; autosaves to the note dir
+          (GET-145/155). Feeds the on-stop summary (GET-147). */}
       <section className="space-y-2">
         <SectionLabel>Your notes</SectionLabel>
-        <LiveNotesEditor
+        <MarkdownNotesEditor
           sessionDir={recording.session_dir}
           elapsedSeconds={isRecordingThis ? recState.elapsed : 0}
         />
@@ -562,18 +544,6 @@ export default function Editor() {
           Legacy transcript (older pipeline). Use ⋯ → Re-transcribe to refresh it with
           the current pipeline. Audio is not touched.
         </p>
-      ) : null}
-
-      {/* AI agents — tucked, full control preserved */}
-      {recording.has_transcript && transcript ? (
-        <Disclosure
-          open={agentsOpen}
-          onToggle={() => setAgentsOpen((v) => !v)}
-          icon={Bot}
-          label="AI agents"
-        >
-          <AgentPanel ref={agentPanelRef} sessionDir={recording.session_dir} />
-        </Disclosure>
       ) : null}
 
       {/* Transcript dock — collapsible */}
