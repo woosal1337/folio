@@ -292,7 +292,6 @@ export default function Editor() {
       title: "Delete this note?",
       description: `"${noteName}" — this removes the session folder and every file inside it (audio, transcript, notes). Cannot be undone.`,
       confirmLabel: "Delete note",
-      doubleConfirm: true,
     });
     if (!ok) return;
     try {

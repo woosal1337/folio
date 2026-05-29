@@ -8,7 +8,7 @@ import { expect, test } from "@playwright/test";
 
 import { ipcCalls, setupScenario } from "./fixtures/scenario";
 
-test("deleting a space asks for double confirmation first", async ({ page }) => {
+test("deleting a space asks for confirmation first", async ({ page }) => {
   await setupScenario(page, { startSignedIn: true });
   await page.goto("/");
 
@@ -21,18 +21,13 @@ test("deleting a space asks for double confirmation first", async ({ page }) => 
 
   await page.getByRole("button", { name: /delete folder personal/i }).click();
 
-  // The confirmation dialog pops; the destructive button is disabled
-  // until the "I understand" box is checked — nothing deleted yet.
+  // The confirmation dialog pops — nothing is deleted until it's confirmed.
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByText(/delete the "personal" space/i)).toBeVisible();
-  const confirmBtn = dialog.getByRole("button", { name: /delete space/i });
-  await expect(confirmBtn).toBeDisabled();
   expect((await ipcCalls(page, "delete_folder")).length).toBe(0);
 
-  // Acknowledge → confirm → the delete IPC fires.
-  await dialog.getByRole("checkbox").check();
-  await expect(confirmBtn).toBeEnabled();
-  await confirmBtn.click();
+  // Confirm → the delete IPC fires.
+  await dialog.getByRole("button", { name: /delete space/i }).click();
   await expect
     .poll(async () => (await ipcCalls(page, "delete_folder")).length)
     .toBeGreaterThanOrEqual(1);

@@ -174,7 +174,6 @@ function FolderRow({
             title: `Delete the "${name}" space?`,
             description: `The "${name}" folder is removed. Notes inside it are kept, just unfiled.`,
             confirmLabel: "Delete space",
-            doubleConfirm: true,
           });
           if (ok) onDelete();
         }}
