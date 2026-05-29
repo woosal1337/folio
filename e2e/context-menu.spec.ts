@@ -1,0 +1,56 @@
+/**
+ * Right-click context menu on a note row (My Notes): quick actions —
+ * Open, Move to folder, Re-transcribe, Reveal, Delete.
+ */
+
+import { expect, test } from "@playwright/test";
+
+import { setupScenario } from "./fixtures/scenario";
+
+const RECORDING = {
+  session_dir: "/tmp/Attune/2026-05-28-x",
+  label: "2026-05-28-x",
+  duration_seconds: 600,
+  mic_bytes: 1_000_000,
+  system_bytes: null,
+  mic_sample_rate: 16_000,
+  system_sample_rate: null,
+  created_at: "2026-05-28T14:00:00Z",
+  has_transcript: true,
+  suggested_title: "Quarterly review",
+  suggested_tags: [],
+};
+
+test("right-clicking a note row opens a quick-action menu", async ({ page }) => {
+  await setupScenario(page, { startSignedIn: true, recordings: [RECORDING] });
+  await page.goto("/#/library");
+  const row = page.getByText("Quarterly review").first();
+  await row.click({ button: "right" });
+
+  const menu = page.getByRole("menu");
+  await expect(menu).toBeVisible();
+  await expect(menu.getByRole("menuitem", { name: /^open$/i })).toBeVisible();
+  await expect(menu.getByRole("menuitem", { name: /move to folder/i })).toBeVisible();
+  await expect(menu.getByRole("menuitem", { name: /delete note/i })).toBeVisible();
+});
+
+test("Delete from the context menu routes through the confirm dialog", async ({
+  page,
+}) => {
+  await setupScenario(page, { startSignedIn: true, recordings: [RECORDING] });
+  await page.goto("/#/library");
+  await page.getByText("Quarterly review").first().click({ button: "right" });
+  await page.getByRole("menuitem", { name: /delete note/i }).click();
+
+  // The confirmation dialog pops — nothing deleted until confirmed.
+  await expect(page.getByRole("dialog").getByText(/delete this note/i)).toBeVisible();
+});
+
+test("Escape closes the context menu", async ({ page }) => {
+  await setupScenario(page, { startSignedIn: true, recordings: [RECORDING] });
+  await page.goto("/#/library");
+  await page.getByText("Quarterly review").first().click({ button: "right" });
+  await expect(page.getByRole("menu")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("menu")).toHaveCount(0);
+});
