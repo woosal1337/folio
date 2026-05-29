@@ -93,7 +93,7 @@ export default function Library() {
   const onDelete = React.useCallback(
     async (item: RecordingSummary) => {
       const ok = window.confirm(
-        `Delete this note?\n\n${item.suggested_title?.trim() || item.label}\n\nThis removes the session folder and every file inside it. Cannot be undone.`
+        `Delete this note?\n\n${item.title?.trim() || item.suggested_title?.trim() || item.label}\n\nThis removes the session folder and every file inside it. Cannot be undone.`
       );
       if (!ok) return;
       try {
@@ -114,7 +114,8 @@ export default function Library() {
       if (filter === "transcribed" && !r.has_transcript) return false;
       if (filter === "untranscribed" && r.has_transcript) return false;
       if (needle) {
-        const hay = `${r.label} ${r.suggested_title ?? ""}`.toLowerCase();
+        const hay =
+          `${r.label} ${r.suggested_title ?? ""} ${r.title ?? ""}`.toLowerCase();
         if (!hay.includes(needle)) return false;
       }
       return true;
@@ -226,7 +227,7 @@ function NoteRow({
   onReTranscribe: () => void;
   onDelete: () => void;
 }) {
-  const title = item.suggested_title?.trim() || item.label;
+  const title = item.title?.trim() || item.suggested_title?.trim() || item.label;
   return (
     <div className="group flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3 transition-colors hover:bg-muted/40">
       <button

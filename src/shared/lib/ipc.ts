@@ -117,6 +117,13 @@ export function createNote(): Promise<RecordingSummary> {
   return call<RecordingSummary>("create_note");
 }
 
+/** Set or clear a note's user title (GET-163). Persists `title.txt` in
+ *  the session dir; an empty title clears it so the UI falls back to the
+ *  autoname suggestion or the label. */
+export function renameNote(sessionDir: string, title: string): Promise<void> {
+  return call<void>("rename_note", { sessionDir, title });
+}
+
 /** Start capture. With `sessionDir` (GET-155) it records into that
  *  existing note's directory instead of a fresh one. */
 export function startRecording(sessionDir?: string): Promise<RecordingStatus> {

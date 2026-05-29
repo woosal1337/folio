@@ -59,6 +59,7 @@ pub async fn create_note(state: State<'_, AppState>) -> Result<RecordingSummary,
             system_sample_rate: None,
             created_at: Some(chrono::Utc::now()),
             has_transcript: false,
+            title: None,
             suggested_title: None,
             suggested_tags: Vec::new(),
             suggested_subtitle: None,
@@ -67,6 +68,33 @@ pub async fn create_note(state: State<'_, AppState>) -> Result<RecordingSummary,
     })
     .await
     .map_err(|e| format!("create_note task panicked: {e}"))?
+}
+
+/// Set (or clear) a note's user title (GET-163). Writes `title.txt`
+/// into the session dir; an empty/whitespace title removes the file so
+/// the UI falls back to the autoname suggestion or the label.
+#[tauri::command]
+pub async fn rename_note(session_dir: String, title: String) -> Result<(), String> {
+    let dir = PathBuf::from(&session_dir);
+    if !dir.is_dir() {
+        return Err(format!("session directory does not exist: {session_dir}"));
+    }
+    let trimmed = title.trim().to_string();
+    tauri::async_runtime::spawn_blocking(move || -> Result<(), String> {
+        let path = dir.join("title.txt");
+        if trimmed.is_empty() {
+            match std::fs::remove_file(&path) {
+                Ok(()) => Ok(()),
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+                Err(e) => Err(e.to_string()),
+            }
+        } else {
+            attune_core::storage::atomic_write::atomic_write(&path, trimmed.as_bytes())
+                .map_err(|e| e.to_string())
+        }
+    })
+    .await
+    .map_err(|e| format!("rename_note task panicked: {e}"))?
 }
 
 /// Start a new capture session. Building the cpal stream and the

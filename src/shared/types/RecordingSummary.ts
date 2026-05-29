@@ -3,12 +3,12 @@
 /**
  * Metadata about a saved recording session, as discovered on disk.
  */
-export type RecordingSummary = { session_dir: string, label: string, duration_seconds: bigint, mic_bytes: bigint | null, system_bytes: bigint | null, mic_sample_rate: number | null, system_sample_rate: number | null, created_at: string | null, 
+export type RecordingSummary = { session_dir: string, label: string, duration_seconds: bigint, mic_bytes: bigint | null, system_bytes: bigint | null, mic_sample_rate: number | null, system_sample_rate: number | null, created_at: string | null,
 /**
  * True iff `<session_dir>/transcript.json` exists. Used by the UI
  * to mark previously transcribed sessions in the library list.
  */
-has_transcript: boolean, 
+has_transcript: boolean,
 /**
  * Title proposed by the `autoname` agent if its run is on disk
  * (`<session_dir>/agent_runs/autoname.json`). Surfaced in the UI
@@ -17,17 +17,17 @@ has_transcript: boolean,
  * autoname run exists or the run's JSON could not be parsed.
  * v2 finding 024 / GET-37.
  */
-suggested_title: string | null, 
+suggested_title: string | null,
 /**
  * 1-3 lowercase tags from the `autoname` agent, same source as
  * `suggested_title`. v2 finding 024 / GET-37.
  */
-suggested_tags: Array<string>, 
+suggested_tags: Array<string>,
 /**
  * One-line subtitle from the `autoname` agent. Same source as
  * `suggested_title`. v2 finding 024 / GET-37.
  */
-suggested_subtitle: string | null, 
+suggested_subtitle: string | null,
 /**
  * Per-recording language override from
  * `<session_dir>/language.txt`, if present. Used by the Library
@@ -35,4 +35,10 @@ suggested_subtitle: string | null,
  * pinned for this recording. Empty / missing file → None.
  * v2 finding 046 / GET-89.
  */
-language_override: string | null, };
+language_override: string | null,
+/**
+ * User-set note title from `<session_dir>/title.txt` (GET-163).
+ * Takes precedence over `suggested_title` + `label` in the UI.
+ * None when the user has not renamed the note.
+ */
+title: string | null, };
