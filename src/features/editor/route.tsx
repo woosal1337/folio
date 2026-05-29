@@ -5,7 +5,6 @@ import {
   ChevronRight,
   Copy,
   FileText,
-  FolderPlus,
   Loader2,
   MessageCircleQuestion,
   Mic,
@@ -47,6 +46,7 @@ import type { RecordingSummary } from "@/shared/types/RecordingSummary";
 import type { SessionTranscript } from "@/shared/types/SessionTranscript";
 
 import { AgentPanel, type AgentPanelHandle } from "./agent-panel";
+import { FolderChip } from "./folder-chip";
 import { serialiseAsPlainText } from "@/shared/lib/note-export";
 import { ParticipantCards } from "./participant-cards";
 import { TranscriptEditor } from "./transcript-editor";
@@ -406,15 +406,13 @@ export default function Editor() {
             <UserIcon className="h-3 w-3" />
             Me
           </Chip>
-          <button
-            type="button"
-            disabled
-            title="Folders are coming soon"
-            className="inline-flex cursor-default items-center gap-1 rounded-full border border-border bg-card px-2.5 py-1 opacity-60"
-          >
-            <FolderPlus className="h-3 w-3" />
-            Add to folder
-          </button>
+          <FolderChip
+            sessionDir={recording.session_dir}
+            folder={recording.folder ?? null}
+            onChange={(next) =>
+              setRecording((prev) => (prev ? { ...prev, folder: next } : prev))
+            }
+          />
           <span className="font-mono">
             {formatDuration(Number(recording.duration_seconds))} ·{" "}
             {formatBytes(totalBytes)}

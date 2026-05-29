@@ -11,6 +11,7 @@ pub mod ask;
 pub mod auth;
 pub mod calendar;
 pub mod devices;
+pub mod folders;
 pub mod health;
 pub mod library;
 pub mod live_notes;
