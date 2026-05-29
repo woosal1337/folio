@@ -368,6 +368,11 @@ export default function Editor() {
     ? `${recording.session_dir}/system.wav`
     : null;
   const isCurrentlyTranscribing = transcribingDir === recording.session_dir;
+  // While the note is being processed — transcribing locally/in the cloud,
+  // or folding the markdown notes into the AI summary — lock the notes
+  // editor and the record dock (greyed) so the user can see those fields
+  // are in-flight and can't race the pipeline that consumes them.
+  const isProcessing = isCurrentlyTranscribing || regenerating;
   // GET-163: a user-set title wins; else the autoname suggestion; else the
   // timestamp label. The placeholder shown in the editable field is the
   // non-user fallback so clearing the field reveals what it'll fall back to.
@@ -494,6 +499,7 @@ export default function Editor() {
         <MarkdownNotesEditor
           sessionDir={recording.session_dir}
           elapsedSeconds={isRecordingThis ? recState.elapsed : 0}
+          disabled={isProcessing}
         />
       </section>
 
@@ -566,6 +572,7 @@ export default function Editor() {
         recordingThis={isRecordingThis}
         pausedThis={isPausedThis}
         otherActive={otherActive}
+        locked={isProcessing}
         elapsedLabel={dockElapsedLabel}
         livePreview={isCapturingThis ? livePreview : ""}
         busy={recState.busy}
@@ -594,6 +601,7 @@ function RecordDock({
   recordingThis,
   pausedThis,
   otherActive,
+  locked,
   elapsedLabel,
   livePreview,
   busy,
@@ -607,6 +615,9 @@ function RecordDock({
   recordingThis: boolean;
   pausedThis: boolean;
   otherActive: boolean;
+  /** Note is being processed (transcribe / summarize) — grey out and
+   *  block the record controls until it settles. */
+  locked: boolean;
   elapsedLabel: string;
   livePreview: string;
   busy: boolean;
@@ -617,6 +628,23 @@ function RecordDock({
   onPause: () => void;
   onResume: () => void;
 }) {
+  // When locked, the only thing the dock shows is a quiet "processing"
+  // pill — no record/pause/stop, no Ask — so it's unmistakable the note
+  // is busy. (Recording can't be in flight while transcribing anyway.)
+  if (locked) {
+    return (
+      <div className="pointer-events-none sticky bottom-4 z-10 mt-2 flex flex-col items-center gap-2">
+        <div
+          className="pointer-events-none flex items-center gap-2 rounded-full border border-border bg-popover/95 px-4 py-2 text-sm text-muted-foreground opacity-70 shadow-lg backdrop-blur"
+          role="status"
+          aria-live="polite"
+        >
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          Processing note…
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="pointer-events-none sticky bottom-4 z-10 mt-2 flex flex-col items-center gap-2">
       {recordingThis ? (

@@ -1,5 +1,5 @@
 import * as React from "react";
-import { KeyRound, Zap } from "lucide-react";
+import { Captions, KeyRound, Zap } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/shared/ui/badge";
@@ -110,6 +110,36 @@ export function SectionTranscription({ settings, onChange }: Props) {
           id="auto-vad-toggle"
           checked={settings.auto_vad_enabled}
           onCheckedChange={(checked) => onChange("auto_vad_enabled", checked)}
+          className="mt-1"
+        />
+      </div>
+
+      {/* Live transcription (Beta). When on, a rolling local-Whisper
+          preview streams into the record dock while capturing. When off,
+          transcription happens only once on Stop. */}
+      <div className="flex items-start justify-between gap-6 rounded-lg border border-border bg-card p-4">
+        <div className="space-y-1">
+          <Label
+            htmlFor="live-transcript-toggle"
+            className="flex items-center gap-2 text-sm font-medium"
+          >
+            <Captions className="h-4 w-4 text-muted-foreground" />
+            Live transcription
+            <span className="rounded-full border border-primary/40 px-1.5 py-px text-[10px] font-medium uppercase tracking-wider text-primary">
+              Beta
+            </span>
+          </Label>
+          <p className="max-w-md text-xs text-muted-foreground">
+            Streams a live caption into the record dock while you&apos;re recording,
+            using local Whisper over a rolling window. Still experimental — when off,
+            Attune transcribes once automatically as soon as the recording stops.
+            Requires a downloaded local Whisper model.
+          </p>
+        </div>
+        <Switch
+          id="live-transcript-toggle"
+          checked={settings.live_transcript_enabled}
+          onCheckedChange={(checked) => onChange("live_transcript_enabled", checked)}
           className="mt-1"
         />
       </div>
@@ -269,7 +299,8 @@ function OpenAiKeySection() {
         </Button>
       </div>
       <p className="text-xs text-muted-foreground">
-        Stored in the macOS Keychain. Never persisted to disk; never logged. Sent only to api.openai.com when transcribing.
+        Stored in the macOS Keychain. Never persisted to disk; never logged. Sent only
+        to api.openai.com when transcribing.
       </p>
     </section>
   );

@@ -26,6 +26,13 @@ interface Props {
   sessionDir: string | null;
   /** Current recording-relative elapsed seconds, for anchoring new lines. */
   elapsedSeconds: number;
+  /**
+   * Lock the editor read-only while the note is being processed
+   * (transcription / AI summary). The notes feed the summary (GET-147),
+   * so editing them mid-pipeline would race the input — grey out and
+   * block typing until processing settles.
+   */
+  disabled?: boolean;
 }
 
 /** Split a markdown string into `RawNoteLine[]`, preserving prior line
@@ -43,7 +50,11 @@ function toLines(
   });
 }
 
-export function MarkdownNotesEditor({ sessionDir, elapsedSeconds }: Props) {
+export function MarkdownNotesEditor({
+  sessionDir,
+  elapsedSeconds,
+  disabled = false,
+}: Props) {
   const linesRef = React.useRef<RawNoteLine[]>([]);
   const dirRef = React.useRef(sessionDir);
   dirRef.current = sessionDir;
@@ -70,6 +81,7 @@ export function MarkdownNotesEditor({ sessionDir, elapsedSeconds }: Props) {
 
   const editor = useEditor({
     immediatelyRender: false,
+    editable: !disabled,
     extensions: [
       StarterKit,
       Placeholder.configure({
@@ -115,5 +127,25 @@ export function MarkdownNotesEditor({ sessionDir, elapsedSeconds }: Props) {
     [flush]
   );
 
-  return <EditorContent editor={editor} className="md-notes-editor" />;
+  // Lock / unlock the editor as processing toggles. Flush any pending
+  // edits before locking so nothing is lost going into the pipeline.
+  React.useEffect(() => {
+    if (!editor) return;
+    if (disabled && saveTimer.current) {
+      window.clearTimeout(saveTimer.current);
+      flush();
+    }
+    editor.setEditable(!disabled);
+  }, [editor, disabled, flush]);
+
+  return (
+    <EditorContent
+      editor={editor}
+      aria-disabled={disabled}
+      className={
+        "md-notes-editor transition-opacity" +
+        (disabled ? " pointer-events-none select-none opacity-60" : "")
+      }
+    />
+  );
 }

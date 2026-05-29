@@ -72,6 +72,12 @@ pub struct Settings {
     /// straight to the ASR.
     #[serde(default = "default_auto_vad_enabled")]
     pub auto_vad_enabled: bool,
+    /// Beta: stream a live transcript preview into the record dock while
+    /// capturing (local Whisper over a rolling window). Off by default —
+    /// when off, transcription happens only once on Stop. macOS-only,
+    /// requires a downloaded local Whisper model.
+    #[serde(default = "default_live_transcript_enabled")]
+    pub live_transcript_enabled: bool,
     /// Root directory for the local memory layer. Defaults to a
     /// subtree of the user's Obsidian vault per the
     /// `ai-chat-multi-provider.md` plan; falls back to
@@ -357,6 +363,10 @@ fn default_voice_processing_enabled() -> bool {
 fn default_auto_vad_enabled() -> bool {
     true
 }
+fn default_live_transcript_enabled() -> bool {
+    // Beta, off by default: opt in via Settings → Transcription.
+    false
+}
 fn default_auto_transcribe_enabled() -> bool {
     true
 }
@@ -452,6 +462,7 @@ impl Default for Settings {
             voice_processing_enabled: default_voice_processing_enabled(),
             auto_transcribe_enabled: default_auto_transcribe_enabled(),
             auto_vad_enabled: default_auto_vad_enabled(),
+            live_transcript_enabled: default_live_transcript_enabled(),
             memory_dir: default_memory_dir(),
             auto_extract_memories_enabled: default_auto_extract_memories_enabled(),
             feedback_sounds_enabled: default_feedback_sounds_enabled(),
