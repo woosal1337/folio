@@ -47,10 +47,4 @@ title: string | null,
  * (GET-162). None when the note is unfiled. Used by the sidebar
  * Spaces filter and My Notes grouping.
  */
-folder: string | null,
-/**
- * Enhanced-notes template id this note uses, from
- * `<session_dir>/template.txt` (GET-164). None means the default
- * ("generic") format. Drives the summarize prompt on Regenerate.
- */
-template: string | null, };
+folder: string | null, };

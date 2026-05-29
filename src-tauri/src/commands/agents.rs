@@ -158,47 +158,6 @@ pub async fn delete_agent_run(
     .map_err(|e| format!("delete_agent_run task panicked: {e}"))?
 }
 
-/// List the built-in enhanced-notes templates (GET-164). Pure data;
-/// the picker uses id/name/description.
-#[tauri::command]
-pub fn list_note_templates() -> Vec<attune_core::llm::note_templates::NoteTemplate> {
-    attune_core::llm::note_templates::defaults()
-}
-
-/// Set (or clear, with `template_id = None`) the enhanced-notes template
-/// for a note (GET-164). Persists `<session_dir>/template.txt`; clearing
-/// falls back to the default format on the next Regenerate.
-#[tauri::command]
-pub async fn set_note_template(
-    state: State<'_, AppState>,
-    session_dir: String,
-    template_id: Option<String>,
-) -> Result<(), String> {
-    let output_dir = state.settings.lock().output_dir.clone();
-    let session = PathBuf::from(&session_dir);
-    let id = template_id
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty());
-    tauri::async_runtime::spawn_blocking(move || -> Result<(), String> {
-        let dir = attune_core::paths::canonicalize_under(&output_dir, &session)
-            .map_err(|e| e.to_string())?;
-        let path = dir.join("template.txt");
-        match id {
-            Some(value) => {
-                attune_core::storage::atomic_write::atomic_write(&path, value.as_bytes())
-                    .map_err(|e| e.to_string())
-            }
-            None => match std::fs::remove_file(&path) {
-                Ok(()) => Ok(()),
-                Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
-                Err(e) => Err(e.to_string()),
-            },
-        }
-    })
-    .await
-    .map_err(|e| format!("set_note_template task panicked: {e}"))?
-}
-
 #[tauri::command]
 pub async fn run_agent(
     state: State<'_, AppState>,
@@ -307,22 +266,9 @@ pub async fn run_agent(
     // background context, and the language rule is BELOW so it's the
     // last thing the model reads before responding (the strongest
     // position in a system prompt for behavioural overrides).
-    // GET-164: the summarize agent honours the note's chosen enhanced-
-    // notes template. Other agents always use their own prompt. The
-    // template id lives in `<session_dir>/template.txt`; an unknown or
-    // missing id resolves to the default ("generic") format.
-    let agent_prompt = if agent.id == "summarize" {
-        let dir = session_dir.clone();
-        let template_id = tauri::async_runtime::spawn_blocking(move || read_note_template(&dir))
-            .await
-            .unwrap_or(None);
-        attune_core::llm::note_templates::prompt_for(template_id.as_deref())
-    } else {
-        agent.system_prompt.clone()
-    };
     let base = match memory_preamble {
-        Some(preamble) => format!("{preamble}\n\n{agent_prompt}"),
-        None => agent_prompt,
+        Some(preamble) => format!("{preamble}\n\n{}", agent.system_prompt),
+        None => agent.system_prompt.clone(),
     };
     let system_prompt = format!("{base}{}", language_aware_trailer(&briefing_language));
 
@@ -904,18 +850,6 @@ fn build_user_message(transcript_text: &str, live_notes_md: Option<&str>) -> Str
         }
     }
     out
-}
-
-/// Read the note's enhanced-notes template id (GET-164) from
-/// `<session_dir>/template.txt`. First non-empty line, trimmed.
-fn read_note_template(session_dir: &Path) -> Option<String> {
-    let raw = std::fs::read_to_string(session_dir.join("template.txt")).ok()?;
-    let trimmed = raw.lines().next()?.trim();
-    if trimmed.is_empty() {
-        None
-    } else {
-        Some(trimmed.to_string())
-    }
 }
 
 /// Read a session's live notes (GET-145) and render them as the grouped
