@@ -460,6 +460,35 @@ export async function setupScenario(page: Page, options: ScenarioOptions = {}) {
       run_agent: () => null,
       list_agent_runs: () => [],
       delete_agent_run: () => null,
+      // Enhanced-notes templates (GET-164).
+      list_note_templates: () => [
+        {
+          id: "generic",
+          name: "General",
+          description: "Overview, Key Points, Action Items, Context.",
+        },
+        {
+          id: "standup",
+          name: "Standup",
+          description: "What's done, in progress, and blocked.",
+        },
+        {
+          id: "one-on-one",
+          name: "1:1",
+          description: "Discussion, feedback, growth, follow-ups.",
+        },
+        {
+          id: "sales-call",
+          name: "Sales call",
+          description: "Pain points, needs, objections, next steps.",
+        },
+        {
+          id: "interview",
+          name: "Interview",
+          description: "Background, strengths, concerns, recommendation.",
+        },
+      ],
+      set_note_template: () => null,
 
       list_tasks: () => {
         return (window as unknown as Record<string, unknown>).__ATTUNE_TASKS__;

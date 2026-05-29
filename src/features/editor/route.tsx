@@ -33,12 +33,15 @@ import {
   deleteRecording,
   getRecording,
   listAgentRuns,
+  listNoteTemplates,
   readTranscript,
   renameNote,
   revealInFinder,
   runAgent,
+  setNoteTemplate,
   transcribeRecording,
 } from "@/shared/lib/ipc";
+import type { NoteTemplate } from "@/shared/types/NoteTemplate";
 import { useRecording } from "@/shared/stores/recording-store";
 import { useTranscriberCopy } from "@/shared/hooks/use-transcriber-copy";
 import type { AgentRun } from "@/shared/types/AgentRun";
@@ -176,6 +179,15 @@ export default function Editor() {
 
   const summaryRun = agentRuns.find((r) => r.agent_id === "summarize") ?? null;
 
+  // Enhanced-notes templates (GET-164). Fetched once; the picker swaps
+  // the summarize format and Regenerate produces the chosen structure.
+  const [templates, setTemplates] = React.useState<NoteTemplate[]>([]);
+  React.useEffect(() => {
+    listNoteTemplates()
+      .then(setTemplates)
+      .catch((e) => console.error("list_note_templates:", e));
+  }, []);
+
   const handleTranscribe = async () => {
     if (!recording) return;
     try {
@@ -198,6 +210,22 @@ export default function Editor() {
       toast.error("Could not regenerate notes", { description: String(e) });
     } finally {
       setRegenerating(false);
+    }
+  };
+
+  // GET-164: persist the chosen template. "generic" is the default, so
+  // it clears the per-note override. If notes already exist, regenerate
+  // immediately so the new structure lands without an extra click.
+  const handleTemplateChange = async (id: string) => {
+    if (!recording) return;
+    const next = id === "generic" ? null : id;
+    setRecording((prev) => (prev ? { ...prev, template: next } : prev));
+    try {
+      await setNoteTemplate(recording.session_dir, next);
+      if (summaryRun) await handleRegenerate();
+    } catch (e) {
+      console.error("set_note_template:", e);
+      toast.error("Could not change template", { description: String(e) });
     }
   };
 
@@ -360,6 +388,12 @@ export default function Editor() {
         <div className="flex items-center gap-1.5">
           {recording.has_transcript ? (
             <>
+              <TemplatePicker
+                templates={templates}
+                value={recording.template ?? "generic"}
+                disabled={regenerating || isCurrentlyTranscribing}
+                onChange={handleTemplateChange}
+              />
               <Button
                 variant="outline"
                 size="sm"
@@ -726,6 +760,43 @@ function EditableTitle({
       }}
       className="w-full bg-transparent font-serif text-3xl font-medium tracking-tight outline-none placeholder:text-muted-foreground/50 focus:placeholder:text-transparent"
     />
+  );
+}
+
+/** Enhanced-notes template picker (GET-164). A compact native select in
+ *  the note header; changing it persists the choice and (when notes
+ *  already exist) regenerates them in the new structure. */
+function TemplatePicker({
+  templates,
+  value,
+  disabled,
+  onChange,
+}: {
+  templates: NoteTemplate[];
+  value: string;
+  disabled: boolean;
+  onChange: (id: string) => void;
+}) {
+  if (templates.length === 0) return null;
+  const active = templates.find((t) => t.id === value);
+  return (
+    <label className="inline-flex items-center">
+      <span className="sr-only">Enhanced-notes template</span>
+      <select
+        value={value}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.value)}
+        aria-label="Enhanced-notes template"
+        title={active?.description ?? "Choose a note template"}
+        className="h-8 rounded-md border border-input bg-card px-2 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+      >
+        {templates.map((t) => (
+          <option key={t.id} value={t.id}>
+            {t.name}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
 
