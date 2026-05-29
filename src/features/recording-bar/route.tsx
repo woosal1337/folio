@@ -36,6 +36,9 @@ const POLL_MS = 500;
  *  which can take a few seconds for a long recording — and that must
  *  never be mistaken for "done". */
 const IDLE_HIDE_TICKS = 20;
+/** Max polls to hold an optimistic pause/resume state before giving up and
+ *  trusting the backend again (safety valve if the action never lands). */
+const PENDING_MAX_TICKS = 8;
 
 function formatElapsed(secs: number): string {
   const safe = Math.max(0, Math.floor(secs));
@@ -48,6 +51,12 @@ export default function RecordingBar() {
   const [elapsed, setElapsed] = React.useState(0);
   const [paused, setPaused] = React.useState(false);
   const [stopping, setStopping] = React.useState(false);
+  // While a pause/resume is in flight the backend briefly reports an
+  // in-between state (segment tearing down / new segment spinning up). Hold
+  // the optimistic value and ignore the poll until the backend matches the
+  // target, so the icon doesn't flip back and forth mid-transition.
+  const [transitioning, setTransitioning] = React.useState(false);
+  const pendingRef = React.useRef<{ target: boolean; ticks: number } | null>(null);
 
   // The window is transparent (see show_recording_bar). The app's <body>
   // ships an opaque `bg-background`, which would fill the window's square
@@ -81,8 +90,22 @@ export default function RecordingBar() {
         const status = await recordingStatus();
         if (cancelled) return;
         setElapsed(Number(status.elapsed_secs));
-        setPaused(status.paused);
-        if (status.recording || status.paused) {
+        // Reconcile the paused indicator, but respect an in-flight
+        // pause/resume: keep the optimistic value until the backend
+        // reaches the target (or we hit the safety-valve tick count).
+        const pending = pendingRef.current;
+        if (pending) {
+          if (status.paused === pending.target || pending.ticks >= PENDING_MAX_TICKS) {
+            pendingRef.current = null;
+            setPaused(status.paused);
+            setTransitioning(false);
+          } else {
+            pending.ticks += 1;
+          }
+        } else {
+          setPaused(status.paused);
+        }
+        if (status.recording || status.paused || pendingRef.current) {
           idleTicks = 0;
           return;
         }
@@ -113,17 +136,24 @@ export default function RecordingBar() {
     });
   }, []);
 
-  // Pause when recording, resume when paused. Optimistically flip the
-  // local state so the icon swaps instantly; the next poll reconciles.
+  // Pause when recording, resume when paused. Flip optimistically and mark
+  // the transition pending so the poll won't bounce the icon back until the
+  // backend reaches the target state.
   const onPauseResume = React.useCallback(() => {
+    if (transitioning) return;
     const wasPaused = paused;
-    setPaused(!wasPaused);
+    const target = !wasPaused;
+    pendingRef.current = { target, ticks: 0 };
+    setPaused(target);
+    setTransitioning(true);
     const action = wasPaused ? recordingBarResume : recordingBarPause;
     void action().catch((e) => {
       console.error("recording_bar_pause/resume:", e);
+      pendingRef.current = null;
       setPaused(wasPaused);
+      setTransitioning(false);
     });
-  }, [paused]);
+  }, [paused, transitioning]);
 
   // Whole-bar drag: start a window drag on press unless the press lands on
   // the Stop button (or another interactive control).
