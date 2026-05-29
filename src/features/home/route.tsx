@@ -18,9 +18,15 @@ import { CalendarClock, FileAudio, FileText, Lock, Mic, Plus } from "lucide-reac
 
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent } from "@/shared/ui/card";
-import { listRecordings } from "@/shared/lib/ipc";
+import {
+  calendarAuthorizationStatus,
+  listRecordings,
+  nextCalendarEvent,
+  requestCalendarAccess,
+} from "@/shared/lib/ipc";
 import { useQuickNote, useTakeNotes } from "@/shared/hooks/use-take-notes";
 import { AskBar } from "@/chrome/ask-bar";
+import type { CalendarEvent } from "@/shared/types/CalendarEvent";
 import type { RecordingSummary } from "@/shared/types/RecordingSummary";
 
 type Group = "Today" | "Yesterday" | "Earlier";
@@ -38,6 +44,24 @@ function groupFor(createdAt: string | null): Group {
   return "Earlier";
 }
 
+/** "in 12 min · 3 people" / "starts now" line for the Coming-up card. */
+function comingUpSubtitle(event: CalendarEvent): string {
+  const start = new Date(event.starts_at);
+  const parts: string[] = [];
+  if (!Number.isNaN(start.getTime())) {
+    const mins = Math.round((start.getTime() - Date.now()) / 60000);
+    if (mins <= 0) parts.push("starts now");
+    else if (mins < 60) parts.push(`in ${mins} min`);
+    else
+      parts.push(
+        `at ${start.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`
+      );
+  }
+  const n = event.attendees.length;
+  if (n > 0) parts.push(`${n} ${n === 1 ? "person" : "people"}`);
+  return parts.join(" · ");
+}
+
 function timeLabel(createdAt: string | null): string {
   if (!createdAt) return "";
   const d = new Date(createdAt);
@@ -51,6 +75,10 @@ export default function Home() {
   const quickNote = useQuickNote();
   const [recordings, setRecordings] = React.useState<RecordingSummary[]>([]);
   const [loading, setLoading] = React.useState(true);
+
+  // Coming-up calendar (GET-161): the next meeting + access state.
+  const [nextEvent, setNextEvent] = React.useState<CalendarEvent | null>(null);
+  const [calAccess, setCalAccess] = React.useState<string>("not_determined");
 
   React.useEffect(() => {
     let cancelled = false;
@@ -68,6 +96,19 @@ export default function Home() {
       cancelled = true;
     };
   }, []);
+
+  const loadCalendar = React.useCallback(async () => {
+    try {
+      const access = await calendarAuthorizationStatus();
+      setCalAccess(access);
+      setNextEvent(access === "authorized" ? await nextCalendarEvent() : null);
+    } catch (e) {
+      console.error("home: calendar load failed", e);
+    }
+  }, []);
+  React.useEffect(() => {
+    void loadCalendar();
+  }, [loadCalendar]);
 
   const groups = React.useMemo(() => {
     const buckets: Record<Group, RecordingSummary[]> = {
@@ -110,21 +151,54 @@ export default function Home() {
         </h2>
         <Card>
           <CardContent className="flex items-center justify-between gap-4 py-5">
-            <div className="flex items-center gap-3">
+            <div className="flex min-w-0 items-center gap-3">
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
                 <CalendarClock className="h-4 w-4" />
               </span>
               <div className="min-w-0">
-                <p className="text-sm font-medium">No upcoming meetings</p>
-                <p className="text-xs text-muted-foreground">
-                  {`Connect your calendar to see what's next — or just start a note.`}
-                </p>
+                {nextEvent ? (
+                  <>
+                    <p className="truncate text-sm font-medium">{nextEvent.title}</p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {comingUpSubtitle(nextEvent)}
+                    </p>
+                  </>
+                ) : calAccess === "denied" || calAccess === "restricted" ? (
+                  <>
+                    <p className="text-sm font-medium">Calendar access is off</p>
+                    <p className="text-xs text-muted-foreground">
+                      Turn on Calendar access to see your next meeting here.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm font-medium">No upcoming meetings</p>
+                    <p className="text-xs text-muted-foreground">
+                      {`Nothing on the calendar soon — or just start a note.`}
+                    </p>
+                  </>
+                )}
               </div>
             </div>
-            <Button className="shrink-0 gap-2" onClick={takeNotes}>
-              <Mic className="h-4 w-4" />
-              Take notes
-            </Button>
+            {calAccess === "denied" || calAccess === "restricted" ? (
+              <Button
+                variant="outline"
+                className="shrink-0 gap-2"
+                onClick={() => {
+                  void requestCalendarAccess().then(loadCalendar);
+                }}
+              >
+                Enable calendar
+              </Button>
+            ) : (
+              <Button
+                className="shrink-0 gap-2"
+                onClick={() => takeNotes(nextEvent?.title)}
+              >
+                <Mic className="h-4 w-4" />
+                Take notes
+              </Button>
+            )}
           </CardContent>
         </Card>
       </section>

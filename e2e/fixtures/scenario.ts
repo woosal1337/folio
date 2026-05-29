@@ -263,6 +263,12 @@ export async function setupScenario(page: Page, options: ScenarioOptions = {}) {
       open_permission_settings: () => null,
       request_calendar_access: () => null,
       list_attendee_suggestions: () => [],
+      // Coming-up calendar (GET-161). Tests override via window globals.
+      calendar_authorization_status: () =>
+        (window as unknown as Record<string, unknown>).__ATTUNE_CAL_ACCESS__ ??
+        "not_determined",
+      next_calendar_event: () =>
+        (window as unknown as Record<string, unknown>).__ATTUNE_NEXT_EVENT__ ?? null,
 
       auth_status: () => {
         if ((window as unknown as Record<string, unknown>).__ATTUNE_SIGNED_IN__) {

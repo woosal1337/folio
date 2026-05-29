@@ -533,6 +533,7 @@ export function requestCalendarAccess(): Promise<void> {
 // ---- Calendar-derived suggestions (GET-132) ----------------------
 
 import type { AttendeeSuggestion } from "@/shared/types/AttendeeSuggestion";
+import type { CalendarEvent } from "@/shared/types/CalendarEvent";
 
 export function listAttendeeSuggestions(
   userEmail: string,
@@ -546,6 +547,19 @@ export function listAttendeeSuggestions(
     windowDays,
     minCount,
   });
+}
+
+// ---- Coming-up calendar (GET-161) --------------------------------
+
+/** Calendar authorization: "authorized" | "denied" | "restricted" |
+ *  "not_determined". Drives the Home "Coming up" permission state. */
+export function calendarAuthorizationStatus(): Promise<string> {
+  return call<string>("calendar_authorization_status");
+}
+
+/** The next upcoming meeting from Apple Calendar, or null. */
+export function nextCalendarEvent(): Promise<CalendarEvent | null> {
+  return call<CalendarEvent | null>("next_calendar_event");
 }
 
 // ---- Backend auth ------------------------------------------------
