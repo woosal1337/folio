@@ -341,6 +341,41 @@ export async function setupScenario(page: Page, options: ScenarioOptions = {}) {
       list_recordings: () =>
         (window as unknown as Record<string, unknown>).__ATTUNE_RECORDINGS__,
       get_recording: () => null,
+      // Full-text content search (GET-165): match the query against each
+      // seeded recording's transcript_text / suggested_title / label and
+      // return hits with a snippet, mirroring the Rust scan.
+      search_note_content: (args) => {
+        const a = args as { query: string };
+        const q = (a.query ?? "").trim().toLowerCase();
+        if (q.length === 0) return [];
+        const recs = (window as unknown as Record<string, unknown>)
+          .__ATTUNE_RECORDINGS__ as Array<Record<string, unknown>>;
+        const hits: Array<Record<string, unknown>> = [];
+        for (const r of recs) {
+          const body = String(
+            (r.transcript_text as string) ??
+              (r.suggested_title as string) ??
+              (r.label as string) ??
+              ""
+          );
+          const idx = body.toLowerCase().indexOf(q);
+          if (idx < 0) continue;
+          const start = Math.max(0, idx - 30);
+          const end = Math.min(body.length, idx + q.length + 30);
+          const snippet =
+            (start > 0 ? "…" : "") +
+            body.slice(start, end) +
+            (end < body.length ? "…" : "");
+          hits.push({
+            session_dir: r.session_dir,
+            label: r.label,
+            title: (r.title as string) ?? (r.suggested_title as string) ?? null,
+            snippet,
+            matched_in: "transcript",
+          });
+        }
+        return hits;
+      },
       delete_recording: () => null,
       reveal_in_finder: () => null,
       share_paths: () => null,

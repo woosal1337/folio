@@ -32,6 +32,7 @@ import {
 import type { Agent } from "@/shared/types/Agent";
 import type { AgentRun } from "@/shared/types/AgentRun";
 import type { NoteTemplate } from "@/shared/types/NoteTemplate";
+import type { NoteSearchHit } from "@/shared/types/NoteSearchHit";
 import type { DeviceInfo } from "@/shared/types/DeviceInfo";
 import type { ModelInfo } from "@/shared/types/ModelInfo";
 import type { ProviderId } from "@/shared/types/ProviderId";
@@ -153,6 +154,12 @@ export function listRecordings(): Promise<RecordingSummary[]> {
 
 export function getRecording(label: string): Promise<RecordingSummary | null> {
   return call<RecordingSummary | null>("get_recording", { label });
+}
+
+/** Full-text search across note content — title, summary, live notes,
+ *  transcript (GET-165). Returns matching notes with a snippet. */
+export function searchNoteContent(query: string): Promise<NoteSearchHit[]> {
+  return call<NoteSearchHit[]>("search_note_content", { query });
 }
 
 export function revealInFinder(path: string): Promise<void> {

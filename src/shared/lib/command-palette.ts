@@ -30,6 +30,14 @@ export interface CommandItem {
 export interface CommandSource {
   kind: CommandKind;
   load: () => Promise<CommandItem[]>;
+  /**
+   * Optional query-aware search (GET-165). Sources that can't index
+   * everything up-front (e.g. transcript bodies) implement this; the
+   * palette calls it, debounced, as the query changes and merges the
+   * results with the statically-loaded items. Items returned here are
+   * assumed already relevant — their snippet should contain the query.
+   */
+  search?: (query: string) => Promise<CommandItem[]>;
 }
 
 /**

@@ -87,6 +87,7 @@ pub fn run() {
             commands::folders::delete_folder,
             commands::folders::set_note_folder,
             commands::library::list_recordings,
+            commands::library::search_note_content,
             commands::library::get_recording,
             commands::library::delete_recording,
             commands::library::reveal_in_finder,

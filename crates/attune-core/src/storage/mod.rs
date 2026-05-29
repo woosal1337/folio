@@ -15,6 +15,7 @@ pub mod folders;
 pub mod fs_io;
 pub mod git_sync;
 pub mod retention;
+pub mod search;
 pub mod session;
 pub mod settings;
 pub mod share_bundle;

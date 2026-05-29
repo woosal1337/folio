@@ -2,6 +2,7 @@
 
 use std::path::PathBuf;
 
+use attune_core::storage::search::{search_notes, NoteSearchHit};
 use attune_core::storage::{scan_recordings, RecordingSummary};
 use tauri::State;
 #[cfg(not(target_os = "macos"))]
@@ -41,6 +42,22 @@ pub async fn list_recordings(state: State<'_, AppState>) -> Result<Vec<Recording
     })
     .await
     .map_err(|e| format!("list_recordings task panicked: {e}"))
+}
+
+/// Full-text search across note content (GET-165): user title, the
+/// enhanced-notes summary, live notes, and the transcript. Returns one
+/// hit per matching note with a snippet around the first match. Runs on
+/// a blocking task because it reads + decompresses transcripts.
+#[tauri::command]
+pub async fn search_note_content(
+    state: State<'_, AppState>,
+    query: String,
+) -> Result<Vec<NoteSearchHit>, String> {
+    debug!(query = %query, "search_note_content");
+    let output_dir = state.settings.lock().output_dir.clone();
+    tauri::async_runtime::spawn_blocking(move || search_notes(&output_dir, &query))
+        .await
+        .map_err(|e| format!("search_note_content task panicked: {e}"))
 }
 
 /// Delete a recording session directory.
