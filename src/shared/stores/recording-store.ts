@@ -18,6 +18,8 @@ import {
   recordingStatus as fetchStatus,
   runAgent as ipcRunAgent,
   setTrayRecording as ipcSetTrayRecording,
+  showRecordingBar as ipcShowRecordingBar,
+  hideRecordingBar as ipcHideRecordingBar,
   startRecording as ipcStart,
   stopRecording as ipcStop,
   pauseRecording as ipcPause,
@@ -484,6 +486,9 @@ export const useRecording = create<RecordingState>((set, get) => {
           liveSessionDir: status.session_dir,
         });
         installTicker();
+        // Re-adopting an in-progress capture after a reload/restart —
+        // bring the floating bar back too.
+        void ipcShowRecordingBar().catch(() => {});
       } catch (e) {
         console.error("recording_store: initial sync failed", e);
       }
@@ -510,6 +515,9 @@ export const useRecording = create<RecordingState>((set, get) => {
           liveSessionDir: status.session_dir,
         });
         installTicker();
+        // Pop the floating always-on-top recording bar so the user has a
+        // Stop button + live indicator regardless of focused app.
+        void ipcShowRecordingBar().catch(() => {});
         const count = status.channels.length;
         playFeedback("start");
         toast.success("Recording started", {
@@ -538,6 +546,8 @@ export const useRecording = create<RecordingState>((set, get) => {
         const result = await ipcStop();
         sessionDir = result.artifacts.session_dir;
         clearTicker();
+        // Capture is fully over — tear down the floating recording bar.
+        void ipcHideRecordingBar().catch(() => {});
         set({
           recording: false,
           paused: false,

@@ -710,6 +710,33 @@ export async function onMeetingTakeNotes(handler: () => void): Promise<UnlistenF
   return listen(MEETING_TAKE_NOTES_EVENT, () => handler());
 }
 
+// ---- Floating recording bar --------------------------------------
+
+/** Tauri window label of the frameless floating recording-control bar. */
+export const RECORDING_BAR_WINDOW_LABEL = "recording-bar";
+/** Event the bar's Stop button asks the main window to stop with. */
+export const RECORDING_BAR_STOP_EVENT = "recording-bar:stop";
+
+/** Open (or reveal) the floating recording bar. Called on capture start. */
+export function showRecordingBar(): Promise<void> {
+  return call<void>("show_recording_bar");
+}
+
+/** Close the floating recording bar. Called on capture stop. */
+export function hideRecordingBar(): Promise<void> {
+  return call<void>("hide_recording_bar");
+}
+
+/** Stop from the bar — routes through the main window's stop flow. */
+export function recordingBarStop(): Promise<void> {
+  return call<void>("recording_bar_stop");
+}
+
+/** Subscribe to the bar's Stop request (main window only). */
+export async function onRecordingBarStop(handler: () => void): Promise<UnlistenFn> {
+  return listen(RECORDING_BAR_STOP_EVENT, () => handler());
+}
+
 // ---- Live transcript preview (GET-160) ---------------------------
 
 /** Rolling-window live transcript preview emitted while recording. */
