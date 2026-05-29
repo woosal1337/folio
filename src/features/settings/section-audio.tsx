@@ -29,17 +29,17 @@ export function SectionAudio({ settings, onChange }: Props) {
             >
               <Mic className="h-4 w-4 text-muted-foreground" />
               Voice processing
-              <span className="rounded bg-muted px-1.5 py-0.5 text-2xs font-normal text-muted-foreground">
-                Recommended
-              </span>
             </Label>
             <p className="max-w-md text-xs text-muted-foreground">
               Routes the mic through Apple&apos;s Voice Processing IO AudioUnit —
               acoustic echo cancellation, noise suppression, and automatic gain control.
               Stops the mic from picking up system audio when you are not wearing
-              headphones. Same technology Zoom, FaceTime, and Discord use on macOS.
-              Falls back to plain capture automatically if it fails to initialise on
-              your device.
+              headphones. Same technology Zoom, FaceTime, and Discord use on macOS.{" "}
+              <strong className="text-foreground">
+                Leave this off if your mic records nothing
+              </strong>{" "}
+              — on some Macs this path captures silence; plain capture is the reliable
+              default.
             </p>
           </div>
           <Switch

@@ -49,7 +49,11 @@ pub struct Settings {
     /// Processing IO AudioUnit (AEC + noise suppression + AGC) so the
     /// mic stops picking up speaker bleed when the user is not
     /// wearing headphones. Falls back to the plain cpal path on
-    /// VPIO init failure. Ignored on non-macOS targets.
+    /// VPIO *init* failure — but if VPIO initialises yet yields silence
+    /// there is no fallback, which surfaced as a fully-silent mic.
+    /// Defaults OFF so the reliable cpal path is used; voice processing
+    /// is opt-in until the VPIO path is verified end-to-end.
+    /// Ignored on non-macOS targets.
     #[serde(default = "default_voice_processing_enabled")]
     pub voice_processing_enabled: bool,
     /// When true, the app starts transcribing automatically as soon as
@@ -344,7 +348,11 @@ fn default_local_whisper_model() -> String {
     "large-v3".into()
 }
 fn default_voice_processing_enabled() -> bool {
-    true
+    // OFF by default: the VPIO mic path can initialise yet capture
+    // silence on some macOS/hardware combos, which left the mic fully
+    // silent. The plain cpal path is the reliable default; users can
+    // opt into voice processing (AEC/noise suppression) in Settings.
+    false
 }
 fn default_auto_vad_enabled() -> bool {
     true
