@@ -3,7 +3,7 @@
 /**
  * Persisted user settings.
  */
-export type Settings = { mic_device: string | null, system_audio_enabled: boolean, output_dir: string, notes_dir: string, tasks_path: string, transcripts_dir: string, theme: string, transcriber: string, transcription_language: string, 
+export type Settings = { mic_device: string | null, system_audio_enabled: boolean, output_dir: string, notes_dir: string, tasks_path: string, transcripts_dir: string, theme: string, transcriber: string, transcription_language: string,
 /**
  * Language the LLM agents (summarise, extract-tasks, extract-memories,
  * find-decisions, autoname, Q&A) must reply in regardless of the
@@ -14,20 +14,24 @@ export type Settings = { mic_device: string | null, system_audio_enabled: boolea
  * search + skim their library in English even when meetings are
  * multilingual.
  */
-briefing_language: string, dictionary_terms: Array<string>, 
+briefing_language: string, dictionary_terms: Array<string>,
 /**
  * Identifier of the local Whisper model the user has chosen (e.g.
  * "large-v3", "small"). Used only when `transcriber == "local_whisper"`.
  */
-local_whisper_model: string, 
+local_whisper_model: string,
 /**
  * macOS only. When true, mic capture goes through Apple's Voice
  * Processing IO AudioUnit (AEC + noise suppression + AGC) so the
  * mic stops picking up speaker bleed when the user is not
  * wearing headphones. Falls back to the plain cpal path on
- * VPIO init failure. Ignored on non-macOS targets.
+ * VPIO *init* failure — but if VPIO initialises yet yields silence
+ * there is no fallback, which surfaced as a fully-silent mic.
+ * Defaults OFF so the reliable cpal path is used; voice processing
+ * is opt-in until the VPIO path is verified end-to-end.
+ * Ignored on non-macOS targets.
  */
-voice_processing_enabled: boolean, 
+voice_processing_enabled: boolean,
 /**
  * When true, the app starts transcribing automatically as soon as
  * a recording is stopped. Honours the currently-selected
@@ -35,7 +39,7 @@ voice_processing_enabled: boolean,
  * stored key via `KeyStore::set`; Local Whisper needs no key).
  * When false the user transcribes manually from the Library row.
  */
-auto_transcribe_enabled: boolean, 
+auto_transcribe_enabled: boolean,
 /**
  * When true, the VAD pre-pass runs as its own job before
  * transcription. Strips silence from both the mic and system
@@ -45,7 +49,7 @@ auto_transcribe_enabled: boolean,
  * pre-pass is cheap. Set to false to send the raw recordings
  * straight to the ASR.
  */
-auto_vad_enabled: boolean, 
+auto_vad_enabled: boolean,
 /**
  * Root directory for the local memory layer. Defaults to a
  * subtree of the user's Obsidian vault per the
@@ -54,20 +58,20 @@ auto_vad_enabled: boolean,
  * exist. The `MemoryStore` creates this directory on first
  * write — callers should not assume it exists.
  */
-memory_dir: string, 
+memory_dir: string,
 /**
  * When true, runs the `extract-memories` agent automatically
  * after every transcription. Mirrors `auto_summarize_enabled`
  * and `auto_extract_tasks_enabled`. Skipped silently if no AI
  * key is set.
  */
-auto_extract_memories_enabled: boolean, 
+auto_extract_memories_enabled: boolean,
 /**
  * When true, the app plays short synthesised tones on the
  * recording lifecycle (start, stop, agent success, error).
  * Default off — users opt in via Settings. v2 finding 019.
  */
-feedback_sounds_enabled: boolean, 
+feedback_sounds_enabled: boolean,
 /**
  * When true and an AI provider key is configured, the app
  * automatically runs the `summarize` agent immediately after a
@@ -75,7 +79,7 @@ feedback_sounds_enabled: boolean,
  * away knowing the summary will be on the recording's page when
  * they come back. Falls back to a no-op when no AI key is set.
  */
-auto_summarize_enabled: boolean, 
+auto_summarize_enabled: boolean,
 /**
  * When true and an AI provider key is configured, the app
  * automatically runs the `extract-tasks` agent after a
@@ -84,7 +88,7 @@ auto_summarize_enabled: boolean,
  * meeting and come back to a populated to-do board. Skipped
  * silently if no AI key is set.
  */
-auto_extract_tasks_enabled: boolean, 
+auto_extract_tasks_enabled: boolean,
 /**
  * When true and an AI provider key is configured, fires the
  * `autoname` agent right after transcription completes so the
@@ -94,7 +98,7 @@ auto_extract_tasks_enabled: boolean,
  * surfaces the title in RecordingSummary so the UI can render
  * it without any extra IPC roundtrips. v2 finding 024 / GET-37.
  */
-auto_name_enabled: boolean, 
+auto_name_enabled: boolean,
 /**
  * Optional retention policy for the source WAV files inside each
  * session directory. None / 0 leaves WAVs in place forever; a
@@ -106,7 +110,7 @@ auto_name_enabled: boolean,
  * lets the user keep transcripts but drop the source audio.
  * v2 finding 063 / GET-98.
  */
-wav_retention_days: number | null, 
+wav_retention_days: number | null,
 /**
  * Opt-in toggle for the public-aggregate stats counter. v2
  * finding 095 / GET-110. When true, the app uploads three
@@ -117,7 +121,7 @@ wav_retention_days: number | null,
  * the follow-up PR; this setting ships the consent surface so
  * adding the upload later is a zero-UI change.
  */
-share_aggregate_stats: boolean, 
+share_aggregate_stats: boolean,
 /**
  * Attune Pro license key (v2 finding 092 / GET-108). Empty
  * string = Free tier. Non-empty = Pro — gates auto-record,
@@ -126,7 +130,7 @@ share_aggregate_stats: boolean,
  * of the key is a follow-up; for now the presence of a
  * non-empty value flips the tier.
  */
-pro_license_key: string, 
+pro_license_key: string,
 /**
  * RFC-3339 timestamp the user started the 14-day Pro trial.
  * Empty string = trial never started. The UI computes
@@ -134,7 +138,7 @@ pro_license_key: string,
  * than 14 days have elapsed without a license_key. v2 finding
  * 094 / GET-109.
  */
-pro_trial_started_at: string, 
+pro_trial_started_at: string,
 /**
  * Apple Reminders two-way sync — when enabled, kanban tasks
  * publish to the named Reminders list and #attune-tagged
@@ -142,12 +146,12 @@ pro_trial_started_at: string,
  * requires the user to grant Reminders permission on first
  * run. v2 finding 076 / GET-78.
  */
-reminders_sync_enabled: boolean, 
+reminders_sync_enabled: boolean,
 /**
  * Reminders list name to mirror to/from. Defaults to "Attune"
  * (we create the list on first sync if it doesn't exist).
  */
-reminders_list_name: string, 
+reminders_list_name: string,
 /**
  * Privacy Mode / Airgap (v2 finding 048 / GET-42). When true the
  * CloudGuard blocks every outbound HTTP request except to
@@ -156,7 +160,7 @@ reminders_list_name: string,
  * "blocked by Privacy Mode" error. The titlebar shows an AIRGAP
  * badge while this is on. Defaults to false.
  */
-privacy_mode: boolean, 
+privacy_mode: boolean,
 /**
  * Voice-debrief on Stop (v2 finding 027 / GET-53). When true, the
  * app pops a small sheet right after the user hits Stop that asks
@@ -165,14 +169,14 @@ privacy_mode: boolean,
  * and the existing extract-tasks / extract-memories agents fire
  * against its transcript. Default OFF — opt in from Settings.
  */
-voice_debrief_enabled: boolean, 
+voice_debrief_enabled: boolean,
 /**
  * One-screen first-run conductor completion flag. v2 finding 001
  * / GET-24. True after the user has either finished the
  * onboarding screen or explicitly dismissed it. The Record route
  * renders the conductor while this is false.
  */
-onboarding_completed: boolean, 
+onboarding_completed: boolean,
 /**
  * GET-133 General. When true, a thin floating indicator pulses
  * on the right edge of the screen while Attune is transcribing.
@@ -180,14 +184,14 @@ onboarding_completed: boolean,
  * Strip surface; defaults ON because Tony's Calm Computing
  * principle says recording state must always be visible.
  */
-live_meeting_indicator: boolean, 
+live_meeting_indicator: boolean,
 /**
  * GET-133 General. macOS Login Items API binding. When true,
  * Attune launches on user login via the SMAppService
  * background-task entitlement. Default OFF — opt in from
  * Settings.
  */
-open_at_login: boolean, 
+open_at_login: boolean,
 /**
  * GET-133 General. When a meeting starts (detected via
  * EventKit or auto-detect), Attune repositions itself out of
@@ -195,68 +199,68 @@ open_at_login: boolean,
  * conferencing app. Default OFF until the implicit-brief
  * surface lands.
  */
-move_aside_in_meetings: boolean, 
+move_aside_in_meetings: boolean,
 /**
  * GET-133 Privacy. Default visibility for shared-meeting links.
  * `"workspace_only"` (default, stricter than Granola),
  * `"anyone_with_link"`, or `"disabled"`.
  */
-default_link_sharing: string, 
+default_link_sharing: string,
 /**
  * GET-133 Privacy. When the user clicks a shared-meeting link
  * in their browser, deep-link into the desktop app instead of
  * the web view. Default ON.
  */
-always_open_shared_links: boolean, 
+always_open_shared_links: boolean,
 /**
  * GET-133 Privacy. Roundtable consensus #5 — show a coloured
  * left border on every artefact indicating where it lives
  * (green = on-device only, amber = Apple PCC / encrypted cloud,
  * red = third-party cloud). Default ON.
  */
-privacy_tier_band_enabled: boolean, 
+privacy_tier_band_enabled: boolean,
 /**
  * GET-133 Privacy. Number of days after which transcripts auto-
  * delete. GDPR Art. 5(1)(c) data minimisation default = 90
  * days; Granola defaults to Off, which is an Art. 5 violation
  * in the EU. Range UI: Off / 7 / 30 / 90 / 365.
  */
-auto_delete_period_days: number | null, 
+auto_delete_period_days: number | null,
 /**
  * GET-134 Calendar. Show next-meeting + countdown in the macOS
  * menu bar. Default ON — feeds the consensus #9 Quiet Mode dot.
  */
-show_upcoming_meetings_in_menubar: boolean, 
+show_upcoming_meetings_in_menubar: boolean,
 /**
  * GET-134 Calendar. Power-user knob hidden behind an Advanced
  * disclosure. When true, the "Coming up" section includes
  * events without attendees / video links (e.g. focus blocks).
  * Default OFF.
  */
-show_events_without_participants: boolean, 
+show_events_without_participants: boolean,
 /**
  * GET-135 Notifications. Fire a notification 1 minute before
  * a calendared meeting starts. Default ON.
  */
-notify_scheduled_meetings: boolean, 
+notify_scheduled_meetings: boolean,
 /**
  * GET-135 Notifications. Detect via NSRunningApplication that
  * a known conferencing app started a call, then ask the user
  * to capture. Default ON.
  */
-notify_auto_detected_meetings: boolean, 
+notify_auto_detected_meetings: boolean,
 /**
  * GET-135 Notifications. Bundle identifiers the user does NOT
  * want auto-detect notifications for. Per-app mute escape
  * hatch — Granola pattern.
  */
-notification_muted_apps: Array<string>, 
+notification_muted_apps: Array<string>,
 /**
  * GET-135 Notifications. Where to surface "a teammate shared a
  * note with you" events. `"activity_and_email"` (default),
  * `"activity_only"`, `"email_only"`, or `"none"`.
  */
-note_shared_notification: string, 
+note_shared_notification: string,
 /**
  * GET-127 Signup. Which sign-in path the user chose during
  * onboarding. `""` = not chosen yet, `"offline"` = local-only
@@ -266,7 +270,7 @@ note_shared_notification: string,
  * and so we can re-prompt for sign-in when the user later
  * tries to enable Pro / Clinical / MCP features.
  */
-signin_mode: string, 
+signin_mode: string,
 /**
  * GET-131 Workspace. Human name of the user's primary
  * workspace, e.g. "Clinora". Auto-populated from the email
@@ -275,7 +279,7 @@ signin_mode: string,
  * Local-only mode allows any name; cloud mode uses the
  * backend-validated workspace slug.
  */
-workspace_name: string, 
+workspace_name: string,
 /**
  * GET-129 Workspace. The user's chosen workspace bucket from
  * the 2×2 onboarding card grid. Enum stored as string:
@@ -286,7 +290,7 @@ workspace_name: string,
  * the BAA-free Clinical wedge gating in
  * `commands::clinical::verify_license` once GET-130 ships.
  */
-workspace_bucket: string, 
+workspace_bucket: string,
 /**
  * GET-128 EventKit. True when the user explicitly skipped the
  * pre-EventKit rationale screen during onboarding. The Library
@@ -295,7 +299,7 @@ workspace_bucket: string,
  * user will re-prompt themselves. Reset to false on any re-grant
  * from Settings.
  */
-onboarding_calendar_deferred: boolean, 
+onboarding_calendar_deferred: boolean,
 /**
  * GET-138 Workspace. Whether the workspace appears in the
  * domain-match discovery feed for other users with matching
@@ -304,14 +308,14 @@ onboarding_calendar_deferred: boolean,
  * this to false when the user picks Clinical (Sasha — therapist
  * workspaces don't accept walk-ins).
  */
-workspace_discoverable: boolean, 
+workspace_discoverable: boolean,
 /**
  * GET-138 Workspace. Whether teammates can join the workspace
  * automatically (no admin approval) once they sign in with a
  * matching work email. Same bucket-aware defaults as
  * `workspace_discoverable`.
  */
-workspace_auto_join: boolean, 
+workspace_auto_join: boolean,
 /**
  * GET-138 Workspace. Local file path to the workspace logo PNG
  * or SVG, max 256x256 / 500KB. Empty means "no logo set" — the
