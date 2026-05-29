@@ -178,6 +178,56 @@
   .no-drag {
     -webkit-app-region: no-drag;
   }
+
+  /* Markdown notes editor (TipTap). The app doesn't ship the
+     @tailwindcss/typography plugin, so style the editor's rendered
+     markdown elements here, mirroring the read-only Markdown renderer
+     (src/shared/ui/markdown.tsx) so typed notes and enhanced notes look
+     consistent. Scoped to .md-notes-editor so nothing else is affected. */
+  .md-notes-editor .ProseMirror p {
+    @apply mb-3 last:mb-0;
+  }
+  .md-notes-editor .ProseMirror h1 {
+    @apply mb-3 mt-4 text-base font-semibold first:mt-0;
+  }
+  .md-notes-editor .ProseMirror h2 {
+    @apply mb-2 mt-4 text-sm font-semibold first:mt-0;
+  }
+  .md-notes-editor .ProseMirror h3 {
+    @apply mb-2 mt-3 text-sm font-semibold first:mt-0;
+  }
+  .md-notes-editor .ProseMirror ul {
+    @apply mb-3 ml-5 list-disc space-y-1 marker:text-muted-foreground last:mb-0;
+  }
+  .md-notes-editor .ProseMirror ol {
+    @apply mb-3 ml-5 list-decimal space-y-1 marker:text-muted-foreground last:mb-0;
+  }
+  .md-notes-editor .ProseMirror li {
+    @apply pl-1;
+  }
+  .md-notes-editor .ProseMirror blockquote {
+    @apply my-2 border-l-2 border-border pl-3 italic text-muted-foreground;
+  }
+  .md-notes-editor .ProseMirror code {
+    @apply rounded bg-muted px-1 py-0.5 font-mono text-xs;
+  }
+  .md-notes-editor .ProseMirror pre {
+    @apply my-2 overflow-x-auto rounded-md bg-muted p-3 font-mono text-xs;
+  }
+  .md-notes-editor .ProseMirror pre code {
+    @apply bg-transparent p-0;
+  }
+  .md-notes-editor .ProseMirror strong {
+    @apply font-semibold;
+  }
+  .md-notes-editor .ProseMirror a {
+    @apply text-primary underline underline-offset-2;
+  }
+  /* Placeholder (TipTap Placeholder extension) on the empty first line. */
+  .md-notes-editor .ProseMirror p.is-editor-empty:first-child::before {
+    content: attr(data-placeholder);
+    @apply pointer-events-none float-left h-0 text-muted-foreground;
+  }
 }
 
 /* v2 roadmap finding 101: honor prefers-reduced-motion globally.

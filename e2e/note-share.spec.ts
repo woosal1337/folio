@@ -27,8 +27,8 @@ test("Share / export writes Markdown and opens the share sheet", async ({ page }
   await page.getByText("Shareable note").first().click();
   await expect(page).toHaveURL(/#\/editor\//);
   // Wait for the transcript-driven sections to settle before opening the
-  // menu (the AI-agents disclosure only renders once the transcript loads).
-  await expect(page.getByRole("button", { name: /ai agents/i })).toBeVisible();
+  // menu (the Transcript & audio disclosure renders for a transcribed note).
+  await expect(page.getByRole("button", { name: /transcript & audio/i })).toBeVisible();
 
   // Open the ⋯ menu and trigger Share / export.
   await page.getByRole("button", { name: /more actions/i }).click();
