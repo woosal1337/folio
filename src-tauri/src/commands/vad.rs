@@ -22,7 +22,8 @@ use serde::Serialize;
 use tauri::State;
 use tracing::{info, warn};
 
-use attune_core::audio::vad_filter::{apply_vad_to_wav, VadSidecar};
+use attune_core::audio::enhancement::{self, EnhancementConfig};
+use attune_core::audio::vad_filter::{apply_vad_to_wav_with_stem, VadEngine, VadSidecar};
 
 use crate::app::AppState;
 
@@ -55,7 +56,16 @@ pub async fn run_vad(
     state: State<'_, AppState>,
     session_dir: PathBuf,
 ) -> Result<VadRunResult, String> {
-    let output_dir = state.settings.lock().output_dir.clone();
+    let (output_dir, enh_enabled, enh_cfg) = {
+        let s = state.settings.lock();
+        (
+            s.output_dir.clone(),
+            s.system_audio_enhancement.enabled,
+            EnhancementConfig {
+                atten_lim_db: s.system_audio_enhancement.atten_lim_db,
+            },
+        )
+    };
 
     // Canonicalise under the configured output dir so we don't let a
     // malicious sessionDir argument from the frontend escape the
@@ -75,7 +85,40 @@ pub async fn run_vad(
             if !path.is_file() {
                 continue;
             }
-            match apply_vad_to_wav(&path) {
+
+            // System-audio speech enhancement (GET-188) runs as a
+            // pre-pass on the raw `system.wav`, writing
+            // `system.enhanced.wav` that VAD then consumes. The raw
+            // recording is preserved. Only the system channel is
+            // enhanced — the mic channel already goes through Voice
+            // Processing IO. Any failure falls back to the raw audio.
+            let vad_input = if *ch == "system" && enh_enabled {
+                let enhanced = work_dir.join("system.enhanced.wav");
+                match enhancement::enhance_wav_file(&path, &enhanced, &enh_cfg) {
+                    Ok(stats) => {
+                        info!(
+                            channel = ch,
+                            rtf = stats.rtf(),
+                            input_rms = stats.input_rms,
+                            output_rms = stats.output_rms,
+                            audio_secs = stats.audio_secs,
+                            "enhancement: system channel enhanced"
+                        );
+                        enhanced
+                    }
+                    Err(e) => {
+                        warn!(channel = ch, error = %e, "enhancement failed; using raw system audio");
+                        path.clone()
+                    }
+                }
+            } else {
+                path.clone()
+            };
+
+            // Pin the output stem to the channel name so the enhanced
+            // input still yields the canonical `<ch>.speech.wav` +
+            // `<ch>.vad.json` the transcription step looks for.
+            match apply_vad_to_wav_with_stem(&vad_input, VadEngine::default(), ch) {
                 Ok(o) => {
                     info!(
                         channel = ch,

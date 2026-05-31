@@ -4,7 +4,7 @@
  * Verbatim transcript span the agent grounded a claim in. Pair with
  * the locate_span helper (#038 / GET-41) to render a clickable jump.
  */
-export type EvidenceSpan = {
+export type EvidenceSpan = { 
 /**
  * Human-readable label of what this evidence is for ("task: ship
  * the redesign", "memory: user.company"). Optional for free-form

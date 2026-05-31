@@ -45,6 +45,15 @@ tokio = { workspace = true }
 objc = "0.2"
 cocoa = "0.26"
 
+# Audio HAL per-process input watcher (macOS 14.2+): reads the same
+# per-PID "is using a mic input" signal that powers the orange menu-bar
+# dot, so meeting detection fires when the user actually joins a voice
+# channel, not when the app launches. coreaudio-sys gives us the raw
+# AudioObject* API; core-foundation wraps the CFString bundle id the
+# audio server hands back.
+coreaudio-sys = { workspace = true }
+core-foundation = "0.9"
+
 # State + IO
 serde = { workspace = true }
 serde_json = { workspace = true }

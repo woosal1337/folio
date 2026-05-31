@@ -168,6 +168,34 @@ pub fn apply_vad_to_wav(input_wav: &Path) -> Result<VadFilterOutcome> {
 /// chosen the RMS fallback in Settings, and by unit tests that need
 /// to exercise both paths without flipping global state.
 pub fn apply_vad_to_wav_with(input_wav: &Path, engine: VadEngine) -> Result<VadFilterOutcome> {
+    let stem = input_wav
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .ok_or_else(|| {
+            AttuneError::Transcription(format!(
+                "vad: input path {} has no usable stem",
+                input_wav.display()
+            ))
+        })?
+        .to_string();
+    apply_vad_to_wav_with_stem(input_wav, engine, &stem)
+}
+
+/// Same as [`apply_vad_to_wav_with`] but writes the output artefacts
+/// under an explicit `out_stem` instead of deriving them from the input
+/// filename.
+///
+/// This exists so a pre-processing pass (e.g. the system-audio speech
+/// enhancement in [`crate::audio::enhancement`], which writes
+/// `system.enhanced.wav`) can feed its product through VAD while the
+/// downstream `<out_stem>.speech.wav` + `<out_stem>.vad.json` keep their
+/// canonical channel names (`system.speech.wav`), so the transcription
+/// step finds them unchanged.
+pub fn apply_vad_to_wav_with_stem(
+    input_wav: &Path,
+    engine: VadEngine,
+    out_stem: &str,
+) -> Result<VadFilterOutcome> {
     let reader = WavReader::open(input_wav).map_err(|e| {
         AttuneError::Transcription(format!("vad: could not open {}: {e}", input_wav.display()))
     })?;
@@ -230,18 +258,9 @@ pub fn apply_vad_to_wav_with(input_wav: &Path, engine: VadEngine) -> Result<VadF
         })
         .collect();
 
-    let stem = input_wav
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .ok_or_else(|| {
-            AttuneError::Transcription(format!(
-                "vad: input path {} has no usable stem",
-                input_wav.display()
-            ))
-        })?;
     let parent = input_wav.parent().unwrap_or_else(|| Path::new("."));
-    let speech_path = parent.join(format!("{stem}.speech.wav"));
-    let sidecar_path = parent.join(format!("{stem}.vad.json"));
+    let speech_path = parent.join(format!("{out_stem}.speech.wav"));
+    let sidecar_path = parent.join(format!("{out_stem}.vad.json"));
 
     // Write the compacted WAV preserving the source format.
     let speech_silence_frames =
@@ -453,10 +472,15 @@ fn write_sample_f32<W: std::io::Write + std::io::Seek>(
             .map_err(|e| AttuneError::Transcription(format!("vad: wav write failed: {e}"))),
         SampleFormat::Int => {
             let spec = writer.spec();
-            let bits = spec.bits_per_sample;
+            let bits = spec.bits_per_sample.max(1);
             let max = (1i64 << (bits - 1)) as f32;
             let clamped = value.clamp(-1.0, 1.0);
-            let int_sample = (clamped * max).round() as i32;
+            // Clamp the integer to the signed range: +1.0 * 2^(bits-1) is
+            // one past i16::MAX and hound rejects it as `TooWide`, which
+            // would fail the whole VAD write.
+            let lo = -(1i64 << (bits - 1)) as i32;
+            let hi = ((1i64 << (bits - 1)) - 1) as i32;
+            let int_sample = ((clamped * max).round() as i32).clamp(lo, hi);
             writer
                 .write_sample(int_sample)
                 .map_err(|e| AttuneError::Transcription(format!("vad: wav write failed: {e}")))

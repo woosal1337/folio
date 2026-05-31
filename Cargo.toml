@@ -34,6 +34,24 @@ crossbeam-channel = "0.5"
 # for the migration plan that wires this in behind `vad_filter`.
 voice_activity_detector = "0.2"
 
+# sherpa-onnx — speaker diarization runtime. Native Rust crate wrapping
+# the sherpa-onnx C library (Apache-2.0). Runs the
+# segmentation + speaker-embedding + clustering pipeline locally with no
+# Python sidecar. Models live under
+# ~/Library/Application Support/attune/models/diarization/ and are
+# downloaded on first use. Plan:
+# obsidian.md/projects/attune/plan/diarization-v1-execution.md
+sherpa-onnx = "1.13"
+
+# RNNoise speech enhancement on the system-audio stream (GET-188). Pure
+# Rust, crates.io-native, embeds its own ~85 KB model (no first-run
+# download), runs at 48 kHz, BSD-3-Clause. The shipping backend behind
+# `audio::enhancement`. DeepFilterNet3 (higher quality on paper) is
+# deferred — its only Rust runtime is a git crate with a version-
+# deadlocked tract pin; see audio::enhancement::rnnoise for the details.
+# Research: obsidian.md/projects/attune/research/speech-enhancement-system-audio-2026-05-31.md
+nnnoiseless = "0.5"
+
 # async + concurrency
 tokio = { version = "1.38", features = ["full"] }
 parking_lot = "0.12"

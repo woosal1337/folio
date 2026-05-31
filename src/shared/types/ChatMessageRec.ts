@@ -3,7 +3,7 @@
 /**
  * One message in a persisted conversation.
  */
-export type ChatMessageRec = {
+export type ChatMessageRec = { 
 /**
  * "user" or "assistant".
  */

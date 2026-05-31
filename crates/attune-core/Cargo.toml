@@ -20,7 +20,13 @@ cpal = { workspace = true }
 hound = { workspace = true }
 rubato = { workspace = true }
 voice_activity_detector = { workspace = true }
+sherpa-onnx = { workspace = true }
 crossbeam-queue = { workspace = true }
+
+# RNNoise system-audio speech enhancement (GET-188). Pure-Rust, always
+# compiled (the runtime `system_audio_enhancement.enabled` setting is the
+# user-facing toggle). See `audio::enhancement`.
+nnnoiseless = { workspace = true }
 crossbeam-channel = { workspace = true }
 parking_lot = { workspace = true }
 chrono = { workspace = true }
