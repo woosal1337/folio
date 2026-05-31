@@ -883,6 +883,7 @@ mod tests {
                     end_seconds: (i + 1) as f64,
                     text: t.to_string(),
                     speaker: None,
+                    language: None,
                 })
                 .collect(),
         }

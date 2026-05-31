@@ -132,6 +132,7 @@ mod tests {
             end_seconds: end,
             text: text.into(),
             speaker: None,
+            language: None,
         }
     }
 

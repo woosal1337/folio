@@ -137,6 +137,7 @@ pub fn run(args: TranscribeArgs) -> Result<()> {
             end_seconds: t1 as f64 / 100.0,
             text: text.trim().to_string(),
             speaker: None,
+            language: None,
         });
     }
 

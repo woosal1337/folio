@@ -299,6 +299,7 @@ mod tests {
             end_seconds: 1.0,
             text: text.to_string(),
             speaker: None,
+            language: None,
         }
     }
 
@@ -447,6 +448,7 @@ mod tests {
             end_seconds: end,
             text: text.to_string(),
             speaker: None,
+            language: None,
         }
     }
 

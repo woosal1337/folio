@@ -376,6 +376,7 @@ mod tests {
                     end_seconds: 67.0,
                     text: "pricing decision".into(),
                     speaker: None,
+                    language: None,
                 }],
             }],
         };
