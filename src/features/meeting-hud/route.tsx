@@ -1,23 +1,30 @@
 /**
  * GET-143 — Meeting-detection HUD.
  *
- * Renders inside the frameless, always-on-top `meeting-hud` window the
- * watcher opens when a conferencing app appears. Mirrors Granola's
- * detected-meeting popover: "Meeting detected — <App>" with a green
- * Take Notes button and a dropdown (Take Notes / Dismiss / Don't ask for
- * <App>). Auto-dismisses after a short delay and never steals focus —
- * the window owns the focus + always-on-top behaviour.
+ * Renders inside the frameless, transparent, always-on-top `meeting-hud`
+ * window the watcher opens when a user actually opens a mic stream
+ * (joined a Discord channel, started a Zoom call, etc.). A one-row
+ * capsule that matches the floating recording bar: same materials
+ * (`bg-neutral-900/95`, `border-white/10`, `shadow-2xl backdrop-blur`)
+ * and `rounded-full` so the "would you like to record" → "now recording"
+ * transition reads as one widget morphing rather than two separate
+ * notifications. Auto-dismisses after a short delay and never steals
+ * focus — the window owns the focus + always-on-top behaviour.
+ *
+ * No dropdown menu in the pill (the recording bar has none either, and a
+ * popover menu would either clip out of the 56-tall window or force a
+ * tall transparent click-blocking gutter below the pill). Per-app
+ * muting lives in the Notifications settings page.
  */
 
 import * as React from "react";
-import { ChevronDown, Video, X } from "lucide-react";
+import { X } from "lucide-react";
 
 import {
   dismissMeetingHud,
   getPendingMeeting,
   meetingTakeNotes,
   onMeetingDetected,
-  suppressMeetingApp,
   type DetectedMeeting,
 } from "@/shared/lib/ipc";
 
@@ -26,7 +33,24 @@ const AUTO_DISMISS_MS = 12_000;
 
 export default function MeetingHud() {
   const [meeting, setMeeting] = React.useState<DetectedMeeting | null>(null);
-  const [menuOpen, setMenuOpen] = React.useState(false);
+
+  // The HUD window is transparent (see show_meeting_hud). The app's
+  // <body> ships an opaque `bg-background` that would fill the window's
+  // square corners and defeat the rounded pill — blank out the page
+  // chrome in this dedicated window so only the capsule paints. Mirrors
+  // the recording bar's body-blanking effect.
+  React.useEffect(() => {
+    const els = [document.documentElement, document.body];
+    const prev = els.map((el) => el.style.background);
+    els.forEach((el) => {
+      el.style.background = "transparent";
+    });
+    return () => {
+      els.forEach((el, i) => {
+        el.style.background = prev[i] ?? "";
+      });
+    };
+  }, []);
 
   // Initial read + live refresh while open.
   React.useEffect(() => {
@@ -59,87 +83,46 @@ export default function MeetingHud() {
     void dismissMeetingHud().catch((e) => console.error("dismiss_meeting_hud:", e));
   }, []);
 
-  const onSuppress = React.useCallback(() => {
-    if (!meeting) return;
-    void suppressMeetingApp(meeting.bundle_id).catch((e) =>
-      console.error("suppress_meeting_app:", e)
-    );
-  }, [meeting]);
-
   const appName = meeting?.app_label ?? "a call";
 
   return (
-    <div className="fixed inset-0 flex items-center gap-3 overflow-hidden rounded-xl border border-white/10 bg-neutral-900/95 px-3 py-2.5 text-white shadow-2xl backdrop-blur">
-      <span className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-400">
-        <Video className="h-4 w-4" />
-        <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 animate-pulse rounded-full bg-emerald-400 ring-2 ring-neutral-900" />
+    <div className="fixed inset-0 flex select-none items-center gap-2.5 overflow-hidden rounded-full border border-white/10 bg-neutral-900/95 px-3 text-white shadow-2xl backdrop-blur">
+      {/* Pulse indicator — same affordance as the recording bar's red
+          dot, in emerald to read as "ready / detected" rather than
+          "live". The ping ring sells the "this is happening right now"
+          read without animating any text. */}
+      <span
+        className="relative flex h-7 w-7 shrink-0 items-center justify-center"
+        aria-hidden="true"
+      >
+        <span className="absolute h-3.5 w-3.5 animate-ping rounded-full bg-emerald-500/40" />
+        <span className="h-2 w-2 rounded-full bg-emerald-500" />
       </span>
 
-      <div className="min-w-0 flex-1 leading-tight">
-        <p className="text-[10px] font-medium uppercase tracking-wider text-neutral-400">
-          Meeting detected
-        </p>
-        <p className="truncate text-sm font-semibold">{appName}</p>
-      </div>
+      {/* Single-line label keeps the pill silhouette clean. The label
+          half stays neutral so the app name reads as the load-bearing
+          content. */}
+      <p className="min-w-0 flex-1 truncate text-[13px] leading-none">
+        <span className="text-neutral-400">Meeting detected · </span>
+        <span className="font-semibold text-white">{appName}</span>
+      </p>
 
-      <div className="relative flex shrink-0 items-stretch">
-        <button
-          type="button"
-          onClick={onTakeNotes}
-          className="rounded-l-md bg-emerald-500 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-emerald-600"
-        >
-          Take Notes
-        </button>
-        <button
-          type="button"
-          aria-label="More options"
-          aria-haspopup="menu"
-          aria-expanded={menuOpen}
-          onClick={() => setMenuOpen((v) => !v)}
-          className="rounded-r-md border-l border-emerald-600/60 bg-emerald-500 px-1.5 text-white transition-colors hover:bg-emerald-600"
-        >
-          <ChevronDown className="h-3.5 w-3.5" />
-        </button>
-
-        {menuOpen ? (
-          <div
-            role="menu"
-            className="absolute right-0 top-full z-10 mt-1 w-44 overflow-hidden rounded-md border border-white/10 bg-neutral-800 py-1 text-sm shadow-xl"
-          >
-            <MenuItem onClick={onTakeNotes}>Take Notes</MenuItem>
-            <MenuItem onClick={onDismiss}>Dismiss</MenuItem>
-            <MenuItem onClick={onSuppress}>{`Don't ask for ${appName}`}</MenuItem>
-          </div>
-        ) : null}
-      </div>
+      <button
+        type="button"
+        onClick={onTakeNotes}
+        className="shrink-0 rounded-full bg-emerald-500 px-3.5 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-emerald-600"
+      >
+        Take Notes
+      </button>
 
       <button
         type="button"
         aria-label="Dismiss"
         onClick={onDismiss}
-        className="shrink-0 rounded p-1 text-neutral-500 transition-colors hover:bg-white/10 hover:text-neutral-200"
+        className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-neutral-500 transition-colors hover:bg-white/10 hover:text-neutral-200"
       >
         <X className="h-3.5 w-3.5" />
       </button>
     </div>
-  );
-}
-
-function MenuItem({
-  onClick,
-  children,
-}: {
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      role="menuitem"
-      onClick={onClick}
-      className="block w-full px-3 py-1.5 text-left text-neutral-200 transition-colors hover:bg-white/10"
-    >
-      {children}
-    </button>
   );
 }
