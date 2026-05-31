@@ -41,6 +41,12 @@ const SYSTEM_PROMPT: &str = "You are answering questions about ONE meeting. \
 The context below — the transcript (with [mm:ss] timestamps), the user's \
 live notes, and any generated summary — is the ONLY source you may use.\n\
 \n\
+The transcript is a multi-speaker dialogue: each line is \"[mm:ss] \
+Speaker: text\". \"You:\" is the person asking (the note-taker); \"Speaker \
+1\", \"Speaker 2\", … are the other participants, told apart by voice. Use \
+these labels when you attribute statements, and do not invent real names \
+for the numbered speakers.\n\
+\n\
 Rules:\n\
   - Answer strictly from the provided context. If the answer is not in it, \
 say \"That isn't covered in this meeting.\" Never invent content.\n\
@@ -169,45 +175,12 @@ fn build_note_context(dir: &Path) -> String {
     out.trim().to_string()
 }
 
+/// Render the transcript as one chronological, speaker-labelled dialogue
+/// with `[mm:ss]` prefixes so the Q&A model can cite moments. Labels are
+/// "You:" (note-taker) and "Speaker N:" (each diarized participant). See
+/// `SessionTranscript::to_labeled_dialogue` — shared with the agents.
 fn flatten_with_timestamps(transcript: &SessionTranscript) -> String {
-    let mut out = String::new();
-    for channel in &transcript.channels {
-        if channel.segments.is_empty() {
-            continue;
-        }
-        let label = match channel.channel.as_str() {
-            "mic" => "[You]",
-            "system" => "[Others]",
-            other => other,
-        };
-        out.push_str(label);
-        out.push('\n');
-        for seg in &channel.segments {
-            let text = seg.text.trim();
-            if text.is_empty() {
-                continue;
-            }
-            out.push_str(&format!(
-                "[{}] {}\n",
-                format_timestamp(seg.start_seconds),
-                text
-            ));
-        }
-        out.push('\n');
-    }
-    out.trim().to_string()
-}
-
-fn format_timestamp(seconds: f64) -> String {
-    let total = seconds.max(0.0) as u64;
-    let h = total / 3600;
-    let m = (total % 3600) / 60;
-    let s = total % 60;
-    if h > 0 {
-        format!("{h}:{m:02}:{s:02}")
-    } else {
-        format!("{m:02}:{s:02}")
-    }
+    transcript.to_labeled_dialogue(true)
 }
 
 // ====================================================================
@@ -386,15 +359,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn timestamps_are_mm_ss_or_h_mm_ss() {
-        assert_eq!(format_timestamp(0.0), "00:00");
-        assert_eq!(format_timestamp(42.0), "00:42");
-        assert_eq!(format_timestamp(125.0), "02:05");
-        assert_eq!(format_timestamp(3725.0), "1:02:05");
-    }
-
-    #[test]
-    fn flatten_labels_channels_and_prefixes_timestamps() {
+    fn flatten_labels_speakers_and_prefixes_timestamps() {
         use attune_core::transcription::{ChannelTranscript, TranscriptSegment};
         let t = SessionTranscript {
             channels: vec![ChannelTranscript {
@@ -409,7 +374,8 @@ mod tests {
             }],
         };
         let text = flatten_with_timestamps(&t);
-        assert!(text.contains("[You]"));
-        assert!(text.contains("[01:05] pricing decision"));
+        // The mic channel is the note-taker, labelled "You", with an
+        // [m:ss] prefix the Q&A model can cite.
+        assert!(text.contains("[1:05] You: pricing decision"), "got: {text}");
     }
 }

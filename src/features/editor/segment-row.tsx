@@ -1,5 +1,6 @@
 import * as React from "react";
 
+import { NEUTRAL_PILL_COLOR } from "@/shared/lib/conversation";
 import { formatDuration } from "@/shared/lib/utils";
 import { cn } from "@/shared/lib/utils";
 import type { TranscriptSegment } from "@/shared/types/TranscriptSegment";
@@ -13,24 +14,12 @@ interface Props {
   channel: string;
   /** Current search query; non-empty values highlight in-line. */
   query?: string;
-  /** Diarized speaker label ("Speaker 1/2/3…"), when known. GET-189. */
+  /** Speaker label for this turn ("You", "Speaker 1/2/3…", "Others"). */
   speakerLabel?: string;
-  /** 1-based display number, used to colour the speaker pill. */
-  speakerNumber?: number;
+  /** Tailwind classes for the speaker pill (see `buildConversation`). */
+  pillClass?: string;
   onChange: (next: string) => void;
 }
-
-/** Distinct, theme-friendly pill colours cycled by speaker number. */
-const SPEAKER_PILL_COLORS = [
-  "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
-  "bg-sky-500/15 text-sky-600 dark:text-sky-400",
-  "bg-amber-500/15 text-amber-600 dark:text-amber-400",
-  "bg-violet-500/15 text-violet-600 dark:text-violet-400",
-  "bg-rose-500/15 text-rose-600 dark:text-rose-400",
-  "bg-teal-500/15 text-teal-600 dark:text-teal-400",
-  "bg-fuchsia-500/15 text-fuchsia-600 dark:text-fuchsia-400",
-  "bg-lime-500/15 text-lime-600 dark:text-lime-400",
-];
 
 /**
  * Single transcript segment. The timestamp gutter is a click-to-seek
@@ -47,7 +36,7 @@ export function SegmentRow({
   channel,
   query,
   speakerLabel,
-  speakerNumber,
+  pillClass,
   onChange,
 }: Props) {
   const textareaRef = React.useRef<HTMLTextAreaElement | null>(null);
@@ -95,9 +84,7 @@ export function SegmentRow({
           <span
             className={cn(
               "mb-1 inline-flex items-center rounded-full px-2 py-0.5 text-2xs font-medium",
-              SPEAKER_PILL_COLORS[
-                ((speakerNumber ?? 1) - 1) % SPEAKER_PILL_COLORS.length
-              ]
+              pillClass ?? NEUTRAL_PILL_COLOR
             )}
           >
             {speakerLabel}
