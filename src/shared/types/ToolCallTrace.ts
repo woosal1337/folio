@@ -5,13 +5,13 @@
  * run-card so the user can see exactly what `create_task` etc. was
  * called with.
  */
-export type ToolCallTrace = { tool: string,
+export type ToolCallTrace = { tool: string, 
 /**
  * JSON-encoded arguments the model passed. We keep the original
  * string (not a serde_json::Value) so the UI can render it
  * verbatim without re-pretty-printing.
  */
-arguments_json: string,
+arguments_json: string, 
 /**
  * Free-form result string the tool produced (the same value the
  * model receives back in the loop).

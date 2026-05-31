@@ -3,15 +3,15 @@
 /**
  * A single note that matched a search, with a snippet for context.
  */
-export type NoteSearchHit = { session_dir: string, label: string,
+export type NoteSearchHit = { session_dir: string, label: string, 
 /**
  * Resolved display title (user title or autoname suggestion), if any.
  */
-title: string | null,
+title: string | null, 
 /**
  * A short excerpt around the first match, with ellipses.
  */
-snippet: string,
+snippet: string, 
 /**
  * Which part of the note matched: "title", "summary", "notes", or
  * "transcript". Lets the UI hint where the hit came from.
