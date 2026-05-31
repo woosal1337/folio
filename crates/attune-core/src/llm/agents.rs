@@ -138,6 +138,12 @@ live notes here when not already covered above.\n\
 Rules:\n\
   - Use the exact headings above, in that order. If a section has nothing, \
 write \"None.\" under its heading — never drop the heading.\n\
+  - The transcript is a multi-speaker dialogue: each line is prefixed with \
+the speaker (\"You:\" is the note-taker; \"Speaker 1\", \"Speaker 2\", … are \
+the other participants, told apart by voice). Attribute key points, \
+decisions, and action-item owners to the right speaker when the dialogue \
+makes it clear — e.g. name an action's owner by their label. Do not invent \
+real names for the numbered speakers.\n\
   - Do not invent content unsupported by the transcript or the user's notes.\n\
   - Be honest about thin input: if the transcript is brief or noisy, say so \
 in the Overview (e.g. \"The transcript was brief, so this summary is \
@@ -150,7 +156,11 @@ Read the meeting transcript and identify every explicit action item.\n\
 \n\
 For each action item, call the `create_task` tool exactly once. Pass:\n\
   - title: short imperative phrase (e.g. \"Send revised contract to legal\")\n\
-  - owner: the person responsible if named (e.g. \"Ege\"); omit if not stated\n\
+  - owner: the person responsible if named (e.g. \"Ege\"). The transcript \
+labels participants \"You:\" (the note-taker) and \"Speaker 1/2/3…\"; if a \
+commitment is clearly made by one of them but no real name is given, use \
+that label as the owner. Omit only when responsibility is genuinely \
+unclear.\n\
   - due: any date or timeframe mentioned (e.g. \"Friday\", \"next sprint\", \"2026-06-01\"); omit if not stated\n\
   - notes: at most one sentence of context only if it materially helps a future reader\n\
   - evidence: a verbatim quoted snippet from the transcript that supports the task. Required — the UI uses this to ground the task and surface an \"unverified\" badge if the snippet cannot be located in the transcript.\n\
@@ -251,6 +261,12 @@ instead of inventing content.\n\
 const QA_PROMPT: &str = "You are an assistant answering questions about \
 a meeting transcript. The user's first message contains the full \
 transcript. Subsequent messages are their questions about it.\n\
+\n\
+The transcript is a multi-speaker dialogue: each line is prefixed with \
+the speaker — \"You:\" is the person asking (the note-taker), and \
+\"Speaker 1\", \"Speaker 2\", … are the other participants, told apart by \
+voice. Use these labels when you attribute statements (e.g. \"Speaker 2 \
+said …\"). Do not invent real names for the numbered speakers.\n\
 \n\
 Answer strictly from the transcript content. If the answer is not in \
 the transcript, say \"That is not covered in this transcript.\" Do not \

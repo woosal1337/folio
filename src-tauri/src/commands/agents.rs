@@ -794,42 +794,35 @@ fn session_label_from_dir(session_dir: &Path) -> Option<String> {
         .map(|s| s.to_string())
 }
 
+/// Render the transcript the way the agents read it: one chronological,
+/// speaker-labelled dialogue ("You:" for the note-taker, "Speaker N:" for
+/// each diarized participant). See `SessionTranscript::to_labeled_dialogue`
+/// — the shared formatter so the summary, Q&A, and the editor agree on
+/// labels. No timestamps here; the agent prompts don't cite moments.
 fn flatten_transcript(transcript: &SessionTranscript) -> String {
-    let mut out = String::new();
-    for channel in &transcript.channels {
-        if channel.segments.is_empty() {
-            continue;
-        }
-        if !out.is_empty() {
-            out.push_str("\n\n");
-        }
-        let label = match channel.channel.as_str() {
-            "mic" => "[You]",
-            "system" => "[Others]",
-            "legacy" => "[Unknown speaker]",
-            other => other,
-        };
-        out.push_str(label);
-        out.push('\n');
-        for seg in &channel.segments {
-            let trimmed = seg.text.trim();
-            if !trimmed.is_empty() {
-                out.push_str(trimmed);
-                out.push(' ');
-            }
-        }
-    }
-    out.trim().to_string()
+    transcript.to_labeled_dialogue(false)
 }
 
 fn build_user_message(transcript_text: &str, live_notes_md: Option<&str>) -> String {
+    // Legend so the model reads the speaker labels right: the transcript
+    // is one chronological dialogue, a line per turn, each prefixed with
+    // its speaker. "You:" is the note-taker (their mic); "Speaker 1",
+    // "Speaker 2", … are the other participants told apart by voice
+    // (diarization). Attributing points to these labels is what makes the
+    // summary precise about who said/owns what.
+    const LEGEND: &str = "Meeting transcript — a chronological dialogue, one \
+        line per speaker turn, each prefixed with the speaker. \"You:\" is \
+        the note-taker (their own microphone). \"Speaker 1\", \"Speaker 2\", \
+        … are the other participants, told apart by voice. \"Others:\" is \
+        unattributed audio. Attribute points, decisions, and action items \
+        to the right speaker by these labels.";
     let mut out = if transcript_text.len() <= TRANSCRIPT_CHAR_CAP {
-        format!("Meeting transcript:\n\n{}", transcript_text)
+        format!("{LEGEND}\n\n{}", transcript_text)
     } else {
         let truncated = &transcript_text[..TRANSCRIPT_CHAR_CAP];
         format!(
-            "Meeting transcript (truncated to first {} characters; full \
-            transcript was {} characters):\n\n{}",
+            "{LEGEND}\n\n(truncated to first {} characters; full transcript \
+            was {} characters)\n\n{}",
             TRANSCRIPT_CHAR_CAP,
             transcript_text.len(),
             truncated,
@@ -935,8 +928,10 @@ mod tests {
             ],
         };
         let text = flatten_transcript(&t);
-        assert!(text.contains("[You]"));
-        assert!(text.contains("[Others]"));
+        // The mic channel is the note-taker ("You:"); un-diarized system
+        // audio falls back to "Others:".
+        assert!(text.contains("You: Merhaba."), "got: {text}");
+        assert!(text.contains("Others: İyiyim, teşekkürler."), "got: {text}");
     }
 
     #[test]
@@ -945,7 +940,7 @@ mod tests {
             channels: vec![ch("mic", &[]), ch("system", &["Single line"])],
         };
         let text = flatten_transcript(&t);
-        assert!(!text.contains("[You]"));
+        assert!(!text.contains("You:"));
         assert!(text.contains("Single line"));
     }
 

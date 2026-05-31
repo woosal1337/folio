@@ -3,12 +3,11 @@ import {
   Captions,
   Download,
   FileText,
-  Headphones,
   Loader2,
-  Mic,
   Save,
   Search,
   Undo2,
+  Users,
   X,
 } from "lucide-react";
 import { showSaveDialog } from "@/shared/lib/ipc";
@@ -19,10 +18,14 @@ import { toast } from "sonner";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { cn } from "@/shared/lib/utils";
+import {
+  buildConversation,
+  type ConversationRow,
+  otherSpeakerLabels,
+} from "@/shared/lib/conversation";
 import { saveTranscript } from "@/shared/lib/ipc";
 import type { ChannelTranscript } from "@/shared/types/ChannelTranscript";
 import type { SessionTranscript } from "@/shared/types/SessionTranscript";
-import type { TranscriptSegment } from "@/shared/types/TranscriptSegment";
 
 import { SegmentRow } from "./segment-row";
 import {
@@ -75,9 +78,10 @@ const EXPORT_FORMATS: Array<{
 ];
 
 /**
- * Editable multi-channel transcript surface. Each channel ("You",
- * "Others") renders as its own labelled section; segments inside each
- * are individually editable while their timestamps stay anchored.
+ * Editable transcript surface. The mic and system channels are merged
+ * into one chronological, speaker-labelled conversation ("You" for the
+ * note-taker, "Speaker 1/2/3…" for each diarized participant); every
+ * segment is individually editable while its timestamp stays anchored.
  *
  * v2 roadmap finding 102 (GET-114) adds:
  *  - a live search box that filters segments by case-insensitive
@@ -244,14 +248,11 @@ export function TranscriptEditor({ sessionDir, initial, onSaved }: Props) {
         </p>
       )}
 
-      {working.channels.map((channel, ci) => (
-        <ChannelEditor
-          key={channel.channel}
-          channel={channel}
-          query={query}
-          onSegmentChange={(si, text) => updateSegment(ci, si, text)}
-        />
-      ))}
+      <ConversationEditor
+        working={working}
+        query={query}
+        onSegmentChange={updateSegment}
+      />
 
       <footer className="flex flex-wrap items-center justify-end gap-2 border-t border-border pt-3">
         <div className="mr-auto flex flex-wrap items-center gap-1.5">
@@ -301,130 +302,82 @@ export function TranscriptEditor({ sessionDir, initial, onSaved }: Props) {
   );
 }
 
-interface ChannelEditorProps {
-  channel: ChannelTranscript;
+interface ConversationEditorProps {
+  working: SessionTranscript;
   query: string;
-  onSegmentChange: (segmentIndex: number, text: string) => void;
+  onSegmentChange: (channelIndex: number, segmentIndex: number, text: string) => void;
 }
 
-function ChannelEditor({ channel, query, onSegmentChange }: ChannelEditorProps) {
-  const meta = channelLabel(channel.channel);
-  const speakerMap = React.useMemo(
-    () => buildSpeakerLabels(channel.segments),
-    [channel.segments]
-  );
+/**
+ * The whole session as one chronological, speaker-labelled conversation:
+ * the user's mic turns ("You") interleaved by time with each diarized
+ * participant ("Speaker 1/2/3…"). This is the same shape the AI agents
+ * read (see `buildConversation` / the Rust `to_labeled_dialogue`), so the
+ * transcript a person edits matches the dialogue the summary reasons over.
+ */
+function ConversationEditor({ working, query, onSegmentChange }: ConversationEditorProps) {
+  const rows = React.useMemo(() => buildConversation(working), [working]);
+  const speakers = React.useMemo(() => otherSpeakerLabels(rows), [rows]);
+
   const filtered = React.useMemo(() => {
-    if (query.trim().length === 0) {
-      return channel.segments.map((segment, index) => ({ segment, index }));
-    }
-    return channel.segments
-      .map((segment, index) => ({ segment, index }))
-      .filter(({ segment }) => segmentMatches(segment, query));
-  }, [channel.segments, query]);
+    if (query.trim().length === 0) return rows;
+    return rows.filter((r) => segmentMatches(r.segment, query));
+  }, [rows, query]);
 
   const visibleCount = filtered.length;
 
   return (
     <section className="flex flex-col gap-2">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 text-xs font-medium text-foreground">
-          <meta.Icon className="h-3.5 w-3.5 text-muted-foreground" />
-          {meta.label}
-          <span className="text-2xs font-normal text-muted-foreground">{meta.sub}</span>
-          {speakerMap.size > 0 && (
-            <span className="text-2xs font-normal text-muted-foreground">
-              · {speakerMap.size} {speakerMap.size === 1 ? "speaker" : "speakers"}
-            </span>
-          )}
-          {query.trim().length > 0 && (
-            <span
-              className={cn(
-                "text-2xs tabular-nums",
-                visibleCount === 0
-                  ? "text-muted-foreground/60"
-                  : "text-muted-foreground"
-              )}
-            >
-              · {visibleCount}/{channel.segments.length}
-            </span>
-          )}
-        </div>
-        {channel.language && (
-          <span className="font-mono text-2xs text-muted-foreground">
-            {channel.language}
+      <div className="flex items-center gap-2 text-xs font-medium text-foreground">
+        <Users className="h-3.5 w-3.5 text-muted-foreground" />
+        Conversation
+        <span className="text-2xs font-normal text-muted-foreground">
+          {speakers.length === 0
+            ? "· you only"
+            : `· you + ${speakers.length} ${
+                speakers.length === 1 ? "speaker" : "speakers"
+              }`}
+        </span>
+        {query.trim().length > 0 && (
+          <span
+            className={cn(
+              "text-2xs tabular-nums",
+              visibleCount === 0 ? "text-muted-foreground/60" : "text-muted-foreground"
+            )}
+          >
+            · {visibleCount}/{rows.length}
           </span>
         )}
       </div>
 
-      {channel.segments.length === 0 ? (
-        <p className="text-2xs text-muted-foreground">
-          No speech detected on this channel.
-        </p>
-      ) : visibleCount === 0 ? (
+      {visibleCount === 0 ? (
         <p className="text-2xs text-muted-foreground">No segments match.</p>
       ) : filtered.length > VIRTUALIZATION_THRESHOLD ? (
-        <VirtualSegmentList
+        <VirtualConversationList
           filtered={filtered}
-          channelId={channel.channel}
           query={query}
-          speakerMap={speakerMap}
           onSegmentChange={onSegmentChange}
         />
       ) : (
         <ol className="flex flex-col gap-2">
-          {filtered.map(({ segment, index }) => {
-            const num =
-              segment.speaker !== null ? speakerMap.get(segment.speaker) : undefined;
-            return (
-              <SegmentRow
-                key={`${index}-${segment.start_seconds}`}
-                segment={segment}
-                index={index}
-                channel={channel.channel}
-                query={query}
-                speakerLabel={num ? `Speaker ${num}` : undefined}
-                speakerNumber={num}
-                onChange={(text) => onSegmentChange(index, text)}
-              />
-            );
-          })}
+          {filtered.map((row, i) => (
+            <SegmentRow
+              key={`${row.channelIndex}-${row.segmentIndex}-${row.segment.start_seconds}`}
+              segment={row.segment}
+              index={i}
+              channel={row.channelId}
+              query={query}
+              speakerLabel={row.label}
+              pillClass={row.pillClass}
+              onChange={(text) =>
+                onSegmentChange(row.channelIndex, row.segmentIndex, text)
+              }
+            />
+          ))}
         </ol>
       )}
     </section>
   );
-}
-
-interface ChannelMeta {
-  label: string;
-  sub: string;
-  Icon: React.ComponentType<{ className?: string }>;
-}
-
-function channelLabel(channel: string): ChannelMeta {
-  switch (channel) {
-    case "mic":
-      return { label: "You", sub: "(microphone)", Icon: Mic };
-    case "system":
-      return { label: "Others", sub: "(system audio)", Icon: Headphones };
-    default:
-      return { label: channel, sub: "", Icon: Mic };
-  }
-}
-
-/**
- * Map raw diarizer cluster indices to 1-based "Speaker N" display
- * numbers, ordered by first appearance in the channel (GET-189). Empty
- * when the channel has no diarized speakers (mic, or an un-diarized
- * transcript).
- */
-function buildSpeakerLabels(segments: TranscriptSegment[]): Map<number, number> {
-  const map = new Map<number, number>();
-  for (const s of segments) {
-    if (s.speaker !== null && !map.has(s.speaker)) {
-      map.set(s.speaker, map.size + 1);
-    }
-  }
-  return map;
 }
 
 function sameSession(a: SessionTranscript, b: SessionTranscript): boolean {
@@ -457,21 +410,14 @@ function pathLeaf(path: string): string {
   return path.split("/").filter(Boolean).pop() ?? path;
 }
 
-interface FilteredSegment {
-  segment: TranscriptSegment;
-  index: number;
-}
-
-interface VirtualSegmentListProps {
-  filtered: FilteredSegment[];
-  channelId: string;
+interface VirtualConversationListProps {
+  filtered: ConversationRow[];
   query: string;
-  speakerMap: Map<number, number>;
-  onSegmentChange: (segmentIndex: number, text: string) => void;
+  onSegmentChange: (channelIndex: number, segmentIndex: number, text: string) => void;
 }
 
 /**
- * Virtualised list for very long transcripts. Uses @tanstack/react-
+ * Virtualised list for very long conversations. Uses @tanstack/react-
  * virtual with dynamic measurement — segments auto-grow to match
  * their textarea height, and the virtualiser observes each rendered
  * row so the absolute positions stay accurate as the user edits. We
@@ -482,13 +428,11 @@ interface VirtualSegmentListProps {
  * scrolling lives inside the card; the parent route's ScrollArea
  * handles document-level navigation. v2 finding 062 / GET-97.
  */
-function VirtualSegmentList({
+function VirtualConversationList({
   filtered,
-  channelId,
   query,
-  speakerMap,
   onSegmentChange,
-}: VirtualSegmentListProps) {
+}: VirtualConversationListProps) {
   const parentRef = React.useRef<HTMLDivElement>(null);
   const rowVirtualizer = useVirtualizer({
     count: filtered.length,
@@ -512,32 +456,26 @@ function VirtualSegmentList({
         className="relative w-full"
       >
         {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-          const item = filtered[virtualRow.index];
-          if (!item) return null;
+          const row = filtered[virtualRow.index];
+          if (!row) return null;
           return (
             <li
-              key={`${item.index}-${item.segment.start_seconds}`}
+              key={`${row.channelIndex}-${row.segmentIndex}-${row.segment.start_seconds}`}
               data-index={virtualRow.index}
               ref={rowVirtualizer.measureElement}
               className="absolute left-0 top-0 w-full px-1.5 py-1"
               style={{ transform: `translateY(${virtualRow.start}px)` }}
             >
               <SegmentRow
-                segment={item.segment}
-                index={item.index}
-                channel={channelId}
+                segment={row.segment}
+                index={virtualRow.index}
+                channel={row.channelId}
                 query={query}
-                speakerLabel={
-                  item.segment.speaker !== null && speakerMap.has(item.segment.speaker)
-                    ? `Speaker ${speakerMap.get(item.segment.speaker)}`
-                    : undefined
+                speakerLabel={row.label}
+                pillClass={row.pillClass}
+                onChange={(text) =>
+                  onSegmentChange(row.channelIndex, row.segmentIndex, text)
                 }
-                speakerNumber={
-                  item.segment.speaker !== null
-                    ? speakerMap.get(item.segment.speaker)
-                    : undefined
-                }
-                onChange={(text) => onSegmentChange(item.index, text)}
               />
             </li>
           );

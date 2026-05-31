@@ -172,6 +172,86 @@ impl SessionTranscript {
             }],
         })
     }
+
+    /// Render the whole session as a single chronological, speaker-
+    /// labelled dialogue — the form the LLM agents (and any "who said
+    /// what" consumer) read. Segments from every channel are merged and
+    /// sorted by start time, each prefixed with its speaker:
+    ///
+    /// - the mic channel is the note-taker → `You`
+    /// - system speakers become `Speaker 1`, `Speaker 2`, … numbered by
+    ///   first appearance (matching the transcript UI's labelling)
+    /// - un-diarized system audio falls back to `Others`
+    ///
+    /// Empty segments are dropped. With `with_timestamps`, each line is
+    /// prefixed `[mm:ss] ` so the model can cite moments.
+    ///
+    /// GET-189: speaker labels make the AI's attribution ("Speaker 2
+    /// committed to…") precise instead of lumping everyone into "Others".
+    pub fn to_labeled_dialogue(&self, with_timestamps: bool) -> String {
+        use std::collections::HashMap;
+
+        // 1-based display number per raw diarizer cluster index, by first
+        // appearance in the system channel (same ordering the UI uses).
+        let mut speaker_num: HashMap<i32, usize> = HashMap::new();
+        for ch in &self.channels {
+            if ch.channel == "system" {
+                for seg in &ch.segments {
+                    if let Some(spk) = seg.speaker {
+                        let next = speaker_num.len() + 1;
+                        speaker_num.entry(spk).or_insert(next);
+                    }
+                }
+            }
+        }
+
+        let mut lines: Vec<(f64, String, &str)> = Vec::new();
+        for ch in &self.channels {
+            for seg in &ch.segments {
+                let text = seg.text.trim();
+                if text.is_empty() {
+                    continue;
+                }
+                let label = match ch.channel.as_str() {
+                    "mic" => "You".to_string(),
+                    "system" => match seg.speaker {
+                        Some(spk) => {
+                            format!("Speaker {}", speaker_num.get(&spk).copied().unwrap_or(0))
+                        }
+                        None => "Others".to_string(),
+                    },
+                    "legacy" => "Unknown speaker".to_string(),
+                    other => other.to_string(),
+                };
+                lines.push((seg.start_seconds, label, text));
+            }
+        }
+        lines.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
+
+        let mut out = String::new();
+        for (start, label, text) in lines {
+            if with_timestamps {
+                out.push_str(&format!("[{}] {}: {}\n", fmt_mmss(start), label, text));
+            } else {
+                out.push_str(&format!("{}: {}\n", label, text));
+            }
+        }
+        out.trim().to_string()
+    }
+}
+
+/// Format seconds as `m:ss` (or `h:mm:ss` past an hour) for transcript
+/// lines.
+fn fmt_mmss(seconds: f64) -> String {
+    let total = seconds.max(0.0) as u64;
+    let h = total / 3600;
+    let m = (total % 3600) / 60;
+    let s = total % 60;
+    if h > 0 {
+        format!("{h}:{m:02}:{s:02}")
+    } else {
+        format!("{m}:{s:02}")
+    }
 }
 
 /// First four bytes of every zstd-compressed frame
@@ -310,5 +390,88 @@ mod write_read_tests {
             raw.len(),
             zst_size
         );
+    }
+
+    #[test]
+    fn labeled_dialogue_merges_chronologically_and_numbers_speakers() {
+        // Mic ("You") and a 2-speaker system channel, deliberately out of
+        // time order across channels. Raw cluster indices are 4 and 2 —
+        // they must surface as "Speaker 1"/"Speaker 2" by first appearance,
+        // and every line must land in start-time order.
+        let t = SessionTranscript {
+            channels: vec![
+                ChannelTranscript {
+                    channel: "mic".into(),
+                    language: None,
+                    segments: vec![
+                        TranscriptSegment {
+                            start_seconds: 1.0,
+                            end_seconds: 2.0,
+                            text: "Kicking us off.".into(),
+                            speaker: None,
+                        },
+                        TranscriptSegment {
+                            start_seconds: 9.0,
+                            end_seconds: 10.0,
+                            text: "Thanks both.".into(),
+                            speaker: None,
+                        },
+                    ],
+                },
+                ChannelTranscript {
+                    channel: "system".into(),
+                    language: None,
+                    segments: vec![
+                        TranscriptSegment {
+                            start_seconds: 3.0,
+                            end_seconds: 4.0,
+                            text: "I'll take the design.".into(),
+                            speaker: Some(4),
+                        },
+                        TranscriptSegment {
+                            start_seconds: 6.0,
+                            end_seconds: 7.0,
+                            text: "I'll handle the backend.".into(),
+                            speaker: Some(2),
+                        },
+                    ],
+                },
+            ],
+        };
+
+        let plain = t.to_labeled_dialogue(false);
+        assert_eq!(
+            plain,
+            "You: Kicking us off.\n\
+             Speaker 1: I'll take the design.\n\
+             Speaker 2: I'll handle the backend.\n\
+             You: Thanks both."
+        );
+
+        let stamped = t.to_labeled_dialogue(true);
+        assert_eq!(
+            stamped,
+            "[0:01] You: Kicking us off.\n\
+             [0:03] Speaker 1: I'll take the design.\n\
+             [0:06] Speaker 2: I'll handle the backend.\n\
+             [0:09] You: Thanks both."
+        );
+    }
+
+    #[test]
+    fn labeled_dialogue_falls_back_to_others_for_undiarized_system() {
+        let t = SessionTranscript {
+            channels: vec![ChannelTranscript {
+                channel: "system".into(),
+                language: None,
+                segments: vec![TranscriptSegment {
+                    start_seconds: 0.0,
+                    end_seconds: 1.0,
+                    text: "Some system audio.".into(),
+                    speaker: None,
+                }],
+            }],
+        };
+        assert_eq!(t.to_labeled_dialogue(false), "Others: Some system audio.");
     }
 }
