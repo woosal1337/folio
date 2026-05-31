@@ -36,12 +36,30 @@ export interface ConversationRow {
   channelIndex: number;
   /** Index into that channel's `segments`. */
   segmentIndex: number;
-  /** Display label: "You", "Speaker 1", "Others", "Unknown speaker". */
+  /** Raw diarizer cluster id for a system speaker; `null` otherwise. */
+  cluster: number | null;
+  /** 1-based "Speaker N" number for a system speaker; `undefined` otherwise. */
+  speakerNumber?: number;
+  /** Display label: a real name when set, else "You" / "Speaker N" / "Others". */
   label: string;
   /** Tailwind classes for this speaker's pill. */
   pillClass: string;
   /** True for the note-taker's own ("You") turns. */
   isSelf: boolean;
+}
+
+/** A distinct system speaker in a conversation, for a rename legend. */
+export interface ConversationSpeaker {
+  /** Raw diarizer cluster id — the key for rename + name lookup. */
+  cluster: number;
+  /** 1-based display number ("Speaker N"). */
+  number: number;
+  /** Current display label (real name when set, else "Speaker N"). */
+  label: string;
+  /** Whether a custom name is set (vs the default "Speaker N"). */
+  named: boolean;
+  /** Tailwind classes for this speaker's pill. */
+  pillClass: string;
 }
 
 /**
@@ -58,8 +76,15 @@ export interface ConversationRow {
  * Rows come back sorted by start time. Each row keeps its
  * (channelIndex, segmentIndex) so the editor can route an edit back to the
  * exact underlying segment.
+ *
+ * `names` maps a raw diarizer cluster id to the real name the user gave
+ * that voice (from the session speaker sidecar); a named cluster shows the
+ * name instead of "Speaker N".
  */
-export function buildConversation(transcript: SessionTranscript): ConversationRow[] {
+export function buildConversation(
+  transcript: SessionTranscript,
+  names?: Map<number, string>
+): ConversationRow[] {
   // 1-based "Speaker N" per raw diarizer cluster index, by first
   // appearance across the system channel(s) in stored (time) order — the
   // same numbering the Rust side uses.
@@ -79,14 +104,18 @@ export function buildConversation(transcript: SessionTranscript): ConversationRo
       let label: string;
       let pillClass: string;
       let isSelf = false;
+      let cluster: number | null = null;
+      let speakerNumber: number | undefined;
       if (ch.channel === "mic") {
         label = "You";
         pillClass = SELF_PILL_COLOR;
         isSelf = true;
       } else if (ch.channel === "system") {
         const n = segment.speaker !== null ? speakerNum.get(segment.speaker) : undefined;
-        if (n !== undefined) {
-          label = `Speaker ${n}`;
+        if (n !== undefined && segment.speaker !== null) {
+          cluster = segment.speaker;
+          speakerNumber = n;
+          label = names?.get(segment.speaker) ?? `Speaker ${n}`;
           pillClass =
             SPEAKER_PILL_COLORS[(n - 1) % SPEAKER_PILL_COLORS.length] ??
             NEUTRAL_PILL_COLOR;
@@ -103,6 +132,8 @@ export function buildConversation(transcript: SessionTranscript): ConversationRo
         channelId: ch.channel,
         channelIndex,
         segmentIndex,
+        cluster,
+        speakerNumber,
         label,
         pillClass,
         isSelf,
@@ -114,6 +145,27 @@ export function buildConversation(transcript: SessionTranscript): ConversationRo
   // matches the Rust formatter's stable merge.
   rows.sort((a, b) => a.segment.start_seconds - b.segment.start_seconds);
   return rows;
+}
+
+/**
+ * Distinct system speakers in a conversation, in "Speaker N" order — the
+ * basis for a rename legend. The note-taker ("You") and un-attributed
+ * "Others" are excluded; only nameable, diarized clusters are returned.
+ */
+export function conversationSpeakers(rows: ConversationRow[]): ConversationSpeaker[] {
+  const seen = new Map<number, ConversationSpeaker>();
+  for (const r of rows) {
+    if (r.cluster === null || r.speakerNumber === undefined) continue;
+    if (seen.has(r.cluster)) continue;
+    seen.set(r.cluster, {
+      cluster: r.cluster,
+      number: r.speakerNumber,
+      label: r.label,
+      named: r.label !== `Speaker ${r.speakerNumber}`,
+      pillClass: r.pillClass,
+    });
+  }
+  return [...seen.values()].sort((a, b) => a.number - b.number);
 }
 
 /**

@@ -56,6 +56,7 @@ import type { SnapshotSummary } from "@/shared/types/SnapshotSummary";
 import type { Task } from "@/shared/types/Task";
 import type { WebhookSubscription } from "@/shared/types/WebhookSubscription";
 import type { DiarizationModelStatus } from "@/shared/types/DiarizationModelStatus";
+import type { SpeakerLabel } from "@/shared/types/SpeakerLabel";
 import type { TaskStatus } from "@/shared/types/TaskStatus";
 import type { TaskUpdate } from "@/shared/types/TaskUpdate";
 import type { TranscriptionResult } from "@/shared/types/TranscriptionResult";
@@ -296,6 +297,31 @@ export interface DiarizationDownloadProgress {
 /** Channel name for the Tauri event. Exported so listeners stay in sync. */
 export const DIARIZATION_DOWNLOAD_PROGRESS_EVENT =
   "diarization:model-download-progress";
+
+// ---- Session speakers (rename + cross-recording memory) ----------------
+
+/** The diarized speakers of a recording (cluster id, name, provenance). */
+export function listSessionSpeakers(sessionDir: string): Promise<SpeakerLabel[]> {
+  return call<SpeakerLabel[]>("list_session_speakers", { sessionDir });
+}
+
+/**
+ * Rename a diarized speaker. Persists to this recording and teaches the
+ * cross-recording registry the voice → name link (when the cluster has a
+ * voice embedding), so future recordings auto-detect the speaker. Returns
+ * the updated label set.
+ */
+export function renameSessionSpeaker(
+  sessionDir: string,
+  cluster: number,
+  name: string
+): Promise<SpeakerLabel[]> {
+  return call<SpeakerLabel[]>("rename_session_speaker", {
+    sessionDir,
+    cluster,
+    name,
+  });
+}
 
 // ---- LLM providers -----------------------------------------------------
 

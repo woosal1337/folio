@@ -191,7 +191,7 @@ pub async fn run_agent(
         )
     })?;
 
-    let transcript_text = flatten_transcript(&transcript);
+    let transcript_text = flatten_transcript(&session_dir, &transcript);
     if transcript_text.trim().is_empty() {
         return Err("transcript is empty — there is nothing for the agent to read".to_string());
     }
@@ -796,11 +796,18 @@ fn session_label_from_dir(session_dir: &Path) -> Option<String> {
 
 /// Render the transcript the way the agents read it: one chronological,
 /// speaker-labelled dialogue ("You:" for the note-taker, "Speaker N:" for
-/// each diarized participant). See `SessionTranscript::to_labeled_dialogue`
-/// — the shared formatter so the summary, Q&A, and the editor agree on
-/// labels. No timestamps here; the agent prompts don't cite moments.
-fn flatten_transcript(transcript: &SessionTranscript) -> String {
-    transcript.to_labeled_dialogue(false)
+/// each diarized participant — or the real name the user gave that voice,
+/// from the session's speaker sidecar). See
+/// `SessionTranscript::to_labeled_dialogue_named` — the shared formatter so
+/// the summary, Q&A, and the editor agree on labels. No timestamps here;
+/// the agent prompts don't cite moments.
+fn flatten_transcript(session_dir: &Path, transcript: &SessionTranscript) -> String {
+    let names = attune_core::diarization::SessionSpeakers::read(session_dir)
+        .ok()
+        .flatten()
+        .map(|s| s.name_map())
+        .unwrap_or_default();
+    transcript.to_labeled_dialogue_named(false, &names)
 }
 
 fn build_user_message(transcript_text: &str, live_notes_md: Option<&str>) -> String {
@@ -927,7 +934,7 @@ mod tests {
                 ch("system", &["İyiyim, teşekkürler."]),
             ],
         };
-        let text = flatten_transcript(&t);
+        let text = flatten_transcript(std::path::Path::new("/nonexistent"), &t);
         // The mic channel is the note-taker ("You:"); un-diarized system
         // audio falls back to "Others:".
         assert!(text.contains("You: Merhaba."), "got: {text}");
@@ -939,7 +946,7 @@ mod tests {
         let t = SessionTranscript {
             channels: vec![ch("mic", &[]), ch("system", &["Single line"])],
         };
-        let text = flatten_transcript(&t);
+        let text = flatten_transcript(std::path::Path::new("/nonexistent"), &t);
         assert!(!text.contains("You:"));
         assert!(text.contains("Single line"));
     }

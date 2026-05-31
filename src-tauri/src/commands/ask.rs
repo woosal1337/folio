@@ -138,7 +138,7 @@ fn build_note_context(dir: &Path) -> String {
     let mut out = String::new();
 
     if let Ok(transcript) = SessionTranscript::read_json(&dir.join("transcript.json")) {
-        let text = flatten_with_timestamps(&transcript);
+        let text = flatten_with_timestamps(dir, &transcript);
         if !text.is_empty() {
             out.push_str("## Transcript\n");
             if text.len() > TRANSCRIPT_CHAR_CAP {
@@ -177,10 +177,16 @@ fn build_note_context(dir: &Path) -> String {
 
 /// Render the transcript as one chronological, speaker-labelled dialogue
 /// with `[mm:ss]` prefixes so the Q&A model can cite moments. Labels are
-/// "You:" (note-taker) and "Speaker N:" (each diarized participant). See
-/// `SessionTranscript::to_labeled_dialogue` — shared with the agents.
-fn flatten_with_timestamps(transcript: &SessionTranscript) -> String {
-    transcript.to_labeled_dialogue(true)
+/// "You:" (note-taker) and "Speaker N:" (each diarized participant), or the
+/// real name the user gave that voice (session speaker sidecar). See
+/// `SessionTranscript::to_labeled_dialogue_named` — shared with the agents.
+fn flatten_with_timestamps(session_dir: &Path, transcript: &SessionTranscript) -> String {
+    let names = attune_core::diarization::SessionSpeakers::read(session_dir)
+        .ok()
+        .flatten()
+        .map(|s| s.name_map())
+        .unwrap_or_default();
+    transcript.to_labeled_dialogue_named(true, &names)
 }
 
 // ====================================================================
@@ -373,7 +379,7 @@ mod tests {
                 }],
             }],
         };
-        let text = flatten_with_timestamps(&t);
+        let text = flatten_with_timestamps(std::path::Path::new("/nonexistent"), &t);
         // The mic channel is the note-taker, labelled "You", with an
         // [m:ss] prefix the Q&A model can cite.
         assert!(text.contains("[1:05] You: pricing decision"), "got: {text}");

@@ -6,9 +6,10 @@ import {
   type ConversationRow,
   otherSpeakerLabels,
 } from "@/shared/lib/conversation";
-import { readTranscript } from "@/shared/lib/ipc";
+import { listSessionSpeakers, readTranscript } from "@/shared/lib/ipc";
 import { formatDuration } from "@/shared/lib/utils";
 import type { SessionTranscript } from "@/shared/types/SessionTranscript";
+import type { SpeakerLabel } from "@/shared/types/SpeakerLabel";
 
 interface Props {
   sessionDir: string;
@@ -21,6 +22,7 @@ interface Props {
  */
 export function TranscriptView({ sessionDir }: Props) {
   const [transcript, setTranscript] = React.useState<SessionTranscript | null>(null);
+  const [speakerLabels, setSpeakerLabels] = React.useState<SpeakerLabel[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -38,16 +40,31 @@ export function TranscriptView({ sessionDir }: Props) {
         if (!cancelled) setLoading(false);
       }
     })();
+    // Speaker names are best-effort: show "Speaker N" if they don't load.
+    void listSessionSpeakers(sessionDir)
+      .then((labels) => {
+        if (!cancelled) setSpeakerLabels(labels);
+      })
+      .catch((e) => console.error("list_session_speakers:", e));
     return () => {
       cancelled = true;
     };
   }, [sessionDir]);
 
+  // cluster id → real name, applied over the default "Speaker N".
+  const speakerNames = React.useMemo(() => {
+    const m = new Map<number, string>();
+    for (const l of speakerLabels) {
+      if (l.name !== null) m.set(l.cluster, l.name);
+    }
+    return m;
+  }, [speakerLabels]);
+
   // Merge mic + system into one chronological conversation. Computed
   // unconditionally (hooks rules) — empty until the transcript loads.
   const rows = React.useMemo(
-    () => (transcript ? buildConversation(transcript) : []),
-    [transcript]
+    () => (transcript ? buildConversation(transcript, speakerNames) : []),
+    [transcript, speakerNames]
   );
 
   if (loading) {

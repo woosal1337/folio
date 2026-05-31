@@ -40,12 +40,16 @@
 //! literature survey in
 //! `obsidian.md/projects/attune/research/speaker-memory-cross-call-registry-2026-05-31.md`.
 
+pub mod store;
+
 use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::error::{AttuneError, Result};
+
+pub use store::{default_registry_path, load_default, registry_passphrase, save_default};
 
 /// Dimensionality of the WeSpeaker ResNet34-LM embeddings the registry
 /// stores. Embeddings of any other length are rejected so a mismatched

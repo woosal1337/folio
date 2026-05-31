@@ -16,6 +16,7 @@ use std::path::Path;
 use crate::diarization::models::DiarizationModelStore;
 use crate::diarization::runtime::{
     assign_speakers_by_overlap, DiarizationError, DiarizationOptions, DiarizationRuntime,
+    DiarizedSegment,
 };
 use crate::transcription::SessionTranscript;
 
@@ -53,7 +54,17 @@ pub fn label_system_channel(
     }
 
     let diarized = runtime.diarize_wav(&system_wav)?;
+    Ok(assign_to_transcript(transcript, &diarized))
+}
 
+/// Tag every system-channel segment of `transcript` with its speaker by
+/// maximum time overlap with `diarized`, in place. Shared by
+/// [`label_system_channel`] and the identify pipeline
+/// ([`super::identify`]) so both label the transcript identically.
+pub(crate) fn assign_to_transcript(
+    transcript: &mut SessionTranscript,
+    diarized: &[DiarizedSegment],
+) -> DiarizationOutcome {
     let mut speakers: BTreeSet<i32> = BTreeSet::new();
     let mut outcome = DiarizationOutcome::default();
     for channel in transcript
@@ -67,7 +78,7 @@ pub fn label_system_channel(
             .iter()
             .map(|s| (s.start_seconds, s.end_seconds))
             .collect();
-        let assigned = assign_speakers_by_overlap(&spans, &diarized);
+        let assigned = assign_speakers_by_overlap(&spans, diarized);
         for (seg, spk) in channel.segments.iter_mut().zip(assigned) {
             seg.speaker = spk;
             if let Some(s) = spk {
@@ -77,7 +88,7 @@ pub fn label_system_channel(
         }
     }
     outcome.num_speakers = speakers.len();
-    Ok(outcome)
+    outcome
 }
 
 #[cfg(test)]
