@@ -60,6 +60,7 @@ pub mod audio;
 pub mod backend;
 pub mod calendar;
 pub mod cloud_guard;
+pub mod diarization;
 pub mod encryption;
 pub mod error;
 pub mod evals;
