@@ -189,6 +189,19 @@ impl SessionTranscript {
     /// GET-189: speaker labels make the AI's attribution ("Speaker 2
     /// committed to…") precise instead of lumping everyone into "Others".
     pub fn to_labeled_dialogue(&self, with_timestamps: bool) -> String {
+        self.to_labeled_dialogue_named(with_timestamps, &std::collections::HashMap::new())
+    }
+
+    /// Like [`Self::to_labeled_dialogue`], but a `names` map (raw diarizer
+    /// cluster id → display name, from the session's speaker sidecar)
+    /// overrides the generic `Speaker N` label with the real name the user
+    /// gave that voice. A cluster without a name still falls back to
+    /// `Speaker N` (numbered by first appearance), so the two never clash.
+    pub fn to_labeled_dialogue_named(
+        &self,
+        with_timestamps: bool,
+        names: &std::collections::HashMap<i32, String>,
+    ) -> String {
         use std::collections::HashMap;
 
         // 1-based display number per raw diarizer cluster index, by first
@@ -215,9 +228,9 @@ impl SessionTranscript {
                 let label = match ch.channel.as_str() {
                     "mic" => "You".to_string(),
                     "system" => match seg.speaker {
-                        Some(spk) => {
+                        Some(spk) => names.get(&spk).cloned().unwrap_or_else(|| {
                             format!("Speaker {}", speaker_num.get(&spk).copied().unwrap_or(0))
-                        }
+                        }),
                         None => "Others".to_string(),
                     },
                     "legacy" => "Unknown speaker".to_string(),

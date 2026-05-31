@@ -222,8 +222,14 @@ pub fn assign_speakers_by_overlap(
         .collect()
 }
 
-/// Read `path`, downmix to mono, and resample to `target_rate`.
-fn read_wav_as_mono(path: &Path, target_rate: u32) -> Result<Vec<f32>, DiarizationError> {
+/// Read `path`, downmix to mono, and resample to `target_rate`. Exposed
+/// to the crate so the embedding pass (`diarization::embedding`) can read
+/// the same 16 kHz mono samples the diarizer saw, keeping segment time →
+/// sample-index alignment exact.
+pub(crate) fn read_wav_as_mono(
+    path: &Path,
+    target_rate: u32,
+) -> Result<Vec<f32>, DiarizationError> {
     let reader = WavReader::open(path)
         .map_err(|e| DiarizationError::Wav(format!("open {}: {e}", path.display())))?;
     let spec = reader.spec();

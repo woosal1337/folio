@@ -203,35 +203,70 @@ pub async fn transcribe_recording(
 
     let mut session_transcript = SessionTranscript { channels };
 
-    // Speaker diarization (GET-189): tag the system-channel segments with
-    // per-speaker labels so the UI splits "Others" into Speaker 1/2/3….
-    // CPU-heavy, so it runs on a blocking task. Missing models / failures
-    // degrade gracefully — the transcript is still saved, just with the
-    // v0 "Others" labelling.
+    // Speaker diarization + identification (GET-189): tag the system-
+    // channel segments with per-speaker labels (Speaker 1/2/3…), extract a
+    // voice embedding per speaker, and resolve names from the cross-
+    // recording registry. CPU-heavy, so it runs on a blocking task. Missing
+    // models / failures degrade gracefully — the transcript is still saved,
+    // just with the v0 "Others" labelling.
     if diarization_enabled {
         let dir = session_dir.clone();
         let mut to_label = session_transcript.clone();
         let labeled = tauri::async_runtime::spawn_blocking(move || {
-            let opts = attune_core::diarization::DiarizationOptions::default();
-            match attune_core::diarization::label_system_channel(&dir, &mut to_label, &opts) {
-                Ok(outcome) => {
-                    info!(
-                        speakers = outcome.num_speakers,
-                        labeled = outcome.num_labeled,
-                        segments = outcome.num_segments,
-                        "diarization: system channel labelled",
-                    );
-                    Some(to_label)
-                }
-                Err(attune_core::diarization::DiarizationError::ModelsNotDownloaded) => {
+            use attune_core::diarization::{
+                anchor_self_from_session, identify_session_speakers, DiarizationError,
+                DiarizationOptions,
+            };
+            use attune_core::speaker_memory::{self, SpeakerRegistry};
+
+            let opts = DiarizationOptions::default();
+
+            // Load the cross-recording registry (keychain-encrypted). A load
+            // failure (bad key, corruption) must never block transcription —
+            // fall back to an empty registry so speakers are still labelled.
+            let mut registry = speaker_memory::load_default().unwrap_or_else(|e| {
+                tracing::warn!(error = %e, "speaker registry load failed; using empty");
+                SpeakerRegistry::new()
+            });
+
+            let ident = match identify_session_speakers(&dir, &mut to_label, &opts, &registry) {
+                Ok(i) => i,
+                Err(DiarizationError::ModelsNotDownloaded) => {
                     info!("diarization skipped: models not downloaded");
-                    None
+                    return None;
                 }
                 Err(e) => {
                     tracing::warn!(error = %e, "diarization failed; leaving channel labels");
-                    None
+                    return None;
                 }
+            };
+            info!(
+                speakers = ident.outcome.num_speakers,
+                labeled = ident.outcome.num_labeled,
+                segments = ident.outcome.num_segments,
+                "diarization: system channel labelled",
+            );
+
+            // Persist the per-recording speaker sidecar (embeddings + any
+            // auto-resolved names) next to the transcript.
+            if let Err(e) = ident.speakers.write(&dir) {
+                tracing::warn!(error = %e, "could not write speakers sidecar");
             }
+
+            // Best-effort: strengthen the user's "You" anchor from this
+            // recording's mic, then persist the registry. Never blocks the
+            // transcript.
+            match anchor_self_from_session(&mut registry, &dir, &opts) {
+                Ok(true) => {
+                    if let Err(e) = speaker_memory::save_default(&registry) {
+                        tracing::warn!(error = %e, "saving speaker registry failed");
+                    }
+                }
+                Ok(false) => {}
+                Err(e) => tracing::warn!(error = %e, "anchoring self voice failed"),
+            }
+
+            Some(to_label)
         })
         .await
         .map_err(|e| format!("diarization task panicked: {e}"))?;

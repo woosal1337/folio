@@ -21,13 +21,16 @@ import { cn } from "@/shared/lib/utils";
 import {
   buildConversation,
   type ConversationRow,
+  conversationSpeakers,
   otherSpeakerLabels,
 } from "@/shared/lib/conversation";
-import { saveTranscript } from "@/shared/lib/ipc";
+import { listSessionSpeakers, saveTranscript } from "@/shared/lib/ipc";
 import type { ChannelTranscript } from "@/shared/types/ChannelTranscript";
 import type { SessionTranscript } from "@/shared/types/SessionTranscript";
+import type { SpeakerLabel } from "@/shared/types/SpeakerLabel";
 
 import { SegmentRow } from "./segment-row";
+import { SpeakerLegend } from "./speaker-legend";
 import {
   type ExportFormat,
   extensionFor,
@@ -96,10 +99,40 @@ export function TranscriptEditor({ sessionDir, initial, onSaved }: Props) {
   const [saving, setSaving] = React.useState(false);
   const [exporting, setExporting] = React.useState<ExportFormat | null>(null);
   const [query, setQuery] = React.useState("");
+  const [speakerLabels, setSpeakerLabels] = React.useState<SpeakerLabel[]>([]);
 
   React.useEffect(() => {
     setWorking(initial);
   }, [initial]);
+
+  // Load the recording's speaker names (diarized + any the user set). Used
+  // to show real names instead of "Speaker N" and to drive the rename strip.
+  React.useEffect(() => {
+    let cancelled = false;
+    void listSessionSpeakers(sessionDir)
+      .then((labels) => {
+        if (!cancelled) setSpeakerLabels(labels);
+      })
+      .catch((e) => console.error("list_session_speakers:", e));
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionDir]);
+
+  // cluster id → real name, for the conversation builder.
+  const speakerNames = React.useMemo(() => {
+    const m = new Map<number, string>();
+    for (const l of speakerLabels) {
+      if (l.name !== null) m.set(l.cluster, l.name);
+    }
+    return m;
+  }, [speakerLabels]);
+
+  const labelsByCluster = React.useMemo(() => {
+    const m = new Map<number, SpeakerLabel>();
+    for (const l of speakerLabels) m.set(l.cluster, l);
+    return m;
+  }, [speakerLabels]);
 
   const dirty = React.useMemo(() => !sameSession(working, initial), [working, initial]);
 
@@ -251,6 +284,10 @@ export function TranscriptEditor({ sessionDir, initial, onSaved }: Props) {
       <ConversationEditor
         working={working}
         query={query}
+        sessionDir={sessionDir}
+        names={speakerNames}
+        labelsByCluster={labelsByCluster}
+        onSpeakersChanged={setSpeakerLabels}
         onSegmentChange={updateSegment}
       />
 
@@ -305,19 +342,37 @@ export function TranscriptEditor({ sessionDir, initial, onSaved }: Props) {
 interface ConversationEditorProps {
   working: SessionTranscript;
   query: string;
+  sessionDir: string;
+  /** cluster id → real name, applied over the default "Speaker N". */
+  names: Map<number, string>;
+  /** Backend speaker labels keyed by cluster (has_embedding / auto_named). */
+  labelsByCluster: Map<number, SpeakerLabel>;
+  /** Fresh label set after a rename. */
+  onSpeakersChanged: (labels: SpeakerLabel[]) => void;
   onSegmentChange: (channelIndex: number, segmentIndex: number, text: string) => void;
 }
 
 /**
  * The whole session as one chronological, speaker-labelled conversation:
  * the user's mic turns ("You") interleaved by time with each diarized
- * participant ("Speaker 1/2/3…"). This is the same shape the AI agents
- * read (see `buildConversation` / the Rust `to_labeled_dialogue`), so the
- * transcript a person edits matches the dialogue the summary reasons over.
+ * participant ("Speaker 1/2/3…", or the real name the user gave them).
+ * This is the same shape the AI agents read (see `buildConversation` /
+ * the Rust `to_labeled_dialogue`), so the transcript a person edits
+ * matches the dialogue the summary reasons over. A rename strip lets the
+ * user name each voice (GET-189).
  */
-function ConversationEditor({ working, query, onSegmentChange }: ConversationEditorProps) {
-  const rows = React.useMemo(() => buildConversation(working), [working]);
+function ConversationEditor({
+  working,
+  query,
+  sessionDir,
+  names,
+  labelsByCluster,
+  onSpeakersChanged,
+  onSegmentChange,
+}: ConversationEditorProps) {
+  const rows = React.useMemo(() => buildConversation(working, names), [working, names]);
   const speakers = React.useMemo(() => otherSpeakerLabels(rows), [rows]);
+  const legend = React.useMemo(() => conversationSpeakers(rows), [rows]);
 
   const filtered = React.useMemo(() => {
     if (query.trim().length === 0) return rows;
@@ -349,6 +404,13 @@ function ConversationEditor({ working, query, onSegmentChange }: ConversationEdi
           </span>
         )}
       </div>
+
+      <SpeakerLegend
+        sessionDir={sessionDir}
+        speakers={legend}
+        labelsByCluster={labelsByCluster}
+        onRenamed={onSpeakersChanged}
+      />
 
       {visibleCount === 0 ? (
         <p className="text-2xs text-muted-foreground">No segments match.</p>

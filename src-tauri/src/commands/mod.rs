@@ -28,6 +28,7 @@ pub mod recording_bar;
 pub mod referrals;
 pub mod settings;
 pub mod settings_sync;
+pub mod speakers;
 pub mod tasks;
 pub mod transcription;
 pub mod tray;
