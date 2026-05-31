@@ -7,6 +7,7 @@
 pub mod adaptive;
 pub mod chunker;
 pub mod hallucination_filter;
+pub mod language_id;
 pub mod local;
 pub mod locate;
 pub mod model_lru;
@@ -42,6 +43,13 @@ pub struct TranscriptSegment {
     /// the UI relabels them "Speaker 1/2/3…" by order of appearance.
     #[serde(default)]
     pub speaker: Option<i32>,
+    /// ISO language code detected for this segment (GET-190 per-chunk
+    /// language ID), e.g. "en" / "tr". `None` when unknown — legacy
+    /// transcripts, the OpenAI path (no per-segment LID), or a forced
+    /// single-language recording. Lets the UI flag code-switching and the
+    /// agents reason about which language a line was spoken in.
+    #[serde(default)]
+    pub language: Option<String>,
 }
 
 /// A full transcript for a single audio channel: the ordered sequence
@@ -340,6 +348,7 @@ mod write_read_tests {
                     end_seconds: 1.0,
                     text: "Hello, world.".into(),
                     speaker: None,
+                    language: None,
                 }],
             }],
         }
@@ -388,6 +397,7 @@ mod write_read_tests {
                         end_seconds: (i + 1) as f64,
                         text: format!("This is a fairly typical meeting sentence number {i}."),
                         speaker: None,
+                        language: None,
                     })
                     .collect(),
             }],
@@ -422,12 +432,14 @@ mod write_read_tests {
                             end_seconds: 2.0,
                             text: "Kicking us off.".into(),
                             speaker: None,
+                            language: None,
                         },
                         TranscriptSegment {
                             start_seconds: 9.0,
                             end_seconds: 10.0,
                             text: "Thanks both.".into(),
                             speaker: None,
+                            language: None,
                         },
                     ],
                 },
@@ -440,12 +452,14 @@ mod write_read_tests {
                             end_seconds: 4.0,
                             text: "I'll take the design.".into(),
                             speaker: Some(4),
+                            language: None,
                         },
                         TranscriptSegment {
                             start_seconds: 6.0,
                             end_seconds: 7.0,
                             text: "I'll handle the backend.".into(),
                             speaker: Some(2),
+                            language: None,
                         },
                     ],
                 },
@@ -482,6 +496,7 @@ mod write_read_tests {
                     end_seconds: 1.0,
                     text: "Some system audio.".into(),
                     speaker: None,
+                    language: None,
                 }],
             }],
         };

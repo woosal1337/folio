@@ -103,6 +103,7 @@ mod tests {
             end_seconds: end,
             text: "x".into(),
             speaker: None,
+            language: None,
         }
     }
 

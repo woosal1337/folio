@@ -21,6 +21,7 @@ import { cn } from "@/shared/lib/utils";
 import {
   buildConversation,
   type ConversationRow,
+  conversationLanguages,
   conversationSpeakers,
   otherSpeakerLabels,
 } from "@/shared/lib/conversation";
@@ -373,6 +374,12 @@ function ConversationEditor({
   const rows = React.useMemo(() => buildConversation(working, names), [working, names]);
   const speakers = React.useMemo(() => otherSpeakerLabels(rows), [rows]);
   const legend = React.useMemo(() => conversationSpeakers(rows), [rows]);
+  // Surface per-segment language badges only when the recording is
+  // code-switched (≥2 languages) — a monolingual note needs no labelling.
+  const multilingual = React.useMemo(
+    () => conversationLanguages(rows).length > 1,
+    [rows]
+  );
 
   const filtered = React.useMemo(() => {
     if (query.trim().length === 0) return rows;
@@ -418,6 +425,7 @@ function ConversationEditor({
         <VirtualConversationList
           filtered={filtered}
           query={query}
+          multilingual={multilingual}
           onSegmentChange={onSegmentChange}
         />
       ) : (
@@ -431,6 +439,9 @@ function ConversationEditor({
               query={query}
               speakerLabel={row.label}
               pillClass={row.pillClass}
+              language={
+                multilingual ? row.segment.language ?? undefined : undefined
+              }
               onChange={(text) =>
                 onSegmentChange(row.channelIndex, row.segmentIndex, text)
               }
@@ -475,6 +486,7 @@ function pathLeaf(path: string): string {
 interface VirtualConversationListProps {
   filtered: ConversationRow[];
   query: string;
+  multilingual: boolean;
   onSegmentChange: (channelIndex: number, segmentIndex: number, text: string) => void;
 }
 
@@ -493,6 +505,7 @@ interface VirtualConversationListProps {
 function VirtualConversationList({
   filtered,
   query,
+  multilingual,
   onSegmentChange,
 }: VirtualConversationListProps) {
   const parentRef = React.useRef<HTMLDivElement>(null);
@@ -535,6 +548,9 @@ function VirtualConversationList({
                 query={query}
                 speakerLabel={row.label}
                 pillClass={row.pillClass}
+                language={
+                  multilingual ? row.segment.language ?? undefined : undefined
+                }
                 onChange={(text) =>
                   onSegmentChange(row.channelIndex, row.segmentIndex, text)
                 }

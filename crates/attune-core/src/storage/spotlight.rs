@@ -78,12 +78,14 @@ mod tests {
                     end_seconds: 1.0,
                     text: "We decided to ship Pro at $79.".into(),
                     speaker: None,
+                    language: None,
                 },
                 TranscriptSegment {
                     start_seconds: 1.0,
                     end_seconds: 2.0,
                     text: "Alice will draft the announcement.".into(),
                     speaker: None,
+                    language: None,
                 },
             ],
         }

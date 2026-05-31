@@ -10,4 +10,12 @@ export type TranscriptSegment = { start_seconds: number, end_seconds: number, te
  * the user by definition). Raw cluster indices from the diarizer;
  * the UI relabels them "Speaker 1/2/3…" by order of appearance.
  */
-speaker: number | null, };
+speaker: number | null, 
+/**
+ * ISO language code detected for this segment (GET-190 per-chunk
+ * language ID), e.g. "en" / "tr". `None` when unknown — legacy
+ * transcripts, the OpenAI path (no per-segment LID), or a forced
+ * single-language recording. Lets the UI flag code-switching and the
+ * agents reason about which language a line was spoken in.
+ */
+language: string | null, };

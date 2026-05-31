@@ -169,6 +169,21 @@ export function conversationSpeakers(rows: ConversationRow[]): ConversationSpeak
 }
 
 /**
+ * Distinct per-segment languages present in the conversation, in
+ * first-appearance order (e.g. ["en", "tr"]). The UI only surfaces
+ * per-segment language badges when this has 2+ entries — a single language
+ * needs no labelling, but a code-switched recording (GET-190) does.
+ */
+export function conversationLanguages(rows: ConversationRow[]): string[] {
+  const seen: string[] = [];
+  for (const r of rows) {
+    const lang = r.segment.language;
+    if (lang && !seen.includes(lang)) seen.push(lang);
+  }
+  return seen;
+}
+
+/**
  * Distinct non-"You" speaker labels present, in first-appearance order —
  * for a "N speakers" header summary. "You" is excluded (it's always the
  * note-taker, not a counted participant).

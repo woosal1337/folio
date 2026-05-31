@@ -228,6 +228,7 @@ mod tests {
                     end_seconds: 1.0,
                     text: "We agreed to the pelican migration plan".to_string(),
                     speaker: None,
+                    language: None,
                 }],
             }],
         };

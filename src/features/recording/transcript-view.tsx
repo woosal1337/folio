@@ -4,6 +4,7 @@ import { FileText, Loader2, Users } from "lucide-react";
 import {
   buildConversation,
   type ConversationRow,
+  conversationLanguages,
   otherSpeakerLabels,
 } from "@/shared/lib/conversation";
 import { listSessionSpeakers, readTranscript } from "@/shared/lib/ipc";
@@ -106,6 +107,8 @@ export function TranscriptView({ sessionDir }: Props) {
 
 function ConversationList({ rows }: { rows: ConversationRow[] }) {
   const speakers = otherSpeakerLabels(rows);
+  // Per-segment language badges only on code-switched recordings (GET-190).
+  const multilingual = conversationLanguages(rows).length > 1;
 
   return (
     <section className="flex flex-col gap-2">
@@ -132,10 +135,18 @@ function ConversationList({ rows }: { rows: ConversationRow[] }) {
             </span>
             <div>
               <span
-                className={`mb-1 inline-flex items-center rounded-full px-2 py-0.5 text-2xs font-medium ${row.pillClass}`}
+                className={`mb-1 mr-1 inline-flex items-center rounded-full px-2 py-0.5 text-2xs font-medium ${row.pillClass}`}
               >
                 {row.label}
               </span>
+              {multilingual && row.segment.language && (
+                <span
+                  className="mb-1 inline-flex items-center rounded-full bg-muted px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase text-muted-foreground"
+                  title={`Spoken in ${row.segment.language}`}
+                >
+                  {row.segment.language}
+                </span>
+              )}
               <p className="text-sm leading-relaxed" dir="auto">
                 {row.segment.text}
               </p>

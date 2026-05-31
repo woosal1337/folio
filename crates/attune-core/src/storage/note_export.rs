@@ -189,6 +189,7 @@ mod tests {
                     end_seconds: 1.0,
                     text: "we approved the plan".to_string(),
                     speaker: None,
+                    language: None,
                 }],
             }],
         };

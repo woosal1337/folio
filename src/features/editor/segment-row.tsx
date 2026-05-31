@@ -18,6 +18,9 @@ interface Props {
   speakerLabel?: string;
   /** Tailwind classes for the speaker pill (see `buildConversation`). */
   pillClass?: string;
+  /** ISO language code for this turn ("en"/"tr"); shown only on code-
+   *  switched recordings to flag which language a line was spoken in. */
+  language?: string;
   onChange: (next: string) => void;
 }
 
@@ -37,6 +40,7 @@ export function SegmentRow({
   query,
   speakerLabel,
   pillClass,
+  language,
   onChange,
 }: Props) {
   const textareaRef = React.useRef<HTMLTextAreaElement | null>(null);
@@ -83,11 +87,19 @@ export function SegmentRow({
         {speakerLabel && (
           <span
             className={cn(
-              "mb-1 inline-flex items-center rounded-full px-2 py-0.5 text-2xs font-medium",
+              "mb-1 mr-1 inline-flex items-center rounded-full px-2 py-0.5 text-2xs font-medium",
               pillClass ?? NEUTRAL_PILL_COLOR
             )}
           >
             {speakerLabel}
+          </span>
+        )}
+        {language && (
+          <span
+            className="mb-1 inline-flex items-center rounded-full bg-muted px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase text-muted-foreground"
+            title={`Spoken in ${language}`}
+          >
+            {language}
           </span>
         )}
         {highlight && (

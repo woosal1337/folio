@@ -148,6 +148,11 @@ struct WhisperSegment {
 
 impl WhisperResponse {
     fn into_transcript(self) -> Transcript {
+        // The OpenAI path does not do per-segment language ID (the API
+        // returns one language for the whole response), so every segment
+        // inherits the response language. Local transcription tags each
+        // segment with its own per-window detection (GET-190).
+        let lang = self.language.clone();
         let segments = match self.segments {
             Some(segs) => segs
                 .into_iter()
@@ -156,6 +161,7 @@ impl WhisperResponse {
                     end_seconds: s.end,
                     text: s.text.trim().to_string(),
                     speaker: None,
+                    language: lang.clone(),
                 })
                 .collect(),
             None => {
@@ -170,6 +176,7 @@ impl WhisperResponse {
                             end_seconds: 0.0,
                             text: t.trim().to_string(),
                             speaker: None,
+                            language: lang.clone(),
                         }]
                     })
                     .unwrap_or_default()
