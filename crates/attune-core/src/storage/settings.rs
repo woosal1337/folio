@@ -72,6 +72,16 @@ pub struct Settings {
     /// straight to the ASR.
     #[serde(default = "default_auto_vad_enabled")]
     pub auto_vad_enabled: bool,
+    /// GET-188. Local speech enhancement (RNNoise) on the system-audio
+    /// stream, applied before the VAD + transcription + diarization
+    /// steps. Cleans noisy remote participants / music bleed / far-end
+    /// keyboard clatter that the raw ScreenCaptureKit stream carries (the
+    /// mic stream already gets AEC/NS/AGC from Voice Processing IO).
+    /// Default OFF and A/B-gated, since aggressive enhancement can
+    /// *raise* Whisper WER (arXiv 2512.17562) — `atten_lim_db` caps the
+    /// suppression depth conservatively.
+    #[serde(default)]
+    pub system_audio_enhancement: SystemAudioEnhancement,
     /// Beta: stream a live transcript preview into the record dock while
     /// capturing (local Whisper over a rolling window). Off by default —
     /// when off, transcription happens only once on Stop. macOS-only,
@@ -334,6 +344,36 @@ pub struct Settings {
     pub workspace_logo_path: String,
 }
 
+/// GET-188. System-audio speech-enhancement settings. Nested so the two
+/// knobs travel together and a future per-recording override has an
+/// obvious home.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../src/shared/types/")]
+pub struct SystemAudioEnhancement {
+    /// Master toggle. Default `false` — experimental, A/B-gated.
+    #[serde(default)]
+    pub enabled: bool,
+    /// Maximum attenuation the enhancer may apply, in dB (negative; more
+    /// negative = more aggressive). Default `-20.0`, a conservative cap
+    /// that trims obvious noise without flattening the spectral detail
+    /// Whisper and the speaker-embedding model depend on.
+    #[serde(default = "default_enhancement_atten_lim_db")]
+    pub atten_lim_db: f32,
+}
+
+impl Default for SystemAudioEnhancement {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            atten_lim_db: default_enhancement_atten_lim_db(),
+        }
+    }
+}
+
+fn default_enhancement_atten_lim_db() -> f32 {
+    -20.0
+}
+
 fn default_true() -> bool {
     true
 }
@@ -462,6 +502,7 @@ impl Default for Settings {
             voice_processing_enabled: default_voice_processing_enabled(),
             auto_transcribe_enabled: default_auto_transcribe_enabled(),
             auto_vad_enabled: default_auto_vad_enabled(),
+            system_audio_enhancement: SystemAudioEnhancement::default(),
             live_transcript_enabled: default_live_transcript_enabled(),
             memory_dir: default_memory_dir(),
             auto_extract_memories_enabled: default_auto_extract_memories_enabled(),

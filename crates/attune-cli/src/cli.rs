@@ -47,6 +47,29 @@ pub enum Command {
     /// Search the local memory store. JSON by default.
     /// v2 finding 072 / GET-74.
     MemorySearch(MemorySearchArgs),
+    /// GET-188. Enhance a recording's system audio (RNNoise) and report
+    /// before/after metrics, for A/B evaluation. Writes
+    /// `<stem>.enhanced.wav` next to the input so you can listen to both
+    /// and transcribe each with `attune-cli transcribe`.
+    EnhanceCompare(EnhanceCompareArgs),
+}
+
+#[derive(Parser, Debug)]
+pub struct EnhanceCompareArgs {
+    /// Path to a `system.wav` (or any WAV), or a session directory
+    /// containing `system.wav`.
+    pub input: PathBuf,
+
+    /// Output path for the enhanced WAV. Defaults to
+    /// `<stem>.enhanced.wav` next to the input.
+    #[arg(long)]
+    pub out: Option<PathBuf>,
+
+    /// Maximum attenuation in dB (negative; more negative = more
+    /// aggressive suppression). Defaults to the app's conservative
+    /// -20 dB cap.
+    #[arg(long, default_value_t = -20.0, allow_hyphen_values = true)]
+    pub atten_lim_db: f32,
 }
 
 #[derive(Parser, Debug)]

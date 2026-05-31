@@ -23,5 +23,6 @@ fn main() -> Result<()> {
         Command::Sessions(args) => commands::sessions::run(args),
         Command::Tasks(args) => commands::tasks::run(args),
         Command::MemorySearch(args) => commands::memory_search::run(args),
+        Command::EnhanceCompare(args) => commands::enhance_compare::run(args),
     }
 }
