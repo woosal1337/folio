@@ -52,6 +52,43 @@ pub enum Command {
     /// `<stem>.enhanced.wav` next to the input so you can listen to both
     /// and transcribe each with `attune-cli transcribe`.
     EnhanceCompare(EnhanceCompareArgs),
+    /// Speaker diarization (GET-189 substrate). Runs the sherpa-onnx
+    /// pyannote-segmentation + WeSpeaker-embedding + clustering pipeline
+    /// over a recording and prints speaker-labelled time segments
+    /// ("who spoke when").
+    Diarize(DiarizeArgs),
+}
+
+#[derive(Parser, Debug)]
+pub struct DiarizeArgs {
+    /// A WAV file, or a session directory (uses `<channel>.wav`).
+    pub input: PathBuf,
+
+    /// Which channel to diarize when `input` is a directory.
+    #[arg(long, default_value = "system")]
+    pub channel: String,
+
+    /// Pyannote segmentation ONNX model. Defaults to the app model
+    /// store (`~/Library/Application Support/Attune/models/diarization/`).
+    #[arg(long)]
+    pub segmentation: Option<PathBuf>,
+
+    /// WeSpeaker embedding ONNX model. Defaults to the app model store.
+    #[arg(long)]
+    pub embedding: Option<PathBuf>,
+
+    /// Fixed speaker count. 0 (default) auto-estimates via `--threshold`.
+    #[arg(long, default_value_t = 0)]
+    pub num_speakers: i32,
+
+    /// Clustering merge threshold when auto-estimating (higher = fewer
+    /// speakers). sherpa-onnx default ~0.5.
+    #[arg(long, default_value_t = 0.5, allow_hyphen_values = true)]
+    pub threshold: f32,
+
+    /// Print newline-delimited JSON segments instead of a table.
+    #[arg(long, default_value_t = false)]
+    pub json: bool,
 }
 
 #[derive(Parser, Debug)]

@@ -11,11 +11,14 @@
 //! `obsidian.md/projects/attune/plan/diarization-v1-execution.md` for
 //! the phased execution plan this module implements.
 //!
-//! ## Status (P0)
+//! ## Status
 //!
 //! - `models` — model registry, on-disk layout, downloader. Wired.
-//! - `runtime` — sherpa-onnx wrapper. Stubbed; returns
-//!   `DiarizationError::NotImplemented` until P2 / P3 land.
+//! - `runtime` — sherpa-onnx `OfflineSpeakerDiarization` wrapper
+//!   (pyannote segmentation + WeSpeaker embedding + clustering). Real:
+//!   [`DiarizationRuntime::diarize_wav`] returns speaker-labelled
+//!   segments. The two-stream mic-anchor integration + the
+//!   [`crate::speaker_memory`] hookup are the remaining phases.
 //!
 //! ## Layer rule
 //!
@@ -29,4 +32,4 @@ pub mod runtime;
 pub use models::{
     DiarizationModel, DiarizationModelStatus, DiarizationModelStore, DownloadProgress,
 };
-pub use runtime::{DiarizationError, DiarizationRuntime};
+pub use runtime::{DiarizationError, DiarizationOptions, DiarizationRuntime, DiarizedSegment};
