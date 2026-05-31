@@ -55,6 +55,7 @@ import type { ShareBundleSummary } from "@/shared/types/ShareBundleSummary";
 import type { SnapshotSummary } from "@/shared/types/SnapshotSummary";
 import type { Task } from "@/shared/types/Task";
 import type { WebhookSubscription } from "@/shared/types/WebhookSubscription";
+import type { DiarizationModelStatus } from "@/shared/types/DiarizationModelStatus";
 import type { TaskStatus } from "@/shared/types/TaskStatus";
 import type { TaskUpdate } from "@/shared/types/TaskUpdate";
 import type { TranscriptionResult } from "@/shared/types/TranscriptionResult";
@@ -272,6 +273,29 @@ export interface WhisperDownloadProgress {
 
 /** Channel name for the Tauri event. Exported so listeners stay in sync. */
 export const WHISPER_DOWNLOAD_PROGRESS_EVENT = "whisper:model-download-progress";
+
+// ---- Diarization models -------------------------------------------------
+
+/** On-disk status of every speaker-diarization model. */
+export function diarizationModelStatus(): Promise<DiarizationModelStatus[]> {
+  return call<DiarizationModelStatus[]>("diarization_model_status");
+}
+
+/** Download whichever diarization models are missing; returns final status. */
+export function ensureDiarizationModels(): Promise<DiarizationModelStatus[]> {
+  return call<DiarizationModelStatus[]>("ensure_diarization_models");
+}
+
+/** Live progress emitted while a diarization model download is in flight. */
+export interface DiarizationDownloadProgress {
+  model_id: string;
+  downloaded: number;
+  total: number | null;
+}
+
+/** Channel name for the Tauri event. Exported so listeners stay in sync. */
+export const DIARIZATION_DOWNLOAD_PROGRESS_EVENT =
+  "diarization:model-download-progress";
 
 // ---- LLM providers -----------------------------------------------------
 
@@ -921,6 +945,14 @@ export async function onWhisperDownloadProgress<T = WhisperDownloadProgress>(
   handler: (payload: T) => void
 ): Promise<UnlistenFn> {
   return listen<T>(WHISPER_DOWNLOAD_PROGRESS_EVENT, (event) => handler(event.payload));
+}
+
+export async function onDiarizationDownloadProgress<
+  T = DiarizationDownloadProgress,
+>(handler: (payload: T) => void): Promise<UnlistenFn> {
+  return listen<T>(DIARIZATION_DOWNLOAD_PROGRESS_EVENT, (event) =>
+    handler(event.payload)
+  );
 }
 
 export async function onDeepLink(

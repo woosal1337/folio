@@ -89,21 +89,26 @@ impl DiarizationModel {
         }
     }
 
-    /// Upstream URL. Points at sherpa-onnx's release assets where they
-    /// exist (those are the exact files sherpa-onnx's runtime expects);
-    /// HuggingFace for the segmentation model since sherpa-onnx
-    /// distributes that one as a tar bundle rather than a single ONNX.
+    /// Upstream URL. Both point at the exact single-file ONNX exports
+    /// sherpa-onnx's runtime expects.
+    ///
+    /// The segmentation model MUST be sherpa-onnx's own export, not the
+    /// generic onnx-community one — they differ byte-for-byte and only the
+    /// sherpa export loads in `OfflineSpeakerDiarization` (verified: the
+    /// onnx-community file hashes 057ee564…, the working one 220ad67c…).
+    /// `csukuangfj` (the sherpa-onnx author) mirrors the extracted
+    /// `model.onnx` on HuggingFace, so we get the right file as a single
+    /// download without pulling tar/bzip2 deps for the release bundle.
     fn url(self) -> &'static str {
         match self {
-            // onnx-community publishes a single-file ONNX export. sherpa-onnx's
-            // release bundle for the same model also works once extracted, but
-            // we prefer the single file to avoid pulling tar/bzip2 deps in.
             Self::Segmentation => {
-                "https://huggingface.co/onnx-community/pyannote-segmentation-3.0/\
-                 resolve/main/onnx/model.onnx"
+                "https://huggingface.co/csukuangfj/\
+                 sherpa-onnx-pyannote-segmentation-3-0/resolve/main/model.onnx"
             }
             // sherpa-onnx mirrors WeSpeaker's official ONNX. Same SHA-256
-            // as the HuggingFace original.
+            // as the HuggingFace original. The release-tag segment below is
+            // spelled exactly as upstream published it — do not "fix" its
+            // spelling or the download 404s.
             Self::EmbeddingResnet34Lm => {
                 "https://github.com/k2-fsa/sherpa-onnx/releases/download/\
                  speaker-recongition-models/wespeaker_en_voxceleb_resnet34_LM.onnx"
@@ -111,22 +116,29 @@ impl DiarizationModel {
         }
     }
 
-    /// Approximate on-disk bytes, used to drive the progress UI when
-    /// the server omits Content-Length.
+    /// Exact published size in bytes (confirmed against the live files),
+    /// used to drive the progress UI when the server omits Content-Length.
     pub fn approx_bytes(self) -> u64 {
         match self {
-            Self::Segmentation => 6 * 1024 * 1024,
-            Self::EmbeddingResnet34Lm => 26 * 1024 * 1024,
+            Self::Segmentation => 5_992_913,
+            Self::EmbeddingResnet34Lm => 26_530_550,
         }
     }
 
-    /// Hex-encoded SHA-256 of the canonical published file. `None`
-    /// until P0b records the verified value. When `Some`, [`download`]
-    /// rejects mismatches.
+    /// Hex-encoded SHA-256 of the canonical published file. Verified by
+    /// downloading each URL and hashing it against the known-good models
+    /// staged locally (both confirmed to drive the runtime end to end).
+    /// [`download`] rejects any mismatch, so a corrupted or swapped file
+    /// can never reach `OfflineSpeakerDiarization` — which would otherwise
+    /// `abort()` the whole process on a malformed ONNX.
     fn expected_sha256(self) -> Option<&'static str> {
         match self {
-            Self::Segmentation => None,
-            Self::EmbeddingResnet34Lm => None,
+            Self::Segmentation => {
+                Some("220ad67ca923bef2fa91f2390c786097bf305bceb5e261d4af67b38e938e1079")
+            }
+            Self::EmbeddingResnet34Lm => {
+                Some("e9848563da86f263117134dfd7ad63c92355b37de492b55e325400c9d9c39012")
+            }
         }
     }
 }
@@ -418,18 +430,39 @@ mod tests {
     #[test]
     fn url_points_at_canonical_publishers() {
         // Sanity check: if either URL changes upstream we want a
-        // compile-time literal change, not a silent breakage.
+        // compile-time literal change, not a silent breakage. The
+        // segmentation model must be sherpa-onnx's own export (the
+        // `csukuangfj` mirror), never the incompatible onnx-community one.
         assert!(DiarizationModel::Segmentation
             .url()
             .contains("huggingface.co"));
         assert!(DiarizationModel::Segmentation
             .url()
-            .contains("pyannote-segmentation-3.0"));
+            .contains("sherpa-onnx-pyannote-segmentation-3-0"));
+        assert!(
+            !DiarizationModel::Segmentation
+                .url()
+                .contains("onnx-community"),
+            "must not regress to the sherpa-incompatible onnx-community export"
+        );
         assert!(DiarizationModel::EmbeddingResnet34Lm
             .url()
             .contains("k2-fsa/sherpa-onnx"));
         assert!(DiarizationModel::EmbeddingResnet34Lm
             .url()
             .contains("voxceleb_resnet34_LM"));
+    }
+
+    #[test]
+    fn every_model_has_a_pinned_sha256() {
+        // Verification is mandatory: a swapped/corrupt ONNX must be
+        // rejected before it reaches sherpa, which aborts the process on
+        // a malformed model. Hashes are the byte-for-byte values of the
+        // files confirmed to drive the runtime.
+        for m in DiarizationModel::ALL {
+            let hash = m.expected_sha256();
+            assert!(hash.is_some(), "{} has no pinned sha256", m.id());
+            assert_eq!(hash.unwrap().len(), 64, "{} sha256 not 64 hex chars", m.id());
+        }
     }
 }
