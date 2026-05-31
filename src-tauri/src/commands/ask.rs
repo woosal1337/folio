@@ -142,7 +142,12 @@ fn build_note_context(dir: &Path) -> String {
         if !text.is_empty() {
             out.push_str("## Transcript\n");
             if text.len() > TRANSCRIPT_CHAR_CAP {
-                out.push_str(&text[..TRANSCRIPT_CHAR_CAP]);
+                // Char-boundary truncation — a byte slice panics mid-
+                // codepoint on multilingual transcripts (GET-175).
+                out.push_str(attune_core::text::truncate_on_char_boundary(
+                    &text,
+                    TRANSCRIPT_CHAR_CAP,
+                ));
                 out.push_str("\n[transcript truncated]");
             } else {
                 out.push_str(&text);
