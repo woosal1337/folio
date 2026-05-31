@@ -41,6 +41,17 @@ pub struct SessionSpeaker {
     /// later rename can teach the registry without re-running the audio.
     #[serde(default)]
     pub embedding: Vec<f32>,
+    /// A medium-confidence registry match (GET-189 Confirm tier): the
+    /// candidate name to prompt "Is this <name>?" on. Set only while `name`
+    /// is unset; cleared on confirm / reject / rename.
+    #[serde(default)]
+    pub suggested_name: Option<String>,
+    /// Registry identity (UUID string) the suggestion points at.
+    #[serde(default)]
+    pub suggested_registry_id: Option<String>,
+    /// Match confidence (cosine, 0–1) for the suggestion, for display.
+    #[serde(default)]
+    pub suggested_score: Option<f32>,
 }
 
 /// Lightweight, embedding-free view of a session speaker for the frontend.
@@ -56,6 +67,11 @@ pub struct SpeakerLabel {
     /// True when this cluster carries a usable voice embedding (i.e. it can
     /// be remembered). False for clusters with too little audio.
     pub has_embedding: bool,
+    /// Candidate name for a medium-confidence match to confirm ("Is this
+    /// <name>?"). `null` when there's no pending suggestion.
+    pub suggested_name: Option<String>,
+    /// Match confidence (cosine, 0–1) for the suggestion, for display.
+    pub suggested_score: Option<f32>,
 }
 
 impl SessionSpeaker {
@@ -65,6 +81,17 @@ impl SessionSpeaker {
             name: self.name.clone(),
             auto_named: self.auto_named,
             has_embedding: !self.embedding.is_empty(),
+            // Only surface a suggestion while the speaker is still unnamed.
+            suggested_name: if self.name.is_none() {
+                self.suggested_name.clone()
+            } else {
+                None
+            },
+            suggested_score: if self.name.is_none() {
+                self.suggested_score
+            } else {
+                None
+            },
         }
     }
 }
@@ -145,6 +172,9 @@ mod tests {
             registry_id: None,
             auto_named: false,
             embedding,
+            suggested_name: None,
+            suggested_registry_id: None,
+            suggested_score: None,
         }
     }
 

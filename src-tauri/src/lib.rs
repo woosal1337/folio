@@ -142,6 +142,8 @@ pub fn run() {
             commands::diarization::ensure_diarization_models,
             commands::speakers::list_session_speakers,
             commands::speakers::rename_session_speaker,
+            commands::speakers::confirm_session_speaker,
+            commands::speakers::reject_session_speaker,
             commands::transcription::get_recording_language,
             commands::transcription::set_recording_language,
             commands::llm::list_providers,

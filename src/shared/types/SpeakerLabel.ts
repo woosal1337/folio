@@ -20,4 +20,13 @@ auto_named: boolean,
  * True when this cluster carries a usable voice embedding (i.e. it can
  * be remembered). False for clusters with too little audio.
  */
-has_embedding: boolean, };
+has_embedding: boolean, 
+/**
+ * Candidate name for a medium-confidence match to confirm ("Is this
+ * <name>?"). `null` when there's no pending suggestion.
+ */
+suggested_name: string | null, 
+/**
+ * Match confidence (cosine, 0–1) for the suggestion, for display.
+ */
+suggested_score: number | null, };
