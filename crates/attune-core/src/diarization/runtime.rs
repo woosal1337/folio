@@ -185,6 +185,43 @@ impl DiarizationRuntime {
     }
 }
 
+/// Assign a speaker index to each `[start, end]` span (seconds) by
+/// maximum temporal overlap with the diarized segments. A span with no
+/// overlap (it fell in a gap between turns) is attributed to the nearest
+/// diarized segment by midpoint, so every transcribed line still gets a
+/// speaker. Returns `None` for a span only when `diarized` is empty.
+pub fn assign_speakers_by_overlap(
+    spans: &[(f64, f64)],
+    diarized: &[DiarizedSegment],
+) -> Vec<Option<i32>> {
+    spans
+        .iter()
+        .map(|&(start, end)| {
+            let mut best: Option<(i32, f64)> = None;
+            for d in diarized {
+                let overlap =
+                    (end.min(d.end_secs as f64) - start.max(d.start_secs as f64)).max(0.0);
+                if overlap > 0.0 && best.is_none_or(|(_, bo)| overlap > bo) {
+                    best = Some((d.speaker, overlap));
+                }
+            }
+            if let Some((spk, _)) = best {
+                return Some(spk);
+            }
+            // No overlap — attribute to the nearest segment by midpoint.
+            let mid = (start + end) / 2.0;
+            diarized
+                .iter()
+                .min_by(|a, b| {
+                    let da = (((a.start_secs + a.end_secs) as f64) / 2.0 - mid).abs();
+                    let db = (((b.start_secs + b.end_secs) as f64) / 2.0 - mid).abs();
+                    da.partial_cmp(&db).unwrap_or(std::cmp::Ordering::Equal)
+                })
+                .map(|d| d.speaker)
+        })
+        .collect()
+}
+
 /// Read `path`, downmix to mono, and resample to `target_rate`.
 fn read_wav_as_mono(path: &Path, target_rate: u32) -> Result<Vec<f32>, DiarizationError> {
     let reader = WavReader::open(path)

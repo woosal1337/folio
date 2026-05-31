@@ -63,6 +63,14 @@ auto_vad_enabled: boolean,
  */
 system_audio_enhancement: SystemAudioEnhancement, 
 /**
+ * GET-189. After transcription, run speaker diarization on the
+ * system channel so the transcript splits "Others" into per-speaker
+ * labels ("Speaker 1/2/3…"). Runs on every transcribe / re-transcribe.
+ * Default ON; no-ops gracefully (leaving the v0 "Others" label) when
+ * the diarization models aren't downloaded yet.
+ */
+diarization_enabled: boolean, 
+/**
  * Beta: stream a live transcript preview into the record dock while
  * capturing (local Whisper over a rolling window). Off by default —
  * when off, transcription happens only once on Stop. macOS-only,

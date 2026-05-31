@@ -25,5 +25,6 @@ fn main() -> Result<()> {
         Command::MemorySearch(args) => commands::memory_search::run(args),
         Command::EnhanceCompare(args) => commands::enhance_compare::run(args),
         Command::Diarize(args) => commands::diarize::run(args),
+        Command::DiarizeTranscript(args) => commands::diarize_transcript::run(args),
     }
 }

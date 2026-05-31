@@ -3,4 +3,11 @@
 /**
  * A timestamped slice of recognised speech.
  */
-export type TranscriptSegment = { start_seconds: number, end_seconds: number, text: string, };
+export type TranscriptSegment = { start_seconds: number, end_seconds: number, text: string, 
+/**
+ * Diarized speaker index for this segment (GET-189). `None` until
+ * diarization runs; set on the system channel (the mic channel is
+ * the user by definition). Raw cluster indices from the diarizer;
+ * the UI relabels them "Speaker 1/2/3…" by order of appearance.
+ */
+speaker: number | null, };

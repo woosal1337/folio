@@ -309,6 +309,10 @@ interface ChannelEditorProps {
 
 function ChannelEditor({ channel, query, onSegmentChange }: ChannelEditorProps) {
   const meta = channelLabel(channel.channel);
+  const speakerMap = React.useMemo(
+    () => buildSpeakerLabels(channel.segments),
+    [channel.segments]
+  );
   const filtered = React.useMemo(() => {
     if (query.trim().length === 0) {
       return channel.segments.map((segment, index) => ({ segment, index }));
@@ -327,6 +331,11 @@ function ChannelEditor({ channel, query, onSegmentChange }: ChannelEditorProps) 
           <meta.Icon className="h-3.5 w-3.5 text-muted-foreground" />
           {meta.label}
           <span className="text-2xs font-normal text-muted-foreground">{meta.sub}</span>
+          {speakerMap.size > 0 && (
+            <span className="text-2xs font-normal text-muted-foreground">
+              · {speakerMap.size} {speakerMap.size === 1 ? "speaker" : "speakers"}
+            </span>
+          )}
           {query.trim().length > 0 && (
             <span
               className={cn(
@@ -358,20 +367,27 @@ function ChannelEditor({ channel, query, onSegmentChange }: ChannelEditorProps) 
           filtered={filtered}
           channelId={channel.channel}
           query={query}
+          speakerMap={speakerMap}
           onSegmentChange={onSegmentChange}
         />
       ) : (
         <ol className="flex flex-col gap-2">
-          {filtered.map(({ segment, index }) => (
-            <SegmentRow
-              key={`${index}-${segment.start_seconds}`}
-              segment={segment}
-              index={index}
-              channel={channel.channel}
-              query={query}
-              onChange={(text) => onSegmentChange(index, text)}
-            />
-          ))}
+          {filtered.map(({ segment, index }) => {
+            const num =
+              segment.speaker !== null ? speakerMap.get(segment.speaker) : undefined;
+            return (
+              <SegmentRow
+                key={`${index}-${segment.start_seconds}`}
+                segment={segment}
+                index={index}
+                channel={channel.channel}
+                query={query}
+                speakerLabel={num ? `Speaker ${num}` : undefined}
+                speakerNumber={num}
+                onChange={(text) => onSegmentChange(index, text)}
+              />
+            );
+          })}
         </ol>
       )}
     </section>
@@ -393,6 +409,22 @@ function channelLabel(channel: string): ChannelMeta {
     default:
       return { label: channel, sub: "", Icon: Mic };
   }
+}
+
+/**
+ * Map raw diarizer cluster indices to 1-based "Speaker N" display
+ * numbers, ordered by first appearance in the channel (GET-189). Empty
+ * when the channel has no diarized speakers (mic, or an un-diarized
+ * transcript).
+ */
+function buildSpeakerLabels(segments: TranscriptSegment[]): Map<number, number> {
+  const map = new Map<number, number>();
+  for (const s of segments) {
+    if (s.speaker !== null && !map.has(s.speaker)) {
+      map.set(s.speaker, map.size + 1);
+    }
+  }
+  return map;
 }
 
 function sameSession(a: SessionTranscript, b: SessionTranscript): boolean {
@@ -434,6 +466,7 @@ interface VirtualSegmentListProps {
   filtered: FilteredSegment[];
   channelId: string;
   query: string;
+  speakerMap: Map<number, number>;
   onSegmentChange: (segmentIndex: number, text: string) => void;
 }
 
@@ -453,6 +486,7 @@ function VirtualSegmentList({
   filtered,
   channelId,
   query,
+  speakerMap,
   onSegmentChange,
 }: VirtualSegmentListProps) {
   const parentRef = React.useRef<HTMLDivElement>(null);
@@ -493,6 +527,16 @@ function VirtualSegmentList({
                 index={item.index}
                 channel={channelId}
                 query={query}
+                speakerLabel={
+                  item.segment.speaker !== null && speakerMap.has(item.segment.speaker)
+                    ? `Speaker ${speakerMap.get(item.segment.speaker)}`
+                    : undefined
+                }
+                speakerNumber={
+                  item.segment.speaker !== null
+                    ? speakerMap.get(item.segment.speaker)
+                    : undefined
+                }
                 onChange={(text) => onSegmentChange(item.index, text)}
               />
             </li>

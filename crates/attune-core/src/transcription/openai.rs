@@ -155,6 +155,7 @@ impl WhisperResponse {
                     start_seconds: s.start,
                     end_seconds: s.end,
                     text: s.text.trim().to_string(),
+                    speaker: None,
                 })
                 .collect(),
             None => {
@@ -168,6 +169,7 @@ impl WhisperResponse {
                             start_seconds: 0.0,
                             end_seconds: 0.0,
                             text: t.trim().to_string(),
+                            speaker: None,
                         }]
                     })
                     .unwrap_or_default()
