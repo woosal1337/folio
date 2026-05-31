@@ -12,6 +12,7 @@ pub mod auth;
 pub mod calendar;
 pub mod chats;
 pub mod devices;
+pub mod diarization;
 pub mod folders;
 pub mod health;
 pub mod library;

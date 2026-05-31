@@ -13,6 +13,7 @@ import type { ProviderStatus } from "@/shared/types/ProviderStatus";
 import type { Settings } from "@/shared/types/Settings";
 
 import { LocalWhisperSection } from "./local-whisper-section";
+import { SpeakerDiarizationSection } from "./speaker-diarization-section";
 
 interface Props {
   settings: Settings;
@@ -186,6 +187,8 @@ export function SectionTranscription({ settings, onChange }: Props) {
       {settings.transcriber === "local_whisper" && (
         <LocalWhisperSection settings={settings} onChange={onChange} />
       )}
+
+      <SpeakerDiarizationSection settings={settings} onChange={onChange} />
 
       <section className="space-y-3">
         <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
