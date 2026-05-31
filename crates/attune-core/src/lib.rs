@@ -79,6 +79,7 @@ pub mod qos;
 pub mod share_page;
 pub mod speaker_memory;
 pub mod storage;
+pub mod text;
 pub mod transcription;
 pub mod webhooks;
 

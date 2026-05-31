@@ -826,7 +826,10 @@ fn build_user_message(transcript_text: &str, live_notes_md: Option<&str>) -> Str
     let mut out = if transcript_text.len() <= TRANSCRIPT_CHAR_CAP {
         format!("{LEGEND}\n\n{}", transcript_text)
     } else {
-        let truncated = &transcript_text[..TRANSCRIPT_CHAR_CAP];
+        // Char-boundary truncation — a byte slice panics mid-codepoint on
+        // multilingual transcripts (GET-175).
+        let truncated =
+            attune_core::text::truncate_on_char_boundary(transcript_text, TRANSCRIPT_CHAR_CAP);
         format!(
             "{LEGEND}\n\n(truncated to first {} characters; full transcript \
             was {} characters)\n\n{}",
@@ -958,6 +961,17 @@ mod tests {
         let msg = build_user_message(&huge, None);
         assert!(msg.contains("truncated to first"));
         assert!(msg.len() < TRANSCRIPT_CHAR_CAP + 500);
+    }
+
+    #[test]
+    fn user_message_does_not_panic_on_oversized_multilingual_input() {
+        // GET-175: a byte-slice cut at TRANSCRIPT_CHAR_CAP could land mid-
+        // codepoint on multibyte text and panic. Build a Turkish transcript
+        // well past the cap and assert it truncates cleanly instead.
+        let huge = "Şu an ekranı mı kaydediyor? ".repeat(TRANSCRIPT_CHAR_CAP);
+        assert!(huge.len() > TRANSCRIPT_CHAR_CAP);
+        let msg = build_user_message(&huge, None);
+        assert!(msg.contains("truncated to first"));
     }
 
     #[test]
