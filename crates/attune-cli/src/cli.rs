@@ -57,6 +57,33 @@ pub enum Command {
     /// over a recording and prints speaker-labelled time segments
     /// ("who spoke when").
     Diarize(DiarizeArgs),
+    /// GET-189. Diarize an EXISTING recording's transcript in place:
+    /// loads its transcript, tags each system-channel segment with a
+    /// speaker, and rewrites it. Re-open the note to see Speaker 1/2/3…
+    /// (no Whisper re-run).
+    DiarizeTranscript(DiarizeTranscriptArgs),
+}
+
+#[derive(Parser, Debug)]
+pub struct DiarizeTranscriptArgs {
+    /// Session directory containing `transcript.json(.zst)` + `system.wav`.
+    pub session_dir: PathBuf,
+
+    /// Pyannote segmentation ONNX model. Defaults to the app model store.
+    #[arg(long)]
+    pub segmentation: Option<PathBuf>,
+
+    /// WeSpeaker embedding ONNX model. Defaults to the app model store.
+    #[arg(long)]
+    pub embedding: Option<PathBuf>,
+
+    /// Fixed speaker count. 0 (default) auto-estimates.
+    #[arg(long, default_value_t = 0)]
+    pub num_speakers: i32,
+
+    /// Clustering threshold when auto-estimating.
+    #[arg(long, default_value_t = 0.5, allow_hyphen_values = true)]
+    pub threshold: f32,
 }
 
 #[derive(Parser, Debug)]

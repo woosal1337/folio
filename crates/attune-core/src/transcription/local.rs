@@ -265,6 +265,7 @@ impl Transcriber for LocalWhisperTranscriber {
                     start_seconds: offset_secs + t0 as f64 / 100.0,
                     end_seconds: offset_secs + t1 as f64 / 100.0,
                     text: text.trim().to_string(),
+                    speaker: None,
                 });
             }
             if let Ok(lang_id) = whisper_state.full_lang_id_from_state() {

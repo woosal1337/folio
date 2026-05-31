@@ -36,6 +36,12 @@ pub struct TranscriptSegment {
     pub start_seconds: f64,
     pub end_seconds: f64,
     pub text: String,
+    /// Diarized speaker index for this segment (GET-189). `None` until
+    /// diarization runs; set on the system channel (the mic channel is
+    /// the user by definition). Raw cluster indices from the diarizer;
+    /// the UI relabels them "Speaker 1/2/3…" by order of appearance.
+    #[serde(default)]
+    pub speaker: Option<i32>,
 }
 
 /// A full transcript for a single audio channel: the ordered sequence
@@ -240,6 +246,7 @@ mod write_read_tests {
                     start_seconds: 0.0,
                     end_seconds: 1.0,
                     text: "Hello, world.".into(),
+                    speaker: None,
                 }],
             }],
         }
@@ -287,6 +294,7 @@ mod write_read_tests {
                         start_seconds: i as f64,
                         end_seconds: (i + 1) as f64,
                         text: format!("This is a fairly typical meeting sentence number {i}."),
+                        speaker: None,
                     })
                     .collect(),
             }],

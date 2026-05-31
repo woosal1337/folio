@@ -18,16 +18,16 @@ const sample: SessionTranscript = {
       channel: "mic",
       language: "en",
       segments: [
-        { start_seconds: 0, end_seconds: 1.25, text: "Hello there." },
-        { start_seconds: 3.5, end_seconds: 5, text: "How are you?" },
+        { start_seconds: 0, end_seconds: 1.25, text: "Hello there.", speaker: null },
+        { start_seconds: 3.5, end_seconds: 5, text: "How are you?", speaker: null },
       ],
     },
     {
       channel: "system",
       language: "en",
       segments: [
-        { start_seconds: 1.5, end_seconds: 3, text: "Hi, doing well." },
-        { start_seconds: 5.25, end_seconds: 7, text: "  " }, // blank → dropped
+        { start_seconds: 1.5, end_seconds: 3, text: "Hi, doing well.", speaker: null },
+        { start_seconds: 5.25, end_seconds: 7, text: "  ", speaker: null }, // blank → dropped
       ],
     },
   ],
@@ -121,23 +121,23 @@ describe("renderTranscript", () => {
 
 describe("segmentMatches", () => {
   it("returns true when the query is blank", () => {
-    expect(segmentMatches({ start_seconds: 0, end_seconds: 1, text: "abc" }, "")).toBe(
+    expect(segmentMatches({ start_seconds: 0, end_seconds: 1, text: "abc", speaker: null }, "")).toBe(
       true
     );
     expect(
-      segmentMatches({ start_seconds: 0, end_seconds: 1, text: "abc" }, "   ")
+      segmentMatches({ start_seconds: 0, end_seconds: 1, text: "abc", speaker: null }, "   ")
     ).toBe(true);
   });
 
   it("is case-insensitive substring match", () => {
     expect(
       segmentMatches(
-        { start_seconds: 0, end_seconds: 1, text: "Hello THERE." },
+        { start_seconds: 0, end_seconds: 1, text: "Hello THERE.", speaker: null },
         "there"
       )
     ).toBe(true);
     expect(
-      segmentMatches({ start_seconds: 0, end_seconds: 1, text: "Hello there." }, "xyz")
+      segmentMatches({ start_seconds: 0, end_seconds: 1, text: "Hello there.", speaker: null }, "xyz")
     ).toBe(false);
   });
 });

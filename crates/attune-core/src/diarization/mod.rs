@@ -26,10 +26,15 @@
 //! Tauri / browser / UI types. Tauri commands that consume it live in
 //! `attune-app`.
 
+pub mod label;
 pub mod models;
 pub mod runtime;
 
+pub use label::{label_system_channel, DiarizationOutcome};
 pub use models::{
     DiarizationModel, DiarizationModelStatus, DiarizationModelStore, DownloadProgress,
 };
-pub use runtime::{DiarizationError, DiarizationOptions, DiarizationRuntime, DiarizedSegment};
+pub use runtime::{
+    assign_speakers_by_overlap, DiarizationError, DiarizationOptions, DiarizationRuntime,
+    DiarizedSegment,
+};

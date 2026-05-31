@@ -43,12 +43,13 @@ pub async fn transcribe_recording(
     state: State<'_, AppState>,
     session_dir: PathBuf,
 ) -> Result<TranscriptionResult, String> {
-    let (transcriber_kind, settings_language, local_model) = {
+    let (transcriber_kind, settings_language, local_model, diarization_enabled) = {
         let settings = state.settings.lock();
         (
             settings.transcriber.clone(),
             settings.transcription_language.clone(),
             settings.local_whisper_model.clone(),
+            settings.diarization_enabled,
         )
     };
 
@@ -200,7 +201,45 @@ pub async fn transcribe_recording(
         ));
     }
 
-    let session_transcript = SessionTranscript { channels };
+    let mut session_transcript = SessionTranscript { channels };
+
+    // Speaker diarization (GET-189): tag the system-channel segments with
+    // per-speaker labels so the UI splits "Others" into Speaker 1/2/3….
+    // CPU-heavy, so it runs on a blocking task. Missing models / failures
+    // degrade gracefully — the transcript is still saved, just with the
+    // v0 "Others" labelling.
+    if diarization_enabled {
+        let dir = session_dir.clone();
+        let mut to_label = session_transcript.clone();
+        let labeled = tauri::async_runtime::spawn_blocking(move || {
+            let opts = attune_core::diarization::DiarizationOptions::default();
+            match attune_core::diarization::label_system_channel(&dir, &mut to_label, &opts) {
+                Ok(outcome) => {
+                    info!(
+                        speakers = outcome.num_speakers,
+                        labeled = outcome.num_labeled,
+                        segments = outcome.num_segments,
+                        "diarization: system channel labelled",
+                    );
+                    Some(to_label)
+                }
+                Err(attune_core::diarization::DiarizationError::ModelsNotDownloaded) => {
+                    info!("diarization skipped: models not downloaded");
+                    None
+                }
+                Err(e) => {
+                    tracing::warn!(error = %e, "diarization failed; leaving channel labels");
+                    None
+                }
+            }
+        })
+        .await
+        .map_err(|e| format!("diarization task panicked: {e}"))?;
+        if let Some(t) = labeled {
+            session_transcript = t;
+        }
+    }
+
     let transcript_path = session_dir.join(TRANSCRIPT_FILENAME);
     session_transcript
         .write_json(&transcript_path)

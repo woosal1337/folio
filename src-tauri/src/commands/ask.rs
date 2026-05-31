@@ -404,6 +404,7 @@ mod tests {
                     start_seconds: 65.0,
                     end_seconds: 67.0,
                     text: "pricing decision".into(),
+                    speaker: None,
                 }],
             }],
         };

@@ -6,6 +6,7 @@
 
 pub mod devices;
 pub mod diarize;
+pub mod diarize_transcript;
 pub mod enhance_compare;
 pub mod memory_search;
 pub mod record;

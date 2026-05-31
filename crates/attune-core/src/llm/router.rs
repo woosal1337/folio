@@ -138,6 +138,7 @@ mod tests {
             start_seconds: start,
             end_seconds: end,
             text: t.into(),
+            speaker: None,
         }
     }
     fn ch(name: &str, segs: Vec<TranscriptSegment>) -> ChannelTranscript {

@@ -82,6 +82,13 @@ pub struct Settings {
     /// suppression depth conservatively.
     #[serde(default)]
     pub system_audio_enhancement: SystemAudioEnhancement,
+    /// GET-189. After transcription, run speaker diarization on the
+    /// system channel so the transcript splits "Others" into per-speaker
+    /// labels ("Speaker 1/2/3…"). Runs on every transcribe / re-transcribe.
+    /// Default ON; no-ops gracefully (leaving the v0 "Others" label) when
+    /// the diarization models aren't downloaded yet.
+    #[serde(default = "default_true")]
+    pub diarization_enabled: bool,
     /// Beta: stream a live transcript preview into the record dock while
     /// capturing (local Whisper over a rolling window). Off by default —
     /// when off, transcription happens only once on Stop. macOS-only,
@@ -503,6 +510,7 @@ impl Default for Settings {
             auto_transcribe_enabled: default_auto_transcribe_enabled(),
             auto_vad_enabled: default_auto_vad_enabled(),
             system_audio_enhancement: SystemAudioEnhancement::default(),
+            diarization_enabled: default_true(),
             live_transcript_enabled: default_live_transcript_enabled(),
             memory_dir: default_memory_dir(),
             auto_extract_memories_enabled: default_auto_extract_memories_enabled(),

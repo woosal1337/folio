@@ -298,6 +298,7 @@ mod tests {
             start_seconds: 0.0,
             end_seconds: 1.0,
             text: text.to_string(),
+            speaker: None,
         }
     }
 
@@ -445,6 +446,7 @@ mod tests {
             start_seconds: start,
             end_seconds: end,
             text: text.to_string(),
+            speaker: None,
         }
     }
 
