@@ -9,6 +9,7 @@ use attune_core::diarization::{
     local_device_uuid, now_ms, recording_uuid, SessionSpeakers, SpeakerLabel,
 };
 use attune_core::speaker_memory::{self, NameTarget, SpeakerRegistry};
+use uuid::Uuid;
 
 /// List the speakers identified for a recording: cluster id, current name
 /// (if any), and provenance. Empty when the recording was never diarized.
@@ -71,11 +72,111 @@ pub async fn rename_session_speaker(
 
         speaker.name = Some(trimmed);
         speaker.auto_named = false; // an explicit user rename, not a guess
+        clear_suggestion(speaker); // a name supersedes any pending suggestion
         speakers.write(dir).map_err(|e| e.to_string())?;
         Ok(speakers.labels())
     })
     .await
     .map_err(|e| format!("rename_session_speaker task panicked: {e}"))?
+}
+
+/// Confirm a medium-confidence speaker suggestion ("yes, this is <name>",
+/// GET-189). Adds this recording's voice as an exemplar of the suggested
+/// identity — moving it toward the ≥3-exemplar auto-name bar so future
+/// recordings recognise it on sight — names the cluster, and clears the
+/// suggestion. Returns the updated label set.
+#[tauri::command]
+pub async fn confirm_session_speaker(
+    session_dir: String,
+    cluster: i32,
+) -> Result<Vec<SpeakerLabel>, String> {
+    tauri::async_runtime::spawn_blocking(move || -> Result<Vec<SpeakerLabel>, String> {
+        let dir = Path::new(&session_dir);
+        let mut speakers = SessionSpeakers::read(dir)
+            .map_err(|e| e.to_string())?
+            .ok_or_else(|| "this recording has no diarized speakers".to_string())?;
+        let speaker = speakers
+            .get_mut(cluster)
+            .ok_or_else(|| format!("no speaker with cluster id {cluster}"))?;
+
+        let name = speaker
+            .suggested_name
+            .clone()
+            .ok_or_else(|| "no pending suggestion for this speaker".to_string())?;
+        let id = speaker
+            .suggested_registry_id
+            .as_deref()
+            .and_then(|s| Uuid::parse_str(s).ok())
+            .ok_or_else(|| "suggestion has no valid registry id".to_string())?;
+
+        if !speaker.embedding.is_empty() {
+            let mut registry = speaker_memory::load_default().map_err(|e| e.to_string())?;
+            registry
+                .add_exemplar(id, &speaker.embedding, recording_uuid(dir), now_ms())
+                .map_err(|e| e.to_string())?;
+            speaker_memory::save_default(&registry).map_err(|e| e.to_string())?;
+        }
+
+        speaker.name = Some(name);
+        speaker.registry_id = Some(id.to_string());
+        speaker.auto_named = false;
+        clear_suggestion(speaker);
+        speakers.write(dir).map_err(|e| e.to_string())?;
+        Ok(speakers.labels())
+    })
+    .await
+    .map_err(|e| format!("confirm_session_speaker task panicked: {e}"))?
+}
+
+/// Reject a medium-confidence speaker suggestion ("no, not <name>",
+/// GET-189). Records a negative exemplar so the suggested identity stops
+/// matching this voice, and clears the suggestion — the cluster stays
+/// "Speaker N" for the user to name. Returns the updated label set.
+#[tauri::command]
+pub async fn reject_session_speaker(
+    session_dir: String,
+    cluster: i32,
+) -> Result<Vec<SpeakerLabel>, String> {
+    tauri::async_runtime::spawn_blocking(move || -> Result<Vec<SpeakerLabel>, String> {
+        let dir = Path::new(&session_dir);
+        let mut speakers = SessionSpeakers::read(dir)
+            .map_err(|e| e.to_string())?
+            .ok_or_else(|| "this recording has no diarized speakers".to_string())?;
+        let speaker = speakers
+            .get_mut(cluster)
+            .ok_or_else(|| format!("no speaker with cluster id {cluster}"))?;
+
+        if let Some(id) = speaker
+            .suggested_registry_id
+            .as_deref()
+            .and_then(|s| Uuid::parse_str(s).ok())
+        {
+            if !speaker.embedding.is_empty() {
+                let mut registry = speaker_memory::load_default().map_err(|e| e.to_string())?;
+                // Best-effort: a forgotten/missing identity just means there
+                // is nothing left to vote against.
+                if registry.record(id).is_some() {
+                    registry
+                        .add_negative_exemplar(id, &speaker.embedding, now_ms())
+                        .map_err(|e| e.to_string())?;
+                    speaker_memory::save_default(&registry).map_err(|e| e.to_string())?;
+                }
+            }
+        }
+
+        clear_suggestion(speaker);
+        speakers.write(dir).map_err(|e| e.to_string())?;
+        Ok(speakers.labels())
+    })
+    .await
+    .map_err(|e| format!("reject_session_speaker task panicked: {e}"))?
+}
+
+/// Clear a cluster's pending Confirm-tier suggestion.
+fn clear_suggestion(speaker: &mut attune_core::diarization::SessionSpeaker) {
+    speaker.suggested_name = None;
+    speaker.suggested_registry_id = None;
+    speaker.suggested_score = None;
 }
 
 /// Where the exemplar attaches: merge into an existing identity that

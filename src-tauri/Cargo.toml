@@ -63,6 +63,7 @@ tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 chrono = { workspace = true }
 parking_lot = { workspace = true }
+uuid = { workspace = true }
 
 # Used by the library scan to read WAV headers for duration + sample rate
 hound = { workspace = true }

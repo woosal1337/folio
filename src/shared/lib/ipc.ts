@@ -323,6 +323,30 @@ export function renameSessionSpeaker(
   });
 }
 
+/**
+ * Confirm a medium-confidence speaker suggestion ("yes, this is <name>").
+ * Adds this recording's voice as an exemplar of the suggested identity so
+ * future recordings recognise it. Returns the updated label set.
+ */
+export function confirmSessionSpeaker(
+  sessionDir: string,
+  cluster: number
+): Promise<SpeakerLabel[]> {
+  return call<SpeakerLabel[]>("confirm_session_speaker", { sessionDir, cluster });
+}
+
+/**
+ * Reject a medium-confidence speaker suggestion ("no, not <name>"). Records
+ * a negative exemplar so that identity stops matching this voice. Returns
+ * the updated label set.
+ */
+export function rejectSessionSpeaker(
+  sessionDir: string,
+  cluster: number
+): Promise<SpeakerLabel[]> {
+  return call<SpeakerLabel[]>("reject_session_speaker", { sessionDir, cluster });
+}
+
 // ---- LLM providers -----------------------------------------------------
 
 export function listProviders(): Promise<ProviderStatus[]> {

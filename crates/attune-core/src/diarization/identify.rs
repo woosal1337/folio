@@ -71,13 +71,16 @@ pub fn identify_session_speakers(
 
     let mut speakers: Vec<SessionSpeaker> = Vec::new();
     for (cluster, embedding) in embeddings {
-        let (name, registry_id, auto_named) = resolve_name(registry, &embedding);
+        let resolved = resolve_name(registry, &embedding);
         speakers.push(SessionSpeaker {
             cluster,
-            name,
-            registry_id,
-            auto_named,
+            name: resolved.name,
+            registry_id: resolved.registry_id,
+            auto_named: resolved.auto_named,
             embedding,
+            suggested_name: resolved.suggested_name,
+            suggested_registry_id: resolved.suggested_registry_id,
+            suggested_score: resolved.suggested_score,
         });
     }
 
@@ -91,6 +94,9 @@ pub fn identify_session_speakers(
                 registry_id: None,
                 auto_named: false,
                 embedding: Vec::new(),
+                suggested_name: None,
+                suggested_registry_id: None,
+                suggested_score: None,
             });
         }
     }
@@ -181,21 +187,88 @@ pub fn now_ms() -> i64 {
         .unwrap_or(0)
 }
 
-/// Turn a registry match into a (name, registry_id, auto_named) triple.
-/// Only a high-confidence `AutoName` (or a `SelfUser` hit) applies a name
-/// automatically; `Confirm`/`New` stay unnamed so a borderline match never
-/// silently mislabels a stranger.
-fn resolve_name(
-    registry: &SpeakerRegistry,
-    embedding: &[f32],
-) -> (Option<String>, Option<String>, bool) {
+/// How a registry match resolves into a session speaker.
+#[derive(Default)]
+struct ResolvedSpeaker {
+    name: Option<String>,
+    registry_id: Option<String>,
+    auto_named: bool,
+    suggested_name: Option<String>,
+    suggested_registry_id: Option<String>,
+    suggested_score: Option<f32>,
+}
+
+/// Turn a registry match into a resolved speaker. Only a high-confidence
+/// `AutoName` (or a `SelfUser` hit) applies a name automatically; a
+/// medium-confidence `Confirm` becomes a *suggestion* ("Is this <name>?")
+/// the user accepts or rejects, so a borderline match never silently
+/// mislabels a stranger; `New` stays blank.
+fn resolve_name(registry: &SpeakerRegistry, embedding: &[f32]) -> ResolvedSpeaker {
     match registry.match_embedding(embedding) {
-        MatchOutcome::SelfUser { .. } => (Some("You".to_string()), None, true),
-        MatchOutcome::AutoName { id, .. } => (
-            registry.record(id).map(|r| r.display_name.clone()),
-            Some(id.to_string()),
-            true,
-        ),
-        MatchOutcome::Confirm { .. } | MatchOutcome::New => (None, None, false),
+        MatchOutcome::SelfUser { .. } => ResolvedSpeaker {
+            name: Some("You".to_string()),
+            auto_named: true,
+            ..Default::default()
+        },
+        MatchOutcome::AutoName { id, .. } => ResolvedSpeaker {
+            name: registry.record(id).map(|r| r.display_name.clone()),
+            registry_id: Some(id.to_string()),
+            auto_named: true,
+            ..Default::default()
+        },
+        MatchOutcome::Confirm { id, score } => ResolvedSpeaker {
+            suggested_name: registry.record(id).map(|r| r.display_name.clone()),
+            suggested_registry_id: Some(id.to_string()),
+            suggested_score: Some(score),
+            ..Default::default()
+        },
+        MatchOutcome::New => ResolvedSpeaker::default(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::speaker_memory::{NameTarget, EMBED_DIM};
+
+    #[test]
+    fn confirm_tier_match_becomes_a_suggestion_not_a_name() {
+        // One exemplar of "Alice": a re-match scores 1.0 but can't AutoName
+        // under the ≥3-exemplar guard, so it lands in the Confirm tier.
+        let mut reg = SpeakerRegistry::new();
+        let emb = vec![0.3_f32; EMBED_DIM];
+        let id = reg
+            .name_speaker(
+                NameTarget::New {
+                    display_name: "Alice".into(),
+                },
+                &emb,
+                Uuid::nil(),
+                Uuid::nil(),
+                Some(0),
+                0,
+            )
+            .unwrap();
+
+        let resolved = resolve_name(&reg, &emb);
+        // Not silently named…
+        assert_eq!(resolved.name, None);
+        assert!(!resolved.auto_named);
+        // …but surfaced as a confirmable suggestion pointing at Alice.
+        assert_eq!(resolved.suggested_name.as_deref(), Some("Alice"));
+        assert_eq!(
+            resolved.suggested_registry_id.as_deref(),
+            Some(id.to_string().as_str())
+        );
+        assert!(resolved.suggested_score.unwrap() >= 0.60);
+    }
+
+    #[test]
+    fn no_match_yields_neither_name_nor_suggestion() {
+        let reg = SpeakerRegistry::new();
+        let resolved = resolve_name(&reg, &vec![0.1_f32; EMBED_DIM]);
+        assert!(resolved.name.is_none());
+        assert!(resolved.suggested_name.is_none());
+        assert!(resolved.suggested_registry_id.is_none());
     }
 }
