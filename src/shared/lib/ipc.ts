@@ -793,6 +793,29 @@ export async function onMeetingDetected(
   );
 }
 
+/** One bullet in a pre-meeting brief (GET-197). */
+export interface BriefBullet {
+  text: string;
+  source_label?: string | null;
+}
+
+/** A generated pre-meeting brief (GET-197). */
+export interface MeetingBrief {
+  bullets: BriefBullet[];
+  sources_count: number;
+  attendees_searched: string[];
+}
+
+/**
+ * Generate a pre-meeting brief from local context (GET-197).
+ * Pass the attendee list from the next calendar event.
+ * Returns null when attendees is empty, no API key set, privacy mode on,
+ * or no relevant local context exists.
+ */
+export function getMeetingBrief(attendees: string[]): Promise<MeetingBrief | null> {
+  return call<MeetingBrief | null>("get_meeting_brief", { attendees });
+}
+
 /** Subscribe to the HUD's Take-Notes request (main window only). */
 export async function onMeetingTakeNotes(handler: () => void): Promise<UnlistenFn> {
   return listen(MEETING_TAKE_NOTES_EVENT, () => handler());
