@@ -29,6 +29,7 @@ pub mod router;
 pub mod run_card;
 pub mod skills;
 pub mod templates;
+pub mod two_stage;
 pub mod types;
 
 pub use agent_run::{AgentRun, AgentRunStore};
