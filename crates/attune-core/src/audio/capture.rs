@@ -146,6 +146,12 @@ pub struct RecordingStatus {
     /// recording or when using the cpal mic path.
     #[serde(default)]
     pub vpio_silent: bool,
+    /// True when the active segment has been running long enough to
+    /// warrant an automatic pause+resume roll-over (GET-211). The
+    /// recording store acts on this flag and resets it after the roll.
+    /// Always false when `auto_segment_secs` is `None` in Settings.
+    #[serde(default)]
+    pub needs_segment: bool,
 }
 
 /// Result of [`CaptureSession::stop`] in a form ready to hand to the UI:
