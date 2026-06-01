@@ -25,6 +25,7 @@ pub mod prompt;
 pub mod provider;
 pub mod providers;
 pub mod rate_limit;
+pub mod retrieval;
 pub mod router;
 pub mod run_card;
 pub mod skills;
