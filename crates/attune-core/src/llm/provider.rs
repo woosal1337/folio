@@ -12,6 +12,7 @@ use crate::llm::types::{ChatRequest, ChatResponse, ModelInfo};
 /// Wire-encoded as lowercase ("openai", "anthropic", "deepseek") so
 /// JSON files and keychain entries stay stable across renames in the
 /// Rust source.
+#[non_exhaustive]
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, TS, PartialEq, Eq, Hash)]
 #[serde(rename_all = "lowercase")]
 #[ts(export, export_to = "../../../src/shared/types/")]

@@ -25,6 +25,7 @@ use crate::error::{AttuneError, Result};
 
 const STATE_FILE: &str = "upload-state.json";
 
+#[non_exhaustive]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "status", rename_all = "snake_case")]
 pub enum ChunkStatus {

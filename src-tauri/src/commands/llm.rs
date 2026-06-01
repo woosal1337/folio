@@ -75,6 +75,8 @@ pub async fn test_provider(provider: ProviderId) -> Result<(), String> {
             "{} support arrives in phase 2 of the AI chat rollout",
             provider.display_name()
         )),
+        // #[non_exhaustive] wildcard — future provider variants fall here.
+        _ => Err(format!("{} is not yet supported", provider.display_name())),
     }
 }
 
@@ -101,5 +103,6 @@ pub async fn list_provider_models(provider: ProviderId) -> Result<Vec<ModelInfo>
             "{} support arrives in phase 2 of the AI chat rollout",
             provider.display_name()
         )),
+        _ => Err(format!("{} is not yet supported", provider.display_name())),
     }
 }

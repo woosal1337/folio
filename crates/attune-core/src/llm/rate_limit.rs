@@ -72,10 +72,12 @@ impl RateLimiter {
         }
     }
 
+    #[must_use]
     pub fn spent_usd(&self) -> f64 {
         self.spent_usd_cents.load(Ordering::Relaxed) as f64 / 100.0
     }
 
+    #[must_use]
     pub fn budget_usd(&self) -> f64 {
         self.budget_usd
     }
@@ -84,6 +86,7 @@ impl RateLimiter {
     /// the day's spend over the cap. Caller uses this to gate
     /// optional auto-fires (the user can still manually run by
     /// raising the budget).
+    #[must_use]
     pub fn would_exceed_budget(&self, projected_run_usd: f64) -> bool {
         if self.budget_usd <= 0.0 {
             return false;
@@ -93,6 +96,10 @@ impl RateLimiter {
 
     /// Reserve one slot. Awaits until a permit is free OR returns
     /// an Err immediately when the budget is already exhausted.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the semaphore has been explicitly closed, which should never happen in normal app operation.
     pub async fn reserve(&self) -> Result<SemaphorePermit<'_>, BudgetExceeded> {
         if self.budget_usd > 0.0 && self.spent_usd() >= self.budget_usd {
             return Err(BudgetExceeded {

@@ -24,6 +24,7 @@ const CONNECT_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// One of the GGML model variants whisper.cpp publishes. Sizes are the
 /// approximate on-disk size of the .bin file.
+#[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../src/shared/types/")]
 #[serde(rename_all = "kebab-case")]

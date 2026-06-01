@@ -21,6 +21,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::{AttuneError, Result};
 
+#[non_exhaustive]
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum SourceProvider {

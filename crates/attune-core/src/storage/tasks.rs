@@ -25,6 +25,7 @@ use uuid::Uuid;
 use crate::error::{AttuneError, Result};
 
 /// Kanban column / lifecycle state of a task.
+#[non_exhaustive]
 #[derive(Copy, Clone, Debug, Serialize, Deserialize, TS, PartialEq, Eq)]
 #[ts(export, export_to = "../../../src/shared/types/")]
 #[serde(rename_all = "snake_case")]
