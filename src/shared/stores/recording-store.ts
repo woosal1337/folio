@@ -92,11 +92,12 @@ interface RecordingState {
 
 export const useRecording = create<RecordingState>((set, get) => {
   const tick = () => {
-    const { startedAt, recording } = get();
+    const { startedAt, recording, paused } = get();
     if (!recording || startedAt === null) return;
     const next = Math.floor((Date.now() - startedAt) / 1000);
     set({ elapsed: next });
-    void ipcSetTrayRecording(next);
+    // GET-201: pass paused flag so the tray shows the right icon glyph.
+    void ipcSetTrayRecording(next, paused);
   };
 
   const installTicker = () => {
