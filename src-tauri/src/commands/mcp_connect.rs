@@ -258,17 +258,72 @@ const ALLOWED_CONFIG_DIRS: &[&str] = &[
 ];
 
 /// Returns true iff `path` is inside one of the allowed MCP config
-/// directories (under `$HOME`). Rejects paths outside those dirs to
-/// prevent path-traversal abuse if `config_path` is tampered with.
+/// directories (under `$HOME`). Uses canonical paths to prevent
+/// path-traversal bypass via `..` components (security hardening).
 fn is_allowed_config_path(path: &std::path::Path) -> bool {
+    // Reject paths that contain `..` before even canonicalizing.
+    if path
+        .components()
+        .any(|c| c == std::path::Component::ParentDir)
+    {
+        return false;
+    }
     let Ok(home_str) = std::env::var("HOME") else {
         return false;
     };
     let home = std::path::PathBuf::from(home_str);
+    // Canonicalize the parent (the file may not exist yet); reject if
+    // the parent doesn't exist or the leaf contains path separators.
+    let parent = match path.parent() {
+        Some(p) => p,
+        None => return false,
+    };
+    let leaf = match path.file_name() {
+        Some(n) => n,
+        None => return false,
+    };
+    // Disallow multi-component leaf names (e.g. "foo/bar").
+    if std::path::Path::new(leaf).components().count() != 1 {
+        return false;
+    }
+    let canon_parent = match std::fs::canonicalize(parent) {
+        Ok(p) => p,
+        // Parent doesn't exist — create_dir_all will make it, but only if
+        // it's inside an allowed dir. Fall back to non-canonical check when
+        // the directory chain above it exists.
+        Err(_) => {
+            // Walk up until we find an existing ancestor.
+            let mut ancestor = parent;
+            loop {
+                if let Some(p) = ancestor.parent() {
+                    if p.exists() {
+                        // Verify the existing ancestor is inside an allowed dir.
+                        if let Ok(canon) = std::fs::canonicalize(p) {
+                            return ALLOWED_CONFIG_DIRS.iter().filter(|d| !d.is_empty()).any(
+                                |dir| {
+                                    std::fs::canonicalize(home.join(dir))
+                                        .map(|allowed| canon.starts_with(&allowed))
+                                        .unwrap_or(false)
+                                },
+                            );
+                        }
+                        return false;
+                    }
+                    ancestor = p;
+                } else {
+                    return false;
+                }
+            }
+        }
+    };
     ALLOWED_CONFIG_DIRS
         .iter()
         .filter(|d| !d.is_empty())
-        .any(|dir| path.starts_with(home.join(dir)))
+        .any(|dir| {
+            std::fs::canonicalize(home.join(dir))
+                .map(|canon_allowed| canon_parent.starts_with(&canon_allowed))
+                .unwrap_or(false)
+        })
 }
 
 /// Write the Attune MCP block into a client's config file.

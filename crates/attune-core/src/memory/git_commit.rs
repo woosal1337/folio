@@ -62,15 +62,19 @@ pub fn is_git_repo(dir: &Path) -> bool {
         .unwrap_or(false)
 }
 
-/// Stage + commit the given path. Returns the commit SHA on success
-/// or an error string the caller can log. No-ops (nothing-to-commit)
-/// are NOT errors — they return Ok("").
+/// Stage + commit the given path. Returns the commit SHA on success.
+/// No-ops (nothing-to-commit) are NOT errors — they return `Ok("")`.
+///
+/// # Errors
+///
+/// Returns `Err` when any git subprocess fails to spawn or returns a
+/// non-zero exit code.
 pub fn commit_path(
     dir: &Path,
     path: &Path,
     verb: MemoryVerb,
     slug: &str,
-) -> Result<String, String> {
+) -> crate::error::Result<String> {
     if !is_git_repo(dir) {
         return Ok(String::new());
     }
@@ -81,12 +85,12 @@ pub fn commit_path(
         .arg("add")
         .arg(path)
         .output()
-        .map_err(|e| format!("git add: {e}"))?;
+        .map_err(|e| crate::error::AttuneError::Storage(format!("git add: {e}")))?;
     if !add.status.success() {
-        return Err(format!(
+        return Err(crate::error::AttuneError::Storage(format!(
             "git add failed: {}",
             String::from_utf8_lossy(&add.stderr)
-        ));
+        )));
     }
     // git diff --cached --quiet: exit 0 = nothing staged. Skip in that case.
     let diff = Command::new("git")
@@ -94,7 +98,7 @@ pub fn commit_path(
         .arg(dir)
         .args(["diff", "--cached", "--quiet"])
         .output()
-        .map_err(|e| format!("git diff: {e}"))?;
+        .map_err(|e| crate::error::AttuneError::Storage(format!("git diff: {e}")))?;
     if diff.status.success() {
         return Ok(String::new());
     }
@@ -105,12 +109,12 @@ pub fn commit_path(
         .arg(dir)
         .args(["commit", "-m", &msg])
         .output()
-        .map_err(|e| format!("git commit: {e}"))?;
+        .map_err(|e| crate::error::AttuneError::Storage(format!("git commit: {e}")))?;
     if !commit.status.success() {
-        return Err(format!(
+        return Err(crate::error::AttuneError::Storage(format!(
             "git commit failed: {}",
             String::from_utf8_lossy(&commit.stderr)
-        ));
+        )));
     }
     // git rev-parse HEAD — return the new SHA so callers can log /
     // surface it in the UI ("committed abc1234").
@@ -119,7 +123,7 @@ pub fn commit_path(
         .arg(dir)
         .args(["rev-parse", "HEAD"])
         .output()
-        .map_err(|e| format!("git rev-parse: {e}"))?;
+        .map_err(|e| crate::error::AttuneError::Storage(format!("git rev-parse: {e}")))?;
     Ok(String::from_utf8_lossy(&head.stdout).trim().to_string())
 }
 
