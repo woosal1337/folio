@@ -733,12 +733,18 @@ export function settingsSyncPush(
 // ---- Menu bar tray bridge (v2 #006 / GET-25) ---------------------
 
 /**
- * Push the current recording state into the menu bar tray icon. Pass
- * `null` when not recording; pass the elapsed seconds while recording
- * so the title updates to "● M:SS".
+ * Push the current recording state into the menu bar tray icon (GET-201).
+ * - `elapsedSecs=null`            → idle
+ * - `elapsedSecs=N, paused=false` → recording (red circle)
+ * - `elapsedSecs=N, paused=true`  → paused (pause bars)
+ * - `airgapped=true`              → Privacy Mode (lock)
  */
-export function setTrayRecording(elapsedSecs: number | null): Promise<void> {
-  return call<void>("set_tray_recording", { elapsedSecs });
+export function setTrayRecording(
+  elapsedSecs: number | null,
+  paused?: boolean,
+  airgapped?: boolean
+): Promise<void> {
+  return call<void>("set_tray_recording", { elapsedSecs, paused, airgapped });
 }
 
 // ---- Native Preferences NSWindow (v2 #020 / GET-86) -------------
