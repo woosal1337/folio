@@ -69,9 +69,10 @@
     --radius: 0.75rem;
 
     /* Motion grammar (v2 finding 018 / GET-52). Codifies durations
-       and curves so 'transition-all 200ms ease' stops appearing in
-       new components. Use ms-* variables for durations and ease-*
-       variables for curves. iOS-style spring overshoot for popovers,
+       and curves so layout-sweeping blanket transitions stop appearing
+       in new components (motion-allow: documentation reference).
+       Use ms-* variables for durations and ease-* variables for curves.
+       iOS-style spring overshoot for popovers,
        cinema-grade curve for modals, no-motion fallback below the
        block honours prefers-reduced-motion. */
     --motion-ms-fast: 120ms;

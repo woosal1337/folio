@@ -212,9 +212,11 @@ export function LocalWhisperSection({ settings, onChange }: Props) {
                 {percent !== null ? ` · ${percent}%` : ""}
               </span>
               <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
+                {/* scaleX, not width — animating width thrashes layout
+                    every frame; transform stays on the compositor (GET-200). */}
                 <div
-                  className="h-full bg-primary transition-all"
-                  style={{ width: `${percent ?? 0}%` }}
+                  className="h-full w-full origin-left bg-primary transition-transform"
+                  style={{ transform: `scaleX(${(percent ?? 0) / 100})` }}
                 />
               </div>
             </div>
