@@ -137,6 +137,7 @@ pub fn run() {
             commands::vad::run_vad,
             commands::transcription::read_transcript,
             commands::transcription::locate_transcript_span,
+            commands::transcription::locate_note_evidence,
             commands::transcription::save_transcript,
             commands::transcription::whisper_model_status,
             commands::transcription::ensure_whisper_model,

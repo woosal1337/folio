@@ -82,6 +82,69 @@ pub fn locate_span(transcript: &SessionTranscript, span: &str) -> Option<Transcr
     None
 }
 
+/// Best-effort fuzzy locate (GET-198): find the transcript segment that
+/// most overlaps a *paraphrased* query line — an enhanced-note line the AI
+/// wrote, which won't appear verbatim. Scores each segment by shared
+/// content words (≥4 chars, so short stopwords drop out across languages)
+/// and returns the best, or `None` when nothing clears the confidence
+/// floor — so the UI shows no "jump" for a line it can't pin to a moment.
+pub fn locate_fuzzy(transcript: &SessionTranscript, query: &str) -> Option<TranscriptHit> {
+    use std::collections::HashSet;
+
+    let q_tokens = content_tokens(query);
+    let q_set: HashSet<&str> = q_tokens.iter().map(String::as_str).collect();
+    if q_set.len() < 2 {
+        return None;
+    }
+
+    /// At least this fraction of the line's content words must appear in a
+    /// single segment for it to count as the source.
+    const FLOOR: f32 = 0.34;
+
+    let mut best_score = 0.0_f32;
+    let mut best_hit: Option<TranscriptHit> = None;
+    for channel in &transcript.channels {
+        for (i, seg) in channel.segments.iter().enumerate() {
+            let s_tokens = content_tokens(&seg.text);
+            let s_set: HashSet<&str> = s_tokens.iter().map(String::as_str).collect();
+            if s_set.is_empty() {
+                continue;
+            }
+            let shared = q_set.iter().filter(|t| s_set.contains(*t)).count();
+            if shared < 2 {
+                continue;
+            }
+            let score = shared as f32 / q_set.len() as f32;
+            if score > best_score {
+                best_score = score;
+                best_hit = Some(TranscriptHit {
+                    channel: channel.channel.clone(),
+                    segment_index: i,
+                    start_seconds: seg.start_seconds,
+                    end_seconds: seg.end_seconds,
+                    matched_text: seg.text.clone(),
+                });
+            }
+        }
+    }
+    if best_score >= FLOOR {
+        best_hit
+    } else {
+        None
+    }
+}
+
+/// Lowercased alphanumeric tokens of length ≥ 4 — the content-bearing
+/// words. The length floor naturally drops most stopwords without a
+/// language-specific list (the transcripts are multilingual).
+fn content_tokens(s: &str) -> Vec<String> {
+    s.to_lowercase()
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|t| t.chars().count() >= 4)
+        .map(|t| t.to_string())
+        .collect()
+}
+
 fn normalize(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     let mut last_space = true;
@@ -137,6 +200,30 @@ mod tests {
                 },
             ],
         }
+    }
+
+    #[test]
+    fn fuzzy_locates_paraphrased_line_to_best_segment() {
+        let t = fixture();
+        // A paraphrase of segment 1 — no verbatim substring, but shares
+        // the content words "ship"/"redesign"/"Friday".
+        let hit = locate_fuzzy(&t, "Team agreed to ship the redesign before Friday").unwrap();
+        assert_eq!(hit.segment_index, 1);
+        assert!((hit.start_seconds - 3.5).abs() < 1e-6);
+    }
+
+    #[test]
+    fn fuzzy_returns_none_for_unrelated_line() {
+        let t = fixture();
+        // Nothing in the transcript is about budget/quarterly numbers.
+        assert!(locate_fuzzy(&t, "Quarterly budget projections exceeded estimates").is_none());
+    }
+
+    #[test]
+    fn fuzzy_needs_at_least_two_content_words() {
+        let t = fixture();
+        // One content word ("redesign") isn't enough signal to jump.
+        assert!(locate_fuzzy(&t, "the redesign").is_none());
     }
 
     #[test]
