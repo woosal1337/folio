@@ -10,6 +10,7 @@ pub mod devices;
 pub mod enhancement;
 pub mod inflight;
 pub mod mic;
+pub mod mic_monitor;
 #[cfg(target_os = "macos")]
 pub mod process_tap;
 pub mod resampler;
