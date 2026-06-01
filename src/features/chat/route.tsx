@@ -21,6 +21,8 @@ import {
   Sparkles,
   Trash2,
 } from "lucide-react";
+
+import { cn } from "@/shared/lib/utils";
 import { toast } from "sonner";
 
 import { Button } from "@/shared/ui/button";
@@ -104,6 +106,18 @@ export default function Chat() {
   const [models, setModels] = React.useState<ModelInfo[]>([]);
   const [model, setModel] = React.useState<string>("");
   const scrollRef = React.useRef<HTMLDivElement>(null);
+  const inputRef = React.useRef<HTMLInputElement>(null);
+
+  // Slash-command palette (GET-192).
+  const [paletteOpen, setPaletteOpen] = React.useState(false);
+  const [paletteQuery, setPaletteQuery] = React.useState("");
+  const [paletteIndex, setPaletteIndex] = React.useState(0);
+
+  const paletteMatches = React.useMemo(() => {
+    if (!paletteQuery) return RECIPES;
+    const q = paletteQuery.toLowerCase();
+    return RECIPES.filter((r) => r.label.toLowerCase().includes(q));
+  }, [paletteQuery]);
 
   // Persisted conversation (GET-167): a thread id + creation time we keep
   // stable across turns so each save upserts the same file, plus the
@@ -166,10 +180,17 @@ export default function Chat() {
     [loadRecents]
   );
 
+  const closePalette = React.useCallback(() => {
+    setPaletteOpen(false);
+    setPaletteQuery("");
+    setPaletteIndex(0);
+  }, []);
+
   const ask = React.useCallback(
     async (question: string) => {
       const q = question.trim();
       if (!q || busy) return;
+      closePalette();
       const history: ChatTurn[] = messages.map((m) => ({
         role: m.role,
         content: m.content,
@@ -177,6 +198,7 @@ export default function Chat() {
       setMessages((prev) => [...prev, { role: "user", content: q }]);
       setInput("");
       setBusy(true);
+
       try {
         const { answer } = await askLibrary(q, history, model || undefined);
         setMessages((prev) => {
@@ -195,7 +217,7 @@ export default function Chat() {
         setBusy(false);
       }
     },
-    [busy, messages, model, persist]
+    [busy, closePalette, messages, model, persist]
   );
 
   const openThread = React.useCallback((t: ChatThread) => {
@@ -375,25 +397,101 @@ export default function Chat() {
         ) : null}
       </div>
 
+      {/* Slash-command recipe palette (GET-192) */}
+      {paletteOpen && paletteMatches.length > 0 ? (
+        <div
+          role="listbox"
+          aria-label="Recipe palette"
+          className="mt-2 overflow-hidden rounded-lg border border-border bg-popover shadow-md"
+        >
+          {paletteQuery === "" ? (
+            <p className="px-3 pt-2 text-2xs text-muted-foreground">
+              Recipes — type to filter, ↑↓ to navigate, ↵ to run
+            </p>
+          ) : null}
+          {paletteMatches.map((r, i) => {
+            const Icon = r.icon;
+            return (
+              <button
+                key={r.label}
+                type="button"
+                role="option"
+                aria-selected={i === paletteIndex}
+                onMouseEnter={() => setPaletteIndex(i)}
+                onClick={() => {
+                  setInput("");
+                  void ask(r.prompt);
+                }}
+                className={cn(
+                  "flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm",
+                  i === paletteIndex
+                    ? "bg-accent text-accent-foreground"
+                    : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+                )}
+              >
+                <Icon className="h-3.5 w-3.5 shrink-0" />
+                <span className="font-medium">{r.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+
       <form
-        className="mt-4 flex gap-2"
+        className="mt-2 flex gap-2"
         onSubmit={(e) => {
           e.preventDefault();
+          if (paletteOpen && paletteMatches.length > 0) {
+            const recipe = paletteMatches[paletteIndex] ?? paletteMatches[0];
+            if (recipe) {
+              setInput("");
+              void ask(recipe.prompt);
+            }
+            return;
+          }
           void ask(input);
         }}
       >
         <input
+          ref={inputRef}
           value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask across all your meetings…"
+          onChange={(e) => {
+            const val = e.target.value;
+            setInput(val);
+            if (val.startsWith("/")) {
+              setPaletteOpen(true);
+              setPaletteQuery(val.slice(1));
+              setPaletteIndex(0);
+            } else {
+              setPaletteOpen(false);
+              setPaletteQuery("");
+            }
+          }}
+          onKeyDown={(e) => {
+            if (!paletteOpen) return;
+            if (e.key === "ArrowDown") {
+              e.preventDefault();
+              setPaletteIndex((i) => Math.min(i + 1, paletteMatches.length - 1));
+            } else if (e.key === "ArrowUp") {
+              e.preventDefault();
+              setPaletteIndex((i) => Math.max(i - 1, 0));
+            } else if (e.key === "Escape") {
+              e.preventDefault();
+              closePalette();
+              setInput("");
+            }
+          }}
+          placeholder="Ask across all your meetings… (/ for recipes)"
           aria-label="Ask across your library"
+          aria-autocomplete="list"
+          aria-controls={paletteOpen ? "recipe-palette" : undefined}
           className="h-11 flex-1 rounded-lg border border-input bg-card px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         />
         <Button
           type="submit"
           size="lg"
           className="gap-2"
-          disabled={busy || !input.trim()}
+          disabled={busy || (!input.trim() && !paletteOpen)}
         >
           <Send className="h-4 w-4" />
           Ask
