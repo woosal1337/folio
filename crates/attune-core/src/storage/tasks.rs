@@ -30,8 +30,11 @@ use crate::error::{AttuneError, Result};
 #[ts(export, export_to = "../../../src/shared/types/")]
 #[serde(rename_all = "snake_case")]
 pub enum TaskStatus {
+    /// Task is queued but not yet started.
     Todo,
+    /// Task is actively being worked on.
     Doing,
+    /// Task has been completed.
     Done,
 }
 
@@ -50,7 +53,9 @@ pub struct Task {
     /// UUID v4 string. Generated server-side so the frontend can't
     /// collide.
     pub id: String,
+    /// Short imperative phrase describing what needs to be done.
     pub title: String,
+    /// Current kanban column this task lives in.
     pub status: TaskStatus,
     /// Free-form owner ("Ege", "design team", "@alice"). The schema
     /// does not enforce a particular handle format because meeting
@@ -75,7 +80,9 @@ pub struct Task {
     /// the UI mark agent-origin cards with a sparkle so the user can
     /// scan the board and tell at a glance what came from a meeting.
     pub agent_origin: bool,
+    /// UTC timestamp when this task was first created.
     pub created_at: DateTime<Utc>,
+    /// UTC timestamp of the most recent mutation (create or patch).
     pub updated_at: DateTime<Utc>,
 }
 
@@ -103,10 +110,12 @@ pub struct TaskStore {
 }
 
 impl TaskStore {
+    /// Construct a store backed by the JSON file at `path` (the file need not exist yet).
     pub fn new(path: impl Into<PathBuf>) -> Self {
         Self { path: path.into() }
     }
 
+    /// Return the path to the backing JSON file.
     pub fn path(&self) -> &Path {
         &self.path
     }
@@ -157,6 +166,10 @@ impl TaskStore {
 
     /// Append a new task. The store generates the id + timestamps so
     /// the caller can't accidentally collide ids.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` if the task list cannot be serialized or written to disk.
     pub fn create(&self, new_task: NewTask) -> Result<Task> {
         let now = Utc::now();
         let task = Task {
@@ -181,6 +194,10 @@ impl TaskStore {
 
     /// Apply a patch to a task. Returns the updated task or an error
     /// when the id is unknown.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` if `id` is not found, or if the updated list cannot be written to disk.
     pub fn update(&self, id: &str, patch: TaskUpdate) -> Result<Task> {
         let mut tasks = self.list();
         let Some(task) = tasks.iter_mut().find(|t| t.id == id) else {
@@ -213,6 +230,10 @@ impl TaskStore {
 
     /// Delete a task by id. Idempotent — deleting an unknown id is a
     /// no-op + success, matching how UI delete buttons should feel.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` if the updated list cannot be written to disk.
     pub fn delete(&self, id: &str) -> Result<()> {
         let mut tasks = self.list();
         let before = tasks.len();
@@ -227,6 +248,10 @@ impl TaskStore {
     }
 
     /// Convenience wrapper used by the kanban's drag-and-drop.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` if `id` is not found or the updated list cannot be written to disk.
     pub fn set_status(&self, id: &str, status: TaskStatus) -> Result<Task> {
         self.update(
             id,

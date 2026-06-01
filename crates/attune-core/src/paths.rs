@@ -45,6 +45,10 @@ pub fn canonicalize_under(root: &Path, candidate: &Path) -> Result<PathBuf> {
 /// Canonicalise `candidate` and assert it lives under any of the
 /// supplied roots. Useful when the call site allows multiple
 /// canonical roots (recordings root + memory root, say).
+///
+/// # Errors
+///
+/// Returns `Err` if `candidate` cannot be resolved or does not fall under any of `roots`.
 pub fn canonicalize_under_any(roots: &[&Path], candidate: &Path) -> Result<PathBuf> {
     let canon_target = std::fs::canonicalize(candidate).map_err(|e| {
         AttuneError::Storage(format!(

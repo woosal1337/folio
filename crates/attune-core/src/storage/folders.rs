@@ -82,6 +82,10 @@ pub fn list_folders(output_dir: &Path) -> Vec<String> {
 
 /// Create a folder. No-op (idempotent) when one with the same name
 /// already exists (case-insensitive). Returns the updated folder list.
+///
+/// # Errors
+///
+/// Returns `Err` if `name` is empty or the registry file cannot be written.
 pub fn create_folder(output_dir: &Path, name: &str) -> Result<Vec<String>> {
     let trimmed = name.trim();
     if trimmed.is_empty() {
@@ -97,6 +101,10 @@ pub fn create_folder(output_dir: &Path, name: &str) -> Result<Vec<String>> {
 
 /// Rename a folder: update the registry entry and rewrite every note's
 /// `folder.txt` that pointed at the old name. Returns the updated list.
+///
+/// # Errors
+///
+/// Returns `Err` if the new name is empty or any registry or note file cannot be written.
 pub fn rename_folder(output_dir: &Path, from: &str, to: &str) -> Result<Vec<String>> {
     let to = to.trim();
     if to.is_empty() {
@@ -119,6 +127,10 @@ pub fn rename_folder(output_dir: &Path, from: &str, to: &str) -> Result<Vec<Stri
 /// Delete a folder: drop it from the registry and clear the assignment
 /// on every note filed under it (the notes themselves are untouched).
 /// Returns the updated folder list.
+///
+/// # Errors
+///
+/// Returns `Err` if the registry or any affected note's `folder.txt` cannot be written.
 pub fn delete_folder(output_dir: &Path, name: &str) -> Result<Vec<String>> {
     let mut folders = read_registry(output_dir);
     folders.retain(|f| !f.eq_ignore_ascii_case(name));
@@ -131,6 +143,10 @@ pub fn delete_folder(output_dir: &Path, name: &str) -> Result<Vec<String>> {
 /// whitespace `folder` clears the assignment. Assigning a brand-new
 /// folder name also registers it so it shows up in the sidebar even if
 /// this is the first note to use it.
+///
+/// # Errors
+///
+/// Returns `Err` if `folder.txt` cannot be written or removed, or if the registry update fails.
 pub fn set_note_folder(output_dir: &Path, session_dir: &Path, folder: Option<&str>) -> Result<()> {
     let trimmed = folder.map(str::trim).filter(|s| !s.is_empty());
     let path = session_dir.join(FOLDER_MARKER);
