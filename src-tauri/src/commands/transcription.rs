@@ -536,6 +536,38 @@ pub async fn locate_transcript_span(
     .map_err(|e| format!("locate_transcript_span task panicked: {e}"))?
 }
 
+/// Fuzzily locate the transcript segment behind a *paraphrased* enhanced-
+/// note line (GET-198). Unlike `locate_transcript_span` (verbatim), this
+/// matches by content-word overlap, returning `None` when the line can't be
+/// pinned to a specific moment. Powers the click-a-note-line → jump gesture.
+#[tauri::command]
+pub async fn locate_note_evidence(
+    state: State<'_, AppState>,
+    session_dir: PathBuf,
+    line: String,
+) -> Result<Option<attune_core::transcription::locate::TranscriptHit>, String> {
+    let output_dir = state.settings.lock().output_dir.clone();
+
+    tauri::async_runtime::spawn_blocking(move || -> Result<_, String> {
+        let canon_root = std::fs::canonicalize(&output_dir).map_err(|e| e.to_string())?;
+        let canon_target = std::fs::canonicalize(&session_dir).map_err(|e| e.to_string())?;
+        if !canon_target.starts_with(&canon_root) {
+            return Err(format!(
+                "refused: {} not under recordings folder",
+                canon_target.display()
+            ));
+        }
+        let path = canon_target.join(TRANSCRIPT_FILENAME);
+        let transcript = SessionTranscript::read_json(&path).map_err(|e| e.to_string())?;
+        Ok(attune_core::transcription::locate::locate_fuzzy(
+            &transcript,
+            &line,
+        ))
+    })
+    .await
+    .map_err(|e| format!("locate_note_evidence task panicked: {e}"))?
+}
+
 const LANGUAGE_OVERRIDE_FILE: &str = "language.txt";
 
 /// Read `<session_dir>/language.txt` if present and return a trimmed,

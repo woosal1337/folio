@@ -973,6 +973,17 @@ export function locateTranscriptSpan(
 }
 
 /**
+ * Fuzzily locate the transcript segment behind a paraphrased enhanced-note
+ * line (GET-198). Returns null when the line can't be pinned to a moment.
+ */
+export function locateNoteEvidence(
+  sessionDir: string,
+  line: string
+): Promise<TranscriptHit | null> {
+  return call<TranscriptHit | null>("locate_note_evidence", { sessionDir, line });
+}
+
+/**
  * Centralised wrappers around every `@tauri-apps/*` direct import.
  * `docs/CODE_STYLE.md` §9.4 requires that **only this file** imports
  * `@tauri-apps/api/*` or `@tauri-apps/plugin-*`. Components consume

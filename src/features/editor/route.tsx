@@ -22,13 +22,13 @@ import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 
 import { AudioPlayer } from "@/features/recording/audio-player";
+import { EnhancedNotesBody } from "@/features/editor/enhanced-notes";
 import { MarkdownNotesEditor } from "@/features/recording/markdown-notes-editor";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
-import { Markdown } from "@/shared/ui/markdown";
 import { Separator } from "@/shared/ui/separator";
 import { copyToClipboard } from "@/shared/lib/share";
-import { cn, formatBytes, formatDuration } from "@/shared/lib/utils";
+import { formatBytes, formatDuration } from "@/shared/lib/utils";
 import {
   clearRecordingArtifacts,
   deleteRecording,
@@ -612,17 +612,15 @@ export default function Editor() {
               </button>
             )}
           </div>
-          <div
-            className={cn(
-              "prose prose-sm prose-neutral dark:prose-invert max-w-none transition-opacity",
-              enhancedNotesKept ? "" : "opacity-60"
-            )}
-          >
-            <Markdown>{summaryRun.response}</Markdown>
-          </div>
+          <EnhancedNotesBody
+            response={summaryRun.response}
+            sessionDir={recording.session_dir}
+            muted={!enhancedNotesKept}
+          />
           {!enhancedNotesKept && (
             <p className="text-2xs text-muted-foreground/80">
-              AI-generated from your transcript. Review and keep to make it yours.
+              AI-generated from your transcript. Click any line to see the
+              moment behind it. Review and keep to make it yours.
             </p>
           )}
         </section>
