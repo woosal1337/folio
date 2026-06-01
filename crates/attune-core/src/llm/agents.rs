@@ -20,6 +20,7 @@ pub struct Agent {
     /// Stable kebab-case identifier. Used as the filename for
     /// persisted runs and as the route key in the UI.
     pub id: String,
+    /// Human-readable display name shown on the agent's button in the UI.
     pub name: String,
     /// One-sentence description shown under the agent's button.
     pub description: String,

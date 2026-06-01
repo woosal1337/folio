@@ -39,6 +39,7 @@ struct DailyBudgetFile {
     pub spent_usd: f64,
 }
 
+/// Concurrency semaphore + daily USD budget guard for agent runs.
 #[derive(Debug)]
 pub struct RateLimiter {
     permits: Semaphore,
@@ -49,6 +50,7 @@ pub struct RateLimiter {
 }
 
 impl RateLimiter {
+    /// Build a limiter, loading any persisted spend from `store_path` and resetting it when the UTC date has changed.
     pub fn new(max_concurrency: usize, budget_usd: f64, store_path: PathBuf) -> Self {
         let n = max_concurrency.clamp(1, HARD_CAP);
         let today = Utc::now().format("%Y-%m-%d").to_string();
@@ -72,11 +74,13 @@ impl RateLimiter {
         }
     }
 
+    /// Return the total USD spent today according to the in-memory atomic counter.
     #[must_use]
     pub fn spent_usd(&self) -> f64 {
         self.spent_usd_cents.load(Ordering::Relaxed) as f64 / 100.0
     }
 
+    /// Return the configured daily budget ceiling in USD (0.0 means unlimited).
     #[must_use]
     pub fn budget_usd(&self) -> f64 {
         self.budget_usd
@@ -130,10 +134,13 @@ impl RateLimiter {
     }
 }
 
+/// Error returned by [`RateLimiter::reserve`] when the day's spend already meets or exceeds the configured ceiling.
 #[derive(Debug, thiserror::Error, Clone, Copy)]
 #[error("daily agent budget exceeded: ${spent_usd:.4} of ${budget_usd:.2}")]
 pub struct BudgetExceeded {
+    /// Total USD already consumed today at the moment the reserve attempt was made.
     pub spent_usd: f64,
+    /// The daily ceiling (from settings) that was exceeded.
     pub budget_usd: f64,
 }
 

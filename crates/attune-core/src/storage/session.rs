@@ -15,13 +15,21 @@ pub const TRANSCRIPT_FILENAME: &str = "transcript.json";
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../src/shared/types/")]
 pub struct RecordingSummary {
+    /// Absolute path to the on-disk directory that holds all assets for this session.
     pub session_dir: PathBuf,
+    /// Directory name used as the human-visible recording identifier (e.g. `"2026-05-23-19-15-22"`).
     pub label: String,
+    /// Approximate recording length in whole seconds, derived from the WAV header.
     pub duration_seconds: i64,
+    /// Size of `mic.wav` in bytes; `None` when no microphone audio was captured.
     pub mic_bytes: Option<u64>,
+    /// Size of `system.wav` in bytes; `None` when no system audio was captured.
     pub system_bytes: Option<u64>,
+    /// Sample rate of the microphone WAV file, read from its header.
     pub mic_sample_rate: Option<u32>,
+    /// Sample rate of the system-audio WAV file, read from its header.
     pub system_sample_rate: Option<u32>,
+    /// Filesystem creation timestamp of the session directory, converted to UTC.
     pub created_at: Option<DateTime<Utc>>,
     /// True iff `<session_dir>/transcript.json` exists. Used by the UI
     /// to mark previously transcribed sessions in the library list.
