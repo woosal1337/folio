@@ -44,6 +44,15 @@ pub async fn save_settings(
     // CloudGuard (v2 finding 048 / GET-42) must mirror the persisted
     // privacy_mode flag immediately, before the next outbound request.
     cloud_guard::set_airgap(settings.privacy_mode);
+    // Reload the graduated egress policy so edits to
+    // .attune/egress-policy.toml take effect on the next Save (GET-196).
+    let vault_root = settings
+        .output_dir
+        .parent()
+        .map(|p| p.to_path_buf())
+        .unwrap_or_else(|| settings.output_dir.clone());
+    let policy = cloud_guard::load_egress_policy(&vault_root);
+    cloud_guard::set_egress_policy(policy);
     let _ = app.emit("privacy-mode-changed", settings.privacy_mode);
 
     *state.settings.lock() = settings;

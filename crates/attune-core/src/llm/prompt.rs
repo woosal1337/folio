@@ -145,7 +145,8 @@ pub fn build_user_message(
     } else {
         // Char-boundary truncation — a byte slice panics mid-codepoint on
         // multilingual transcripts (GET-175).
-        let truncated = crate::text::truncate_on_char_boundary(transcript_text, TRANSCRIPT_CHAR_CAP);
+        let truncated =
+            crate::text::truncate_on_char_boundary(transcript_text, TRANSCRIPT_CHAR_CAP);
         format!(
             "{LEGEND}\n\n(truncated to first {} characters; full transcript \
             was {} characters)\n\n{}",

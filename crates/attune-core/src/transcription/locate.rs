@@ -262,7 +262,11 @@ mod tests {
                 language: Some("en".into()),
                 segments: vec![
                     seg("We should ship the redesign before the launch.", 0.0, 3.0),
-                    seg("The redesign and the launch are our priorities.", 30.0, 33.0),
+                    seg(
+                        "The redesign and the launch are our priorities.",
+                        30.0,
+                        33.0,
+                    ),
                     seg("Anyway I once skydived over Dubai years ago.", 60.0, 63.0),
                 ],
             }],

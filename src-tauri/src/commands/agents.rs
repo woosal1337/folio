@@ -136,8 +136,11 @@ pub async fn run_agent(
     } else {
         None
     };
-    let user_message =
-        prompt::build_user_message(&transcript_text, live_notes_md.as_deref(), note_outline.as_deref());
+    let user_message = prompt::build_user_message(
+        &transcript_text,
+        live_notes_md.as_deref(),
+        note_outline.as_deref(),
+    );
 
     // Snapshot paths + briefing language from settings (cheap, won't
     // block agent run). The lock is dropped before any IPC.
@@ -200,7 +203,10 @@ pub async fn run_agent(
         Some(preamble) => format!("{preamble}\n\n{}", agent.system_prompt),
         None => agent.system_prompt.clone(),
     };
-    let system_prompt = format!("{base}{}", prompt::language_aware_trailer(&briefing_language));
+    let system_prompt = format!(
+        "{base}{}",
+        prompt::language_aware_trailer(&briefing_language)
+    );
 
     let mut messages: Vec<ChatMessage> = vec![ChatMessage {
         role: ChatRole::User,

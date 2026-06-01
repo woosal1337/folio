@@ -212,9 +212,7 @@ pub fn dispatch_tool_call(
 ) -> ToolResult {
     match call.name.as_str() {
         "create_task" => dispatch_create_task(call, tasks_path, session_dir, session_label),
-        "remember" => {
-            dispatch_remember(call, memory_store, session_dir, session_label, transcript)
-        }
+        "remember" => dispatch_remember(call, memory_store, session_dir, session_label, transcript),
         "search_memory" => dispatch_search_memory(call, memory_store),
         other => ToolResult {
             success: false,

@@ -47,10 +47,20 @@ pub fn run() {
             // Mirror the persisted privacy_mode setting into the
             // process-global CloudGuard so the very first network call
             // after launch already honours it. v2 finding 048 / GET-42.
+            // Also load the graduated egress policy from
+            // .attune/egress-policy.toml (GET-196).
             {
                 let state: tauri::State<'_, app::AppState> = app.state();
-                let on = state.settings.lock().privacy_mode;
+                let settings = state.settings.lock().clone();
+                let on = settings.privacy_mode;
                 attune_core::cloud_guard::set_airgap(on);
+                let vault_root = settings
+                    .output_dir
+                    .parent()
+                    .map(|p| p.to_path_buf())
+                    .unwrap_or_else(|| settings.output_dir.clone());
+                let policy = attune_core::cloud_guard::load_egress_policy(&vault_root);
+                attune_core::cloud_guard::set_egress_policy(policy);
                 tracing::info!(privacy_mode = on, "cloud guard initialised");
             }
             // Menu bar (system tray) icon + menu. v2 finding 006 /

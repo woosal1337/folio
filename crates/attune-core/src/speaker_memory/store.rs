@@ -29,7 +29,9 @@ fn default_app_support_dir() -> PathBuf {
 
     #[cfg(target_os = "macos")]
     {
-        home.join("Library").join("Application Support").join("Attune")
+        home.join("Library")
+            .join("Application Support")
+            .join("Attune")
     }
     #[cfg(not(target_os = "macos"))]
     {

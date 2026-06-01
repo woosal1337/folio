@@ -116,9 +116,8 @@ impl SessionSpeakers {
         let path = Self::path_in(session_dir);
         match std::fs::read(&path) {
             Ok(bytes) => {
-                let v: Self = serde_json::from_slice(&bytes).map_err(|e| {
-                    AttuneError::Storage(format!("{SPEAKERS_FILENAME} parse: {e}"))
-                })?;
+                let v: Self = serde_json::from_slice(&bytes)
+                    .map_err(|e| AttuneError::Storage(format!("{SPEAKERS_FILENAME} parse: {e}")))?;
                 Ok(Some(v))
             }
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),

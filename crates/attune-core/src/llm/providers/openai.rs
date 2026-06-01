@@ -10,9 +10,7 @@ use tracing::debug;
 
 use crate::error::{AttuneError, Result};
 use crate::llm::provider::{LlmProvider, ProviderId};
-use crate::llm::types::{
-    ChatRequest, ChatResponse, ChatRole, FinishReason, ModelInfo, ToolCall,
-};
+use crate::llm::types::{ChatRequest, ChatResponse, ChatRole, FinishReason, ModelInfo, ToolCall};
 
 const DEFAULT_BASE_URL: &str = "https://api.openai.com/v1";
 

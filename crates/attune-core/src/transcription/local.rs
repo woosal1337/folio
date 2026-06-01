@@ -603,10 +603,7 @@ mod tests {
     #[test]
     fn majority_language_picks_the_mode_then_first_on_ties() {
         assert_eq!(majority_language(&[]), None);
-        assert_eq!(
-            majority_language(&[seg_lang(None), seg_lang(None)]),
-            None
-        );
+        assert_eq!(majority_language(&[seg_lang(None), seg_lang(None)]), None);
         // tr appears 3×, en 2× → tr.
         let segs = [
             seg_lang(Some("tr")),
@@ -627,7 +624,7 @@ mod tests {
         let sr = WHISPER_INPUT_SAMPLE_RATE as usize;
         let nominal = 28 * sr;
         let mut pcm = vec![0.5_f32; nominal + sr]; // loud everywhere
-        // Carve a silent 50 ms frame at 27.0 s — inside the 2 s lookback.
+                                                   // Carve a silent 50 ms frame at 27.0 s — inside the 2 s lookback.
         let dip = 27 * sr;
         for s in pcm.iter_mut().skip(dip).take(800) {
             *s = 0.0;
