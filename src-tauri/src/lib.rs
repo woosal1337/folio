@@ -104,6 +104,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::health::ping,
             commands::devices::list_input_devices,
+            commands::devices::check_mic_level,
             commands::settings::get_settings,
             commands::settings::save_settings,
             commands::recording::recording_status,

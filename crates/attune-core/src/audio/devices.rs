@@ -74,6 +74,127 @@ pub fn list_input_devices() -> Result<Vec<DeviceInfo>> {
     Ok(out)
 }
 
+// ---------------------------------------------------------------------------
+// Pre-flight mic level check (GET-212)
+// ---------------------------------------------------------------------------
+
+/// Mic level status derived from a brief RMS measurement.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MicStatus {
+    /// RMS is in the usable range (>= −48 dBFS, < −3 dBFS peak).
+    Ok,
+    /// RMS is below −48 dBFS — mic gain is likely too low.
+    TooQuiet,
+    /// Peak is >= −3 dBFS — input is at risk of clipping.
+    Clipping,
+}
+
+/// Result of a brief mic input-level sample.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MicLevelResult {
+    /// RMS level in dBFS (negative; 0 = full scale).
+    pub rms_db: f32,
+    /// Peak level in dBFS.
+    pub peak_db: f32,
+    /// Qualitative status.
+    pub status: MicStatus,
+    /// Deep-link the user can open to raise mic gain in System Settings.
+    pub settings_url: String,
+}
+
+/// Sample the input device for `duration_ms` milliseconds and return
+/// the peak + RMS level in dBFS.
+///
+/// # Errors
+///
+/// Returns `Err` if the input device cannot be opened or the stream
+/// fails to start.
+pub fn sample_mic_level(device_name: Option<&str>, duration_ms: u64) -> Result<MicLevelResult> {
+    use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
+    use std::sync::{Arc, Mutex};
+    use std::time::Duration;
+
+    let host = cpal::default_host();
+    let device = if let Some(name) = device_name {
+        host.input_devices()
+            .map_err(|e| AttuneError::AudioDevice(format!("input_devices: {e}")))?
+            .find(|d| d.name().map(|n| n == name).unwrap_or(false))
+            .or_else(|| host.default_input_device())
+    } else {
+        host.default_input_device()
+    }
+    .ok_or(AttuneError::NoInputDevice)?;
+
+    let config = device
+        .default_input_config()
+        .map_err(|e| AttuneError::AudioDevice(format!("default_input_config: {e}")))?;
+    let channels = config.channels() as usize;
+
+    let samples: Arc<Mutex<Vec<f32>>> = Arc::new(Mutex::new(Vec::new()));
+    let samples_cb = Arc::clone(&samples);
+
+    let stream = device
+        .build_input_stream(
+            &config.into(),
+            move |data: &[f32], _| {
+                if let Ok(mut buf) = samples_cb.lock() {
+                    for frame in data.chunks(channels.max(1)) {
+                        let mono = frame.iter().copied().sum::<f32>() / channels as f32;
+                        buf.push(mono);
+                    }
+                }
+            },
+            |e| tracing::warn!(error = %e, "mic level check stream error"),
+            None,
+        )
+        .map_err(|e| AttuneError::AudioDevice(format!("build_input_stream: {e}")))?;
+
+    stream
+        .play()
+        .map_err(|e| AttuneError::AudioDevice(format!("stream.play: {e}")))?;
+    std::thread::sleep(Duration::from_millis(duration_ms));
+    drop(stream);
+
+    let buf = samples.lock().unwrap();
+    let to_db = |x: f32| {
+        if x < 1e-9 {
+            -96.0_f32
+        } else {
+            20.0 * x.log10()
+        }
+    };
+
+    if buf.is_empty() {
+        return Ok(MicLevelResult {
+            rms_db: -96.0,
+            peak_db: -96.0,
+            status: MicStatus::TooQuiet,
+            settings_url: "x-apple.systempreferences:com.apple.preference.sound?input".into(),
+        });
+    }
+
+    let rms = (buf.iter().map(|s| s * s).sum::<f32>() / buf.len() as f32).sqrt();
+    let peak = buf.iter().copied().map(|s| s.abs()).fold(0.0_f32, f32::max);
+    let rms_db = to_db(rms);
+    let peak_db = to_db(peak);
+
+    let status = if peak_db >= -3.0 {
+        MicStatus::Clipping
+    } else if rms_db < -48.0 {
+        MicStatus::TooQuiet
+    } else {
+        MicStatus::Ok
+    };
+
+    Ok(MicLevelResult {
+        rms_db,
+        peak_db,
+        status,
+        settings_url: "x-apple.systempreferences:com.apple.preference.sound?input".into(),
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

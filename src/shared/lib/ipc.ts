@@ -99,6 +99,25 @@ export function listInputDevices(): Promise<DeviceInfo[]> {
   return call<DeviceInfo[]>("list_input_devices");
 }
 
+/** Mic level status returned by {@link checkMicLevel} (GET-212). */
+export type MicStatus = "ok" | "too_quiet" | "clipping";
+
+/** Brief mic input-level measurement (GET-212). */
+export interface MicLevelResult {
+  rms_db: number;
+  peak_db: number;
+  status: MicStatus;
+  settings_url: string;
+}
+
+/**
+ * Sample the default (or named) mic for ~500 ms and return the
+ * RMS/peak level in dBFS plus a qualitative status (GET-212).
+ */
+export function checkMicLevel(deviceName?: string): Promise<MicLevelResult> {
+  return call<MicLevelResult>("check_mic_level", { deviceName });
+}
+
 // ---- Settings -----------------------------------------------------------
 
 export function getSettings(): Promise<Settings> {
