@@ -43,15 +43,22 @@ pub async fn transcribe_recording(
     state: State<'_, AppState>,
     session_dir: PathBuf,
 ) -> Result<TranscriptionResult, String> {
-    let (transcriber_kind, settings_language, local_model, diarization_enabled) = {
+    let (transcriber_kind, settings_language, local_model, diarization_enabled, output_dir) = {
         let settings = state.settings.lock();
         (
             settings.transcriber.clone(),
             settings.transcription_language.clone(),
             settings.local_whisper_model.clone(),
             settings.diarization_enabled,
+            settings.output_dir.clone(),
         )
     };
+
+    // IPC input is untrusted (GET-173): reject any session dir outside the
+    // recordings root before reading audio or writing transcript.json. The
+    // sibling read_transcript/save_transcript commands already do this.
+    let session_dir = attune_core::paths::canonicalize_under(&output_dir, &session_dir)
+        .map_err(|e| format!("invalid session directory: {e}"))?;
 
     let api_key = attune_core::llm::KeyStore::get(attune_core::llm::ProviderId::OpenAi)
         .map_err(|e| format!("could not read OpenAI key from Keychain: {e}"))?
