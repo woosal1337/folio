@@ -39,6 +39,7 @@
 //! never enable it by default until the A/B harness proves it helps on
 //! real recordings.
 
+pub mod cross_track_aec;
 mod rnnoise;
 
 use std::path::Path;
