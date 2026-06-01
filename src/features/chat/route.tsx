@@ -27,9 +27,11 @@ import { toast } from "sonner";
 
 import { Button } from "@/shared/ui/button";
 import {
+  askFolder,
   askLibrary,
   deleteChatThread,
   listChatThreads,
+  listFolders,
   listProviderModels,
   listRecipes,
   saveChatThread,
@@ -211,6 +213,15 @@ export default function Chat() {
       .catch(() => {});
   }, []);
 
+  // Folder scope selector (GET-205): "all" = library, anything else = folder name.
+  const [folders, setFolders] = React.useState<string[]>([]);
+  const [scopeFolder, setScopeFolder] = React.useState<string>("all");
+  React.useEffect(() => {
+    listFolders()
+      .then(setFolders)
+      .catch(() => {});
+  }, []);
+
   // All recipes: built-ins first, user-defined appended.
   const allRecipes = React.useMemo(() => [...RECIPES, ...userRecipes], [userRecipes]);
 
@@ -306,7 +317,11 @@ export default function Chat() {
       setBusy(true);
 
       try {
-        const { answer, coverage } = await askLibrary(q, history, model || undefined);
+        // GET-205: use folder-scoped chat when a folder is selected.
+        const { answer, coverage } =
+          scopeFolder !== "all"
+            ? await askFolder(scopeFolder, q, history, model || undefined)
+            : await askLibrary(q, history, model || undefined);
         setMessages((prev) => {
           const next: Msg[] = [
             ...prev,
@@ -326,7 +341,7 @@ export default function Chat() {
         setBusy(false);
       }
     },
-    [busy, closePalette, messages, model, persist]
+    [busy, closePalette, messages, model, persist, scopeFolder]
   );
 
   const openThread = React.useCallback((t: ChatThread) => {
@@ -449,6 +464,22 @@ export default function Chat() {
               </>
             ) : null}
           </div>
+          {/* Folder scope selector (GET-205) */}
+          {folders.length > 0 ? (
+            <select
+              value={scopeFolder}
+              onChange={(e) => setScopeFolder(e.target.value)}
+              aria-label="Scope"
+              className="h-8 rounded-md border border-input bg-card px-2 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <option value="all">All notes</option>
+              {folders.map((f) => (
+                <option key={f} value={f}>
+                  {f}
+                </option>
+              ))}
+            </select>
+          ) : null}
           {models.length > 0 ? (
             <select
               value={model}
