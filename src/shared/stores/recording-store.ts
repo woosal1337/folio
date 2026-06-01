@@ -91,6 +91,10 @@ interface RecordingState {
 }
 
 export const useRecording = create<RecordingState>((set, get) => {
+  // GET-211: track whether an auto-segment roll is in flight so we
+  // don't trigger multiple simultaneous pause+resumes.
+  let segmentRolling = false;
+
   const tick = () => {
     const { startedAt, recording, paused } = get();
     if (!recording || startedAt === null) return;
@@ -98,6 +102,23 @@ export const useRecording = create<RecordingState>((set, get) => {
     set({ elapsed: next });
     // GET-201: pass paused flag so the tray shows the right icon glyph.
     void ipcSetTrayRecording(next, paused);
+  };
+
+  /** Roll to a new WAV segment: pause then immediately resume (GET-211). */
+  const autoSegment = async () => {
+    if (segmentRolling) return;
+    segmentRolling = true;
+    try {
+      console.info("[marathon] auto-segmenting recording");
+      await ipcPause();
+      // Brief gap so the WAV writer can finalize.
+      await new Promise((r) => setTimeout(r, 300));
+      await ipcResume();
+    } catch (e) {
+      console.error("[marathon] auto-segment failed:", e);
+    } finally {
+      segmentRolling = false;
+    }
   };
 
   const installTicker = () => {
@@ -490,6 +511,10 @@ export const useRecording = create<RecordingState>((set, get) => {
         // Re-adopting an in-progress capture after a reload/restart —
         // bring the floating bar back too.
         void ipcShowRecordingBar().catch(() => {});
+        // GET-211: auto-segment if the backend flagged it.
+        if (status.needs_segment) {
+          void autoSegment();
+        }
       } catch (e) {
         console.error("recording_store: initial sync failed", e);
       }

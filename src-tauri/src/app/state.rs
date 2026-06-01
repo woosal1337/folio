@@ -195,6 +195,15 @@ impl AppState {
             .as_ref()
             .map(|s| s.is_vpio_silent())
             .unwrap_or(false);
+        // GET-211: flag when the current segment exceeds the auto-segment
+        // threshold so the recording store can trigger a roll-over.
+        let needs_segment = recording && {
+            let threshold = self.settings.lock().auto_segment_secs;
+            match threshold {
+                Some(secs) if secs > 0 => current >= secs,
+                _ => false,
+            }
+        };
         RecordingStatus {
             recording,
             elapsed_secs,
@@ -202,6 +211,7 @@ impl AppState {
             session_dir,
             paused,
             vpio_silent,
+            needs_segment,
         }
     }
 }

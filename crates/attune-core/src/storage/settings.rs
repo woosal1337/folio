@@ -349,6 +349,13 @@ pub struct Settings {
     /// only; the backend favicon-fetch path lands with GET-123.
     #[serde(default)]
     pub workspace_logo_path: String,
+
+    /// Marathon segmentation (GET-211). When set, the recording store
+    /// automatically pauses + resumes at this many seconds to bound each
+    /// WAV segment. The existing stop → concat-wavs stitches them back
+    /// into one note. `None` = disabled (default). 3600 = hourly.
+    #[serde(default)]
+    pub auto_segment_secs: Option<u64>,
 }
 
 /// GET-188. System-audio speech-enhancement settings. Nested so the two
@@ -547,6 +554,7 @@ impl Default for Settings {
             workspace_discoverable: true,
             workspace_auto_join: true,
             workspace_logo_path: String::new(),
+            auto_segment_secs: None,
         }
     }
 }

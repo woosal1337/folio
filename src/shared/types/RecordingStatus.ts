@@ -22,4 +22,9 @@ paused: boolean,
  * Voice Processing in Settings → Audio. Always false when not
  * recording or when using the cpal mic path.
  */
-vpio_silent?: boolean, };
+vpio_silent?: boolean,
+/**
+ * True when the current segment has exceeded the auto-segment threshold
+ * (GET-211). The recording store acts on this and rolls to a new segment.
+ */
+needs_segment?: boolean, };
