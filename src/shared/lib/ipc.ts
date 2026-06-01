@@ -129,9 +129,7 @@ export function renameNote(sessionDir: string, title: string): Promise<void> {
 }
 
 /** Read which enhanced-notes run the user has kept (its `finished_at`), or null. */
-export function getEnhancedNotesAccepted(
-  sessionDir: string
-): Promise<string | null> {
+export function getEnhancedNotesAccepted(sessionDir: string): Promise<string | null> {
   return call<string | null>("get_enhanced_notes_accepted", { sessionDir });
 }
 
@@ -916,13 +914,28 @@ export function askNote(
   return call<{ answer: string }>("ask_note", { sessionDir, question, history });
 }
 
+/** Coverage metadata for a cross-library Ask Attune answer (GET-193). */
+export interface CoverageNote {
+  notes_total: number;
+  notes_read: number;
+  capped: boolean;
+  date_oldest: string | null;
+  date_newest: string | null;
+  memories: number;
+  tasks: number;
+}
+
 /** Ask a question across the whole library (GET-152). Optional model id. */
 export function askLibrary(
   question: string,
   history: ChatTurn[],
   model?: string
-): Promise<{ answer: string }> {
-  return call<{ answer: string }>("ask_library", { question, history, model });
+): Promise<{ answer: string; coverage: CoverageNote }> {
+  return call<{ answer: string; coverage: CoverageNote }>("ask_library", {
+    question,
+    history,
+    model,
+  });
 }
 
 // ---- Chat history + Recents (GET-167) ----------------------------------
@@ -1024,9 +1037,9 @@ export async function onWhisperDownloadProgress<T = WhisperDownloadProgress>(
   return listen<T>(WHISPER_DOWNLOAD_PROGRESS_EVENT, (event) => handler(event.payload));
 }
 
-export async function onDiarizationDownloadProgress<
-  T = DiarizationDownloadProgress,
->(handler: (payload: T) => void): Promise<UnlistenFn> {
+export async function onDiarizationDownloadProgress<T = DiarizationDownloadProgress>(
+  handler: (payload: T) => void
+): Promise<UnlistenFn> {
   return listen<T>(DIARIZATION_DOWNLOAD_PROGRESS_EVENT, (event) =>
     handler(event.payload)
   );

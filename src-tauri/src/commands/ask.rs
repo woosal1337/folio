@@ -37,6 +37,36 @@ pub struct AskNoteAnswer {
     pub answer: String,
 }
 
+/// Coverage metadata returned alongside the cross-library answer
+/// (GET-193). Lets the frontend render a "what was searched" panel
+/// so the user knows the answer's scope and completeness.
+#[derive(Debug, Clone, Serialize)]
+pub struct CoverageNote {
+    /// Total recordings found in the library.
+    pub notes_total: usize,
+    /// Recordings whose summaries were actually read by the LLM.
+    pub notes_read: usize,
+    /// True when the read count hit LIBRARY_RECENT_NOTES and more
+    /// summarised notes exist — the answer may be incomplete.
+    pub capped: bool,
+    /// `created_at` of the oldest note that was read. ISO-ish string
+    /// from the session directory name (e.g. "2026-05-01").
+    pub date_oldest: Option<String>,
+    /// `created_at` of the newest note that was read.
+    pub date_newest: Option<String>,
+    /// Number of memories injected from the relevant-memory search.
+    pub memories: usize,
+    /// Number of open tasks included in the context.
+    pub tasks: usize,
+}
+
+/// The cross-library Ask Attune answer, augmented with coverage metadata.
+#[derive(Debug, Clone, Serialize)]
+pub struct AskLibraryAnswer {
+    pub answer: String,
+    pub coverage: CoverageNote,
+}
+
 const SYSTEM_PROMPT: &str = "You are answering questions about ONE meeting. \
 The context below — the transcript (with [mm:ss] timestamps), the user's \
 live notes, and any generated summary — is the ONLY source you may use.\n\
@@ -220,7 +250,7 @@ pub async fn ask_library(
     question: String,
     history: Vec<ChatTurn>,
     model: Option<String>,
-) -> Result<AskNoteAnswer, String> {
+) -> Result<AskLibraryAnswer, String> {
     let (output_dir, tasks_path) = {
         let s = state.settings.lock();
         (s.output_dir.clone(), s.tasks_path.clone())
@@ -228,7 +258,7 @@ pub async fn ask_library(
     let memory_store = state.memory_store()?;
     let query = question.clone();
 
-    let context = tauri::async_runtime::spawn_blocking(move || {
+    let (context, coverage) = tauri::async_runtime::spawn_blocking(move || {
         build_library_context(&output_dir, &tasks_path, &memory_store, &query)
     })
     .await
@@ -282,19 +312,21 @@ pub async fn ask_library(
         .map_err(|e| e.to_string())?;
 
     info!("answered cross-library question");
-    Ok(AskNoteAnswer {
+    Ok(AskLibraryAnswer {
         answer: response.text,
+        coverage,
     })
 }
 
 /// Assemble the cross-library context: open tasks, recent meeting
 /// summaries, and the memories most relevant to the question.
+/// Returns the context string and coverage metadata (GET-193).
 fn build_library_context(
     output_dir: &Path,
     tasks_path: &Path,
     memory_store: &attune_core::memory::MemoryStore,
     query: &str,
-) -> String {
+) -> (String, CoverageNote) {
     let mut out = String::new();
 
     // Open action items.
@@ -303,6 +335,7 @@ fn build_library_context(
         .iter()
         .filter(|t| t.status != TaskStatus::Done)
         .collect();
+    let tasks_count = open.len();
     if !open.is_empty() {
         out.push_str("## Open action items\n");
         for t in &open {
@@ -326,10 +359,13 @@ fn build_library_context(
         out.push('\n');
     }
 
-    // Recent meeting summaries.
+    // Recent meeting summaries — track coverage as we go.
     let mut recordings = scan_recordings(output_dir);
     recordings.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+    let notes_total = recordings.len();
     let mut included = 0;
+    let mut date_oldest: Option<String> = None;
+    let mut date_newest: Option<String> = None;
     for r in recordings.iter() {
         if included >= LIBRARY_RECENT_NOTES {
             break;
@@ -347,11 +383,23 @@ fn build_library_context(
         out.push_str(&format!("## Meeting: {title}\n"));
         out.push_str(summary.trim());
         out.push_str("\n\n");
+        // Track date range of included notes (sorted newest-first, so
+        // first included = newest, last included = oldest).
+        let date_str = r.created_at.map(|dt| dt.format("%Y-%m-%d").to_string());
+        if date_newest.is_none() {
+            date_newest = date_str.clone();
+        }
+        date_oldest = date_str;
         included += 1;
     }
+    // Capped when we hit the limit AND there might be more summarised
+    // notes beyond the cutoff (notes_total > included is a safe proxy).
+    let capped = included >= LIBRARY_RECENT_NOTES && notes_total > included;
 
     // Relevant memories.
+    let mut memories_count = 0;
     if let Ok(memories) = memory_store.search(query, None, &[], 8) {
+        memories_count = memories.len();
         if !memories.is_empty() {
             out.push_str("## Remembered facts\n");
             for m in memories {
@@ -362,7 +410,16 @@ fn build_library_context(
         }
     }
 
-    out.trim().to_string()
+    let coverage = CoverageNote {
+        notes_total,
+        notes_read: included,
+        capped,
+        date_oldest,
+        date_newest,
+        memories: memories_count,
+        tasks: tasks_count,
+    };
+    (out.trim().to_string(), coverage)
 }
 
 #[cfg(test)]
