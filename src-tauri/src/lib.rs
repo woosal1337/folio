@@ -194,6 +194,7 @@ pub fn run() {
             commands::maintenance::archive_inbox_entry,
             commands::maintenance::get_showcase,
             commands::maintenance::save_showcase,
+            commands::recipes::list_recipes,
             commands::webhooks::list_webhooks,
             commands::webhooks::save_webhook,
             commands::webhooks::delete_webhook,
