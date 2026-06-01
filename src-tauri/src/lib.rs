@@ -77,6 +77,8 @@ pub fn run() {
             commands::recording::recording_status,
             commands::recording::create_note,
             commands::recording::rename_note,
+            commands::recording::get_enhanced_notes_accepted,
+            commands::recording::set_enhanced_notes_accepted,
             commands::recording::start_recording,
             commands::recording::stop_recording,
             commands::recording::pause_recording,
