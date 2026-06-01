@@ -192,16 +192,31 @@ pub async fn run_agent(
 
     // Compose system prompt:
     //   1. Memory preamble (if any) — background facts about the user
-    //   2. The agent's own prompt — task instructions
-    //   3. Language trailer — keeps output in the meeting's language
+    //   2. User profile context (GET-206) — role, team, focus areas
+    //   3. The agent's own prompt — task instructions
+    //   4. Language trailer — keeps output in the meeting's language
     //
-    // The preamble is ABOVE the agent prompt so the model treats it as
-    // background context, and the language rule is BELOW so it's the
-    // last thing the model reads before responding (the strongest
-    // position in a system prompt for behavioural overrides).
-    let base = match memory_preamble {
-        Some(preamble) => format!("{preamble}\n\n{}", agent.system_prompt),
-        None => agent.system_prompt.clone(),
+    // Preamble + profile are ABOVE the agent prompt so the model treats
+    // them as background context; the language rule is BELOW so it's
+    // the last thing the model reads (strongest position for overrides).
+    let output_dir = state.settings.lock().output_dir.clone();
+    let vault_root = output_dir
+        .parent()
+        .map(|p| p.to_path_buf())
+        .unwrap_or(output_dir);
+    let profile_ctx =
+        attune_core::user_profile::load(&vault_root).and_then(|p| p.as_prompt_context());
+
+    let base = {
+        let mut parts: Vec<String> = Vec::new();
+        if let Some(preamble) = memory_preamble {
+            parts.push(preamble);
+        }
+        if let Some(ctx) = profile_ctx {
+            parts.push(ctx);
+        }
+        parts.push(agent.system_prompt.clone());
+        parts.join("\n\n")
     };
     let system_prompt = format!(
         "{base}{}",

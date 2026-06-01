@@ -83,6 +83,7 @@ pub mod speaker_memory;
 pub mod storage;
 pub mod text;
 pub mod transcription;
+pub mod user_profile;
 pub mod webhooks;
 
 pub use error::{AttuneError, Result};
