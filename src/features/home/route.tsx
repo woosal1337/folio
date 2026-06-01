@@ -20,9 +20,12 @@ import { Button } from "@/shared/ui/button";
 import { Card, CardContent } from "@/shared/ui/card";
 import {
   calendarAuthorizationStatus,
+  checkMicLevel,
   listRecordings,
   nextCalendarEvent,
+  openExternalUrl,
   requestCalendarAccess,
+  type MicLevelResult,
 } from "@/shared/lib/ipc";
 import { useQuickNote, useTakeNotes } from "@/shared/hooks/use-take-notes";
 import { useNoteContextMenu } from "@/shared/hooks/use-note-context-menu";
@@ -112,6 +115,16 @@ export default function Home() {
     void loadCalendar();
   }, [loadCalendar]);
 
+  // Pre-flight mic level check (GET-212): sample once on mount, show
+  // a banner if the level is too quiet or clipping.
+  const [micLevel, setMicLevel] = React.useState<MicLevelResult | null>(null);
+  const [micDismissed, setMicDismissed] = React.useState(false);
+  React.useEffect(() => {
+    checkMicLevel()
+      .then(setMicLevel)
+      .catch(() => {}); // non-fatal — no device or permission
+  }, []);
+
   const groups = React.useMemo(() => {
     const buckets: Record<Group, RecordingSummary[]> = {
       Today: [],
@@ -145,6 +158,36 @@ export default function Home() {
           Quick note
         </Button>
       </header>
+
+      {/* Pre-flight mic level warning (GET-212) */}
+      {micLevel && !micDismissed && micLevel.status !== "ok" ? (
+        <div
+          role="alert"
+          className="flex items-center gap-3 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-sm text-amber-700 dark:text-amber-300"
+        >
+          <Mic className="h-4 w-4 shrink-0" />
+          <span className="flex-1">
+            {micLevel.status === "too_quiet"
+              ? "Mic input is very quiet. Raise your input volume in System Settings → Sound → Input for better transcription."
+              : "Mic input is near clipping. Lower your input volume to avoid distortion."}
+          </span>
+          <button
+            type="button"
+            className="shrink-0 text-xs underline hover:no-underline"
+            onClick={() => void openExternalUrl(micLevel.settings_url)}
+          >
+            Open settings
+          </button>
+          <button
+            type="button"
+            aria-label="Dismiss"
+            className="shrink-0 text-amber-500 hover:text-amber-700"
+            onClick={() => setMicDismissed(true)}
+          >
+            ×
+          </button>
+        </div>
+      ) : null}
 
       {/* Coming up */}
       <section className="space-y-2">
