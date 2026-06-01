@@ -67,6 +67,7 @@ impl LocalWhisperTranscriber {
         }
     }
 
+    #[must_use]
     pub fn with_threads(mut self, threads: i32) -> Self {
         self.threads = threads.max(1);
         self

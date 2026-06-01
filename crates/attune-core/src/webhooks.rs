@@ -113,6 +113,9 @@ impl WebhookStore {
         serde_json::from_str(&raw).unwrap_or_default()
     }
 
+    /// # Errors
+    ///
+    /// Returns `Err` if the HTTP request fails or the server returns a non-2xx status.
     pub fn save(&self, subs: &[WebhookSubscription]) -> Result<()> {
         for sub in subs {
             validate(sub)?;
@@ -183,6 +186,10 @@ pub fn new_subscription_id() -> String {
 
 /// Sign a JSON body with HMAC-SHA256 and return the
 /// `X-Attune-Signature` header value (`sha256=<hex>`).
+///
+/// # Panics
+///
+/// Panics if the HMAC key or signature bytes are malformed (should not occur in practice).
 pub fn sign(secret: &str, body: &[u8]) -> String {
     let mut mac =
         HmacSha256::new_from_slice(secret.as_bytes()).expect("HMAC-SHA256 accepts any key length");

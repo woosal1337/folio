@@ -15,6 +15,10 @@ use crate::error::{AttuneError, Result};
 /// resolves symlinks and verifies presence. Callers that need to
 /// validate a not-yet-created child path should canonicalise the
 /// parent + verify, then join the leaf themselves.
+///
+/// # Errors
+///
+/// Returns `Err` if `candidate` escapes `root` or the path cannot be resolved.
 pub fn canonicalize_under(root: &Path, candidate: &Path) -> Result<PathBuf> {
     let canon_root = std::fs::canonicalize(root).map_err(|e| {
         AttuneError::Storage(format!(

@@ -319,6 +319,7 @@ where
     }
 }
 
+#[non_exhaustive]
 #[derive(Debug, Error)]
 pub enum BackendError {
     #[error("transport: {0}")]

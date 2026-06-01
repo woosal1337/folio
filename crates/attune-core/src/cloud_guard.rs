@@ -112,6 +112,7 @@ pub struct PolicyLimits {
 // Error type
 // ---------------------------------------------------------------------------
 
+#[non_exhaustive]
 #[derive(Debug, thiserror::Error)]
 pub enum CloudGuardError {
     #[error("privacy mode is on, outbound request to {host} blocked")]
@@ -131,6 +132,7 @@ pub fn set_airgap(on: bool) {
 }
 
 /// Current state. The UI reads this to render the AIRGAP badge.
+#[must_use]
 pub fn is_airgap() -> bool {
     AIRGAP.load(Ordering::SeqCst)
 }
@@ -201,6 +203,10 @@ fn is_always_allowed(host_lc: &str) -> bool {
 /// 1. Airgap on → block all non-localhost.
 /// 2. Policy loaded with ≥1 host → only listed hosts pass.
 /// 3. Neither → allow everything.
+///
+/// # Errors
+///
+/// Returns `Err` when the request is blocked by Privacy Mode or the egress policy.
 pub fn ensure_allowed(host: &str) -> Result<(), CloudGuardError> {
     let host_lc = host.to_ascii_lowercase();
 

@@ -92,6 +92,10 @@ pub fn parse(input: &str) -> Result<McpConfig> {
 /// Read and parse `<vault>/.attune/mcp.toml`. Returns
 /// `Ok(McpConfig { servers: vec![] })` when the file is missing so
 /// callers can treat 'no MCP configured' as a normal state.
+///
+/// # Errors
+///
+/// Returns `Err` if the config file exists but cannot be read or parsed.
 pub fn load(vault_root: &Path) -> Result<McpConfig> {
     let path = config_path(vault_root);
     if !path.exists() {
