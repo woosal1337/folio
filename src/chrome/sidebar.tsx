@@ -1,6 +1,7 @@
 import * as React from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
+  BarChart2,
   Brain,
   Home as HomeIcon,
   KanbanSquare,
@@ -37,6 +38,7 @@ const items: NavItem[] = [
   { to: "/library", label: "My Notes", icon: Library, alsoActiveOn: ["/editor"] },
   { to: "/tasks", label: "Tasks", icon: KanbanSquare },
   { to: "/memory", label: "Memory", icon: Brain },
+  { to: "/stats", label: "Stats", icon: BarChart2 },
 ];
 
 interface SidebarProps {

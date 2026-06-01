@@ -36,6 +36,7 @@ const PreferencesWindow = React.lazy(
   () => import("@/features/preferences-window/route")
 );
 const MemoryRoute = React.lazy(() => import("@/features/memory/route"));
+const StatsRoute = React.lazy(() => import("@/features/stats/route"));
 const SettingsModal = React.lazy(() =>
   import("@/features/settings/route").then((m) => ({ default: m.SettingsModal }))
 );
@@ -228,6 +229,7 @@ function MainApp() {
                   <Route path="/ai" element={<Navigate to="/" replace />} />
                   <Route path="/tasks" element={<Tasks />} />
                   <Route path="/memory" element={<MemoryRoute />} />
+                  <Route path="/stats" element={<StatsRoute />} />
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
               </React.Suspense>
