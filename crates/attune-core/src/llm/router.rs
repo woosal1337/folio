@@ -28,6 +28,31 @@ use ts_rs::TS;
 
 use super::super::transcription::SessionTranscript;
 
+/// Cloud model quality tier (GET-204).
+///
+/// `Standard` maps to a fast, cheap model (gpt-4o-mini); `Premium` maps
+/// to a capable reasoning model (gpt-4o or equivalent). The router picks
+/// the tier automatically based on transcript complexity; the user can
+/// override per-run or in Settings.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../src/shared/types/")]
+pub enum ModelTier {
+    /// Fast, cheap model — adequate for short/simple recordings.
+    Standard,
+    /// More capable model — recommended for long or multi-speaker meetings.
+    Premium,
+}
+
+impl ModelTier {
+    /// The OpenAI model ID for this tier.
+    pub fn openai_model_id(self) -> &'static str {
+        match self {
+            ModelTier::Standard => "gpt-4o-mini",
+            ModelTier::Premium => "gpt-4o",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../src/shared/types/")]
 pub struct RouterPolicy {
@@ -44,6 +69,10 @@ pub struct RouterPolicy {
     /// the decision-finder is built for back-and-forth. Skip on
     /// monologues.
     pub decisions_min_participants: usize,
+    /// Word count at which the router escalates from Standard to
+    /// Premium model tier (GET-204). Longer/denser meetings get the
+    /// stronger model; shorter ones use the cheaper one.
+    pub premium_tier_min_words: usize,
 }
 
 impl Default for RouterPolicy {
@@ -53,6 +82,9 @@ impl Default for RouterPolicy {
             summarise_min_words: 30,
             memories_min_words: 50,
             decisions_min_participants: 2,
+            // ~5 000 words ≈ 30-40 min of meeting — complex enough to
+            // benefit from a stronger model.
+            premium_tier_min_words: 5_000,
         }
     }
 }
@@ -76,6 +108,9 @@ pub struct RouterDecision {
     pub run_extract_memories: bool,
     pub run_find_decisions: bool,
     pub run_autoname: bool,
+    /// Recommended cloud model tier for this recording (GET-204).
+    /// The caller may override with a user preference.
+    pub model_tier: ModelTier,
 }
 
 /// Compute the transcript signals from a SessionTranscript.
@@ -114,6 +149,14 @@ pub fn decide(signals: TranscriptSignals, policy: RouterPolicy) -> RouterDecisio
     let too_short_for_memories = signals.word_count < policy.memories_min_words;
     let solo_speaker = signals.participants < policy.decisions_min_participants;
 
+    // Escalate to Premium when the word count crosses the threshold
+    // (GET-204). Longer / denser meetings get the stronger model.
+    let model_tier = if signals.word_count >= policy.premium_tier_min_words {
+        ModelTier::Premium
+    } else {
+        ModelTier::Standard
+    };
+
     RouterDecision {
         run_summarise: !too_short_to_summarise,
         // Voice memos and monologues rarely carry committed action
@@ -125,6 +168,7 @@ pub fn decide(signals: TranscriptSignals, policy: RouterPolicy) -> RouterDecisio
         // Autoname is dirt cheap and the library row needs a label;
         // always run.
         run_autoname: true,
+        model_tier,
     }
 }
 

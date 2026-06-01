@@ -24,6 +24,7 @@ use attune_core::llm::agent_tools;
 use attune_core::llm::agents;
 use attune_core::llm::prompt;
 use attune_core::llm::provider::LlmProvider;
+use attune_core::llm::router::{decide, signals_from, RouterPolicy};
 use attune_core::llm::{
     Agent, AgentRun, AgentRunStore, ChatMessage, ChatRequest, ChatRole, KeyStore, OpenAiProvider,
     ProviderId,
@@ -36,7 +37,9 @@ use tracing::{debug, info, warn};
 
 use crate::app::AppState;
 
-const DEFAULT_OPENAI_MODEL: &str = "gpt-4o-mini";
+/// Fallback model used by the two-stage evidence extractor (GET-207).
+/// The main agent model is chosen by the model-tier router (GET-204).
+const EVIDENCE_EXTRACTOR_MODEL: &str = "gpt-4o-mini";
 const MAX_TOOL_ITERATIONS: usize = 5;
 /// Sampling temperature for agent completions. Low (0.2) keeps output
 /// deterministic and factual; the user can override per-agent via the TOML.
@@ -188,7 +191,22 @@ pub async fn run_agent(
             "no OpenAI API key configured. Open Settings → AI and paste your key.".to_string()
         })?;
     let provider = OpenAiProvider::new(api_key.clone());
-    let model = DEFAULT_OPENAI_MODEL.to_string();
+
+    // Model-tier routing (GET-204): pick Standard vs Premium model
+    // based on transcript complexity. Privacy Mode always wins — the
+    // api_key being present already implies egress is allowed (cloud_guard
+    // blocks the KeyStore call if airgap is on).
+    let routing_tier = {
+        let signals = signals_from(&transcript);
+        let decision = decide(signals, RouterPolicy::default());
+        decision.model_tier
+    };
+    let model = routing_tier.openai_model_id().to_string();
+    tracing::info!(
+        agent = %agent.id,
+        model = %model,
+        "model-tier routing selected"
+    );
 
     let tools = agent_tools::tools_for_agent(&agent.id);
     let session_label = prompt::session_label_from_dir(&session_dir);
@@ -203,8 +221,14 @@ pub async fn run_agent(
             transcript_chars = transcript_text.len(),
             "two-stage pipeline: extracting evidence"
         );
-        match attune_core::llm::two_stage::extract_evidence(&transcript_text, &api_key, &model)
-            .await
+        // Evidence extraction always uses the Standard (cheap) model —
+        // it's a bulk extraction pass, not a reasoning task.
+        match attune_core::llm::two_stage::extract_evidence(
+            &transcript_text,
+            &api_key,
+            EVIDENCE_EXTRACTOR_MODEL,
+        )
+        .await
         {
             Ok(evidence) if evidence.len() < transcript_text.len() => {
                 tracing::info!(
