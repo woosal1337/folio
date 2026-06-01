@@ -51,6 +51,8 @@ export default function RecordingBar() {
   const [elapsed, setElapsed] = React.useState(0);
   const [paused, setPaused] = React.useState(false);
   const [stopping, setStopping] = React.useState(false);
+  // GET-171: true when VPIO started but is delivering silence.
+  const [vpioSilent, setVpioSilent] = React.useState(false);
   // While a pause/resume is in flight the backend briefly reports an
   // in-between state (segment tearing down / new segment spinning up). Hold
   // the optimistic value and ignore the poll until the backend matches the
@@ -90,6 +92,7 @@ export default function RecordingBar() {
         const status = await recordingStatus();
         if (cancelled) return;
         setElapsed(Number(status.elapsed_secs));
+        setVpioSilent(status.vpio_silent ?? false);
         // Reconcile the paused indicator, but respect an in-flight
         // pause/resume: keep the optimistic value until the backend
         // reaches the target (or we hit the safety-valve tick count).
@@ -197,6 +200,17 @@ export default function RecordingBar() {
       <p className="shrink-0 font-mono text-[10px] font-semibold tabular-nums text-neutral-200">
         {formatElapsed(elapsed)}
       </p>
+
+      {/* VPIO silent warning (GET-171): amber dot when Voice Processing IO
+          has started but delivered no audio after 5 s. The tooltip tells
+          the user what to do. */}
+      {vpioSilent ? (
+        <span
+          className="h-2 w-2 shrink-0 rounded-full bg-amber-400"
+          title="Mic is silent — Voice Processing IO may be stuck. Disable Voice Processing in Settings → Audio and restart the recording."
+          aria-label="Mic silent warning"
+        />
+      ) : null}
 
       {/* Controls: pause/resume (neutral) above stop (red). */}
       <div className="flex shrink-0 flex-col items-center gap-2">

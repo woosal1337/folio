@@ -3,15 +3,23 @@
 /**
  * Snapshot of the current capture session, reported to the UI.
  */
-export type RecordingStatus = { recording: boolean, elapsed_secs: bigint, channels: Array<string>, 
+export type RecordingStatus = { recording: boolean, elapsed_secs: bigint, channels: Array<string>,
 /**
  * Absolute path of the in-progress session directory, so the live
  * notes editor (GET-145) can autosave into it mid-recording. None
  * when idle.
  */
-session_dir: string | null, 
+session_dir: string | null,
 /**
  * True when a note is open but capture is paused (GET-149): no
  * active session, but a Resume will continue into the same note.
  */
-paused: boolean, };
+paused: boolean,
+/**
+ * True when Voice Processing IO started successfully but has not
+ * delivered any audio after 5 seconds — the "silent VPIO" bug
+ * (GET-171). The UI surfaces a warning so the user can disable
+ * Voice Processing in Settings → Audio. Always false when not
+ * recording or when using the cpal mic path.
+ */
+vpio_silent?: boolean, };

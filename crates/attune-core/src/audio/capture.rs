@@ -40,6 +40,17 @@ impl MicHandle {
             MicHandle::VoiceProcessing(v) => v.stop(),
         }
     }
+
+    /// True when this is a VPIO handle that has been running for
+    /// ≥5 s without delivering any audio (GET-171 silence guard).
+    /// Always false for cpal handles.
+    fn is_vpio_silent(&self) -> bool {
+        #[cfg(target_os = "macos")]
+        if let MicHandle::VoiceProcessing(v) = self {
+            return v.is_silent();
+        }
+        false
+    }
 }
 
 impl std::fmt::Debug for MicHandle {
@@ -128,6 +139,13 @@ pub struct RecordingStatus {
     /// True when a note is open but capture is paused (GET-149): no
     /// active session, but a Resume will continue into the same note.
     pub paused: bool,
+    /// True when Voice Processing IO started successfully but has not
+    /// delivered any audio after 5 seconds — the "silent VPIO" bug
+    /// (GET-171). The UI surfaces a warning so the user can disable
+    /// Voice Processing in Settings → Audio. Always false when not
+    /// recording or when using the cpal mic path.
+    #[serde(default)]
+    pub vpio_silent: bool,
 }
 
 /// Result of [`CaptureSession::stop`] in a form ready to hand to the UI:
@@ -229,6 +247,15 @@ impl CaptureSession {
     }
     pub fn started_at(&self) -> DateTime<Utc> {
         self.started_at
+    }
+
+    /// True when the active mic handle is VPIO and has been silent for
+    /// ≥5 s (GET-171). Always false for cpal handles or when not recording.
+    pub fn is_vpio_silent(&self) -> bool {
+        self.mic
+            .as_ref()
+            .map(|h| h.is_vpio_silent())
+            .unwrap_or(false)
     }
 
     pub fn channels_active(&self) -> Vec<Channel> {
