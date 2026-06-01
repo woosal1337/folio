@@ -18,21 +18,19 @@
 //!   6. Persists the final assistant text under
 //!      `<session_dir>/agent_runs/<agent>.json`.
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
+use attune_core::llm::agent_tools;
 use attune_core::llm::agents;
 use attune_core::llm::prompt;
 use attune_core::llm::provider::LlmProvider;
 use attune_core::llm::{
     Agent, AgentRun, AgentRunStore, ChatMessage, ChatRequest, ChatRole, KeyStore, OpenAiProvider,
-    ProviderId, ToolCall, ToolDef,
+    ProviderId,
 };
-use attune_core::memory::{EmbeddingClient, MemoryKind, MemoryStore, NewMemory};
-use attune_core::storage::{NewTask, TaskStore};
+use attune_core::memory::{EmbeddingClient, MemoryStore};
 use attune_core::transcription::SessionTranscript;
 use chrono::Utc;
-use serde::Deserialize;
-use serde_json::json;
 use tauri::State;
 use tracing::{debug, info, warn};
 
@@ -40,21 +38,6 @@ use crate::app::AppState;
 
 const DEFAULT_OPENAI_MODEL: &str = "gpt-4o-mini";
 const MAX_TOOL_ITERATIONS: usize = 5;
-
-/// Agents that receive the `create_task` tool.
-const TASK_TOOL_AGENTS: &[&str] = &["extract-tasks"];
-
-/// Agents that receive the `remember` tool.
-const MEMORY_WRITE_TOOL_AGENTS: &[&str] = &["extract-memories"];
-
-/// Agents that receive the `search_memory` tool. We give it to every
-/// agent: a summary or Q&A turn benefits from pulling prior context
-/// ("user said last week they prefer async standups"), and the
-/// extract-* agents benefit from deduping against what's already
-/// remembered before writing.
-fn memory_search_for_all() -> bool {
-    true
-}
 
 #[tauri::command]
 pub fn list_agents() -> Vec<Agent> {
@@ -201,7 +184,7 @@ pub async fn run_agent(
     let provider = OpenAiProvider::new(api_key.clone());
     let model = DEFAULT_OPENAI_MODEL.to_string();
 
-    let tools = tools_for_agent(&agent.id);
+    let tools = agent_tools::tools_for_agent(&agent.id);
     let session_label = prompt::session_label_from_dir(&session_dir);
 
     // Compose system prompt:
@@ -275,7 +258,7 @@ pub async fn run_agent(
             tool_call_id: None,
         });
         for call in &response.tool_calls {
-            let result = dispatch_tool_call(
+            let result = agent_tools::dispatch_tool_call(
                 call,
                 &tasks_path,
                 memory_store.clone(),
@@ -358,331 +341,6 @@ pub async fn run_agent(
     Ok(run)
 }
 
-/// Build the tool definitions an agent gets. Order is stable so the
-/// model sees `search_memory` first (it's the read tool) and writes
-/// after.
-fn tools_for_agent(agent_id: &str) -> Option<Vec<ToolDef>> {
-    let mut tools = Vec::new();
-    if memory_search_for_all() {
-        tools.push(search_memory_tool_def());
-    }
-    if TASK_TOOL_AGENTS.contains(&agent_id) {
-        tools.push(create_task_tool_def());
-    }
-    if MEMORY_WRITE_TOOL_AGENTS.contains(&agent_id) {
-        tools.push(remember_tool_def());
-    }
-    if tools.is_empty() {
-        None
-    } else {
-        Some(tools)
-    }
-}
-
-fn create_task_tool_def() -> ToolDef {
-    ToolDef {
-        name: "create_task".to_string(),
-        description: "Create a new to-do task in the user's task list. \
-            Call once per distinct action item found in the meeting transcript."
-            .to_string(),
-        parameters: json!({
-            "type": "object",
-            "properties": {
-                "title": { "type": "string", "description": "Short imperative phrase describing the task." },
-                "owner": { "type": "string", "description": "Person or team responsible. Omit if not stated." },
-                "due":   { "type": "string", "description": "Date or timeframe. Omit if not stated." },
-                "notes": { "type": "string", "description": "Optional one-sentence context." }
-            },
-            "required": ["title"],
-            "additionalProperties": false
-        }),
-    }
-}
-
-fn remember_tool_def() -> ToolDef {
-    ToolDef {
-        name: "remember".to_string(),
-        description: "Capture a lasting fact about the user, their projects, or the people they work with. \
-Call once per fact. Use `claim` for facts about the user, `pref` for preferences, `person` for someone they collaborate with, \
-`observe` for free-form context with no obvious key. Conflicting facts on the same key supersede automatically; do not try to deduplicate."
-            .to_string(),
-        parameters: json!({
-            "type": "object",
-            "properties": {
-                "kind": {
-                    "type": "string",
-                    "enum": ["claim", "pref", "person", "observe"],
-                    "description": "claim / pref / person / observe — see the agent prompt for guidance."
-                },
-                "key": {
-                    "type": "string",
-                    "description": "Dotted handle (e.g. `user.company`, `ui.theme`, `person.alice`). Required for claim/pref/person; omit for observe."
-                },
-                "content": {
-                    "type": "string",
-                    "description": "The fact in one sentence, present tense."
-                },
-                "evidence": {
-                    "type": "string",
-                    "description": "Short quoted snippet from the transcript that supports the fact."
-                },
-                "confidence": {
-                    "type": "number",
-                    "description": "0.0-1.0; under 0.6 means \"plausible but unsure\"."
-                },
-                "tags": {
-                    "type": "array",
-                    "items": { "type": "string" },
-                    "description": "1-4 short lowercase tags."
-                }
-            },
-            "required": ["kind", "content"],
-            "additionalProperties": false
-        }),
-    }
-}
-
-fn search_memory_tool_def() -> ToolDef {
-    ToolDef {
-        name: "search_memory".to_string(),
-        description: "Look up what the system already knows about the user. \
-CALL THIS WHENEVER: you need to verify a name/role/company, check whether a topic has come up before, \
-or avoid re-asking something the user has stated previously. Returns up to `limit` currently-valid memories ranked by relevance."
-            .to_string(),
-        parameters: json!({
-            "type": "object",
-            "properties": {
-                "query": {
-                    "type": "string",
-                    "description": "Free-text search. Use the key (e.g. `user.company`) or the topic (e.g. `quarterly planning`)."
-                },
-                "kinds": {
-                    "type": "array",
-                    "items": { "type": "string", "enum": ["claim", "pref", "person", "observe"] },
-                    "description": "Optional. Restrict to these kinds. Omit to search all."
-                },
-                "limit": {
-                    "type": "integer",
-                    "description": "Optional. Max rows to return (default 5)."
-                }
-            },
-            "required": ["query"],
-            "additionalProperties": false
-        }),
-    }
-}
-
-#[derive(serde::Serialize, Default)]
-struct ToolResult {
-    success: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    id: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    error: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    data: Option<serde_json::Value>,
-}
-
-#[derive(Deserialize)]
-struct CreateTaskArgs {
-    title: String,
-    #[serde(default)]
-    owner: Option<String>,
-    #[serde(default)]
-    due: Option<String>,
-    #[serde(default)]
-    notes: Option<String>,
-}
-
-#[derive(Deserialize)]
-struct RememberArgs {
-    kind: String,
-    #[serde(default)]
-    key: Option<String>,
-    content: String,
-    #[serde(default)]
-    evidence: Option<String>,
-    #[serde(default = "default_remember_confidence")]
-    confidence: f32,
-    #[serde(default)]
-    tags: Vec<String>,
-}
-
-fn default_remember_confidence() -> f32 {
-    0.8
-}
-
-#[derive(Deserialize)]
-struct SearchMemoryArgs {
-    query: String,
-    #[serde(default)]
-    kinds: Vec<String>,
-    #[serde(default)]
-    limit: Option<usize>,
-}
-
-fn dispatch_tool_call(
-    call: &ToolCall,
-    tasks_path: &Path,
-    memory_store: std::sync::Arc<MemoryStore>,
-    session_dir: &str,
-    session_label: Option<&str>,
-) -> ToolResult {
-    match call.name.as_str() {
-        "create_task" => dispatch_create_task(call, tasks_path, session_dir, session_label),
-        "remember" => dispatch_remember(call, memory_store, session_dir, session_label),
-        "search_memory" => dispatch_search_memory(call, memory_store),
-        other => ToolResult {
-            success: false,
-            error: Some(format!("unknown tool: {other}")),
-            ..ToolResult::default()
-        },
-    }
-}
-
-fn dispatch_create_task(
-    call: &ToolCall,
-    tasks_path: &Path,
-    session_dir: &str,
-    session_label: Option<&str>,
-) -> ToolResult {
-    match serde_json::from_str::<CreateTaskArgs>(&call.arguments) {
-        Ok(args) => {
-            let store = TaskStore::new(tasks_path.to_path_buf());
-            let new_task = NewTask {
-                title: args.title,
-                status: None,
-                owner: args.owner.filter(|s| !s.trim().is_empty()),
-                due: args.due.filter(|s| !s.trim().is_empty()),
-                notes: args.notes.filter(|s| !s.trim().is_empty()),
-                source_session_dir: Some(session_dir.to_string()),
-                source_session_label: session_label.map(|s| s.to_string()),
-                agent_origin: true,
-            };
-            match store.create(new_task) {
-                Ok(task) => ToolResult {
-                    success: true,
-                    id: Some(task.id),
-                    ..ToolResult::default()
-                },
-                Err(e) => ToolResult {
-                    success: false,
-                    error: Some(e.to_string()),
-                    ..ToolResult::default()
-                },
-            }
-        }
-        Err(e) => ToolResult {
-            success: false,
-            error: Some(format!("could not parse arguments: {e}")),
-            ..ToolResult::default()
-        },
-    }
-}
-
-fn dispatch_remember(
-    call: &ToolCall,
-    store: std::sync::Arc<MemoryStore>,
-    session_dir: &str,
-    session_label: Option<&str>,
-) -> ToolResult {
-    let args = match serde_json::from_str::<RememberArgs>(&call.arguments) {
-        Ok(a) => a,
-        Err(e) => {
-            return ToolResult {
-                success: false,
-                error: Some(format!("could not parse arguments: {e}")),
-                ..ToolResult::default()
-            }
-        }
-    };
-    let kind = match MemoryKind::parse(&args.kind) {
-        Some(k) => k,
-        None => {
-            return ToolResult {
-                success: false,
-                error: Some(format!("unknown kind: {}", args.kind)),
-                ..ToolResult::default()
-            }
-        }
-    };
-    let new_memory = NewMemory {
-        kind,
-        key: args.key.filter(|s| !s.trim().is_empty()),
-        content: args.content,
-        evidence: args.evidence.filter(|s| !s.trim().is_empty()),
-        confidence: args.confidence,
-        tags: args.tags,
-        source_session_dir: Some(session_dir.to_string()),
-        source_session_label: session_label.map(|s| s.to_string()),
-    };
-    match store.create(new_memory) {
-        Ok(outcome) => {
-            let memory = outcome.into_memory();
-            ToolResult {
-                success: true,
-                id: Some(memory.id),
-                ..ToolResult::default()
-            }
-        }
-        Err(e) => ToolResult {
-            success: false,
-            error: Some(e.to_string()),
-            ..ToolResult::default()
-        },
-    }
-}
-
-fn dispatch_search_memory(call: &ToolCall, store: std::sync::Arc<MemoryStore>) -> ToolResult {
-    let args = match serde_json::from_str::<SearchMemoryArgs>(&call.arguments) {
-        Ok(a) => a,
-        Err(e) => {
-            return ToolResult {
-                success: false,
-                error: Some(format!("could not parse arguments: {e}")),
-                ..ToolResult::default()
-            }
-        }
-    };
-    let kinds: Vec<MemoryKind> = args
-        .kinds
-        .iter()
-        .filter_map(|s| MemoryKind::parse(s))
-        .collect();
-    let limit = args.limit.unwrap_or(5);
-    // Embedding-free path inside the dispatcher to keep tool calls
-    // synchronous; FTS5 BM25 alone is enough signal for the kinds of
-    // lookups agents do mid-reasoning.
-    match store.search(&args.query, None, &kinds, limit) {
-        Ok(memories) => {
-            // Project to a tiny shape so the model isn't drowning in
-            // timestamps and ids.
-            let projected: Vec<serde_json::Value> = memories
-                .into_iter()
-                .map(|m| {
-                    json!({
-                        "id": m.id,
-                        "kind": m.kind.as_str(),
-                        "key": m.key,
-                        "content": m.content,
-                        "valid_from": m.valid_from.to_rfc3339(),
-                    })
-                })
-                .collect();
-            ToolResult {
-                success: true,
-                data: Some(json!({ "results": projected })),
-                ..ToolResult::default()
-            }
-        }
-        Err(e) => ToolResult {
-            success: false,
-            error: Some(e.to_string()),
-            ..ToolResult::default()
-        },
-    }
-}
-
 /// After the agent run finishes, fetch embeddings for the memories
 /// it just created and upsert them into the vec index. Done outside
 /// the tool loop because embedding is a network call and we don't
@@ -715,111 +373,5 @@ async fn embed_new_memories(api_key: &str, store: std::sync::Arc<MemoryStore>, i
                 .map_err(|e| e.to_string())
         })
         .await;
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use tempfile::TempDir;
-
-    // The pure prompt builders (build_user_message, flatten_transcript,
-    // language_aware_trailer, …) moved to attune_core::llm::prompt (GET-184);
-    // their unit tests live there now.
-
-    #[test]
-    fn tools_for_agent_attaches_correct_set() {
-        let summarize = tools_for_agent("summarize").unwrap();
-        assert!(summarize.iter().any(|t| t.name == "search_memory"));
-        assert!(!summarize.iter().any(|t| t.name == "create_task"));
-        assert!(!summarize.iter().any(|t| t.name == "remember"));
-
-        let tasks = tools_for_agent("extract-tasks").unwrap();
-        assert!(tasks.iter().any(|t| t.name == "create_task"));
-        assert!(tasks.iter().any(|t| t.name == "search_memory"));
-
-        let memories = tools_for_agent("extract-memories").unwrap();
-        assert!(memories.iter().any(|t| t.name == "remember"));
-        assert!(memories.iter().any(|t| t.name == "search_memory"));
-    }
-
-    /// Helper: open a MemoryStore at a tempdir and return the
-    /// `Arc<MemoryStore>` the dispatch helpers now expect.
-    fn arc_store(dir: &std::path::Path) -> std::sync::Arc<MemoryStore> {
-        std::sync::Arc::new(MemoryStore::open(dir).unwrap())
-    }
-
-    #[test]
-    fn dispatch_create_task_writes_to_store() {
-        let dir = TempDir::new().unwrap();
-        let tasks_path = dir.path().join("tasks.json");
-        let memory_dir = dir.path().join("memory");
-        let store = arc_store(&memory_dir);
-        let call = ToolCall {
-            id: "call_1".into(),
-            name: "create_task".into(),
-            arguments: r#"{"title":"Send recap","owner":"Ege"}"#.into(),
-        };
-        let r = dispatch_tool_call(
-            &call,
-            &tasks_path,
-            store,
-            "/sessions/abc",
-            Some("2026-05-25-team"),
-        );
-        assert!(r.success, "got error: {:?}", r.error);
-        assert!(r.id.is_some());
-    }
-
-    #[test]
-    fn dispatch_remember_creates_memory() {
-        let dir = TempDir::new().unwrap();
-        let tasks_path = dir.path().join("tasks.json");
-        let memory_dir = dir.path().join("memory");
-        let store = arc_store(&memory_dir);
-        let call = ToolCall {
-            id: "call_m".into(),
-            name: "remember".into(),
-            arguments: r#"{"kind":"claim","key":"user.company","content":"Attune","confidence":0.9,"tags":["company"]}"#.into(),
-        };
-        let r = dispatch_tool_call(
-            &call,
-            &tasks_path,
-            store.clone(),
-            "/sessions/abc",
-            Some("2026-05-25"),
-        );
-        assert!(r.success, "got error: {:?}", r.error);
-        let memories = store.list(&Default::default()).unwrap();
-        assert_eq!(memories.len(), 1);
-        assert_eq!(memories[0].content, "Attune");
-        assert!(memories[0].source_session_dir.is_some());
-    }
-
-    #[test]
-    fn dispatch_search_memory_returns_hits() {
-        let dir = TempDir::new().unwrap();
-        let tasks_path = dir.path().join("tasks.json");
-        let memory_dir = dir.path().join("memory");
-        let store = arc_store(&memory_dir);
-        // Seed one memory.
-        store
-            .create(NewMemory {
-                kind: MemoryKind::Claim,
-                key: Some("user.company".into()),
-                content: "Attune".into(),
-                ..NewMemory::default()
-            })
-            .unwrap();
-        let call = ToolCall {
-            id: "call_s".into(),
-            name: "search_memory".into(),
-            arguments: r#"{"query":"company","limit":5}"#.into(),
-        };
-        let r = dispatch_tool_call(&call, &tasks_path, store, "/sessions/abc", None);
-        assert!(r.success, "got error: {:?}", r.error);
-        let data = r.data.expect("has data");
-        let results = data.get("results").and_then(|v| v.as_array()).unwrap();
-        assert_eq!(results.len(), 1);
     }
 }
