@@ -39,6 +39,16 @@ impl OpenAiProvider {
             client: Client::new(),
         }
     }
+
+    /// Privacy-mode gate (GET-174): refuse any outbound request when the
+    /// host is blocked (airgap / Privacy Mode; localhost stays allowed).
+    /// Called before every `send()` so chat transcript content, model
+    /// listing, and key tests all honour the cutoff — mirrors the
+    /// transcription + embedding gating.
+    fn ensure_egress_allowed(&self) -> Result<()> {
+        let host = crate::cloud_guard::host_of(&self.base_url).unwrap_or_default();
+        crate::cloud_guard::ensure_allowed(host).map_err(|e| AttuneError::Llm(e.to_string()))
+    }
 }
 
 #[async_trait]
@@ -48,6 +58,7 @@ impl LlmProvider for OpenAiProvider {
     }
 
     async fn test(&self) -> Result<()> {
+        self.ensure_egress_allowed()?;
         let url = format!("{}/models", self.base_url);
         let resp = self
             .client
@@ -67,6 +78,7 @@ impl LlmProvider for OpenAiProvider {
     }
 
     async fn list_models(&self) -> Result<Vec<ModelInfo>> {
+        self.ensure_egress_allowed()?;
         let url = format!("{}/models", self.base_url);
         let resp = self
             .client
@@ -109,6 +121,7 @@ impl LlmProvider for OpenAiProvider {
     }
 
     async fn chat(&self, request: ChatRequest) -> Result<ChatResponse> {
+        self.ensure_egress_allowed()?;
         let body = build_chat_request_body(&request);
         debug!(
             model = %request.model,
@@ -327,6 +340,18 @@ mod tests {
     use super::*;
     use crate::llm::types::{ChatMessage, ChatRequest, ChatRole, ToolDef};
     use serde_json::json;
+
+    #[test]
+    fn egress_host_resolves_to_openai_for_the_airgap_guard() {
+        // GET-174: every send() gates on this host via cloud_guard, so it
+        // must be the real OpenAI host for Privacy Mode to block it. Paired
+        // with cloud_guard::tests::airgap_blocks_external_hosts; avoids
+        // mutating the process-global airgap flag (which races parallel
+        // tests), mirroring the embed.rs approach.
+        let provider = OpenAiProvider::new("sk-test");
+        let host = crate::cloud_guard::host_of(&provider.base_url).expect("host must parse");
+        assert_eq!(host, "api.openai.com");
+    }
 
     fn user(text: &str) -> ChatMessage {
         ChatMessage {

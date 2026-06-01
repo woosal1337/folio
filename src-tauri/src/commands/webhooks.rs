@@ -131,6 +131,12 @@ async fn deliver(
     sub: &WebhookSubscription,
     payload: &attune_core::webhooks::WebhookPayload,
 ) -> Result<String, String> {
+    // Privacy-mode gate (GET-174): never POST meeting data to a user-
+    // supplied webhook host under airgap / Privacy Mode (localhost stays
+    // allowed). Mirrors the LLM + transcription egress gating.
+    let host = attune_core::cloud_guard::host_of(&sub.url).unwrap_or_default();
+    attune_core::cloud_guard::ensure_allowed(host).map_err(|e| e.to_string())?;
+
     let body = serde_json::to_vec(payload).map_err(|e| e.to_string())?;
     let signature = sign(&sub.secret, &body);
     let client = reqwest::Client::new();
