@@ -219,6 +219,7 @@ pub fn run() {
             commands::maintenance::archive_inbox_entry,
             commands::maintenance::get_showcase,
             commands::maintenance::save_showcase,
+            commands::maintenance::apply_cross_track_aec,
             commands::recipes::list_recipes,
             commands::mcp_connect::generate_mcp_config,
             commands::mcp_connect::write_mcp_config,

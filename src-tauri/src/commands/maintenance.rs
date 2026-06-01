@@ -367,3 +367,36 @@ pub async fn save_showcase(state: State<'_, AppState>, showcase: Showcase) -> Re
     .await
     .map_err(|e| format!("save_showcase task panicked: {e}"))?
 }
+
+/// Apply cross-track AEC to a session's mic.wav using system.wav as the
+/// reference signal (GET-202). Writes `mic.aec.wav` next to the originals.
+/// Returns the output path as a string.
+#[tauri::command]
+pub async fn apply_cross_track_aec(
+    state: State<'_, AppState>,
+    session_dir: String,
+) -> Result<String, String> {
+    let output_dir = state.settings.lock().output_dir.clone();
+    let session_path =
+        attune_core::paths::canonicalize_under(&output_dir, std::path::Path::new(&session_dir))
+            .map_err(|e| e.to_string())?;
+
+    tauri::async_runtime::spawn_blocking(move || -> Result<String, String> {
+        let mic_path = session_path.join("mic.wav");
+        let sys_path = session_path.join("system.wav");
+        let out_path = session_path.join("mic.aec.wav");
+
+        if !mic_path.exists() || !sys_path.exists() {
+            return Err("session must have both mic.wav and system.wav for cross-track AEC".into());
+        }
+
+        attune_core::audio::enhancement::cross_track_aec::apply_aec(
+            &mic_path, &sys_path, &out_path,
+        )
+        .map_err(|e| e.to_string())?;
+
+        Ok(out_path.to_string_lossy().into_owned())
+    })
+    .await
+    .map_err(|e| format!("cross_track_aec task panicked: {e}"))?
+}
