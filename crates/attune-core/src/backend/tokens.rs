@@ -51,9 +51,17 @@ pub struct UserIdentity {
     pub privacy_tier: Option<String>,
 }
 
+/// Keychain accessor for the session triple (access, refresh, identity).
+/// All operations are synchronous and interact with the platform keychain.
 pub struct TokenStore;
 
 impl TokenStore {
+    /// Write the full session triple atomically to the keychain.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` if any keychain write fails (e.g. the keychain is
+    /// locked) or if `identity` cannot be serialised to JSON.
     pub fn save(tokens: &AuthTokens, identity: &UserIdentity) -> Result<()> {
         entry(ACCOUNT_ACCESS)?
             .set_password(&tokens.access_token)
@@ -69,10 +77,20 @@ impl TokenStore {
         Ok(())
     }
 
+    /// Read the current access token from the keychain.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` if the keychain entry cannot be read.
     pub fn access_token() -> Result<Option<String>> {
         read(ACCOUNT_ACCESS)
     }
 
+    /// Read the current refresh token from the keychain.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` if the keychain entry cannot be read.
     pub fn refresh_token() -> Result<Option<String>> {
         read(ACCOUNT_REFRESH)
     }
@@ -90,6 +108,12 @@ impl TokenStore {
         Ok(())
     }
 
+    /// Read the cached identity from the keychain.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` if the keychain entry cannot be read or the JSON
+    /// is malformed.
     pub fn identity() -> Result<Option<UserIdentity>> {
         let Some(json) = read(ACCOUNT_IDENTITY)? else {
             return Ok(None);
@@ -99,18 +123,35 @@ impl TokenStore {
             .map_err(|e| AttuneError::Other(format!("identity parse: {e}")))
     }
 
+    /// Replace only the access token (used by the refresh flow).
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` if the keychain write fails.
     pub fn update_access_token(token: &str) -> Result<()> {
         entry(ACCOUNT_ACCESS)?
             .set_password(token)
             .map_err(map_keychain)
     }
 
+    /// Replace only the refresh token (used by the token-rotation flow).
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` if the keychain write fails.
     pub fn update_refresh_token(token: &str) -> Result<()> {
         entry(ACCOUNT_REFRESH)?
             .set_password(token)
             .map_err(map_keychain)
     }
 
+    /// Delete all three keychain entries (access, refresh, identity).
+    /// Ignores `NoEntry` errors — safe to call even if already signed out.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` if a keychain delete fails for a reason other than
+    /// the entry not existing.
     pub fn clear() -> Result<()> {
         for acc in [ACCOUNT_ACCESS, ACCOUNT_REFRESH, ACCOUNT_IDENTITY] {
             match entry(acc)?.delete_credential() {
@@ -121,6 +162,8 @@ impl TokenStore {
         Ok(())
     }
 
+    /// True iff a valid refresh token is present in the keychain.
+    /// Does not validate the token's expiry — purely a presence check.
     pub fn is_signed_in() -> bool {
         matches!(read(ACCOUNT_REFRESH), Ok(Some(_)))
     }
