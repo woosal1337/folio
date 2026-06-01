@@ -39,13 +39,7 @@ fn write_registry(output_dir: &Path, folders: &[String]) -> Result<()> {
 
 /// Read a note's folder assignment from `<session_dir>/folder.txt`.
 fn read_note_folder(session_dir: &Path) -> Option<String> {
-    let raw = std::fs::read_to_string(session_dir.join(FOLDER_MARKER)).ok()?;
-    let trimmed = raw.lines().next()?.trim();
-    if trimmed.is_empty() {
-        None
-    } else {
-        Some(trimmed.to_string())
-    }
+    crate::storage::session::read_first_line(session_dir, FOLDER_MARKER)
 }
 
 /// Case-insensitive membership check.
