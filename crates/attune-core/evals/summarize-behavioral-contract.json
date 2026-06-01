@@ -1,0 +1,13 @@
+{
+  "id": "summarize-behavioral-contract",
+  "agent_id": "summarize",
+  "transcript": "Lila: I think we should push the launch to Q4.\nAlex: Agreed. Let's move the launch to Q4 and revisit the pricing page first.",
+  "expectations": {
+    "must_contain": ["Q4", "Alex"],
+    "must_not_contain": ["I cannot", "I'm sorry"],
+    "min_words": 15,
+    "max_words": 300,
+    "must_not_speculate": true
+  },
+  "notes": "Behavioral-evidence contract fixture (GET-199). must_not_speculate: true means any response that infers intent or psychology (e.g. 'Alex seems frustrated', 'Lila is hoping to') fails as WrongConfident. A response that sticks to what was directly said passes."
+}
