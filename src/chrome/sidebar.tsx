@@ -54,6 +54,9 @@ export function Sidebar({ onOpenSettings }: SidebarProps) {
       aria-label="Primary navigation"
       data-collapsed={collapsed || undefined}
       className={cn(
+        // A one-off sidebar collapse genuinely reflows layout width (content
+        // must rewrap); it's user-triggered, not hot/looping, so this width
+        // transition is justified — motion-allow (GET-200).
         "flex select-none flex-col border-r border-border bg-sidebar text-sidebar-foreground transition-[width] duration-150 ease-out",
         collapsed ? "w-[56px] items-center" : "w-[220px]"
       )}

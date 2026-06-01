@@ -132,7 +132,7 @@ function BucketTile({
       aria-checked={selected}
       onClick={onSelect}
       className={cn(
-        "group relative flex flex-col items-start gap-2 rounded-lg border bg-card p-5 text-left transition-all",
+        "group relative flex flex-col items-start gap-2 rounded-lg border bg-card p-5 text-left transition-colors",
         "hover:border-primary/40 hover:bg-muted/30",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         selected

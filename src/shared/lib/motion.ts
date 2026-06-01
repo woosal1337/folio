@@ -6,10 +6,27 @@
  * (e.g. transient hover states, drag-drop overlays) reach for the
  * same vocabulary as the static class-based styles.
  *
- * Reviewers will reject new components using `transition-all 200ms
- * ease`. Pair a `DURATIONS.*` constant with an `EASING.*` curve.
- * For lists, FLIP via @dnd-kit's animate-layout-changes is the
- * blessed path — never animate `height: auto`.
+ * ## Composite-only rule (GET-200, enforced by `npm run lint:motion`)
+ *
+ * Animate ONLY `transform` (translate/scale/rotate) and `opacity` — they
+ * run on the compositor thread, off the main thread. The cost taxonomy:
+ *
+ *   - **Layout** (height, width, top, left, margin, padding, inset): the
+ *     browser re-runs layout for the subtree every frame. Worst. Granola
+ *     measured one height transition at 60% CPU / 25% GPU on an M2.
+ *   - **Paint** (color, background, box-shadow, fill, border-color): a
+ *     repaint every frame. Bad in hot/looping UI; tolerable on a one-off
+ *     hover (transition-colors).
+ *   - **Composite** (transform, opacity): GPU-only, effectively free — the
+ *     only thing to animate in always-on / per-frame / looping surfaces.
+ *
+ * So a growing bar is `transform: scaleX()`, not animated `width`; a
+ * sliding panel is `translateX()`, not `left`. The lint bans the blanket
+ * Tailwind transition and `transition-[<layout-prop>]` (+ CSS equivalents).
+ * Pair a `DURATIONS.*` constant with an `EASING.*` curve. For lists, FLIP
+ * via @dnd-kit's animate-layout-changes is the blessed path — never animate
+ * `height: auto`. Justify a rare one-off (a sidebar collapse that truly
+ * reflows width) with a `motion-allow` comment.
  *
  * Honour `prefers-reduced-motion`: globals.css clamps every
  * animation-duration / transition-duration to ~0ms when the user
