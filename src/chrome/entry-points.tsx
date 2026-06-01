@@ -2,12 +2,19 @@ import * as React from "react";
 import { useNavigate } from "react-router-dom";
 
 import { onMeetingTakeNotes, onTrayEvent } from "@/shared/lib/ipc";
+import { registerNavigateFn } from "@/shared/lib/navigate-bridge";
 import { useRecording } from "@/shared/stores/recording-store";
 import { useTakeNotes } from "@/shared/hooks/use-take-notes";
 
 /**
  * GET-144 — converges every "start a meeting note" entry point onto the
  * single take-notes flow, and wires the rest of the menu-bar tray menu.
+ *
+ * GET-214 — also registers the React Router `navigate` function with
+ * `navigate-bridge` so external code (deep links, future attune:// URLs)
+ * can call `bridgeNavigate()` without touching `window.location` or
+ * `window.history`. All external entry points MUST route through
+ * `bridgeNavigate`; only in-tree components may call `useNavigate()` directly.
  *
  * Entry points handled:
  *   - meeting HUD Take Notes (`meeting:take-notes`, GET-143)
@@ -22,6 +29,12 @@ export function EntryPointBridge() {
   const navigate = useNavigate();
   const takeNotes = useTakeNotes();
   const stop = useRecording((s) => s.stop);
+
+  // GET-214: register navigate with the bridge so external callers that arrive
+  // before mount (deep links, Tauri events) can use bridgeNavigate() safely.
+  React.useEffect(() => {
+    registerNavigateFn(navigate);
+  }, [navigate]);
 
   React.useEffect(() => {
     const unlisteners: Array<() => void> = [];

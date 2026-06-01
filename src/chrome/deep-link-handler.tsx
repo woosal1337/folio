@@ -3,6 +3,7 @@ import { toast } from "sonner";
 
 import { getInitialDeepLink, onDeepLink } from "@/shared/lib/ipc";
 import { classifyDeepLink } from "@/shared/lib/deep-link-allowlist";
+import { bridgeNavigate } from "@/shared/lib/navigate-bridge";
 
 /**
  * Handler for `attune://` deep links and external audio file drops.
@@ -72,6 +73,8 @@ function handle(urls: string[]) {
     const verdict = classifyDeepLink(url);
     switch (verdict.kind) {
       case "allowed-attune-route":
+        // GET-214: route through the bridge so we never touch window.location.
+        bridgeNavigate(verdict.route);
         toast.message("Attune deep link", {
           description: `${verdict.route}${formatParams(verdict.params)}`,
         });
