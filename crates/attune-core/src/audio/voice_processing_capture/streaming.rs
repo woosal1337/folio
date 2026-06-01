@@ -7,7 +7,9 @@
 //! multi-channel frames to mono, resamples to the writer's target
 //! rate, and writes — same contract as the cpal mic callback.
 
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use coreaudio::audio_unit::render_callback::{self, data};
 use coreaudio::audio_unit::{AudioUnit, Element, IOType, Scope};
@@ -15,12 +17,23 @@ use coreaudio_sys::{
     kAudioOutputUnitProperty_EnableIO, kAudioUnitProperty_StreamFormat, AudioStreamBasicDescription,
 };
 use parking_lot::Mutex as PlMutex;
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 
 use super::ducking::apply_minimum_ducking;
 use crate::audio::resampler::StreamingResampler;
 use crate::audio::wav_writer::AudioWavWriter;
 use crate::error::{AttuneError, Result};
+
+fn now_ms() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64
+}
+
+/// Seconds after VPIO start with no callback invocations before we
+/// consider the unit silently broken (GET-171).
+const VPIO_SILENCE_WARN_SECS: u64 = 5;
 
 /// Production VPIO mic capture that writes directly into an
 /// [`AudioWavWriter`] via [`StreamingResampler`].
@@ -36,6 +49,14 @@ pub struct VoiceProcessingMicCapture {
     /// Channels per frame the unit emits. Usually 1; can be 2 on some
     /// USB interfaces.
     input_channels: u32,
+    /// Millisecond epoch of the last callback invocation. Zero = never
+    /// called. Used by the GET-171 silence guard.
+    pub last_callback_ms: Arc<AtomicU64>,
+    /// True once at least one non-empty frame has been received.
+    pub received_audio: Arc<AtomicBool>,
+    /// Millisecond epoch when the unit was started. Used to compute
+    /// how long VPIO has been running without producing audio.
+    started_ms: u64,
 }
 
 impl VoiceProcessingMicCapture {
@@ -50,9 +71,23 @@ impl VoiceProcessingMicCapture {
         let mut audio_unit = AudioUnit::new_uninitialized(IOType::VoiceProcessingIO)
             .map_err(|e| AttuneError::AudioDevice(format!("VPIO instantiate: {e}")))?;
 
-        // Same minimal setup as the buffered variant: enable input
-        // bus 1, init, read back the negotiated format. See
-        // `super::buffered` for the rationale on the minimal config.
+        // Canonical input-only VPIO setup (GET-171):
+        // 1. Disable output element 0 — non-fatal; older setups returned
+        //    kAudioUnitErr_FailedInitialization on some M-series Macs
+        //    when we did this, so we log and continue on failure rather
+        //    than aborting. The missing disable is the most likely cause
+        //    of the "VPIO starts but yields silence" bug.
+        let disable: u32 = 0;
+        if let Err(e) = audio_unit.set_property(
+            kAudioOutputUnitProperty_EnableIO,
+            Scope::Output,
+            Element::Output,
+            Some(&disable),
+        ) {
+            warn!(error = %e, "VPIO disable output failed (non-fatal) — continuing");
+        }
+
+        // 2. Enable input element 1.
         let enable: u32 = 1;
         audio_unit
             .set_property(
@@ -96,6 +131,12 @@ impl VoiceProcessingMicCapture {
         let resampler_for_cb = Arc::clone(&resampler);
         let n_channels = input_channels as usize;
 
+        // Silence tracker (GET-171): updated every callback invocation.
+        let last_callback_ms: Arc<AtomicU64> = Arc::new(AtomicU64::new(0));
+        let received_audio: Arc<AtomicBool> = Arc::new(AtomicBool::new(false));
+        let last_cb_for_cb = Arc::clone(&last_callback_ms);
+        let received_for_cb = Arc::clone(&received_audio);
+
         // Reusable scratch buffer for the mono-fold step. Allocated
         // once outside the closure and captured by move. The callback
         // pushes into it, hands a slice to the resampler, and clears.
@@ -109,6 +150,14 @@ impl VoiceProcessingMicCapture {
                 }
                 let raw = args.data.buffer;
                 let frame_count = raw.len() / n_channels;
+
+                // Stamp the callback so the silence guard can detect a
+                // stuck unit. Done before the expensive resampling path
+                // so even a zero-frame callback marks the unit as alive.
+                last_cb_for_cb.store(now_ms(), Ordering::Relaxed);
+                if frame_count > 0 {
+                    received_for_cb.store(true, Ordering::Relaxed);
+                }
 
                 let mut mono = mono_scratch.lock();
                 mono.clear();
@@ -143,6 +192,7 @@ impl VoiceProcessingMicCapture {
             })
             .map_err(|e| AttuneError::AudioDevice(format!("VPIO callback: {e}")))?;
 
+        let started_ms = now_ms();
         audio_unit
             .start()
             .map_err(|e| AttuneError::AudioDevice(format!("VPIO start: {e}")))?;
@@ -154,6 +204,9 @@ impl VoiceProcessingMicCapture {
             running: true,
             input_sample_rate,
             input_channels,
+            last_callback_ms,
+            received_audio,
+            started_ms,
         })
     }
 
@@ -177,6 +230,18 @@ impl VoiceProcessingMicCapture {
 
     pub fn input_channels(&self) -> u32 {
         self.input_channels
+    }
+
+    /// True when the unit has been running for at least
+    /// [`VPIO_SILENCE_WARN_SECS`] seconds without the callback firing
+    /// even once. Indicates the "VPIO starts but produces silence" bug
+    /// described in GET-171.
+    pub fn is_silent(&self) -> bool {
+        if self.received_audio.load(Ordering::Relaxed) {
+            return false;
+        }
+        let elapsed_ms = now_ms().saturating_sub(self.started_ms);
+        elapsed_ms >= VPIO_SILENCE_WARN_SECS * 1000
     }
 }
 

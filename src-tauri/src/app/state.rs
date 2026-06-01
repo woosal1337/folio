@@ -158,12 +158,18 @@ impl AppState {
             .map(|n| n.dir.clone())
             .or_else(|| session.as_ref().map(|s| s.session_dir().clone()))
             .map(|p| p.to_string_lossy().into_owned());
+        // GET-171: check if VPIO started but is delivering silence.
+        let vpio_silent = session
+            .as_ref()
+            .map(|s| s.is_vpio_silent())
+            .unwrap_or(false);
         RecordingStatus {
             recording,
             elapsed_secs,
             channels,
             session_dir,
             paused,
+            vpio_silent,
         }
     }
 }
