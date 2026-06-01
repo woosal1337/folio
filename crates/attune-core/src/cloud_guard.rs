@@ -114,7 +114,7 @@ pub struct PolicyLimits {
 
 #[derive(Debug, thiserror::Error)]
 pub enum CloudGuardError {
-    #[error("Privacy Mode is on — outbound request to {host} blocked")]
+    #[error("privacy mode is on, outbound request to {host} blocked")]
     Airgapped { host: String },
     #[error("egress policy blocks outbound request to {host}")]
     PolicyBlocked { host: String },

@@ -28,7 +28,6 @@ thread_local! {
     static QOS_TAGGED: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 }
 
-#[inline]
 fn ensure_capture_qos() {
     QOS_TAGGED.with(|cell| {
         if !cell.get() {

@@ -110,7 +110,8 @@ impl MemoryIndex {
             );
             drop(std::mem::replace(
                 &mut self.conn,
-                Connection::open_in_memory().expect("in-memory open"),
+                Connection::open_in_memory()
+                    .expect("in-memory SQLite should always open; infallible on all targets"),
             ));
             let _ = std::fs::remove_file(&self.db_path);
             self.conn = Connection::open(&self.db_path).map_err(|e| {

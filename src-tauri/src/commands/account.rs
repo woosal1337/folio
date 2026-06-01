@@ -29,7 +29,7 @@ pub async fn account_update(display_name: Option<String>) -> Result<UserDoc, Str
             if let Err(e) = TokenStore::update_identity(&identity) {
                 // Non-fatal: the backend already has the change; the local
                 // cache just didn't update. Log and move on.
-                eprintln!("account_update: failed to refresh cached identity: {e}");
+                tracing::warn!(error = %e, "account_update: failed to refresh cached identity (non-fatal)");
             }
         }
     }
