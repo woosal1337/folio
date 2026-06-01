@@ -123,10 +123,10 @@ pub fn scan_recordings(output_dir: &Path) -> Vec<RecordingSummary> {
         let has_transcript = path.join(TRANSCRIPT_FILENAME).is_file()
             || path.join(format!("{TRANSCRIPT_FILENAME}.zst")).is_file();
         let autoname = read_autoname_run(&path);
-        let language_override = read_language_override(&path);
-        let title = read_user_title(&path);
-        let folder = read_note_folder(&path);
-        let draft_name = read_draft_name(&path);
+        let language_override = read_first_line(&path, "language.txt");
+        let title = read_first_line(&path, "title.txt");
+        let folder = read_first_line(&path, "folder.txt");
+        let draft_name = read_first_line(&path, "draft.txt");
         out.push(RecordingSummary {
             session_dir: path,
             label,
@@ -178,38 +178,13 @@ fn wav_sample_rate(path: &Path) -> Option<u32> {
     Some(hound::WavReader::open(path).ok()?.spec().sample_rate)
 }
 
-/// Read `<session_dir>/language.txt` and return the trimmed first
-/// line if non-empty. Mirrors the per-recording-override loader in
-/// `src-tauri/src/commands/transcription.rs` (we duplicate the tiny
-/// helper rather than depend on the Tauri crate from attune-core).
-/// v2 finding 046 / GET-89.
-fn read_language_override(session_dir: &Path) -> Option<String> {
-    let path = session_dir.join("language.txt");
-    let raw = std::fs::read_to_string(&path).ok()?;
-    let trimmed = raw.lines().next()?.trim();
-    if trimmed.is_empty() {
-        None
-    } else {
-        Some(trimmed.to_string())
-    }
-}
-
-/// Read the user-set note title from `<session_dir>/title.txt` (GET-163).
-/// First non-empty line, trimmed; None when missing or blank.
-fn read_user_title(session_dir: &Path) -> Option<String> {
-    let raw = std::fs::read_to_string(session_dir.join("title.txt")).ok()?;
-    let trimmed = raw.lines().next()?.trim();
-    if trimmed.is_empty() {
-        None
-    } else {
-        Some(trimmed.to_string())
-    }
-}
-
-/// Read a note's draft placeholder name from `<session_dir>/draft.txt`
-/// (e.g. "Draft 3"). First non-empty line, trimmed; None when missing.
-fn read_draft_name(session_dir: &Path) -> Option<String> {
-    let raw = std::fs::read_to_string(session_dir.join("draft.txt")).ok()?;
+/// Read `<session_dir>/<filename>` and return its trimmed first line if
+/// non-empty. This is the on-disk format for every small per-note string —
+/// the language override (`language.txt`, GET-89), the user title
+/// (`title.txt`, GET-163), the draft name (`draft.txt`), the folder
+/// (`folder.txt`, GET-162). None when the file is missing or blank.
+pub(crate) fn read_first_line(session_dir: &Path, filename: &str) -> Option<String> {
+    let raw = std::fs::read_to_string(session_dir.join(filename)).ok()?;
     let trimmed = raw.lines().next()?.trim();
     if trimmed.is_empty() {
         None
@@ -232,18 +207,6 @@ pub fn allocate_draft_name(output_dir: &Path) -> String {
     let next = last + 1;
     let _ = crate::storage::atomic_write::atomic_write(&path, next.to_string().as_bytes());
     format!("Draft {next}")
-}
-
-/// Read the folder a note is filed under from `<session_dir>/folder.txt`
-/// (GET-162). First non-empty line, trimmed; None when missing or blank.
-fn read_note_folder(session_dir: &Path) -> Option<String> {
-    let raw = std::fs::read_to_string(session_dir.join("folder.txt")).ok()?;
-    let trimmed = raw.lines().next()?.trim();
-    if trimmed.is_empty() {
-        None
-    } else {
-        Some(trimmed.to_string())
-    }
 }
 
 /// Lightweight mirror of the `autoname` agent's JSON response. We

@@ -11,7 +11,7 @@ use tracing::debug;
 use crate::error::{AttuneError, Result};
 use crate::llm::provider::{LlmProvider, ProviderId};
 use crate::llm::types::{
-    ChatMessage, ChatRequest, ChatResponse, ChatRole, FinishReason, ModelInfo, ToolCall,
+    ChatRequest, ChatResponse, ChatRole, FinishReason, ModelInfo, ToolCall,
 };
 
 const DEFAULT_BASE_URL: &str = "https://api.openai.com/v1";
@@ -320,20 +320,6 @@ struct ModelsResponse {
 #[derive(Deserialize)]
 struct ModelEntry {
     id: String,
-}
-
-// Compile-time sanity: the cross-provider ChatMessage and the openai
-// wire type stay shaped the way we expect. If either changes shape
-// without the other being updated, the From impl will fail to compile.
-impl From<&ChatMessage> for OpenAiMessage {
-    fn from(m: &ChatMessage) -> Self {
-        OpenAiMessage {
-            role: role_to_str(m.role).to_string(),
-            content: Some(m.content.clone()),
-            tool_calls: None,
-            tool_call_id: None,
-        }
-    }
 }
 
 #[cfg(test)]
