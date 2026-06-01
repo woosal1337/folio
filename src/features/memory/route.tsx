@@ -327,18 +327,21 @@ function MemoryCard({
     >
       <header className="flex items-start justify-between gap-2">
         <div className="flex min-w-0 flex-col gap-0.5">
-          <div className="flex items-center gap-1.5">
-            <Brain className={cn("h-3.5 w-3.5", meta.accent)} />
-            <span className="text-2xs uppercase tracking-wider text-muted-foreground">
+          <div className="flex min-w-0 items-center gap-1.5">
+            <Brain className={cn("h-3.5 w-3.5 shrink-0", meta.accent)} />
+            <span className="shrink-0 text-2xs uppercase tracking-wider text-muted-foreground">
               {memory.kind}
             </span>
             {memory.key && (
-              <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-2xs">
+              <code
+                className="min-w-0 truncate rounded bg-muted px-1.5 py-0.5 font-mono text-2xs"
+                title={memory.key}
+              >
                 {memory.key}
               </code>
             )}
             {memory.pinned && (
-              <Pin className="h-3 w-3 text-amber-600" aria-label="pinned" />
+              <Pin className="h-3 w-3 shrink-0 text-amber-600" aria-label="pinned" />
             )}
           </div>
           <button
