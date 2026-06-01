@@ -76,6 +76,7 @@ pub mod onboarding;
 pub mod paths;
 pub mod permissions;
 pub mod qos;
+pub mod recipes;
 pub mod share_page;
 pub mod speaker_memory;
 pub mod storage;

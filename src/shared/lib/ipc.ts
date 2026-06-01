@@ -914,6 +914,18 @@ export function askNote(
   return call<{ answer: string }>("ask_note", { sessionDir, question, history });
 }
 
+/** A user-authored chat recipe loaded from .attune/recipes/*.toml (GET-194). */
+export interface UserRecipe {
+  label: string;
+  prompt: string;
+  icon?: string | null;
+}
+
+/** Load user-authored recipes from the vault (GET-194). */
+export function listRecipes(): Promise<UserRecipe[]> {
+  return call<UserRecipe[]>("list_recipes");
+}
+
 /** Coverage metadata for a cross-library Ask Attune answer (GET-193). */
 export interface CoverageNote {
   notes_total: number;

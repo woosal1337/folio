@@ -23,6 +23,7 @@ pub mod meeting;
 pub mod memory;
 pub mod permissions;
 pub mod preferences;
+pub mod recipes;
 pub mod recording;
 pub mod recording_bar;
 pub mod referrals;

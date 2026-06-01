@@ -31,9 +31,11 @@ import {
   deleteChatThread,
   listChatThreads,
   listProviderModels,
+  listRecipes,
   saveChatThread,
   type ChatTurn,
   type CoverageNote,
+  type UserRecipe,
 } from "@/shared/lib/ipc";
 import { useAuthStore } from "@/shared/stores/auth-store";
 import { confirmDelete } from "@/shared/stores/confirm-delete-store";
@@ -44,6 +46,37 @@ interface Recipe {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   prompt: string;
+  /** True for recipes loaded from .attune/recipes/ (GET-194). */
+  userDefined?: boolean;
+}
+
+/** Map a kebab-case icon name from a user recipe TOML to a lucide component. */
+function iconForName(
+  name: string | null | undefined
+): React.ComponentType<{ className?: string }> {
+  switch (name) {
+    case "list-todo":
+      return ListTodo;
+    case "compass":
+      return Compass;
+    case "calendar":
+    case "calendar-range":
+      return CalendarRange;
+    case "eye":
+      return Eye;
+    default:
+      return Sparkles;
+  }
+}
+
+/** Convert a UserRecipe (from the vault) into the internal Recipe shape. */
+function toRecipe(r: UserRecipe): Recipe {
+  return {
+    label: r.label,
+    prompt: r.prompt,
+    icon: iconForName(r.icon),
+    userDefined: true,
+  };
 }
 
 const RECIPES: Recipe[] = [
@@ -170,16 +203,27 @@ export default function Chat() {
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
 
+  // User-authored recipes from .attune/recipes/ (GET-194).
+  const [userRecipes, setUserRecipes] = React.useState<Recipe[]>([]);
+  React.useEffect(() => {
+    listRecipes()
+      .then((rs) => setUserRecipes(rs.map(toRecipe)))
+      .catch(() => {});
+  }, []);
+
+  // All recipes: built-ins first, user-defined appended.
+  const allRecipes = React.useMemo(() => [...RECIPES, ...userRecipes], [userRecipes]);
+
   // Slash-command palette (GET-192).
   const [paletteOpen, setPaletteOpen] = React.useState(false);
   const [paletteQuery, setPaletteQuery] = React.useState("");
   const [paletteIndex, setPaletteIndex] = React.useState(0);
 
   const paletteMatches = React.useMemo(() => {
-    if (!paletteQuery) return RECIPES;
+    if (!paletteQuery) return allRecipes;
     const q = paletteQuery.toLowerCase();
-    return RECIPES.filter((r) => r.label.toLowerCase().includes(q));
-  }, [paletteQuery]);
+    return allRecipes.filter((r) => r.label.toLowerCase().includes(q));
+  }, [allRecipes, paletteQuery]);
 
   // Persisted conversation (GET-167): a thread id + creation time we keep
   // stable across turns so each save upserts the same file, plus the
@@ -425,7 +469,7 @@ export default function Chat() {
       <div ref={scrollRef} className="mt-6 flex-1 space-y-3 overflow-y-auto">
         {empty ? (
           <div className="flex flex-wrap gap-2">
-            {RECIPES.map((r) => {
+            {allRecipes.map((r) => {
               const Icon = r.icon;
               return (
                 <button
@@ -436,6 +480,12 @@ export default function Chat() {
                 >
                   <Icon className="h-3.5 w-3.5" />
                   {r.label}
+                  {r.userDefined ? (
+                    <span
+                      className="h-1.5 w-1.5 rounded-full bg-primary/40"
+                      title="Your recipe"
+                    />
+                  ) : null}
                 </button>
               );
             })}
