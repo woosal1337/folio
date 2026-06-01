@@ -520,32 +520,74 @@ fn build_library_context(
         out.push('\n');
     }
 
-    // Recent meeting summaries — track coverage as we go.
+    // Iterative retrieval (GET-203): relevance-ranked notes-over-transcripts.
+    //
+    // Tier 1 — collect all summaries, score against query tokens, sort by
+    //   combined (relevance × recency) score, take top LIBRARY_RECENT_NOTES.
+    // Tier 2 — for the top TRANSCRIPT_EXCERPT_MAX notes with a high relevance
+    //   score, append a verbatim transcript excerpt so verbatim questions are
+    //   answered with quotable evidence.
+    use attune_core::llm::retrieval;
+
+    let query_tokens_owned = retrieval::tokenize_query(query);
+    let query_tokens: Vec<&str> = query_tokens_owned.iter().map(String::as_str).collect();
+    let today = chrono::Utc::now();
+
     let mut recordings = scan_recordings(output_dir);
-    recordings.sort_by(|a, b| b.created_at.cmp(&a.created_at));
     let notes_total = recordings.len();
+
+    // Collect summaries + scores.
+    let mut scored: Vec<(f32, &attune_core::storage::RecordingSummary, String)> = recordings
+        .iter()
+        .filter_map(|r| {
+            let dir = Path::new(&r.session_dir);
+            let summary = attune_core::llm::AgentRunStore::list(dir)
+                .ok()
+                .and_then(|runs| runs.into_iter().find(|run| run.agent_id == "summarize"))
+                .map(|run| run.response)?;
+            if summary.trim().is_empty() {
+                return None;
+            }
+            let days_ago = r
+                .created_at
+                .map(|dt| (today - dt).num_days() as f64)
+                .unwrap_or(180.0);
+            let rel = retrieval::relevance_score(&summary, &query_tokens);
+            let score = retrieval::combined_score(rel, days_ago);
+            Some((score, r, summary))
+        })
+        .collect();
+
+    // Sort descending by score.
+    scored.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+    scored.truncate(LIBRARY_RECENT_NOTES);
+
+    const TRANSCRIPT_EXCERPT_MAX: usize = 2;
+    const HIGH_RELEVANCE_THRESHOLD: f32 = 0.5;
+
     let mut included = 0;
     let mut date_oldest: Option<String> = None;
     let mut date_newest: Option<String> = None;
-    for r in recordings.iter() {
-        if included >= LIBRARY_RECENT_NOTES {
-            break;
-        }
-        let dir = Path::new(&r.session_dir);
-        let summary = attune_core::llm::AgentRunStore::list(dir)
-            .ok()
-            .and_then(|runs| runs.into_iter().find(|run| run.agent_id == "summarize"))
-            .map(|run| run.response);
-        let Some(summary) = summary else { continue };
-        if summary.trim().is_empty() {
-            continue;
-        }
+
+    for (score, r, summary) in &scored {
         let title = r.suggested_title.as_deref().unwrap_or(&r.label);
         out.push_str(&format!("## Meeting: {title}\n"));
         out.push_str(summary.trim());
+
+        // Tier 2: pull transcript excerpt for high-relevance notes.
+        if included < TRANSCRIPT_EXCERPT_MAX
+            && *score >= HIGH_RELEVANCE_THRESHOLD
+            && !query_tokens.is_empty()
+        {
+            let dir = Path::new(&r.session_dir);
+            if let Some(excerpt) = retrieval::transcript_excerpt(dir, &query_tokens, 400) {
+                out.push_str("\n\n*Transcript excerpt:* \"");
+                out.push_str(&excerpt);
+                out.push('"');
+            }
+        }
         out.push_str("\n\n");
-        // Track date range of included notes (sorted newest-first, so
-        // first included = newest, last included = oldest).
+
         let date_str = r.created_at.map(|dt| dt.format("%Y-%m-%d").to_string());
         if date_newest.is_none() {
             date_newest = date_str.clone();
@@ -553,8 +595,9 @@ fn build_library_context(
         date_oldest = date_str;
         included += 1;
     }
-    // Capped when we hit the limit AND there might be more summarised
-    // notes beyond the cutoff (notes_total > included is a safe proxy).
+
+    // Re-sort recordings for capped check (we need a stable ordering).
+    recordings.sort_by(|a, b| b.created_at.cmp(&a.created_at));
     let capped = included >= LIBRARY_RECENT_NOTES && notes_total > included;
 
     // Relevant memories.
