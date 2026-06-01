@@ -49,9 +49,15 @@ pub fn raw_url(repo: &str, branch: &str, path: &str) -> String {
 }
 
 /// Parse the index.toml fetched from the marketplace repo.
-pub fn parse_index(input: &str) -> Result<MarketplaceIndex, String> {
-    toml::from_str::<MarketplaceIndex>(input)
-        .map_err(|e| format!("invalid marketplace index TOML: {e}"))
+///
+/// # Errors
+///
+/// Returns `Err(AttuneError::Storage(...))` when the input is not
+/// valid TOML or does not match `MarketplaceIndex`.
+pub fn parse_index(input: &str) -> crate::error::Result<MarketplaceIndex> {
+    toml::from_str::<MarketplaceIndex>(input).map_err(|e| {
+        crate::error::AttuneError::Storage(format!("invalid marketplace index TOML: {e}"))
+    })
 }
 
 #[cfg(test)]

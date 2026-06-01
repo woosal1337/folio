@@ -126,7 +126,8 @@ pub fn read_dir_pages(dir: &Path) -> Vec<Memory> {
             continue;
         }
         match fs::read_to_string(&path).and_then(|raw| {
-            parse_page(&raw).map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
+            parse_page(&raw)
+                .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string()))
         }) {
             Ok(memory) => out.push(memory),
             Err(e) => {
@@ -210,26 +211,31 @@ pub fn render_page(memory: &Memory) -> String {
     out
 }
 
-/// Parse a memory page from raw bytes. Returns an error string the
-/// caller can log if the frontmatter is malformed.
-pub fn parse_page(raw: &str) -> std::result::Result<Memory, String> {
-    let rest = raw
-        .strip_prefix("---\n")
-        .ok_or_else(|| "missing leading frontmatter delimiter".to_string())?;
-    let end = rest
-        .find("\n---")
-        .ok_or_else(|| "missing trailing frontmatter delimiter".to_string())?;
+/// Parse a memory page from raw bytes.
+///
+/// # Errors
+///
+/// Returns `Err(AttuneError::Storage(...))` when the frontmatter is
+/// missing, malformed, or contains an unrecognised `kind` field.
+pub fn parse_page(raw: &str) -> crate::error::Result<Memory> {
+    let rest = raw.strip_prefix("---\n").ok_or_else(|| {
+        crate::error::AttuneError::Storage("missing leading frontmatter delimiter".into())
+    })?;
+    let end = rest.find("\n---").ok_or_else(|| {
+        crate::error::AttuneError::Storage("missing trailing frontmatter delimiter".into())
+    })?;
     let frontmatter_yaml = &rest[..end];
 
     let fm: MemoryFrontmatter = serde_norway::from_str(frontmatter_yaml)
-        .map_err(|e| format!("frontmatter parse error: {e}"))?;
+        .map_err(|e| crate::error::AttuneError::Storage(format!("frontmatter parse error: {e}")))?;
 
-    let kind = MemoryKind::parse(&fm.kind).ok_or_else(|| format!("unknown kind: {}", fm.kind))?;
+    let kind = MemoryKind::parse(&fm.kind)
+        .ok_or_else(|| crate::error::AttuneError::Storage(format!("unknown kind: {}", fm.kind)))?;
 
-    let parse_dt = |label: &str, s: &str| -> std::result::Result<DateTime<Utc>, String> {
+    let parse_dt = |label: &str, s: &str| -> crate::error::Result<DateTime<Utc>> {
         DateTime::parse_from_rfc3339(s)
             .map(|d| d.with_timezone(&Utc))
-            .map_err(|e| format!("bad {label}: {e}"))
+            .map_err(|e| crate::error::AttuneError::Storage(format!("bad {label}: {e}")))
     };
 
     let valid_from = parse_dt("valid_from", &fm.valid_from)?;
@@ -307,7 +313,7 @@ fn push_string_list(out: &mut String, k: &str, items: &[String]) {
 /// Emit a single extra `key: value` line. Scalars round-trip through
 /// `quote_if_needed`; non-scalars defer to `serde_norway`'s default
 /// serializer with the YAML document markers stripped.
-fn render_extra(key: &str, value: &serde_norway::Value) -> std::result::Result<String, String> {
+fn render_extra(key: &str, value: &serde_norway::Value) -> crate::error::Result<String> {
     match value {
         serde_norway::Value::Null => Ok(format!("{}: null\n", key)),
         serde_norway::Value::Bool(b) => Ok(format!("{}: {}\n", key, b)),
@@ -322,7 +328,7 @@ fn render_extra(key: &str, value: &serde_norway::Value) -> std::result::Result<S
                 m.insert(serde_norway::Value::String(key.to_string()), other.clone());
                 m
             }))
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| crate::error::AttuneError::Storage(format!("render_extra: {e}")))?;
             Ok(rendered)
         }
     }
