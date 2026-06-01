@@ -134,6 +134,34 @@ pub fn locate_fuzzy(transcript: &SessionTranscript, query: &str) -> Option<Trans
     }
 }
 
+/// How many distinct transcript segments corroborate a claim — segments
+/// sharing ≥2 content words with it (GET-209). A claim whose evidence shows
+/// up in only ONE segment rests on a single passing remark; the agents flag
+/// it "mentioned once" so a forgotten throwaway line never ambushes the
+/// user. Returns 0 when the claim is too short to judge (so callers don't
+/// flag it).
+pub fn support_count(transcript: &SessionTranscript, claim: &str) -> usize {
+    use std::collections::HashSet;
+
+    let c_tokens = content_tokens(claim);
+    let c_set: HashSet<&str> = c_tokens.iter().map(String::as_str).collect();
+    if c_set.len() < 2 {
+        return 0;
+    }
+    let mut count = 0;
+    for channel in &transcript.channels {
+        for seg in &channel.segments {
+            let s_tokens = content_tokens(&seg.text);
+            let s_set: HashSet<&str> = s_tokens.iter().map(String::as_str).collect();
+            let shared = c_set.iter().filter(|t| s_set.contains(*t)).count();
+            if shared >= 2 {
+                count += 1;
+            }
+        }
+    }
+    count
+}
+
 /// Lowercased alphanumeric tokens of length ≥ 4 — the content-bearing
 /// words. The length floor naturally drops most stopwords without a
 /// language-specific list (the transcripts are multilingual).
@@ -224,6 +252,28 @@ mod tests {
         let t = fixture();
         // One content word ("redesign") isn't enough signal to jump.
         assert!(locate_fuzzy(&t, "the redesign").is_none());
+    }
+
+    #[test]
+    fn support_count_flags_single_utterance_vs_corroborated() {
+        let t = SessionTranscript {
+            channels: vec![ChannelTranscript {
+                channel: "system".into(),
+                language: Some("en".into()),
+                segments: vec![
+                    seg("We should ship the redesign before the launch.", 0.0, 3.0),
+                    seg("The redesign and the launch are our priorities.", 30.0, 33.0),
+                    seg("Anyway I once skydived over Dubai years ago.", 60.0, 63.0),
+                ],
+            }],
+        };
+        // "redesign" + "launch" recur across two segments → corroborated.
+        assert_eq!(support_count(&t, "ship the redesign before launch"), 2);
+        // The skydiving aside shares ≥2 content words with exactly one
+        // segment → mentioned once.
+        assert_eq!(support_count(&t, "skydived over Dubai"), 1);
+        // Too few content words to judge.
+        assert_eq!(support_count(&t, "Dubai"), 0);
     }
 
     #[test]

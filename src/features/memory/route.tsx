@@ -389,11 +389,25 @@ function MemoryCard({
       )}
       {memory.tags.length > 0 && (
         <div className="flex flex-wrap gap-1">
-          {memory.tags.map((t) => (
-            <Badge key={t} variant="outline" className="text-2xs">
-              {t}
-            </Badge>
-          ))}
+          {memory.tags.map((t) =>
+            // GET-209: surface the single-utterance flag as a privacy
+            // warning, not a generic tag, so a forgotten throwaway line is
+            // never presented as a settled fact.
+            t === "mentioned-once" ? (
+              <Badge
+                key={t}
+                variant="outline"
+                className="border-amber-500/40 bg-amber-500/5 text-2xs text-amber-700 dark:text-amber-300"
+                title="This came up only once in passing — a single remark, not a recurring point."
+              >
+                mentioned once
+              </Badge>
+            ) : (
+              <Badge key={t} variant="outline" className="text-2xs">
+                {t}
+              </Badge>
+            )
+          )}
         </div>
       )}
       <footer className="mt-1 flex items-center justify-between gap-2 text-2xs text-muted-foreground">

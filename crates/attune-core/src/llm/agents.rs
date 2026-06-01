@@ -210,6 +210,13 @@ Use the kinds like this:\n\
 worth keeping (\"user is preparing a launch demo for next week\").\n\
 \n\
 Rules:\n\
+  - Always give `evidence` — a verbatim snippet from the transcript. It is \
+what lets the app flag a fact that rests on a single passing remark, so the \
+user is never ambushed by a forgotten throwaway line.\n\
+  - Be cautious with offhand one-time asides (a joke, a tangent, a single \
+unprompted personal detail nobody followed up on). If you keep one at all, \
+set confidence under 0.6 — a thing said once in passing is not an \
+established fact.\n\
   - Skip transient facts (meeting agenda, today's blockers, \
 small-talk).\n\
   - Skip facts already implied by the transcript's structure (\"this is a \
