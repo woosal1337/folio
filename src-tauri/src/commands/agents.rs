@@ -21,6 +21,7 @@
 use std::path::{Path, PathBuf};
 
 use attune_core::llm::agents;
+use attune_core::llm::prompt;
 use attune_core::llm::provider::LlmProvider;
 use attune_core::llm::{
     Agent, AgentRun, AgentRunStore, ChatMessage, ChatRequest, ChatRole, KeyStore, OpenAiProvider,
@@ -38,73 +39,7 @@ use tracing::{debug, info, warn};
 use crate::app::AppState;
 
 const DEFAULT_OPENAI_MODEL: &str = "gpt-4o-mini";
-const TRANSCRIPT_CHAR_CAP: usize = 100_000;
 const MAX_TOOL_ITERATIONS: usize = 5;
-
-/// Build the language trailer appended to every agent's system
-/// prompt. Closes v2 roadmap finding R09 / implements 097.
-///
-/// `briefing_language` is the user's Settings choice:
-///   * `"auto"` → mirror the meeting's language (legacy behaviour).
-///   * any other BCP-47 tag → force that language regardless of the
-///     transcript, including tool-call free-text fields (task titles,
-///     memory content, autoname title/subtitle).
-///
-/// We do not auto-detect from the transcript ourselves — the model
-/// picks up the meeting's dominant script from the user message that
-/// follows. The trailer just states the rule.
-fn language_aware_trailer(briefing_language: &str) -> String {
-    let trimmed = briefing_language.trim();
-    if trimmed.is_empty() || trimmed.eq_ignore_ascii_case("auto") {
-        return "\n\n\
-LANGUAGE: Always reply in the same language as the meeting transcript, \
-not the language of these instructions. If the transcript is mixed, \
-default to the dominant language. For tool calls, write `title`, \
-`content`, `notes`, and any other free-text fields in the meeting's \
-language; structural fields (kind, key, status) stay in English."
-            .to_string();
-    }
-    let name = language_name(trimmed);
-    format!(
-        "\n\n\
-LANGUAGE: Always reply in {name} regardless of the language of the \
-meeting transcript or these instructions. Translate any quoted snippets \
-into {name} when surfacing them in your prose, but keep verbatim \
-evidence snippets in their original language so they still match the \
-transcript. For tool calls, write `title`, `content`, `notes`, and any \
-other free-text fields in {name}; structural fields (kind, key, status) \
-stay in English."
-    )
-}
-
-/// Map a BCP-47 / ISO-639-1 tag to the English name the model knows
-/// best. Unknown tags pass through verbatim so a niche tag like `cy`
-/// (Welsh) still produces a sensible instruction ("Always reply in cy")
-/// rather than crashing — the model will treat the tag as a language
-/// hint regardless.
-fn language_name(tag: &str) -> String {
-    match tag.to_ascii_lowercase().as_str() {
-        "en" => "English".to_string(),
-        "tr" => "Turkish".to_string(),
-        "az" => "Azerbaijani".to_string(),
-        "ru" => "Russian".to_string(),
-        "de" => "German".to_string(),
-        "es" => "Spanish".to_string(),
-        "fr" => "French".to_string(),
-        "it" => "Italian".to_string(),
-        "pt" => "Portuguese".to_string(),
-        "nl" => "Dutch".to_string(),
-        "pl" => "Polish".to_string(),
-        "ar" => "Arabic".to_string(),
-        "ja" => "Japanese".to_string(),
-        "zh" => "Chinese".to_string(),
-        "ko" => "Korean".to_string(),
-        "uk" => "Ukrainian".to_string(),
-        "he" => "Hebrew".to_string(),
-        "hi" => "Hindi".to_string(),
-        other => other.to_string(),
-    }
-}
 
 /// Agents that receive the `create_task` tool.
 const TASK_TOOL_AGENTS: &[&str] = &["extract-tasks"];
@@ -191,7 +126,7 @@ pub async fn run_agent(
         )
     })?;
 
-    let transcript_text = flatten_transcript(&session_dir, &transcript);
+    let transcript_text = prompt::flatten_transcript(&session_dir, &transcript);
     if transcript_text.trim().is_empty() {
         return Err("transcript is empty — there is nothing for the agent to read".to_string());
     }
@@ -201,7 +136,7 @@ pub async fn run_agent(
     // transcript only.
     let live_notes_md = if matches!(agent.id.as_str(), "summarize" | "write-followup-email") {
         let dir = session_dir.clone();
-        tauri::async_runtime::spawn_blocking(move || read_live_notes_markdown(&dir))
+        tauri::async_runtime::spawn_blocking(move || prompt::read_live_notes_markdown(&dir))
             .await
             .unwrap_or(None)
     } else {
@@ -212,14 +147,14 @@ pub async fn run_agent(
     // of the fixed template. Only the summary uses this.
     let note_outline = if agent.id == "summarize" {
         let dir = session_dir.clone();
-        tauri::async_runtime::spawn_blocking(move || read_note_outline(&dir))
+        tauri::async_runtime::spawn_blocking(move || prompt::read_note_outline(&dir))
             .await
             .unwrap_or(None)
     } else {
         None
     };
     let user_message =
-        build_user_message(&transcript_text, live_notes_md.as_deref(), note_outline.as_deref());
+        prompt::build_user_message(&transcript_text, live_notes_md.as_deref(), note_outline.as_deref());
 
     // Snapshot paths + briefing language from settings (cheap, won't
     // block agent run). The lock is dropped before any IPC.
@@ -267,7 +202,7 @@ pub async fn run_agent(
     let model = DEFAULT_OPENAI_MODEL.to_string();
 
     let tools = tools_for_agent(&agent.id);
-    let session_label = session_label_from_dir(&session_dir);
+    let session_label = prompt::session_label_from_dir(&session_dir);
 
     // Compose system prompt:
     //   1. Memory preamble (if any) — background facts about the user
@@ -282,7 +217,7 @@ pub async fn run_agent(
         Some(preamble) => format!("{preamble}\n\n{}", agent.system_prompt),
         None => agent.system_prompt.clone(),
     };
-    let system_prompt = format!("{base}{}", language_aware_trailer(&briefing_language));
+    let system_prompt = format!("{base}{}", prompt::language_aware_trailer(&briefing_language));
 
     let mut messages: Vec<ChatMessage> = vec![ChatMessage {
         role: ChatRole::User,
@@ -376,7 +311,7 @@ pub async fn run_agent(
     }
 
     if final_text.trim().is_empty() && tools.is_some() {
-        final_text = synth_summary(&agent.id, tasks_created, memories_created.len());
+        final_text = prompt::synth_summary(&agent.id, tasks_created, memories_created.len());
     }
 
     // Best-effort embeddings for any memories the agent created.
@@ -783,266 +718,14 @@ async fn embed_new_memories(api_key: &str, store: std::sync::Arc<MemoryStore>, i
     }
 }
 
-fn synth_summary(agent_id: &str, tasks: usize, memories: usize) -> String {
-    match agent_id {
-        "extract-tasks" if tasks == 0 => "No explicit action items found.".to_string(),
-        "extract-tasks" => format!(
-            "Created {tasks} task{} from this recording.",
-            if tasks == 1 { "" } else { "s" }
-        ),
-        "extract-memories" if memories == 0 => "No new memories extracted.".to_string(),
-        "extract-memories" => format!(
-            "Captured {memories} memory{} from this recording.",
-            if memories == 1 { "y" } else { "ies" }
-        ),
-        _ => format!("Agent run completed with {tasks} task(s), {memories} memor(y/ies)."),
-    }
-}
-
-fn session_label_from_dir(session_dir: &Path) -> Option<String> {
-    session_dir
-        .file_name()
-        .and_then(|os| os.to_str())
-        .map(|s| s.to_string())
-}
-
-/// Render the transcript the way the agents read it: one chronological,
-/// speaker-labelled dialogue ("You:" for the note-taker, "Speaker N:" for
-/// each diarized participant — or the real name the user gave that voice,
-/// from the session's speaker sidecar). See
-/// `SessionTranscript::to_labeled_dialogue_named` — the shared formatter so
-/// the summary, Q&A, and the editor agree on labels. No timestamps here;
-/// the agent prompts don't cite moments.
-fn flatten_transcript(session_dir: &Path, transcript: &SessionTranscript) -> String {
-    let names = attune_core::diarization::SessionSpeakers::read(session_dir)
-        .ok()
-        .flatten()
-        .map(|s| s.name_map())
-        .unwrap_or_default();
-    transcript.to_labeled_dialogue_named(false, &names)
-}
-
-fn build_user_message(
-    transcript_text: &str,
-    live_notes_md: Option<&str>,
-    note_outline: Option<&str>,
-) -> String {
-    // Legend so the model reads the speaker labels right: the transcript
-    // is one chronological dialogue, a line per turn, each prefixed with
-    // its speaker. "You:" is the note-taker (their mic); "Speaker 1",
-    // "Speaker 2", … are the other participants told apart by voice
-    // (diarization). Attributing points to these labels is what makes the
-    // summary precise about who said/owns what.
-    const LEGEND: &str = "Meeting transcript — a chronological dialogue, one \
-        line per speaker turn, each prefixed with the speaker. \"You:\" is \
-        the note-taker (their own microphone). \"Speaker 1\", \"Speaker 2\", \
-        … are the other participants, told apart by voice. \"Others:\" is \
-        unattributed audio. Attribute points, decisions, and action items \
-        to the right speaker by these labels.";
-    let mut out = if transcript_text.len() <= TRANSCRIPT_CHAR_CAP {
-        format!("{LEGEND}\n\n{}", transcript_text)
-    } else {
-        // Char-boundary truncation — a byte slice panics mid-codepoint on
-        // multilingual transcripts (GET-175).
-        let truncated =
-            attune_core::text::truncate_on_char_boundary(transcript_text, TRANSCRIPT_CHAR_CAP);
-        format!(
-            "{LEGEND}\n\n(truncated to first {} characters; full transcript \
-            was {} characters)\n\n{}",
-            TRANSCRIPT_CHAR_CAP,
-            transcript_text.len(),
-            truncated,
-        )
-    };
-    if let Some(notes) = live_notes_md {
-        let notes = notes.trim();
-        if !notes.is_empty() {
-            out.push_str(
-                "\n\n<user_live_notes>\n\
-                These are the notes the user typed live during the meeting. \
-                Treat them as high-signal: fold their action items / \
-                decisions / questions into the matching sections without \
-                duplicating what the transcript already covers.\n\n",
-            );
-            out.push_str(notes);
-            out.push_str("\n</user_live_notes>");
-        }
-    }
-    // GET-195: the user's own section headings become the note's spine.
-    if let Some(outline) = note_outline {
-        let outline = outline.trim();
-        if !outline.is_empty() {
-            out.push_str(
-                "\n\n<user_section_outline>\n\
-                The user sketched these section headings (and any notes under \
-                them) in their live notes. Build the enhanced note around \
-                EXACTLY these headings, in this order — flesh each out from \
-                the transcript and the user's lines. Keep the headings \
-                verbatim. Follow the OUTLINE MODE rule in your \
-                instructions.\n\n",
-            );
-            out.push_str(outline);
-            out.push_str("\n</user_section_outline>");
-        }
-    }
-    out
-}
-
-/// Read a session's live notes (GET-145) and render them as the grouped
-/// markdown the summary agent folds in. None when the session has no
-/// notes or the file is missing/unreadable.
-fn read_live_notes_markdown(session_dir: &Path) -> Option<String> {
-    let bytes = std::fs::read(session_dir.join("live_notes.json")).ok()?;
-    let lines: Vec<attune_core::live_notes::RawNoteLine> = serde_json::from_slice(&bytes).ok()?;
-    let notes = attune_core::live_notes::parse_lines(&lines);
-    if notes.is_empty() {
-        return None;
-    }
-    Some(attune_core::live_notes::render_markdown(&notes))
-}
-
-/// Read the user-authored section outline from a session's live notes
-/// (GET-195): the markdown headings the user typed + their seed lines.
-/// `None` when the user wrote no headers — the summary then uses its
-/// default four-section template.
-fn read_note_outline(session_dir: &Path) -> Option<String> {
-    let bytes = std::fs::read(session_dir.join("live_notes.json")).ok()?;
-    let lines: Vec<attune_core::live_notes::RawNoteLine> = serde_json::from_slice(&bytes).ok()?;
-    let outline = attune_core::live_notes::extract_outline(&lines);
-    if outline.is_empty() {
-        return None;
-    }
-    Some(attune_core::live_notes::render_outline_scaffold(&outline))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use attune_core::transcription::{ChannelTranscript, SessionTranscript, TranscriptSegment};
     use tempfile::TempDir;
 
-    fn ch(channel: &str, texts: &[&str]) -> ChannelTranscript {
-        ChannelTranscript {
-            channel: channel.to_string(),
-            language: None,
-            segments: texts
-                .iter()
-                .enumerate()
-                .map(|(i, t)| TranscriptSegment {
-                    start_seconds: i as f64,
-                    end_seconds: (i + 1) as f64,
-                    text: t.to_string(),
-                    speaker: None,
-                    language: None,
-                })
-                .collect(),
-        }
-    }
-
-    #[test]
-    fn trailer_auto_keeps_legacy_meeting_language_rule() {
-        for tag in ["auto", "Auto", " AUTO ", ""] {
-            let t = language_aware_trailer(tag);
-            assert!(
-                t.contains("same language as the meeting transcript"),
-                "tag={tag:?}"
-            );
-            assert!(!t.contains("regardless of the language"), "tag={tag:?}");
-        }
-    }
-
-    #[test]
-    fn trailer_known_tag_forces_named_language() {
-        let t = language_aware_trailer("en");
-        assert!(t.contains("Always reply in English"));
-        assert!(t.contains("regardless of the language"));
-        let t = language_aware_trailer("tr");
-        assert!(t.contains("Always reply in Turkish"));
-    }
-
-    #[test]
-    fn trailer_unknown_tag_passes_through() {
-        // Niche language tags still produce a usable instruction —
-        // worst case the model treats the tag as a language hint.
-        let t = language_aware_trailer("cy");
-        assert!(t.contains("Always reply in cy"));
-    }
-
-    #[test]
-    fn trailer_evidence_snippet_rule_only_when_forcing_translation() {
-        // The evidence-snippet carve-out is only meaningful when the
-        // briefing language differs from the transcript language;
-        // auto mode has no such concept.
-        assert!(!language_aware_trailer("auto").contains("verbatim evidence snippets"));
-        assert!(language_aware_trailer("en").contains("verbatim evidence snippets"));
-    }
-
-    #[test]
-    fn flatten_includes_speaker_labels() {
-        let t = SessionTranscript {
-            channels: vec![
-                ch("mic", &["Merhaba.", "Nasılsın?"]),
-                ch("system", &["İyiyim, teşekkürler."]),
-            ],
-        };
-        let text = flatten_transcript(std::path::Path::new("/nonexistent"), &t);
-        // The mic channel is the note-taker ("You:"); un-diarized system
-        // audio falls back to "Others:".
-        assert!(text.contains("You: Merhaba."), "got: {text}");
-        assert!(text.contains("Others: İyiyim, teşekkürler."), "got: {text}");
-    }
-
-    #[test]
-    fn flatten_skips_empty_channels() {
-        let t = SessionTranscript {
-            channels: vec![ch("mic", &[]), ch("system", &["Single line"])],
-        };
-        let text = flatten_transcript(std::path::Path::new("/nonexistent"), &t);
-        assert!(!text.contains("You:"));
-        assert!(text.contains("Single line"));
-    }
-
-    #[test]
-    fn user_message_truncates_oversized_input() {
-        let huge = "x".repeat(TRANSCRIPT_CHAR_CAP * 2);
-        let msg = build_user_message(&huge, None, None);
-        assert!(msg.contains("truncated to first"));
-        assert!(msg.len() < TRANSCRIPT_CHAR_CAP + 500);
-    }
-
-    #[test]
-    fn user_message_does_not_panic_on_oversized_multilingual_input() {
-        // GET-175: a byte-slice cut at TRANSCRIPT_CHAR_CAP could land mid-
-        // codepoint on multibyte text and panic. Build a Turkish transcript
-        // well past the cap and assert it truncates cleanly instead.
-        let huge = "Şu an ekranı mı kaydediyor? ".repeat(TRANSCRIPT_CHAR_CAP);
-        assert!(huge.len() > TRANSCRIPT_CHAR_CAP);
-        let msg = build_user_message(&huge, None, None);
-        assert!(msg.contains("truncated to first"));
-    }
-
-    #[test]
-    fn user_message_appends_live_notes_block_when_present() {
-        let msg = build_user_message("hello", Some("## Action items\n\n- `0:05` ship"), None);
-        assert!(msg.contains("<user_live_notes>"));
-        assert!(msg.contains("## Action items"));
-        assert!(msg.contains("ship"));
-        // Empty / whitespace notes add no block.
-        let bare = build_user_message("hello", Some("   "), None);
-        assert!(!bare.contains("<user_live_notes>"));
-    }
-
-    #[test]
-    fn user_message_appends_section_outline_when_present() {
-        // GET-195: the user's headings reach the agent as a scaffold block.
-        let msg = build_user_message("hello", None, Some("## Risks\n- vendor lock-in"));
-        assert!(msg.contains("<user_section_outline>"));
-        assert!(msg.contains("## Risks"));
-        assert!(msg.contains("vendor lock-in"));
-        // No outline → no block.
-        let bare = build_user_message("hello", None, None);
-        assert!(!bare.contains("<user_section_outline>"));
-    }
+    // The pure prompt builders (build_user_message, flatten_transcript,
+    // language_aware_trailer, …) moved to attune_core::llm::prompt (GET-184);
+    // their unit tests live there now.
 
     #[test]
     fn tools_for_agent_attaches_correct_set() {
