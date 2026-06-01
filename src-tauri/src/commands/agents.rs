@@ -190,6 +190,41 @@ pub async fn run_agent(
     let tools = agent_tools::tools_for_agent(&agent.id);
     let session_label = prompt::session_label_from_dir(&session_dir);
 
+    // Two-stage pipeline (GET-207): for long-transcript agents, run a
+    // cheap evidence-extraction pass first, then feed the condensed
+    // evidence to the synthesis stage. Falls through to single-stage
+    // if the API call fails or the evidence is empty.
+    let user_message = if attune_core::llm::two_stage::should_apply(&agent.id, &transcript_text) {
+        tracing::info!(
+            agent = %agent.id,
+            transcript_chars = transcript_text.len(),
+            "two-stage pipeline: extracting evidence"
+        );
+        match attune_core::llm::two_stage::extract_evidence(&transcript_text, &api_key, &model)
+            .await
+        {
+            Ok(evidence) if evidence.len() < transcript_text.len() => {
+                tracing::info!(
+                    evidence_chars = evidence.len(),
+                    "two-stage pipeline: evidence extracted, building synthesis message"
+                );
+                let evidence_msg = attune_core::llm::two_stage::evidence_user_message(&evidence);
+                prompt::build_user_message(
+                    &evidence_msg,
+                    live_notes_md.as_deref(),
+                    note_outline.as_deref(),
+                )
+            }
+            _ => {
+                // Fallback to single-stage.
+                tracing::warn!("two-stage evidence extraction failed or was no shorter — using full transcript");
+                user_message
+            }
+        }
+    } else {
+        user_message
+    };
+
     // Compose system prompt:
     //   1. Memory preamble (if any) — background facts about the user
     //   2. User profile context (GET-206) — role, team, focus areas
