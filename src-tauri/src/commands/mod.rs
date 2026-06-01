@@ -20,6 +20,7 @@ pub mod live_notes;
 pub mod llm;
 pub mod maintenance;
 pub mod mcp_connect;
+pub mod mcp_grants;
 pub mod meeting;
 pub mod memory;
 pub mod permissions;
