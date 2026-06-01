@@ -1,7 +1,11 @@
-import { Headphones, Mic } from "lucide-react";
+import * as React from "react";
+import { Headphones, Mic, Square, Volume2 } from "lucide-react";
 
+import { Button } from "@/shared/ui/button";
 import { Label } from "@/shared/ui/label";
 import { Switch } from "@/shared/ui/switch";
+import { listInputDevices, startMicMonitor, stopMicMonitor } from "@/shared/lib/ipc";
+import type { DeviceInfo } from "@/shared/types/DeviceInfo";
 import type { Settings } from "@/shared/types/Settings";
 
 interface Props {
@@ -10,16 +14,116 @@ interface Props {
 }
 
 /**
- * Audio capture settings. Phase 2 of the AI chat plan adds the
- * Voice Processing IO toggle here — it's the only knob today,
- * future audio knobs (input device override, gain control, AEC
- * tiers) will land in this same section.
+ * Audio capture settings — mic device selector, voice processing toggle,
+ * and the Discord-style "Test microphone" monitor that plays your mic
+ * input back through your speakers/headphones.
  */
 export function SectionAudio({ settings, onChange }: Props) {
+  // ---- Device list --------------------------------------------------
+  const [devices, setDevices] = React.useState<DeviceInfo[]>([]);
+  React.useEffect(() => {
+    listInputDevices()
+      .then(setDevices)
+      .catch(() => {});
+  }, []);
+
+  // ---- Mic monitor (loopback test) ----------------------------------
+  const [monitoring, setMonitoring] = React.useState(false);
+  const [monitorError, setMonitorError] = React.useState<string | null>(null);
+
+  // Stop monitor when the component unmounts (user leaves Settings).
+  React.useEffect(() => {
+    return () => {
+      if (monitoring) {
+        void stopMicMonitor().catch(() => {});
+      }
+    };
+  }, [monitoring]);
+
+  const toggleMonitor = async () => {
+    setMonitorError(null);
+    if (monitoring) {
+      await stopMicMonitor().catch((e) => setMonitorError(String(e)));
+      setMonitoring(false);
+    } else {
+      try {
+        await startMicMonitor(settings.mic_device ?? undefined);
+        setMonitoring(true);
+      } catch (e) {
+        setMonitorError(String(e));
+      }
+    }
+  };
+
   return (
     <div className="flex flex-col gap-7">
       <h2 className="font-serif text-2xl font-medium">Audio</h2>
 
+      {/* Input device */}
+      <section className="space-y-3">
+        <Label className="flex items-center gap-2 text-sm font-medium">
+          <Mic className="h-4 w-4 text-muted-foreground" />
+          Microphone
+        </Label>
+
+        <div className="flex items-center gap-3">
+          <select
+            value={settings.mic_device ?? ""}
+            onChange={(e) => onChange("mic_device", e.target.value || null)}
+            className="h-9 flex-1 rounded-md border border-input bg-card px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            aria-label="Select microphone"
+          >
+            <option value="">System default</option>
+            {devices.map((d) => (
+              <option key={d.name} value={d.name}>
+                {d.name}
+                {d.is_default ? " (default)" : ""}
+              </option>
+            ))}
+          </select>
+
+          {/* Test mic — Discord-style loopback monitor */}
+          <Button
+            type="button"
+            variant={monitoring ? "destructive" : "outline"}
+            size="sm"
+            className="shrink-0 gap-2"
+            onClick={() => void toggleMonitor()}
+          >
+            {monitoring ? (
+              <>
+                <Square className="h-3.5 w-3.5 fill-current" />
+                Stop test
+              </>
+            ) : (
+              <>
+                <Volume2 className="h-3.5 w-3.5" />
+                Test mic
+              </>
+            )}
+          </Button>
+        </div>
+
+        {/* Live feedback while monitoring */}
+        {monitoring ? (
+          <p className="text-xs text-primary">
+            🎙 Listening — you should hear your mic through your speakers or headphones.
+            Click <strong>Stop test</strong> when done.
+          </p>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            Click <strong>Test mic</strong> to hear your microphone played back through
+            your output — adjust input volume in System Settings → Sound → Input until
+            it sounds clear.
+          </p>
+        )}
+
+        {monitorError ? (
+          <p className="text-xs text-destructive">{monitorError}</p>
+        ) : null}
+      </section>
+
+      {/* Voice processing */}
       <section className="space-y-4">
         <div className="flex items-start justify-between gap-6">
           <div className="space-y-1">
@@ -27,7 +131,7 @@ export function SectionAudio({ settings, onChange }: Props) {
               htmlFor="voice-processing-toggle"
               className="flex items-center gap-2 text-sm font-medium"
             >
-              <Mic className="h-4 w-4 text-muted-foreground" />
+              <Headphones className="h-4 w-4 text-muted-foreground" />
               Voice processing
             </Label>
             <p className="max-w-md text-xs text-muted-foreground">

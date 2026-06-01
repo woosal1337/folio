@@ -52,6 +52,8 @@ pub struct AppState {
     /// `RunEvent::ExitRequested` can join it after flipping the stop
     /// signal, rather than letting a detached thread run past app exit.
     pub live_transcript_thread: Mutex<Option<std::thread::JoinHandle<()>>>,
+    /// Active mic-monitor (Settings test-mic loopback). None when idle.
+    pub mic_monitor: Mutex<Option<attune_core::audio::mic_monitor::MicMonitor>>,
 }
 
 /// A recording that spans multiple capture segments because the user
@@ -94,6 +96,7 @@ impl AppState {
             active_note: Mutex::new(None),
             live_transcript_stop: Mutex::new(None),
             live_transcript_thread: Mutex::new(None),
+            mic_monitor: Mutex::new(None),
         }
     }
 

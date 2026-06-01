@@ -105,6 +105,8 @@ pub fn run() {
             commands::health::ping,
             commands::devices::list_input_devices,
             commands::devices::check_mic_level,
+            commands::devices::start_mic_monitor,
+            commands::devices::stop_mic_monitor,
             commands::settings::get_settings,
             commands::settings::save_settings,
             commands::recording::recording_status,

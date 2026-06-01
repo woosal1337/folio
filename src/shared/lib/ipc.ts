@@ -118,6 +118,16 @@ export function checkMicLevel(deviceName?: string): Promise<MicLevelResult> {
   return call<MicLevelResult>("check_mic_level", { deviceName });
 }
 
+/** Start the mic loopback monitor — routes mic input to audio output. */
+export function startMicMonitor(deviceName?: string): Promise<void> {
+  return call<void>("start_mic_monitor", { deviceName });
+}
+
+/** Stop the active mic monitor, if any. */
+export function stopMicMonitor(): Promise<void> {
+  return call<void>("stop_mic_monitor");
+}
+
 // ---- Settings -----------------------------------------------------------
 
 export function getSettings(): Promise<Settings> {
