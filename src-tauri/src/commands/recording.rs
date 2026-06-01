@@ -123,11 +123,17 @@ pub async fn create_note(state: State<'_, AppState>) -> Result<RecordingSummary,
 /// into the session dir; an empty/whitespace title removes the file so
 /// the UI falls back to the autoname suggestion or the label.
 #[tauri::command]
-pub async fn rename_note(session_dir: String, title: String) -> Result<(), String> {
-    let dir = PathBuf::from(&session_dir);
-    if !dir.is_dir() {
-        return Err(format!("session directory does not exist: {session_dir}"));
-    }
+pub async fn rename_note(
+    state: State<'_, AppState>,
+    session_dir: String,
+    title: String,
+) -> Result<(), String> {
+    let output_dir = state.settings.lock().output_dir.clone();
+    // Untrusted IPC path (GET-173): reject anything outside the recordings
+    // root before writing title.txt.
+    let dir =
+        attune_core::paths::canonicalize_under(&output_dir, std::path::Path::new(&session_dir))
+            .map_err(|e| format!("invalid session directory: {e}"))?;
     let trimmed = title.trim().to_string();
     tauri::async_runtime::spawn_blocking(move || -> Result<(), String> {
         let path = dir.join("title.txt");
@@ -216,6 +222,20 @@ pub async fn start_recording(
     *state.active_note.lock() = None;
     let config = capture_config(&state);
 
+    // GET-155 attach-to-existing-note: the session dir comes from IPC, so
+    // reject anything outside the recordings root before we write capture
+    // WAVs into it (GET-173). A fresh recording (None) makes its own dir.
+    let session_dir = match session_dir {
+        Some(dir) => Some(
+            attune_core::paths::canonicalize_under(
+                &config.output_dir,
+                std::path::Path::new(&dir),
+            )
+            .map_err(|e| format!("invalid session directory: {e}"))?,
+        ),
+        None => None,
+    };
+
     info!(
         device = ?config.mic_device_name,
         system = config.system_enabled,
@@ -226,7 +246,7 @@ pub async fn start_recording(
     );
 
     let session = tauri::async_runtime::spawn_blocking(move || match session_dir {
-        Some(dir) => CaptureSession::start_in(config, PathBuf::from(dir)),
+        Some(dir) => CaptureSession::start_in(config, dir),
         None => CaptureSession::start(config),
     })
     .await
