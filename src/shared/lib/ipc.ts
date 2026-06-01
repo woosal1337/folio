@@ -985,6 +985,24 @@ export interface CoverageNote {
   tasks: number;
 }
 
+/**
+ * Ask a question scoped to a specific folder (GET-205).
+ * Returns the same shape as `askLibrary`.
+ */
+export function askFolder(
+  folderName: string,
+  question: string,
+  history: ChatTurn[],
+  model?: string
+): Promise<{ answer: string; coverage: CoverageNote }> {
+  return call<{ answer: string; coverage: CoverageNote }>("ask_folder", {
+    folderName,
+    question,
+    history,
+    model,
+  });
+}
+
 /** Ask a question across the whole library (GET-152). Optional model id. */
 export function askLibrary(
   question: string,
