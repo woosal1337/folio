@@ -137,6 +137,12 @@ mod imp {
 
     /// Map one `EKEvent` into our `CalendarEvent`. Returns `None` when the
     /// event lacks the timestamps we need.
+    ///
+    /// # Safety
+    ///
+    /// `ev` must be a non-nil pointer to an Objective-C `EKEvent` instance.
+    /// Must be called inside an `NSAutoreleasePool` drain so intermediate
+    /// ObjC objects returned by `msg_send!` are freed correctly.
     unsafe fn parse_event(ev: id) -> Option<CalendarEvent> {
         let start_date: id = msg_send![ev, startDate];
         let end_date: id = msg_send![ev, endDate];
@@ -182,6 +188,11 @@ mod imp {
     }
 
     /// Collect attendee email addresses from an `EKEvent`'s participants.
+    ///
+    /// # Safety
+    ///
+    /// `ev` must be a non-nil pointer to an Objective-C `EKEvent` instance.
+    /// Must be called inside an `NSAutoreleasePool` drain.
     unsafe fn read_attendees(ev: id) -> Vec<String> {
         let mut emails = Vec::new();
         let attendees: id = msg_send![ev, attendees];
@@ -207,6 +218,12 @@ mod imp {
     }
 
     /// Convert an `NSDate` to a chrono `DateTime<Utc>` via its Unix epoch.
+    ///
+    /// # Safety
+    ///
+    /// `date` must be either nil or a non-dangling pointer to an `NSDate`
+    /// instance. The function returns `None` for nil; any other invalid
+    /// pointer is undefined behaviour.
     unsafe fn nsdate_to_utc(date: id) -> Option<DateTime<Utc>> {
         if date == nil {
             return None;
@@ -220,6 +237,13 @@ mod imp {
     }
 
     /// Copy an `NSString` into an owned Rust `String`.
+    ///
+    /// # Safety
+    ///
+    /// `s` must be either nil or a non-dangling pointer to an `NSString`
+    /// instance. The UTF-8 pointer returned by `UTF8String` is only valid for
+    /// the lifetime of `s`; `CStr::from_ptr` copies it into an owned
+    /// allocation before `s` is released by the autorelease pool.
     unsafe fn nsstring_to_string(s: id) -> Option<String> {
         if s == nil {
             return None;
@@ -232,6 +256,12 @@ mod imp {
     }
 
     /// Copy an `NSURL`'s absolute string into an owned Rust `String`.
+    ///
+    /// # Safety
+    ///
+    /// `url` must be either nil or a non-dangling pointer to an `NSURL`
+    /// instance. Must be called inside an `NSAutoreleasePool` drain so
+    /// the `absoluteString` NSString is freed after use.
     unsafe fn nsurl_to_string(url: id) -> Option<String> {
         if url == nil {
             return None;
