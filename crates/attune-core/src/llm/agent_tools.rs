@@ -15,6 +15,12 @@ use serde_json::json;
 use crate::llm::types::{ToolCall, ToolDef};
 use crate::memory::{MemoryKind, MemoryStore, NewMemory};
 use crate::storage::{NewTask, TaskStore};
+use crate::transcription::{locate, SessionTranscript};
+
+/// Tag applied to a memory whose evidence appears in only one transcript
+/// segment — a single passing remark the speaker may have forgotten making
+/// (GET-209). The run-card surfaces it so the user is never ambushed.
+pub const MENTIONED_ONCE_TAG: &str = "mentioned-once";
 
 /// Agents that receive the `create_task` tool.
 const TASK_TOOL_AGENTS: &[&str] = &["extract-tasks"];
@@ -194,16 +200,21 @@ struct SearchMemoryArgs {
 }
 
 /// Apply a tool call synchronously against the task / memory stores.
+/// `transcript`, when provided, lets `remember` flag single-utterance
+/// claims (GET-209).
 pub fn dispatch_tool_call(
     call: &ToolCall,
     tasks_path: &Path,
     memory_store: Arc<MemoryStore>,
     session_dir: &str,
     session_label: Option<&str>,
+    transcript: Option<&SessionTranscript>,
 ) -> ToolResult {
     match call.name.as_str() {
         "create_task" => dispatch_create_task(call, tasks_path, session_dir, session_label),
-        "remember" => dispatch_remember(call, memory_store, session_dir, session_label),
+        "remember" => {
+            dispatch_remember(call, memory_store, session_dir, session_label, transcript)
+        }
         "search_memory" => dispatch_search_memory(call, memory_store),
         other => ToolResult {
             success: false,
@@ -258,6 +269,7 @@ fn dispatch_remember(
     store: Arc<MemoryStore>,
     session_dir: &str,
     session_label: Option<&str>,
+    transcript: Option<&SessionTranscript>,
 ) -> ToolResult {
     let args = match serde_json::from_str::<RememberArgs>(&call.arguments) {
         Ok(a) => a,
@@ -279,13 +291,27 @@ fn dispatch_remember(
             }
         }
     };
+    let evidence = args.evidence.filter(|s| !s.trim().is_empty());
+
+    // GET-209: a memory whose evidence appears in exactly one transcript
+    // segment rests on a single passing remark — tag it so the run-card can
+    // warn the user, rather than presenting a forgotten aside as a settled
+    // fact. >1 (corroborated) or 0 (too short to judge / no transcript) → no
+    // tag.
+    let mut tags = args.tags;
+    if let (Some(t), Some(ev)) = (transcript, evidence.as_deref()) {
+        if locate::support_count(t, ev) == 1 && !tags.iter().any(|x| x == MENTIONED_ONCE_TAG) {
+            tags.push(MENTIONED_ONCE_TAG.to_string());
+        }
+    }
+
     let new_memory = NewMemory {
         kind,
         key: args.key.filter(|s| !s.trim().is_empty()),
         content: args.content,
-        evidence: args.evidence.filter(|s| !s.trim().is_empty()),
+        evidence,
         confidence: args.confidence,
-        tags: args.tags,
+        tags,
         source_session_dir: Some(session_dir.to_string()),
         source_session_label: session_label.map(|s| s.to_string()),
     };
@@ -392,7 +418,14 @@ mod tests {
             name: "create_task".into(),
             arguments: r#"{"title":"Send recap","owner":"Ege"}"#.into(),
         };
-        let r = dispatch_tool_call(&call, &tasks_path, store, "/sessions/abc", Some("2026-05-25-team"));
+        let r = dispatch_tool_call(
+            &call,
+            &tasks_path,
+            store,
+            "/sessions/abc",
+            Some("2026-05-25-team"),
+            None,
+        );
         assert!(r.success, "got error: {:?}", r.error);
         assert!(r.id.is_some());
     }
@@ -407,12 +440,64 @@ mod tests {
             name: "remember".into(),
             arguments: r#"{"kind":"claim","key":"user.company","content":"Attune","confidence":0.9,"tags":["company"]}"#.into(),
         };
-        let r = dispatch_tool_call(&call, &tasks_path, store.clone(), "/sessions/abc", Some("2026-05-25"));
+        let r = dispatch_tool_call(
+            &call,
+            &tasks_path,
+            store.clone(),
+            "/sessions/abc",
+            Some("2026-05-25"),
+            None,
+        );
         assert!(r.success, "got error: {:?}", r.error);
         let memories = store.list(&Default::default()).unwrap();
         assert_eq!(memories.len(), 1);
         assert_eq!(memories[0].content, "Attune");
         assert!(memories[0].source_session_dir.is_some());
+    }
+
+    #[test]
+    fn dispatch_remember_tags_single_utterance_claims() {
+        use crate::transcription::{ChannelTranscript, SessionTranscript, TranscriptSegment};
+        let seg = |t: &str, s: f64| TranscriptSegment {
+            start_seconds: s,
+            end_seconds: s + 2.0,
+            text: t.to_string(),
+            speaker: None,
+            language: None,
+        };
+        let transcript = SessionTranscript {
+            channels: vec![ChannelTranscript {
+                channel: "system".into(),
+                language: None,
+                segments: vec![
+                    seg("Anyway I once skydived over Dubai years ago.", 0.0),
+                    seg("Let's get back to the launch timeline.", 30.0),
+                ],
+            }],
+        };
+        let dir = TempDir::new().unwrap();
+        let tasks_path = dir.path().join("tasks.json");
+        let store = arc_store(&dir.path().join("memory"));
+        let call = ToolCall {
+            id: "call_o".into(),
+            name: "remember".into(),
+            arguments: r#"{"kind":"observe","content":"User skydived over Dubai","evidence":"I once skydived over Dubai years ago"}"#.into(),
+        };
+        let r = dispatch_tool_call(
+            &call,
+            &tasks_path,
+            store.clone(),
+            "/sessions/abc",
+            None,
+            Some(&transcript),
+        );
+        assert!(r.success, "got error: {:?}", r.error);
+        let memories = store.list(&Default::default()).unwrap();
+        assert!(
+            memories[0].tags.iter().any(|t| t == MENTIONED_ONCE_TAG),
+            "expected the single-utterance aside to be tagged: {:?}",
+            memories[0].tags
+        );
     }
 
     #[test]
@@ -433,7 +518,7 @@ mod tests {
             name: "search_memory".into(),
             arguments: r#"{"query":"company"}"#.into(),
         };
-        let r = dispatch_tool_call(&call, &tasks_path, store, "/sessions/abc", None);
+        let r = dispatch_tool_call(&call, &tasks_path, store, "/sessions/abc", None, None);
         assert!(r.success, "got error: {:?}", r.error);
         let data = r.data.expect("results");
         assert!(data["results"].as_array().is_some_and(|a| !a.is_empty()));

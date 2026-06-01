@@ -264,6 +264,7 @@ pub async fn run_agent(
                 memory_store.clone(),
                 session_dir.to_string_lossy().as_ref(),
                 session_label.as_deref(),
+                Some(&transcript),
             );
             match call.name.as_str() {
                 "create_task" if result.success => {
