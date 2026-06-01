@@ -128,6 +128,22 @@ export function renameNote(sessionDir: string, title: string): Promise<void> {
   return call<void>("rename_note", { sessionDir, title });
 }
 
+/** Read which enhanced-notes run the user has kept (its `finished_at`), or null. */
+export function getEnhancedNotesAccepted(
+  sessionDir: string
+): Promise<string | null> {
+  return call<string | null>("get_enhanced_notes_accepted", { sessionDir });
+}
+
+/** Keep (own) the enhanced-notes summary identified by `marker` (its
+ *  `finished_at`); pass "" to clear and revert it to muted/AI. */
+export function setEnhancedNotesAccepted(
+  sessionDir: string,
+  marker: string
+): Promise<void> {
+  return call<void>("set_enhanced_notes_accepted", { sessionDir, marker });
+}
+
 /** Start capture. With `sessionDir` (GET-155) it records into that
  *  existing note's directory instead of a fresh one. */
 export function startRecording(sessionDir?: string): Promise<RecordingStatus> {

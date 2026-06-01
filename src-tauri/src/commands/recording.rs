@@ -146,6 +146,55 @@ pub async fn rename_note(session_dir: String, title: String) -> Result<(), Strin
     .map_err(|e| format!("rename_note task panicked: {e}"))?
 }
 
+/// Read which enhanced-notes summary the user has "kept" / owned
+/// (GET-191). Returns the `finished_at` marker of the accepted run, or
+/// `None`. The editor renders the AI summary muted until this marker
+/// matches the live summary run.
+#[tauri::command]
+pub async fn get_enhanced_notes_accepted(session_dir: String) -> Result<Option<String>, String> {
+    let dir = PathBuf::from(&session_dir);
+    tauri::async_runtime::spawn_blocking(move || {
+        std::fs::read_to_string(dir.join("enhanced-notes-accepted.txt"))
+            .ok()
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+    })
+    .await
+    .map_err(|e| format!("get_enhanced_notes_accepted task panicked: {e}"))
+}
+
+/// Keep (own) the current enhanced-notes summary, or clear that
+/// (GET-191). `marker` is the live run's `finished_at`; an empty marker
+/// removes the file so the summary reverts to muted "AI-generated". A
+/// regenerate produces a new `finished_at`, so a stale marker no longer
+/// matches and the new summary is muted again until kept.
+#[tauri::command]
+pub async fn set_enhanced_notes_accepted(
+    session_dir: String,
+    marker: String,
+) -> Result<(), String> {
+    let dir = PathBuf::from(&session_dir);
+    if !dir.is_dir() {
+        return Err(format!("session directory does not exist: {session_dir}"));
+    }
+    let trimmed = marker.trim().to_string();
+    tauri::async_runtime::spawn_blocking(move || -> Result<(), String> {
+        let path = dir.join("enhanced-notes-accepted.txt");
+        if trimmed.is_empty() {
+            match std::fs::remove_file(&path) {
+                Ok(()) => Ok(()),
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+                Err(e) => Err(e.to_string()),
+            }
+        } else {
+            attune_core::storage::atomic_write::atomic_write(&path, trimmed.as_bytes())
+                .map_err(|e| e.to_string())
+        }
+    })
+    .await
+    .map_err(|e| format!("set_enhanced_notes_accepted task panicked: {e}"))?
+}
+
 /// Start a new capture session. Building the cpal stream and the
 /// ScreenCaptureKit pipeline takes real OS calls; we run that work on
 /// a blocking task so the Tauri command runtime is free to dispatch

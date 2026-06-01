@@ -1,6 +1,7 @@
 import * as React from "react";
 import {
   ArrowLeft,
+  Check,
   ChevronRight,
   Copy,
   FileText,
@@ -27,13 +28,15 @@ import { Button } from "@/shared/ui/button";
 import { Markdown } from "@/shared/ui/markdown";
 import { Separator } from "@/shared/ui/separator";
 import { copyToClipboard } from "@/shared/lib/share";
-import { formatBytes, formatDuration } from "@/shared/lib/utils";
+import { cn, formatBytes, formatDuration } from "@/shared/lib/utils";
 import {
   clearRecordingArtifacts,
   deleteRecording,
   exportNoteMarkdown,
+  getEnhancedNotesAccepted,
   getRecording,
   listAgentRuns,
+  setEnhancedNotesAccepted,
   onLiveTranscript,
   readTranscript,
   renameNote,
@@ -225,6 +228,43 @@ export default function Editor() {
   }, [jobs, recording?.session_dir, refreshRuns]);
 
   const summaryRun = agentRuns.find((r) => r.agent_id === "summarize") ?? null;
+
+  // GET-191: enhanced notes are AI-generated, so render them muted until the
+  // user "keeps" (owns) them — the Granola gray→black provenance cue.
+  // Acceptance is keyed to the run's finished_at, so a Regenerate (new run)
+  // reverts to muted until kept again.
+  const [acceptedMarker, setAcceptedMarker] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    const dir = recording?.session_dir;
+    if (!dir) {
+      setAcceptedMarker(null);
+      return;
+    }
+    let cancelled = false;
+    void getEnhancedNotesAccepted(dir)
+      .then((m) => {
+        if (!cancelled) setAcceptedMarker(m);
+      })
+      .catch((e) => console.error("get_enhanced_notes_accepted:", e));
+    return () => {
+      cancelled = true;
+    };
+  }, [recording?.session_dir, summaryRun?.finished_at]);
+
+  const enhancedNotesKept =
+    summaryRun !== null && acceptedMarker === summaryRun.finished_at;
+
+  const keepEnhancedNotes = React.useCallback(async () => {
+    const dir = recording?.session_dir;
+    if (!dir || !summaryRun) return;
+    try {
+      await setEnhancedNotesAccepted(dir, summaryRun.finished_at);
+      setAcceptedMarker(summaryRun.finished_at);
+    } catch (e) {
+      console.error("set_enhanced_notes_accepted:", e);
+      toast.error("Could not keep notes", { description: String(e) });
+    }
+  }, [recording?.session_dir, summaryRun]);
 
   // Is the summary being generated right now (auto-fire after transcribe,
   // or the manual Regenerate)? Used to show a loading state in place of the
@@ -548,13 +588,43 @@ export default function Editor() {
         />
       </section>
 
-      {/* Enhanced notes (the structured summary) */}
+      {/* Enhanced notes (the structured summary). GET-191: rendered muted
+          until the user "keeps" it, so AI text reads as a draft to review
+          rather than something they wrote. */}
       {summaryRun ? (
         <section className="space-y-2">
-          <SectionLabel>Enhanced notes</SectionLabel>
-          <div className="prose prose-sm prose-neutral dark:prose-invert max-w-none">
+          <div className="flex items-center justify-between gap-2">
+            <SectionLabel>Enhanced notes</SectionLabel>
+            {enhancedNotesKept ? (
+              <span className="inline-flex items-center gap-1 text-2xs text-muted-foreground">
+                <Check className="h-3 w-3 text-emerald-500" />
+                Kept
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => void keepEnhancedNotes()}
+                title="Mark these AI-generated notes as reviewed and yours"
+                className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-2 py-0.5 text-2xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+              >
+                <Check className="h-3 w-3" />
+                Keep these
+              </button>
+            )}
+          </div>
+          <div
+            className={cn(
+              "prose prose-sm prose-neutral dark:prose-invert max-w-none transition-opacity",
+              enhancedNotesKept ? "" : "opacity-60"
+            )}
+          >
             <Markdown>{summaryRun.response}</Markdown>
           </div>
+          {!enhancedNotesKept && (
+            <p className="text-2xs text-muted-foreground/80">
+              AI-generated from your transcript. Review and keep to make it yours.
+            </p>
+          )}
         </section>
       ) : summarizing ? (
         <section className="space-y-2">
