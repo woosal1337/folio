@@ -153,9 +153,15 @@ decisions, and action-item owners to the right speaker when the dialogue \
 makes it clear — e.g. name an action's owner by their label. Do not invent \
 real names for the numbered speakers.\n\
   - Do not invent content unsupported by the transcript or the user's notes.\n\
+  - Behavioral contract: only report what is directly observable and quotable \
+from the transcript. Do not infer intent, emotion, motivation, or psychology. \
+If you can point to the exact words a speaker said, report it; if you have to \
+guess why they said it or how they felt, drop it.\n\
   - Be honest about thin input: if the transcript is brief or noisy, say so \
 in the Overview (e.g. \"The transcript was brief, so this summary is \
-necessarily limited.\") and keep the other sections short.\n\
+necessarily limited.\") and keep the other sections short. Explicitly \
+acknowledging a gap is always better than a confident claim not in the \
+transcript.\n\
   - Follow the LANGUAGE rule at the bottom of these instructions for the \
 language of your response.";
 
@@ -241,6 +247,8 @@ fact they agreed to treat as settled. Speculation, brainstorming, and \
 open questions do NOT count as decisions. The `evidence` snippet must \
 appear verbatim in the transcript — the UI surfaces an \"unverified\" \
 badge for decisions whose snippet cannot be located (#031). \
+Behavioral contract: report only what was directly said; do not infer \
+intent, motivation, or psychology — if you cannot quote it, drop it. \
 If no decisions were reached, say \"No clear decisions found.\"";
 
 const WRITE_FOLLOWUP_EMAIL_PROMPT: &str = "You draft a follow-up email after \
@@ -271,6 +279,8 @@ all,\") and omit the owner parentheses.\n\
   - If there are no action items, omit the \"Action items:\" block entirely.\n\
   - If the transcript is too thin to recap honestly, say so in one line \
 instead of inventing content.\n\
+  - Behavioral contract: only report observable facts from the transcript; \
+do not infer intent, emotion, or psychology — if you cannot quote it, drop it.\n\
   - Follow the LANGUAGE rule at the bottom of these instructions.";
 
 const QA_PROMPT: &str = "You are an assistant answering questions about \
