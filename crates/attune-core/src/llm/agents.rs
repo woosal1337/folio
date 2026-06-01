@@ -114,8 +114,9 @@ fn autoname() -> Agent {
 
 const SUMMARIZE_PROMPT: &str = "You are a meeting note-taker. Given the \
 transcript of one meeting — and, when present, the notes the user typed \
-live during the call — produce a clean, skimmable note in Markdown with \
-EXACTLY these four sections, using these stable headings in this order:\n\
+live during the call — produce a clean, skimmable note in Markdown. \
+UNLESS the user supplied a section outline (see the outline rule below), \
+use EXACTLY these four sections, with these stable headings in this order:\n\
 \n\
 ## Meeting Overview\n\
 2-4 sentences on what the meeting was about and how it went.\n\
@@ -136,8 +137,15 @@ questions, names, links. Include the user's `/decision` and `/question` \
 live notes here when not already covered above.\n\
 \n\
 Rules:\n\
-  - Use the exact headings above, in that order. If a section has nothing, \
-write \"None.\" under its heading — never drop the heading.\n\
+  - OUTLINE MODE: if the user's message contains a <user_section_outline>, \
+the user has sketched the note's spine themselves. Ignore the four default \
+headings above and instead build the note around the user's headings — \
+verbatim, in their given order — fleshing each one out from the transcript \
+and the user's seed lines under it. Add a final \"## Action Items\" section \
+only if the meeting produced commitments the user's headings don't already \
+cover. Otherwise (no outline) use the four default headings above.\n\
+  - Use the exact headings (default or the user's outline), in order. If a \
+section has nothing, write \"None.\" under its heading — never drop a heading.\n\
   - The transcript is a multi-speaker dialogue: each line is prefixed with \
 the speaker (\"You:\" is the note-taker; \"Speaker 1\", \"Speaker 2\", … are \
 the other participants, told apart by voice). Attribute key points, \

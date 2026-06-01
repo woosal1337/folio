@@ -207,7 +207,19 @@ pub async fn run_agent(
     } else {
         None
     };
-    let user_message = build_user_message(&transcript_text, live_notes_md.as_deref());
+    // GET-195: when summarizing, the headings the user typed in their notes
+    // become the note's section spine (the agent fleshes each out), instead
+    // of the fixed template. Only the summary uses this.
+    let note_outline = if agent.id == "summarize" {
+        let dir = session_dir.clone();
+        tauri::async_runtime::spawn_blocking(move || read_note_outline(&dir))
+            .await
+            .unwrap_or(None)
+    } else {
+        None
+    };
+    let user_message =
+        build_user_message(&transcript_text, live_notes_md.as_deref(), note_outline.as_deref());
 
     // Snapshot paths + briefing language from settings (cheap, won't
     // block agent run). The lock is dropped before any IPC.
@@ -810,7 +822,11 @@ fn flatten_transcript(session_dir: &Path, transcript: &SessionTranscript) -> Str
     transcript.to_labeled_dialogue_named(false, &names)
 }
 
-fn build_user_message(transcript_text: &str, live_notes_md: Option<&str>) -> String {
+fn build_user_message(
+    transcript_text: &str,
+    live_notes_md: Option<&str>,
+    note_outline: Option<&str>,
+) -> String {
     // Legend so the model reads the speaker labels right: the transcript
     // is one chronological dialogue, a line per turn, each prefixed with
     // its speaker. "You:" is the note-taker (their mic); "Speaker 1",
@@ -852,6 +868,23 @@ fn build_user_message(transcript_text: &str, live_notes_md: Option<&str>) -> Str
             out.push_str("\n</user_live_notes>");
         }
     }
+    // GET-195: the user's own section headings become the note's spine.
+    if let Some(outline) = note_outline {
+        let outline = outline.trim();
+        if !outline.is_empty() {
+            out.push_str(
+                "\n\n<user_section_outline>\n\
+                The user sketched these section headings (and any notes under \
+                them) in their live notes. Build the enhanced note around \
+                EXACTLY these headings, in this order — flesh each out from \
+                the transcript and the user's lines. Keep the headings \
+                verbatim. Follow the OUTLINE MODE rule in your \
+                instructions.\n\n",
+            );
+            out.push_str(outline);
+            out.push_str("\n</user_section_outline>");
+        }
+    }
     out
 }
 
@@ -866,6 +899,20 @@ fn read_live_notes_markdown(session_dir: &Path) -> Option<String> {
         return None;
     }
     Some(attune_core::live_notes::render_markdown(&notes))
+}
+
+/// Read the user-authored section outline from a session's live notes
+/// (GET-195): the markdown headings the user typed + their seed lines.
+/// `None` when the user wrote no headers — the summary then uses its
+/// default four-section template.
+fn read_note_outline(session_dir: &Path) -> Option<String> {
+    let bytes = std::fs::read(session_dir.join("live_notes.json")).ok()?;
+    let lines: Vec<attune_core::live_notes::RawNoteLine> = serde_json::from_slice(&bytes).ok()?;
+    let outline = attune_core::live_notes::extract_outline(&lines);
+    if outline.is_empty() {
+        return None;
+    }
+    Some(attune_core::live_notes::render_outline_scaffold(&outline))
 }
 
 #[cfg(test)]
@@ -958,7 +1005,7 @@ mod tests {
     #[test]
     fn user_message_truncates_oversized_input() {
         let huge = "x".repeat(TRANSCRIPT_CHAR_CAP * 2);
-        let msg = build_user_message(&huge, None);
+        let msg = build_user_message(&huge, None, None);
         assert!(msg.contains("truncated to first"));
         assert!(msg.len() < TRANSCRIPT_CHAR_CAP + 500);
     }
@@ -970,19 +1017,31 @@ mod tests {
         // well past the cap and assert it truncates cleanly instead.
         let huge = "Şu an ekranı mı kaydediyor? ".repeat(TRANSCRIPT_CHAR_CAP);
         assert!(huge.len() > TRANSCRIPT_CHAR_CAP);
-        let msg = build_user_message(&huge, None);
+        let msg = build_user_message(&huge, None, None);
         assert!(msg.contains("truncated to first"));
     }
 
     #[test]
     fn user_message_appends_live_notes_block_when_present() {
-        let msg = build_user_message("hello", Some("## Action items\n\n- `0:05` ship"));
+        let msg = build_user_message("hello", Some("## Action items\n\n- `0:05` ship"), None);
         assert!(msg.contains("<user_live_notes>"));
         assert!(msg.contains("## Action items"));
         assert!(msg.contains("ship"));
         // Empty / whitespace notes add no block.
-        let bare = build_user_message("hello", Some("   "));
+        let bare = build_user_message("hello", Some("   "), None);
         assert!(!bare.contains("<user_live_notes>"));
+    }
+
+    #[test]
+    fn user_message_appends_section_outline_when_present() {
+        // GET-195: the user's headings reach the agent as a scaffold block.
+        let msg = build_user_message("hello", None, Some("## Risks\n- vendor lock-in"));
+        assert!(msg.contains("<user_section_outline>"));
+        assert!(msg.contains("## Risks"));
+        assert!(msg.contains("vendor lock-in"));
+        // No outline → no block.
+        let bare = build_user_message("hello", None, None);
+        assert!(!bare.contains("<user_section_outline>"));
     }
 
     #[test]

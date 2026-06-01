@@ -129,6 +129,89 @@ pub fn render_markdown(notes: &[LiveNote]) -> String {
     out
 }
 
+/// One section the user sketched by typing a markdown header in their live
+/// notes (GET-195): the heading plus any plain lines they wrote under it.
+/// The summarize agent fleshes each of these out from the transcript,
+/// growing the user's structure instead of imposing the fixed template.
+#[derive(Debug, Clone, PartialEq)]
+pub struct NoteOutlineSection {
+    /// Heading text with the leading `#`s stripped (e.g. "Risks").
+    pub heading: String,
+    /// The user's own plain lines under this heading, in order — seed
+    /// material the agent should expand, not discard.
+    pub user_lines: Vec<String>,
+}
+
+/// Extract the user-authored section outline from raw note lines: every
+/// markdown header (`#`..`######` followed by a space) opens a section, and
+/// the plain (non-command, non-header) lines beneath it are that section's
+/// seed text. Slash-command lines (`/action` …) are left to the grouped
+/// renderer. Returns empty when the user typed no headers — the signal to
+/// fall back to the default summary template.
+pub fn extract_outline(lines: &[RawNoteLine]) -> Vec<NoteOutlineSection> {
+    let mut sections: Vec<NoteOutlineSection> = Vec::new();
+    for line in lines {
+        let trimmed = line.text.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        if let Some(heading) = parse_header(trimmed) {
+            sections.push(NoteOutlineSection {
+                heading,
+                user_lines: Vec::new(),
+            });
+        } else if !is_command_keyword_prefix(trimmed) {
+            // A plain line seeds the current section (if the user has
+            // opened one). Lines before the first header are the user's
+            // freeform notes and stay with the grouped renderer.
+            if let Some(section) = sections.last_mut() {
+                section.user_lines.push(trimmed.to_string());
+            }
+        }
+    }
+    sections
+}
+
+/// Parse a markdown ATX header line (`## Risks`) → its text ("Risks").
+/// Requires 1–6 leading `#` then whitespace, matching the editor's render.
+fn parse_header(line: &str) -> Option<String> {
+    let hashes = line.chars().take_while(|c| *c == '#').count();
+    if !(1..=6).contains(&hashes) {
+        return None;
+    }
+    let rest = &line[hashes..];
+    if !rest.starts_with(char::is_whitespace) {
+        return None; // "##Risks" is not a header (matches CommonMark)
+    }
+    let heading = rest.trim();
+    (!heading.is_empty()).then(|| heading.to_string())
+}
+
+/// True for a line that is a slash command (handled by the grouped render).
+fn is_command_keyword_prefix(line: &str) -> bool {
+    let head = line.split_once(char::is_whitespace).map_or(line, |(c, _)| c);
+    is_command_keyword(head)
+}
+
+/// Render a user outline as a scaffold block for the summarize agent: the
+/// user's headings in order, each with their seed lines as bullets. Empty
+/// string when there are no sections.
+pub fn render_outline_scaffold(sections: &[NoteOutlineSection]) -> String {
+    let mut out = String::new();
+    for section in sections {
+        out.push_str("## ");
+        out.push_str(&section.heading);
+        out.push('\n');
+        for line in &section.user_lines {
+            out.push_str("- ");
+            out.push_str(line);
+            out.push('\n');
+        }
+        out.push('\n');
+    }
+    out.trim().to_string()
+}
+
 fn section_heading(kind: NoteKind) -> &'static str {
     match kind {
         NoteKind::Action => "Action items",
@@ -244,6 +327,70 @@ mod tests {
         assert!(md.contains("## Action items"));
         assert!(md.contains("## Decisions"));
         assert!(md.matches("- `").count() == 3);
+    }
+
+    fn raw(text: &str) -> RawNoteLine {
+        RawNoteLine {
+            text: text.into(),
+            anchor_seconds: 0.0,
+        }
+    }
+
+    #[test]
+    fn extract_outline_groups_plain_lines_under_user_headers() {
+        let lines = vec![
+            raw("freeform before any header"), // pre-header → ignored by outline
+            raw("## Risks"),
+            raw("vendor lock-in"),
+            raw("/action chase the SLA"), // command → not part of the outline
+            raw("### Decisions"),
+            raw("ship Friday"),
+            raw("revisit pricing"),
+        ];
+        let outline = extract_outline(&lines);
+        assert_eq!(outline.len(), 2);
+        assert_eq!(outline[0].heading, "Risks");
+        assert_eq!(outline[0].user_lines, vec!["vendor lock-in".to_string()]);
+        assert_eq!(outline[1].heading, "Decisions");
+        assert_eq!(
+            outline[1].user_lines,
+            vec!["ship Friday".to_string(), "revisit pricing".to_string()]
+        );
+    }
+
+    #[test]
+    fn extract_outline_empty_without_headers() {
+        let lines = vec![raw("just a plain thought"), raw("/action do it")];
+        assert!(extract_outline(&lines).is_empty());
+    }
+
+    #[test]
+    fn parse_header_requires_space_and_bounds() {
+        assert_eq!(parse_header("## Risks"), Some("Risks".to_string()));
+        assert_eq!(parse_header("# A"), Some("A".to_string()));
+        assert_eq!(parse_header("###### Deep"), Some("Deep".to_string()));
+        assert_eq!(parse_header("##Risks"), None); // no space
+        assert_eq!(parse_header("####### Too deep"), None); // 7 hashes
+        assert_eq!(parse_header("#"), None); // empty heading
+        assert_eq!(parse_header("not a header"), None);
+    }
+
+    #[test]
+    fn render_outline_scaffold_keeps_headings_and_seed_lines() {
+        let sections = vec![
+            NoteOutlineSection {
+                heading: "Risks".into(),
+                user_lines: vec!["vendor lock-in".into()],
+            },
+            NoteOutlineSection {
+                heading: "Next steps".into(),
+                user_lines: vec![],
+            },
+        ];
+        let md = render_outline_scaffold(&sections);
+        assert!(md.contains("## Risks"));
+        assert!(md.contains("- vendor lock-in"));
+        assert!(md.contains("## Next steps"));
     }
 
     #[test]
