@@ -139,6 +139,7 @@ pub fn run() {
             commands::meeting::meeting_take_notes,
             commands::meeting::dismiss_meeting_hud,
             commands::meeting::suppress_meeting_app,
+            commands::meeting::get_meeting_brief,
             commands::live_notes::save_live_notes,
             commands::live_notes::load_live_notes,
             commands::ask::ask_note,

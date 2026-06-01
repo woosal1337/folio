@@ -4,8 +4,11 @@
 //! popover the watcher opens when a conferencing app appears. These
 //! commands back its three actions — Take Notes, Dismiss, and Don't ask
 //! for <App> — plus the initial `get_pending_meeting` read it does on
-//! mount.
+//! mount. GET-197 adds `get_meeting_brief` for the pre-meeting brief
+//! panel that appears above the pill.
 
+use attune_core::briefs::MeetingBrief;
+use attune_core::llm::{KeyStore, ProviderId};
 use attune_core::storage::SettingsStore;
 use tauri::{Emitter, Manager, State};
 use tracing::info;
@@ -96,4 +99,60 @@ fn close_hud(app: &tauri::AppHandle) {
     if let Some(hud) = app.get_webview_window(MEETING_HUD_LABEL) {
         let _ = hud.close();
     }
+}
+
+/// Generate (and return) a pre-meeting brief from local context (GET-197).
+///
+/// Called by the HUD on mount with the attendees of the matching calendar
+/// event. Returns `None` when: attendees list is empty, no API key is set,
+/// Privacy Mode is on, or no relevant local context exists.
+///
+/// The brief is generated on the fly (blocking task + one LLM call, ~2-3s).
+/// The HUD has a 12s auto-dismiss window, so the brief typically lands with
+/// ~9s of display time.
+#[tauri::command]
+pub async fn get_meeting_brief(
+    state: State<'_, AppState>,
+    attendees: Vec<String>,
+) -> Result<Option<MeetingBrief>, String> {
+    if attendees.is_empty() {
+        return Ok(None);
+    }
+
+    let (output_dir, memory_dir, privacy) = {
+        let s = state.settings.lock();
+        (s.output_dir.clone(), s.memory_dir.clone(), s.privacy_mode)
+    };
+
+    // Respect Privacy Mode — never egress when airgap is on.
+    if privacy {
+        return Ok(None);
+    }
+
+    let api_key = tauri::async_runtime::spawn_blocking(move || KeyStore::get(ProviderId::OpenAi))
+        .await
+        .map_err(|e| format!("keystore lookup panicked: {e}"))?
+        .map_err(|e| e.to_string())?;
+
+    let Some(api_key) = api_key else {
+        return Ok(None);
+    };
+
+    let memory_store = state.memory_store()?;
+    let brief = attune_core::briefs::generate(
+        &attendees,
+        &output_dir,
+        &memory_store,
+        &api_key,
+        "gpt-4o-mini",
+    )
+    .await;
+
+    info!(
+        has_brief = brief.is_some(),
+        attendees = attendees.len(),
+        "meeting brief request completed"
+    );
+    let _ = memory_dir; // currently unused; reserved for future memory-dir override
+    Ok(brief)
 }

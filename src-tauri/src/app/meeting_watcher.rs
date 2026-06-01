@@ -344,11 +344,13 @@ fn surface_meeting<R: Runtime>(app: &AppHandle<R>, state: &AppState, bundle_id: 
 pub fn show_meeting_hud<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
     use tauri::{WebviewUrl, WebviewWindowBuilder};
 
-    // Pill geometry: short and wide so `rounded-full` reads as a true
-    // capsule. Width fits "Meeting detected · Discord" + Take Notes +
-    // chevron + X with comfortable padding.
-    const HUD_W: f64 = 380.0;
-    const HUD_H: f64 = 56.0;
+    // Window geometry: wider than the pill so the brief card above the pill
+    // has space to breathe. The lower 56px is the detection pill; the upper
+    // 140px is transparent until the brief loads (GET-197). Total = 196px.
+    // The React component uses flex-col + justify-end to park the pill at
+    // the bottom, keeping the transparent area invisible when no brief.
+    const HUD_W: f64 = 400.0;
+    const HUD_H: f64 = 196.0;
     const MARGIN: f64 = 16.0;
 
     if let Some(existing) = app.get_webview_window(MEETING_HUD_LABEL) {
