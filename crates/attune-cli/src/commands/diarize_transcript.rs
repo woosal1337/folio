@@ -6,7 +6,7 @@
 //! transcript. Re-open the note in the app to see "Speaker 1/2/3…".
 
 use std::collections::BTreeSet;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use anyhow::{bail, Context, Result};
 
@@ -62,8 +62,8 @@ pub fn run(args: DiarizeTranscriptArgs) -> Result<()> {
 fn label_with_models(
     dir: &Path,
     transcript: &mut SessionTranscript,
-    seg: &PathBuf,
-    emb: &PathBuf,
+    seg: &Path,
+    emb: &Path,
     opts: &DiarizationOptions,
 ) -> Result<DiarizationOutcome> {
     let runtime = DiarizationRuntime::open(seg, emb, opts).context("creating the diarizer")?;

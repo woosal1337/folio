@@ -462,7 +462,12 @@ mod tests {
         for m in DiarizationModel::ALL {
             let hash = m.expected_sha256();
             assert!(hash.is_some(), "{} has no pinned sha256", m.id());
-            assert_eq!(hash.unwrap().len(), 64, "{} sha256 not 64 hex chars", m.id());
+            assert_eq!(
+                hash.unwrap().len(),
+                64,
+                "{} sha256 not 64 hex chars",
+                m.id()
+            );
         }
     }
 }

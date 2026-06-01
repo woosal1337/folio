@@ -189,7 +189,9 @@ fn parse_header(line: &str) -> Option<String> {
 
 /// True for a line that is a slash command (handled by the grouped render).
 fn is_command_keyword_prefix(line: &str) -> bool {
-    let head = line.split_once(char::is_whitespace).map_or(line, |(c, _)| c);
+    let head = line
+        .split_once(char::is_whitespace)
+        .map_or(line, |(c, _)| c);
     is_command_keyword(head)
 }
 

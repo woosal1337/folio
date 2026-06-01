@@ -227,11 +227,8 @@ pub async fn start_recording(
     // WAVs into it (GET-173). A fresh recording (None) makes its own dir.
     let session_dir = match session_dir {
         Some(dir) => Some(
-            attune_core::paths::canonicalize_under(
-                &config.output_dir,
-                std::path::Path::new(&dir),
-            )
-            .map_err(|e| format!("invalid session directory: {e}"))?,
+            attune_core::paths::canonicalize_under(&config.output_dir, std::path::Path::new(&dir))
+                .map_err(|e| format!("invalid session directory: {e}"))?,
         ),
         None => None,
     };
