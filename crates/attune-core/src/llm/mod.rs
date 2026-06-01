@@ -14,6 +14,7 @@
 
 pub mod agent_run;
 pub mod agent_toml;
+pub mod agent_tools;
 pub mod agents;
 pub mod confidence;
 pub mod keystore;
