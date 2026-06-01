@@ -70,6 +70,7 @@ pub mod highlight_reel;
 pub mod import;
 pub mod live_notes;
 pub mod llm;
+pub mod mcp_access;
 pub mod mcp_client;
 pub mod mcp_server;
 pub mod memory;

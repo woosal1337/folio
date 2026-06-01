@@ -40,8 +40,14 @@ import { Label } from "@/shared/ui/label";
 import { cn } from "@/shared/lib/utils";
 import {
   generateMcpConfig,
+  grantMcpClient,
+  listMcpAccessLog,
+  listMcpGrants,
+  revokeMcpClient,
   writeMcpConfig,
+  type McpAccessEntry,
   type McpClient,
+  type McpClientGrant,
   type McpConnectInfo,
 } from "@/shared/lib/ipc";
 
@@ -118,6 +124,8 @@ export function SectionConnectors() {
 
       <McpFeatureCard />
 
+      <McpConsentPanel />
+
       <Group title="Integrations">
         <div className="space-y-2">
           {CONNECTORS.map((c) => (
@@ -128,6 +136,126 @@ export function SectionConnectors() {
 
       <ApiKeysStub />
     </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// MCP consent + access ledger panel (GET-210)
+// ---------------------------------------------------------------------------
+
+function McpConsentPanel() {
+  const [grants, setGrants] = React.useState<McpClientGrant[]>([]);
+  const [log, setLog] = React.useState<McpAccessEntry[]>([]);
+  const [logOpen, setLogOpen] = React.useState(false);
+  const [busy, setBusy] = React.useState<string | null>(null);
+
+  const reload = React.useCallback(() => {
+    listMcpGrants()
+      .then(setGrants)
+      .catch(() => {});
+    if (logOpen) {
+      listMcpAccessLog()
+        .then(setLog)
+        .catch(() => {});
+    }
+  }, [logOpen]);
+
+  React.useEffect(() => {
+    reload();
+  }, [reload]);
+
+  React.useEffect(() => {
+    if (logOpen) {
+      listMcpAccessLog()
+        .then(setLog)
+        .catch(() => {});
+    }
+  }, [logOpen]);
+
+  const toggle = async (grant: McpClientGrant) => {
+    setBusy(grant.client_id);
+    try {
+      if (grant.allow_reads) {
+        await revokeMcpClient(grant.client_id);
+      } else {
+        await grantMcpClient(grant.client_id, grant.client_name ?? undefined);
+      }
+      reload();
+    } catch (e) {
+      console.error("mcp_grant toggle:", e);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  if (grants.length === 0 && log.length === 0) return null;
+
+  return (
+    <div className="space-y-3">
+      <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+        MCP access control
+      </Label>
+
+      {grants.length > 0 ? (
+        <div className="space-y-2">
+          {grants.map((g) => (
+            <div
+              key={g.client_id}
+              className="flex items-center justify-between rounded-lg border border-border bg-card px-3 py-2"
+            >
+              <div>
+                <p className="text-sm font-medium">{g.client_name ?? g.client_id}</p>
+                <p className="text-2xs text-muted-foreground">
+                  {g.allow_reads ? "Read access granted" : "Access revoked"}
+                  {g.granted_at
+                    ? ` · ${new Date(g.granted_at).toLocaleDateString([], { month: "short", day: "numeric" })}`
+                    : ""}
+                </p>
+              </div>
+              <Button
+                size="sm"
+                variant={g.allow_reads ? "destructive" : "outline"}
+                className="gap-1.5"
+                disabled={busy === g.client_id}
+                onClick={() => void toggle(g)}
+              >
+                {g.allow_reads ? "Revoke" : "Grant"}
+              </Button>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      <button
+        type="button"
+        onClick={() => setLogOpen((v) => !v)}
+        className="text-xs text-muted-foreground hover:text-foreground"
+      >
+        {logOpen ? "▾" : "▸"} Access log ({log.length} entries)
+      </button>
+
+      {logOpen && log.length > 0 ? (
+        <div className="max-h-48 overflow-y-auto rounded-md border border-border bg-muted/30 p-2 font-mono text-2xs">
+          {log.map((e, i) => (
+            <div key={i} className="py-0.5 text-muted-foreground">
+              <span className="text-foreground/70">
+                {new Date(e.ts).toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </span>{" "}
+              <span className="text-primary/80">{e.client}</span> →{" "}
+              <span>{e.tool}</span>
+              {e.notes.length > 0 ? (
+                <span className="ml-1 text-muted-foreground/60">
+                  [{e.notes.length} note{e.notes.length !== 1 ? "s" : ""}]
+                </span>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </div>
   );
 }
 

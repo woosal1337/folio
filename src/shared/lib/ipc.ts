@@ -1188,3 +1188,36 @@ export function writeMcpConfig(
 ): Promise<string> {
   return call<string>("write_mcp_config", { configPath, binaryPath, clientId });
 }
+
+// ---- MCP consent + access ledger (GET-210) --------------------------------
+
+export interface McpClientGrant {
+  client_id: string;
+  client_name?: string | null;
+  allow_reads: boolean;
+  granted_at?: string | null;
+}
+
+export interface McpAccessEntry {
+  ts: string;
+  client: string;
+  tool: string;
+  notes: string[];
+  query?: string | null;
+}
+
+export function listMcpGrants(): Promise<McpClientGrant[]> {
+  return call<McpClientGrant[]>("list_mcp_grants");
+}
+
+export function grantMcpClient(clientId: string, clientName?: string): Promise<void> {
+  return call<void>("grant_mcp_client", { clientId, clientName });
+}
+
+export function revokeMcpClient(clientId: string): Promise<void> {
+  return call<void>("revoke_mcp_client", { clientId });
+}
+
+export function listMcpAccessLog(): Promise<McpAccessEntry[]> {
+  return call<McpAccessEntry[]>("list_mcp_access_log");
+}

@@ -12,10 +12,11 @@
 
 use serde::{Deserialize, Serialize};
 
-/// The seven tools the MCP server exposes. Method names map 1:1 to
-/// MCP `tools/call` names so external agents see a stable surface.
+/// All tools the MCP server exposes (GET-210 adds 3 query-scoped tools).
+/// Method names map 1:1 to MCP `tools/call` names.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum McpTool {
+    // Original 7 tools.
     SearchMemory,
     FindDecision,
     ListTasks,
@@ -23,6 +24,13 @@ pub enum McpTool {
     GetTranscript,
     RecentMeetings,
     QuoteSegment,
+    // GET-210: query-parameterized note collections.
+    /// Return notes that mention a specific person (by name or email).
+    NotesByPerson,
+    /// Return notes in a specific folder/Space.
+    NotesByFolder,
+    /// Return notes within a date range.
+    NotesByDateRange,
 }
 
 impl McpTool {
@@ -35,6 +43,10 @@ impl McpTool {
             McpTool::GetTranscript => "get_transcript",
             McpTool::RecentMeetings => "recent_meetings",
             McpTool::QuoteSegment => "quote_segment",
+            // GET-210: query-scoped collections.
+            McpTool::NotesByPerson => "notes_by_person",
+            McpTool::NotesByFolder => "notes_by_folder",
+            McpTool::NotesByDateRange => "notes_by_date_range",
         }
     }
 
@@ -47,6 +59,9 @@ impl McpTool {
             "get_transcript" => McpTool::GetTranscript,
             "recent_meetings" => McpTool::RecentMeetings,
             "quote_segment" => McpTool::QuoteSegment,
+            "notes_by_person" => McpTool::NotesByPerson,
+            "notes_by_folder" => McpTool::NotesByFolder,
+            "notes_by_date_range" => McpTool::NotesByDateRange,
             _ => return None,
         })
     }
@@ -60,6 +75,9 @@ impl McpTool {
             McpTool::GetTranscript => "Fetch the full transcript for a recording by its label.",
             McpTool::RecentMeetings => "List the user's most recent recordings (label, duration, has_transcript, timestamp).",
             McpTool::QuoteSegment => "Quote a specific (start, end) segment from a recording's transcript.",
+            McpTool::NotesByPerson => "Return notes that mention a specific person (by name or email address), newest first.",
+            McpTool::NotesByFolder => "Return notes belonging to a named folder/Space, newest first.",
+            McpTool::NotesByDateRange => "Return notes captured between two ISO-8601 dates (inclusive), newest first.",
         }
     }
 }
@@ -75,6 +93,9 @@ pub fn catalogue() -> &'static [McpTool] {
         McpTool::GetTranscript,
         McpTool::RecentMeetings,
         McpTool::QuoteSegment,
+        McpTool::NotesByPerson,
+        McpTool::NotesByFolder,
+        McpTool::NotesByDateRange,
     ]
 }
 
@@ -131,6 +152,39 @@ pub struct QuoteSegmentParams {
     pub end_seconds: f64,
 }
 
+// ---------------------------------------------------------------------------
+// GET-210: query-scoped collection params
+// ---------------------------------------------------------------------------
+
+/// Params for `notes_by_person`.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct NotesByPersonParams {
+    /// Name or email address to search for in attendee lists + summaries.
+    pub person: String,
+    #[serde(default)]
+    pub limit: Option<usize>,
+}
+
+/// Params for `notes_by_folder`.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct NotesByFolderParams {
+    /// Exact folder name (case-sensitive, matches the vault's folder registry).
+    pub folder: String,
+    #[serde(default)]
+    pub limit: Option<usize>,
+}
+
+/// Params for `notes_by_date_range`.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct NotesByDateRangeParams {
+    /// Inclusive start date in `YYYY-MM-DD` format.
+    pub from: String,
+    /// Inclusive end date in `YYYY-MM-DD` format.
+    pub to: String,
+    #[serde(default)]
+    pub limit: Option<usize>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -153,8 +207,9 @@ mod tests {
     }
 
     #[test]
-    fn catalogue_has_seven_tools() {
-        assert_eq!(catalogue().len(), 7);
+    fn catalogue_has_ten_tools() {
+        // 7 original + 3 query-scoped (GET-210).
+        assert_eq!(catalogue().len(), 10);
     }
 
     #[test]
