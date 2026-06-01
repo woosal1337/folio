@@ -87,6 +87,17 @@ libc = { workspace = true }
 coreaudio-rs = { workspace = true }
 coreaudio-sys = { workspace = true }
 
+# objc2-core-audio: safe Rust bindings for AudioHardwareCreateProcessTap
+# (macOS 14.4+). Used by the process-tap system-audio backend (GET-170)
+# that replaces SCK and avoids the Screen Recording permission.
+objc2-core-audio = { version = "0.3", features = [
+  "AudioHardware",
+  "objc2",
+  "objc2-foundation",
+] }
+objc2 = { version = "0.6" }
+objc2-foundation = { version = "0.3" }
+
 # Local Whisper inference. Metal acceleration on Apple Silicon gives
 # us ~5-10x realtime on M1+ for the large-v3 model. The first build
 # compiles whisper.cpp from source (~5 min on a cold machine).

@@ -15,16 +15,26 @@
 use attune_core::permissions::{Permission, PermissionRow, PermissionStatus};
 
 const MIC_URL: &str = "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone";
+// Screen Recording URL — fallback for macOS < 14.4.
 const SCREEN_URL: &str =
     "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture";
+// System Audio Recording URL — macOS 14.4+ process tap (GET-170).
+const SYSTEM_AUDIO_URL: &str =
+    "x-apple.systempreferences:com.apple.preference.security?Privacy_SystemAudioRecording";
 const CALENDAR_URL: &str =
     "x-apple.systempreferences:com.apple.preference.security?Privacy_Calendars";
 const NOTIFICATIONS_URL: &str = "x-apple.systempreferences:com.apple.preference.notifications";
 
 const MIC_RATIONALE: &str =
     "We record what you say. Without microphone access, your half of every meeting is silent.";
+// Rationale for the legacy Screen Recording permission (SCK fallback, < 14.4).
 const SCREEN_RATIONALE: &str =
     "We record what the other side says by capturing system audio. Screen Recording is the macOS API that allows it.";
+// Rationale for the narrower System Audio Recording permission (process tap, ≥ 14.4).
+const SYSTEM_AUDIO_RATIONALE: &str =
+    "We capture what the other side says using the system audio API. \
+     This only grants audio access — not screen recording — so Attune appears under \
+     System Audio Recording Only in Privacy & Security.";
 const CALENDAR_RATIONALE: &str =
     "Pre-fills meeting titles and attendees on Stop, and back-fills the calendar event's notes with the summary.";
 const NOTIFICATIONS_RATIONALE: &str =
@@ -32,6 +42,17 @@ const NOTIFICATIONS_RATIONALE: &str =
 
 #[tauri::command]
 pub fn list_permissions() -> Vec<PermissionRow> {
+    // On macOS 14.4+ the process tap only needs System Audio Recording (GET-170),
+    // not Screen Recording. Adjust the permission entry accordingly.
+    #[cfg(target_os = "macos")]
+    let (audio_rationale, audio_url) = if attune_core::audio::process_tap::is_supported() {
+        (SYSTEM_AUDIO_RATIONALE, SYSTEM_AUDIO_URL)
+    } else {
+        (SCREEN_RATIONALE, SCREEN_URL)
+    };
+    #[cfg(not(target_os = "macos"))]
+    let (audio_rationale, audio_url) = (SCREEN_RATIONALE, SCREEN_URL);
+
     vec![
         PermissionRow {
             permission: Permission::Microphone,
@@ -42,8 +63,8 @@ pub fn list_permissions() -> Vec<PermissionRow> {
         PermissionRow {
             permission: Permission::ScreenRecording,
             status: PermissionStatus::Unknown,
-            rationale: SCREEN_RATIONALE.to_string(),
-            settings_url: SCREEN_URL.to_string(),
+            rationale: audio_rationale.to_string(),
+            settings_url: audio_url.to_string(),
         },
         PermissionRow {
             permission: Permission::Calendar,
@@ -67,7 +88,17 @@ pub fn open_permission_settings(
 ) -> Result<(), String> {
     let url = match permission {
         Permission::Microphone => MIC_URL,
-        Permission::ScreenRecording => SCREEN_URL,
+        Permission::ScreenRecording => {
+            // Use the narrower System Audio Recording URL on macOS 14.4+.
+            #[cfg(target_os = "macos")]
+            if attune_core::audio::process_tap::is_supported() {
+                SYSTEM_AUDIO_URL
+            } else {
+                SCREEN_URL
+            }
+            #[cfg(not(target_os = "macos"))]
+            SCREEN_URL
+        }
         Permission::Calendar => CALENDAR_URL,
         Permission::Notifications => NOTIFICATIONS_URL,
     };

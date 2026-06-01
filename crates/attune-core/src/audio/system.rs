@@ -1,28 +1,33 @@
-//! System audio capture via Apple's ScreenCaptureKit.
+//! System audio capture — process tap (macOS 14.4+) with ScreenCaptureKit
+//! fallback (GET-170).
+//!
+//! ## Backend selection
+//!
+//! On **macOS 14.4+**: [`process_tap::ProcessTapCapture`] is tried first.
+//! It uses `AudioHardwareCreateProcessTap` which only requires the
+//! **System Audio Recording** permission — Attune then appears under
+//! "System Audio Recording Only" in System Settings → Privacy, not
+//! "Screen & System Audio Recording". Fails gracefully and falls through to
+//! the SCK backend if the tap cannot be created (e.g. permission not granted
+//! yet on first launch; the OS will prompt on the next attempt).
+//!
+//! On **macOS < 14.4** or when the tap fails: falls back to the existing
+//! **ScreenCaptureKit** backend which requires the Screen Recording
+//! permission.
+//!
+//! ## SCK backend (fallback)
 //!
 //! Wraps `screencapturekit::SCStream` configured with `captures_audio = true`
 //! and `excludes_current_process_audio = true`. The first display on the
 //! system is used as the content source. No video frames are requested or
-//! processed — we only care about the audio output. macOS still prompts for
-//! Screen Recording permission the first time, even for audio-only capture.
-//!
-//! Sample buffers arrive via an `SCStreamOutputTrait` impl on a SCK-owned
-//! thread. Each `CMSampleBuffer` exposes an `AudioBufferList` containing one
-//! or more `AudioBuffer`s of interleaved `f32` PCM. We downmix to mono,
-//! resample to the target rate via [`StreamingResampler`], and append to
-//! the WAV writer.
-//!
-//! Future: CoreAudio HAL Tap (macOS 14.4+) avoids the Screen Recording
-//! permission entirely. See `architecture/audio-capture.md` in the design
-//! vault. We keep this implementation behind a trait-friendly shape so
-//! swapping the backend is mechanical.
+//! processed — we only care about the audio output.
 
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use parking_lot::Mutex;
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 
 use crate::audio::resampler::StreamingResampler;
 use crate::audio::wav_writer::AudioWavWriter;
@@ -66,10 +71,21 @@ mod macos_impl {
     use screencapturekit::stream::output_type::SCStreamOutputType;
     use screencapturekit::stream::SCStream;
 
-    /// Captures system audio on macOS via ScreenCaptureKit.
+    /// Captures system audio on macOS.
+    ///
+    /// Tries the CoreAudio process tap (macOS 14.4+, System Audio Recording
+    /// permission) first; falls back to ScreenCaptureKit (Screen Recording
+    /// permission) if the tap is unavailable or fails.
     pub struct SystemCapture {
-        stream: Option<SCStream>,
+        inner: SystemCaptureInner,
         writer: Arc<AudioWavWriter>,
+    }
+
+    enum SystemCaptureInner {
+        /// Process tap backend — "System Audio Recording Only" permission.
+        ProcessTap(crate::audio::process_tap::ProcessTapCapture),
+        /// ScreenCaptureKit fallback — "Screen & System Audio Recording".
+        Sck(Option<SCStream>),
     }
 
     /// SCStream callback target. Holds the shared resampler + writer,
@@ -293,6 +309,30 @@ mod macos_impl {
 
     impl SystemCapture {
         pub fn start(writer: Arc<AudioWavWriter>, target_sample_rate: u32) -> Result<Self> {
+            // Try process tap first on macOS 14.4+ (GET-170).
+            if crate::audio::process_tap::is_supported() {
+                match crate::audio::process_tap::ProcessTapCapture::start(
+                    Arc::clone(&writer),
+                    target_sample_rate,
+                ) {
+                    Ok(tap) => {
+                        info!("system audio: using CoreAudio process tap (System Audio Recording Only)");
+                        return Ok(Self {
+                            inner: SystemCaptureInner::ProcessTap(tap),
+                            writer,
+                        });
+                    }
+                    Err(e) => {
+                        warn!(error = %e, "process tap unavailable — falling back to ScreenCaptureKit");
+                    }
+                }
+            }
+
+            // SCK fallback.
+            Self::start_sck(writer, target_sample_rate)
+        }
+
+        fn start_sck(writer: Arc<AudioWavWriter>, target_sample_rate: u32) -> Result<Self> {
             let content = SCShareableContent::get().map_err(|e| {
                 AttuneError::SystemAudio(format!(
                     "could not enumerate shareable content (Screen Recording permission may be missing): {:?}",
@@ -327,16 +367,12 @@ mod macos_impl {
             let output = AudioOutput {
                 writer: writer.clone(),
                 resampler,
-                // Start as "active" — until we observe sustained
-                // silence the writer should treat every callback as
-                // record-worthy.
                 last_active_ms: AtomicU64::new(now_ms()),
                 paused: AtomicBool::new(false),
             };
 
             let mut stream = SCStream::new(&filter, &config);
             stream.add_output_handler(output, SCStreamOutputType::Audio);
-
             stream
                 .start_capture()
                 .map_err(|e| AttuneError::SystemAudio(format!("start_capture: {:?}", e)))?;
@@ -344,25 +380,30 @@ mod macos_impl {
             info!(
                 sample_rate = SCK_SAMPLE_RATE,
                 channels = SCK_CHANNEL_COUNT,
-                "ScreenCaptureKit audio stream started"
+                "ScreenCaptureKit audio stream started (Screen Recording permission)"
             );
 
             Ok(Self {
-                stream: Some(stream),
+                inner: SystemCaptureInner::Sck(Some(stream)),
                 writer,
             })
         }
 
         pub fn stop(mut self) -> Result<()> {
-            if let Some(stream) = self.stream.take() {
-                if let Err(e) = stream.stop_capture() {
-                    error!(error = ?e, "ScreenCaptureKit stop_capture returned error");
+            match self.inner {
+                SystemCaptureInner::ProcessTap(tap) => {
+                    tap.stop()?;
                 }
-                // Allow the audio thread to drain any in-flight buffer before
-                // finalizing the WAV writer.
-                std::thread::sleep(std::time::Duration::from_millis(200));
+                SystemCaptureInner::Sck(ref mut opt) => {
+                    if let Some(stream) = opt.take() {
+                        if let Err(e) = stream.stop_capture() {
+                            error!(error = ?e, "ScreenCaptureKit stop_capture returned error");
+                        }
+                        std::thread::sleep(std::time::Duration::from_millis(200));
+                    }
+                    self.writer.finalize()?;
+                }
             }
-            self.writer.finalize()?;
             debug!(
                 samples = self.writer.samples_written(),
                 "system audio capture finalized"
