@@ -33,6 +33,7 @@ import {
   listProviderModels,
   saveChatThread,
   type ChatTurn,
+  type CoverageNote,
 } from "@/shared/lib/ipc";
 import { useAuthStore } from "@/shared/stores/auth-store";
 import { confirmDelete } from "@/shared/stores/confirm-delete-store";
@@ -80,6 +81,67 @@ const RECIPES: Recipe[] = [
 interface Msg {
   role: "user" | "assistant";
   content: string;
+  coverage?: CoverageNote;
+}
+
+/** Coverage panel shown below each library-chat assistant reply (GET-193). */
+function CoveragePanel({ coverage }: { coverage: CoverageNote }) {
+  const [open, setOpen] = React.useState(false);
+
+  const parts: string[] = [];
+  if (coverage.notes_read > 0) {
+    const range =
+      coverage.date_oldest &&
+      coverage.date_newest &&
+      coverage.date_oldest !== coverage.date_newest
+        ? ` (${coverage.date_oldest} — ${coverage.date_newest})`
+        : coverage.date_newest
+          ? ` (${coverage.date_newest})`
+          : "";
+    parts.push(
+      `${coverage.notes_read} of ${coverage.notes_total} note${coverage.notes_total === 1 ? "" : "s"}${range}`
+    );
+  } else {
+    parts.push("no notes with summaries yet");
+  }
+  if (coverage.memories > 0) {
+    parts.push(`${coverage.memories} memory${coverage.memories === 1 ? "y" : "ies"}`);
+  }
+  if (coverage.tasks > 0) {
+    parts.push(`${coverage.tasks} open task${coverage.tasks === 1 ? "" : "s"}`);
+  }
+
+  return (
+    <div className="mt-1">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-1 text-2xs text-muted-foreground/60 hover:text-muted-foreground"
+        aria-expanded={open}
+      >
+        <span>{open ? "▾" : "▸"}</span>
+        <span>Coverage</span>
+      </button>
+      {open ? (
+        <div className="mt-1 rounded-md border border-border/50 bg-card/60 px-2.5 py-2 text-2xs text-muted-foreground">
+          <p className="font-medium text-foreground/70">Searched</p>
+          <ul className="mt-0.5 space-y-0.5 pl-3">
+            {parts.map((p) => (
+              <li key={p} className="list-disc">
+                {p}
+              </li>
+            ))}
+          </ul>
+          {coverage.capped ? (
+            <p className="mt-1.5 text-amber-600 dark:text-amber-400">
+              Answer may be incomplete — only the {coverage.notes_read} most recent
+              notes were read.
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 /** Short relative-ish label for a Recents row's updated time. */
@@ -200,9 +262,12 @@ export default function Chat() {
       setBusy(true);
 
       try {
-        const { answer } = await askLibrary(q, history, model || undefined);
+        const { answer, coverage } = await askLibrary(q, history, model || undefined);
         setMessages((prev) => {
-          const next: Msg[] = [...prev, { role: "assistant", content: answer }];
+          const next: Msg[] = [
+            ...prev,
+            { role: "assistant", content: answer, coverage },
+          ];
           persist(next);
           return next;
         });
@@ -381,12 +446,21 @@ export default function Chat() {
           <div
             key={i}
             className={
-              m.role === "user"
-                ? "ml-auto max-w-[85%] whitespace-pre-wrap rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground"
-                : "mr-auto max-w-[90%] whitespace-pre-wrap rounded-lg bg-muted px-3 py-2 text-sm leading-relaxed"
+              m.role === "user" ? "ml-auto max-w-[85%]" : "mr-auto max-w-[90%]"
             }
           >
-            {m.content}
+            <div
+              className={
+                m.role === "user"
+                  ? "whitespace-pre-wrap rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground"
+                  : "whitespace-pre-wrap rounded-lg bg-muted px-3 py-2 text-sm leading-relaxed"
+              }
+            >
+              {m.content}
+            </div>
+            {m.role === "assistant" && m.coverage ? (
+              <CoveragePanel coverage={m.coverage} />
+            ) : null}
           </div>
         ))}
         {busy ? (
