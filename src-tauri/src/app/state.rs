@@ -48,6 +48,10 @@ pub struct AppState {
     /// when a capture starts (when local Whisper is configured) and
     /// flipped to `true` on stop/pause so the background thread exits.
     pub live_transcript_stop: Mutex<Option<Arc<std::sync::atomic::AtomicBool>>>,
+    /// JoinHandle for the live-transcript thread (GET-178). Stored so
+    /// `RunEvent::ExitRequested` can join it after flipping the stop
+    /// signal, rather than letting a detached thread run past app exit.
+    pub live_transcript_thread: Mutex<Option<std::thread::JoinHandle<()>>>,
 }
 
 /// A recording that spans multiple capture segments because the user
@@ -89,6 +93,7 @@ impl AppState {
             pending_meeting: Mutex::new(None),
             active_note: Mutex::new(None),
             live_transcript_stop: Mutex::new(None),
+            live_transcript_thread: Mutex::new(None),
         }
     }
 
@@ -97,6 +102,20 @@ impl AppState {
     pub fn stop_live_transcript(&self) {
         if let Some(flag) = self.live_transcript_stop.lock().take() {
             flag.store(true, std::sync::atomic::Ordering::Relaxed);
+        }
+    }
+
+    /// Join the live-transcript thread after signalling it to stop
+    /// (GET-178). Logs a warning on panic; safe to call if the thread
+    /// was never started or has already exited.
+    pub fn join_live_transcript(&self) {
+        if let Some(handle) = self.live_transcript_thread.lock().take() {
+            match handle.join() {
+                Ok(()) => {}
+                Err(_) => {
+                    tracing::warn!("live-transcript thread panicked");
+                }
+            }
         }
     }
 
