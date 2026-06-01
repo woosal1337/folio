@@ -175,7 +175,12 @@ impl CaptureSession {
     /// into a per-part subdirectory of the same note.
     pub fn start_in(config: CaptureConfig, session_dir: PathBuf) -> Result<Self> {
         let started_at_dt: DateTime<Utc> = SystemTime::now().into();
-        std::fs::create_dir_all(&session_dir)?;
+        std::fs::create_dir_all(&session_dir).map_err(|e| {
+            crate::error::AttuneError::Storage(format!(
+                "create session dir {}: {e}",
+                session_dir.display()
+            ))
+        })?;
         info!(dir = %session_dir.display(), "capture session started");
 
         let mic = if config.mic_enabled {

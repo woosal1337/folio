@@ -17,6 +17,7 @@
 //! versions and round-trips produce clean git diffs.
 
 use std::collections::BTreeMap;
+use std::fmt::Write as FmtWrite;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -201,10 +202,10 @@ pub fn render_page(memory: &Memory) -> String {
     // followed by the current value and a placeholder timeline that
     // the renderer leaves for the user / future passes to expand.
     let heading = memory.key.as_deref().unwrap_or("Observation");
-    out.push_str(&format!("# {heading}\n\n"));
-    out.push_str(&format!("**Current:** {}\n", memory.content.trim()));
+    let _ = writeln!(out, "# {heading}\n");
+    let _ = writeln!(out, "**Current:** {}", memory.content.trim());
     if let Some(ev) = &memory.evidence {
-        out.push_str(&format!("\n> {}\n", ev.trim()));
+        let _ = writeln!(out, "\n> {}", ev.trim());
     }
     out
 }
@@ -274,31 +275,33 @@ pub fn parse_page(raw: &str) -> std::result::Result<Memory, String> {
 // ---- frontmatter render helpers ----------------------------------
 
 fn push_str(out: &mut String, k: &str, v: &str) {
-    out.push_str(&format!("{}: {}\n", k, quote_if_needed(v)));
+    let _ = writeln!(out, "{}: {}", k, quote_if_needed(v));
 }
 
 fn push_opt_str(out: &mut String, k: &str, v: Option<&str>) {
     match v {
         Some(s) => push_str(out, k, s),
-        None => out.push_str(&format!("{}: null\n", k)),
+        None => {
+            let _ = writeln!(out, "{}: null", k);
+        }
     }
 }
 
 fn push_float(out: &mut String, k: &str, v: f32) {
-    out.push_str(&format!("{}: {:.3}\n", k, v));
+    let _ = writeln!(out, "{}: {:.3}", k, v);
 }
 
 fn push_bool(out: &mut String, k: &str, v: bool) {
-    out.push_str(&format!("{}: {}\n", k, v));
+    let _ = writeln!(out, "{}: {}", k, v);
 }
 
 fn push_string_list(out: &mut String, k: &str, items: &[String]) {
     if items.is_empty() {
-        out.push_str(&format!("{}: []\n", k));
+        let _ = writeln!(out, "{}: []", k);
         return;
     }
     let inner: Vec<String> = items.iter().map(|s| quote_if_needed(s)).collect();
-    out.push_str(&format!("{}: [{}]\n", k, inner.join(", ")));
+    let _ = writeln!(out, "{}: [{}]", k, inner.join(", "));
 }
 
 /// Emit a single extra `key: value` line. Scalars round-trip through

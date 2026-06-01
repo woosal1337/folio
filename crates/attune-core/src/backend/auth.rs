@@ -92,7 +92,11 @@ pub async fn logout(client: &BackendClient) -> Result<(), BackendError> {
     let server = client
         .post::<LogoutRequest<'_>, ()>("/auth/logout", &body)
         .await;
-    let _ = TokenStore::clear();
+    // Best-effort: clearing the local token store on logout; a failure here
+    // doesn't prevent the server-side session from being revoked.
+    if let Err(e) = TokenStore::clear() {
+        tracing::warn!(error = %e, "token store clear failed on logout");
+    }
     match server {
         Ok(()) => Ok(()),
         Err(BackendError::Unauthorized) => Ok(()),

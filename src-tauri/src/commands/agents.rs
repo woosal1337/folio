@@ -38,6 +38,9 @@ use crate::app::AppState;
 
 const DEFAULT_OPENAI_MODEL: &str = "gpt-4o-mini";
 const MAX_TOOL_ITERATIONS: usize = 5;
+/// Sampling temperature for agent completions. Low (0.2) keeps output
+/// deterministic and factual; the user can override per-agent via the TOML.
+const AGENT_TEMPERATURE: f32 = 0.2;
 
 #[tauri::command]
 pub fn list_agents() -> Vec<Agent> {
@@ -285,7 +288,7 @@ pub async fn run_agent(
             model: model.clone(),
             system_prompt: system_prompt.clone(),
             messages: messages.clone(),
-            temperature: Some(0.2),
+            temperature: Some(AGENT_TEMPERATURE),
             max_tokens: None,
             tools: tools.clone(),
         };
