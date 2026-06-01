@@ -16,27 +16,34 @@
 
 import * as React from "react";
 import {
-  ArrowUpRight,
   Calendar as CalendarIcon,
   Check,
+  CheckCircle2,
   Copy,
   ExternalLink,
   FileText,
   Inbox,
   KeyRound,
   Layers,
+  Loader2,
   Mail,
   MessageSquare,
   Plus,
+  Terminal,
   Workflow,
+  XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/shared/ui/button";
 import { Label } from "@/shared/ui/label";
 import { cn } from "@/shared/lib/utils";
-
-const MCP_DEFAULT_URL = "http://127.0.0.1:7438/mcp";
+import {
+  generateMcpConfig,
+  writeMcpConfig,
+  type McpClient,
+  type McpConnectInfo,
+} from "@/shared/lib/ipc";
 
 type ConnectorStatus = "shipped" | "coming_soon";
 
@@ -104,8 +111,8 @@ export function SectionConnectors() {
       <header className="space-y-1">
         <h2 className="font-serif text-2xl font-medium">Connectors</h2>
         <p className="text-sm text-muted-foreground">
-          Where Attune sends meeting data, and which AI tools can ask Attune
-          about your past meetings.
+          Where Attune sends meeting data, and which AI tools can ask Attune about your
+          past meetings.
         </p>
       </header>
 
@@ -125,24 +132,43 @@ export function SectionConnectors() {
 }
 
 function McpFeatureCard() {
-  const [copied, setCopied] = React.useState(false);
+  const [info, setInfo] = React.useState<McpConnectInfo | null>(null);
+  const [loading, setLoading] = React.useState(true);
+  const [writtenIds, setWrittenIds] = React.useState<Set<string>>(new Set());
 
-  const copyUrl = async () => {
+  React.useEffect(() => {
+    generateMcpConfig()
+      .then(setInfo)
+      .catch((e) => console.error("generate_mcp_config:", e))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const copySnippet = async (client: McpClient) => {
     try {
-      await navigator.clipboard.writeText(MCP_DEFAULT_URL);
-      setCopied(true);
-      toast.success("MCP URL copied", {
-        description: "Paste into Claude Desktop, Cursor, or any MCP-aware tool.",
-      });
-      setTimeout(() => setCopied(false), 2000);
+      const text = client.cli_command ?? client.json_snippet;
+      await navigator.clipboard.writeText(text);
+      toast.success(`${client.name} config copied`);
     } catch (e) {
-      console.error("clipboard:", e);
-      toast.error("Could not copy URL", { description: String(e) });
+      toast.error("Could not copy", { description: String(e) });
+    }
+  };
+
+  const writeConfig = async (client: McpClient) => {
+    if (!client.config_path || !info?.binary_path) return;
+    try {
+      await writeMcpConfig(client.config_path, info.binary_path, client.id);
+      setWrittenIds((prev) => new Set(prev).add(client.id));
+      toast.success(`Attune added to ${client.name}`, {
+        description: `Restart ${client.name} to load the new server.`,
+      });
+    } catch (e) {
+      toast.error(`Could not write ${client.name} config`, { description: String(e) });
     }
   };
 
   return (
     <div className="relative overflow-hidden rounded-xl border border-primary/30 bg-gradient-to-br from-primary/5 via-card to-card p-6">
+      {/* Header */}
       <div className="flex items-start gap-3">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
           <Workflow className="h-5 w-5" />
@@ -153,55 +179,109 @@ function McpFeatureCard() {
             <span className="rounded-full bg-primary/10 px-2 py-0.5 text-2xs font-medium uppercase tracking-wider text-primary">
               Featured
             </span>
-            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-2xs font-medium uppercase tracking-wider text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
-              Coming soon
-            </span>
           </div>
           <p className="mt-1 max-w-prose text-sm text-muted-foreground">
-            Your meetings, queryable from every AI tool on your Mac. The server
-            runs on localhost — no cloud, no proxy. Claude Desktop, Cursor,
-            Raycast, and any other MCP-aware client connects directly.
+            Connect any MCP-aware AI tool to Attune — no cloud, no proxy. Each tool gets
+            read-only access to your transcripts, memories, and tasks via a local stdio
+            server.
           </p>
         </div>
       </div>
 
-      <div className="mt-5 flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2">
-        <code className="flex-1 truncate font-mono text-xs text-foreground">
-          {MCP_DEFAULT_URL}
-        </code>
-        <Button type="button" size="sm" variant="outline" onClick={copyUrl} className="gap-1.5">
-          {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-          {copied ? "Copied" : "Copy"}
-        </Button>
-      </div>
+      {/* Client rows */}
+      {loading ? (
+        <div className="mt-5 flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          Detecting installed clients…
+        </div>
+      ) : (
+        <div className="mt-5 space-y-3">
+          {(info?.clients ?? []).map((client) => {
+            const detected = client.status === "detected";
+            const written = writtenIds.has(client.id);
+            const canWrite =
+              detected && client.config_path !== null && info?.binary_path !== null;
+            const isCliClient = client.cli_command !== null;
 
-      <ol className="mt-5 space-y-2 text-sm">
-        <Step n={1}>
-          Add the URL above to your AI tool (Claude Desktop &rarr; Settings &rarr;
-          Developer &rarr; Edit Config).
-        </Step>
-        <Step n={2}>
-          Approve the consent prompt the first time the tool queries Attune.
-        </Step>
-        <Step n={3}>
-          Chat anywhere with meeting context — search transcripts, find
-          decisions, fetch action items.
-        </Step>
-      </ol>
+            return (
+              <div
+                key={client.id}
+                className={cn(
+                  "rounded-lg border bg-card p-3",
+                  detected ? "border-border" : "border-border/40 opacity-60"
+                )}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    {detected ? (
+                      <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                    ) : (
+                      <XCircle className="h-3.5 w-3.5 shrink-0 text-muted-foreground/40" />
+                    )}
+                    <span className="text-sm font-medium">{client.name}</span>
+                    <span className="text-2xs text-muted-foreground">
+                      {detected ? "detected" : "not installed"}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    {isCliClient ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="gap-1.5"
+                        onClick={() => void copySnippet(client)}
+                        disabled={!detected}
+                      >
+                        <Terminal className="h-3 w-3" />
+                        Copy command
+                      </Button>
+                    ) : (
+                      <>
+                        {canWrite ? (
+                          <Button
+                            size="sm"
+                            variant={written ? "ghost" : "default"}
+                            className="gap-1.5"
+                            onClick={() => void writeConfig(client)}
+                            disabled={written}
+                          >
+                            {written ? (
+                              <Check className="h-3 w-3" />
+                            ) : (
+                              <Plus className="h-3 w-3" />
+                            )}
+                            {written ? "Added" : "Add Attune"}
+                          </Button>
+                        ) : null}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1.5"
+                          onClick={() => void copySnippet(client)}
+                        >
+                          <Copy className="h-3 w-3" />
+                          Copy snippet
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </div>
 
-      <div className="mt-4 flex items-center justify-between">
-        <button
-          type="button"
-          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-          onClick={() =>
-            toast.info("Audit log", {
-              description: "Per-query consent log lands with the MCP server.",
-            })
-          }
-        >
-          View what was queried
-          <ArrowUpRight className="h-3 w-3" />
-        </button>
+                {detected && (
+                  <pre className="mt-2 overflow-x-auto rounded bg-muted/50 px-2 py-1.5 font-mono text-2xs leading-relaxed text-foreground/80">
+                    {isCliClient
+                      ? client.cli_command
+                      : client.json_snippet.split("\n").slice(1).join("\n").trim()}
+                  </pre>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Footer */}
+      <div className="mt-4 flex items-center justify-end gap-3">
         <a
           href="https://modelcontextprotocol.io"
           target="_blank"
@@ -213,17 +293,6 @@ function McpFeatureCard() {
         </a>
       </div>
     </div>
-  );
-}
-
-function Step({ n, children }: { n: number; children: React.ReactNode }) {
-  return (
-    <li className="flex items-start gap-3">
-      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-2xs font-medium text-primary">
-        {n}
-      </span>
-      <span className="text-muted-foreground">{children}</span>
-    </li>
   );
 }
 
@@ -253,13 +322,13 @@ function ConnectorRow({ card }: { card: ConnectorCard }) {
     <div
       className={cn(
         "flex items-start gap-4 rounded-lg border bg-card p-4 transition-colors",
-        shipped ? "border-border" : "border-dashed border-border",
+        shipped ? "border-border" : "border-dashed border-border"
       )}
     >
       <div
         className={cn(
           "flex h-10 w-10 shrink-0 items-center justify-center rounded-md",
-          shipped ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground",
+          shipped ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
         )}
       >
         <Icon className="h-4.5 w-4.5" />
@@ -308,9 +377,8 @@ function ApiKeysStub() {
         <div className="min-w-0 flex-1 space-y-0.5">
           <p className="text-sm font-medium">Personal access tokens</p>
           <p className="max-w-prose text-xs text-muted-foreground">
-            For scripts and CI that need to query Attune programmatically.
-            Each token is scoped to one workspace and revocable from this
-            page.
+            For scripts and CI that need to query Attune programmatically. Each token is
+            scoped to one workspace and revocable from this page.
           </p>
           <p className="text-2xs text-muted-foreground/80">
             Lands alongside the attune-api auth surface.
@@ -330,4 +398,3 @@ function ApiKeysStub() {
     </Group>
   );
 }
-

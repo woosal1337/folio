@@ -19,6 +19,7 @@ pub mod library;
 pub mod live_notes;
 pub mod llm;
 pub mod maintenance;
+pub mod mcp_connect;
 pub mod meeting;
 pub mod memory;
 pub mod permissions;

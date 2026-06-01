@@ -196,6 +196,8 @@ pub fn run() {
             commands::maintenance::get_showcase,
             commands::maintenance::save_showcase,
             commands::recipes::list_recipes,
+            commands::mcp_connect::generate_mcp_config,
+            commands::mcp_connect::write_mcp_config,
             commands::webhooks::list_webhooks,
             commands::webhooks::save_webhook,
             commands::webhooks::delete_webhook,

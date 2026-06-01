@@ -1121,3 +1121,33 @@ export async function writeTextFileFromBrowser(
 ): Promise<void> {
   await writeTextFile(path, contents);
 }
+
+// ---- MCP config generator (GET-208) -------------------------------------
+
+export interface McpClient {
+  id: string;
+  name: string;
+  status: "detected" | "not_found";
+  config_path: string | null;
+  json_snippet: string;
+  cli_command: string | null;
+}
+
+export interface McpConnectInfo {
+  clients: McpClient[];
+  binary_path: string | null;
+}
+
+/** Detect installed MCP clients and generate ready-to-use config snippets. */
+export function generateMcpConfig(): Promise<McpConnectInfo> {
+  return call<McpConnectInfo>("generate_mcp_config");
+}
+
+/** Write the Attune MCP block into a client's config file. */
+export function writeMcpConfig(
+  configPath: string,
+  binaryPath: string,
+  clientId: string
+): Promise<string> {
+  return call<string>("write_mcp_config", { configPath, binaryPath, clientId });
+}
