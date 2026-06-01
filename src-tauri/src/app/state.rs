@@ -148,9 +148,22 @@ impl AppState {
     }
 
     /// Snapshot the current recording status for the UI.
+    ///
+    /// # Lock-acquisition order (GET-179)
+    ///
+    /// This function holds three guards simultaneously. Canonical order
+    /// (must be followed at ALL multi-lock call sites to prevent deadlock):
+    ///   1. `session`
+    ///   2. `recording_started`
+    ///   3. `active_note`
+    ///
+    /// All guards drop at the end of this sync fn — no `.await` inside.
     pub fn recording_status(&self) -> RecordingStatus {
+        // 1. session
         let session = self.session.lock();
+        // 2. recording_started
         let started = self.recording_started.lock();
+        // 3. active_note
         let note = self.active_note.lock();
         let recording = session.is_some();
         // Elapsed is continuous across pause/resume: the finalized parts'
