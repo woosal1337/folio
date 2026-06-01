@@ -4,8 +4,22 @@
 mod app;
 mod commands;
 
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
+
 use tauri::Manager;
 use tracing_subscriber::EnvFilter;
+
+// ---------------------------------------------------------------------------
+// Background-thread lifecycle handles (GET-178)
+//
+// The meeting-watcher and live-transcript threads need to be cleanly stopped
+// on RunEvent::ExitRequested so they don't run past app exit. Process globals
+// are the simplest option here: `setup` writes them once, the RunEvent
+// closure reads them.
+// ---------------------------------------------------------------------------
+static WATCHER_STOP: std::sync::OnceLock<Arc<AtomicBool>> = std::sync::OnceLock::new();
+static WATCHER_HANDLE: Mutex<Option<std::thread::JoinHandle<()>>> = Mutex::new(None);
 
 use crate::app::AppState;
 
@@ -75,7 +89,15 @@ pub fn run() {
             }
             // Meeting auto-detection watcher. GET-143. Polls
             // NSWorkspace for conferencing apps and surfaces the HUD.
-            app::meeting_watcher::spawn(app.handle().clone());
+            // GET-178: store the JoinHandle + stop signal so the
+            // RunEvent::ExitRequested handler can shut the thread down
+            // cleanly instead of letting it run past app exit.
+            let (watcher_handle, watcher_stop) =
+                app::meeting_watcher::spawn(app.handle().clone());
+            let _ = WATCHER_STOP.set(watcher_stop);
+            if let Ok(mut slot) = WATCHER_HANDLE.lock() {
+                *slot = Some(watcher_handle);
+            }
             let _ = app;
             Ok(())
         })
@@ -203,8 +225,31 @@ pub fn run() {
             commands::webhooks::delete_webhook,
             commands::webhooks::test_webhook,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error building tauri application")
+        .run(|app, event| {
+            // GET-178: on exit, signal background threads to stop and join
+            // them so they don't run past the process boundary.
+            if let tauri::RunEvent::ExitRequested { .. } = event {
+                // Signal + join the meeting watcher.
+                if let Some(stop) = WATCHER_STOP.get() {
+                    stop.store(true, Ordering::Relaxed);
+                }
+                if let Ok(mut slot) = WATCHER_HANDLE.lock() {
+                    if let Some(handle) = slot.take() {
+                        match handle.join() {
+                            Ok(()) => {}
+                            Err(_) => tracing::warn!("meeting-watcher thread panicked"),
+                        }
+                    }
+                }
+                // Signal + join the live-transcript thread (if running).
+                if let Some(state) = app.try_state::<app::AppState>() {
+                    state.stop_live_transcript();
+                    state.join_live_transcript();
+                }
+            }
+        });
 }
 
 fn init_tracing() {

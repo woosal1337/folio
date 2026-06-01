@@ -28,6 +28,8 @@
 //! never surface the HUD.
 
 use std::collections::{HashMap, HashSet};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
@@ -144,15 +146,22 @@ struct WatcherState {
     aside_bounds: Option<crate::app::window_aside::SavedBounds>,
 }
 
-/// Spawn the background detection loop. Called once from the Tauri
-/// `setup` hook. No-op on non-macOS targets.
+/// Spawn the background detection loop. Returns the `JoinHandle` and a
+/// stop signal `Arc` so the caller can shut the watcher down cleanly on
+/// `RunEvent::ExitRequested` (GET-178). No-op on non-macOS targets
+/// (returns a stub handle and a dangling Arc).
 #[cfg(target_os = "macos")]
-pub fn spawn<R: Runtime>(app: AppHandle<R>) {
-    std::thread::Builder::new()
+pub fn spawn<R: Runtime>(app: AppHandle<R>) -> (std::thread::JoinHandle<()>, Arc<AtomicBool>) {
+    let stop = Arc::new(AtomicBool::new(false));
+    let stop_for_thread = Arc::clone(&stop);
+    let handle = std::thread::Builder::new()
         .name("meeting-watcher".into())
         .spawn(move || {
             let mut state = WatcherState::default();
             loop {
+                if stop_for_thread.load(Ordering::Relaxed) {
+                    break;
+                }
                 let tick = compute_tick(&mut state);
                 if !tick.seeded_only {
                     handle_tick(&app, tick, &mut state);
@@ -161,10 +170,19 @@ pub fn spawn<R: Runtime>(app: AppHandle<R>) {
             }
         })
         .expect("spawn meeting-watcher thread");
+    (handle, stop)
 }
 
 #[cfg(not(target_os = "macos"))]
-pub fn spawn<R: Runtime>(_app: AppHandle<R>) {}
+pub fn spawn<R: Runtime>(_app: AppHandle<R>) -> (std::thread::JoinHandle<()>, Arc<AtomicBool>) {
+    // Stub: immediately-joined dummy thread + inert stop signal.
+    let stop = Arc::new(AtomicBool::new(true));
+    let handle = std::thread::Builder::new()
+        .name("meeting-watcher-stub".into())
+        .spawn(|| {})
+        .expect("spawn stub");
+    (handle, stop)
+}
 
 /// Read the current "active meetings" set from whichever source is
 /// available. Prefers the audio HAL per-process input signal; falls

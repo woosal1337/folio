@@ -248,6 +248,29 @@ pub fn generate_mcp_config(app: AppHandle) -> McpConnectInfo {
     }
 }
 
+/// The MCP client config directories that `write_mcp_config` is
+/// permitted to touch. Relative to `$HOME`. An empty-string entry is
+/// never matched so there is no accidental bypass when `HOME` is unset.
+const ALLOWED_CONFIG_DIRS: &[&str] = &[
+    "Library/Application Support/Claude",
+    ".cursor",
+    "Library/Application Support/Windsurf",
+];
+
+/// Returns true iff `path` is inside one of the allowed MCP config
+/// directories (under `$HOME`). Rejects paths outside those dirs to
+/// prevent path-traversal abuse if `config_path` is tampered with.
+fn is_allowed_config_path(path: &std::path::Path) -> bool {
+    let Ok(home_str) = std::env::var("HOME") else {
+        return false;
+    };
+    let home = std::path::PathBuf::from(home_str);
+    ALLOWED_CONFIG_DIRS
+        .iter()
+        .filter(|d| !d.is_empty())
+        .any(|dir| path.starts_with(home.join(dir)))
+}
+
 /// Write the Attune MCP block into a client's config file.
 ///
 /// For Claude Desktop: merges `attune` into the existing
@@ -262,7 +285,24 @@ pub fn write_mcp_config(
     binary_path: String,
     client_id: String,
 ) -> Result<String, String> {
+    // Security: only write to the known MCP client config directories.
+    // This prevents a tampered frontend call from writing arbitrary files.
     let path = std::path::PathBuf::from(&config_path);
+    if !is_allowed_config_path(&path) {
+        return Err(format!(
+            "write_mcp_config: config_path '{}' is outside the allowed MCP config directories",
+            path.display()
+        ));
+    }
+    // Validate binary_path: must not be empty and must not contain shell
+    // metacharacters that could turn into code execution in the config.
+    if binary_path.is_empty()
+        || binary_path.contains('\n')
+        || binary_path.contains('\r')
+        || binary_path.contains('"')
+    {
+        return Err("write_mcp_config: binary_path contains invalid characters".to_string());
+    }
 
     // Read existing content or start fresh.
     let existing: serde_json::Value = if path.exists() {

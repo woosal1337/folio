@@ -50,7 +50,11 @@ fn maybe_start_live_transcript(app: &tauri::AppHandle, state: &AppState, session
 
     let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     *state.live_transcript_stop.lock() = Some(stop.clone());
-    crate::app::live_transcript::spawn(app.clone(), session_dir, status.path, hint, stop);
+    // GET-178: store the JoinHandle so we can join it on exit rather than
+    // detaching and letting it run past the recording stop.
+    let handle =
+        crate::app::live_transcript::spawn(app.clone(), session_dir, status.path, hint, stop);
+    *state.live_transcript_thread.lock() = Some(handle);
 }
 
 /// Snapshot of the current recording session for the UI. Pure

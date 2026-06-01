@@ -43,67 +43,70 @@ pub struct LiveTranscript {
     pub text: String,
 }
 
-/// Spawn the live-preview loop on a background thread. It runs until
-/// `stop` flips to `true` (set by stop/pause). `model_path` is the
-/// resolved local Whisper model; `language` is the optional hint.
+/// Spawn the live-preview loop on a background thread. Returns the
+/// `JoinHandle` so the caller can join after flipping `stop` (GET-178).
 pub fn spawn<R: Runtime>(
     app: AppHandle<R>,
     session_dir: PathBuf,
     model_path: PathBuf,
     language: Option<String>,
     stop: Arc<AtomicBool>,
-) {
-    std::thread::spawn(move || {
-        let transcriber = LocalWhisperTranscriber::new(model_path);
-        let mic_path = session_dir.join("mic.wav");
-        let session_id = session_dir.to_string_lossy().into_owned();
-        let mut last_emitted = String::new();
+) -> std::thread::JoinHandle<()> {
+    std::thread::Builder::new()
+        .name("live-transcript".into())
+        .spawn(move || {
+            let transcriber = LocalWhisperTranscriber::new(model_path);
+            let mic_path = session_dir.join("mic.wav");
+            let session_id = session_dir.to_string_lossy().into_owned();
+            let mut last_emitted = String::new();
 
-        while !stop.load(Ordering::Relaxed) {
-            // Sleep first so the file has some audio before the first pass.
-            for _ in 0..POLL_INTERVAL.as_secs() {
-                if stop.load(Ordering::Relaxed) {
-                    return;
+            while !stop.load(Ordering::Relaxed) {
+                // Sleep first so the file has some audio before the first pass.
+                for _ in 0..POLL_INTERVAL.as_secs() {
+                    if stop.load(Ordering::Relaxed) {
+                        return;
+                    }
+                    std::thread::sleep(Duration::from_secs(1));
                 }
-                std::thread::sleep(Duration::from_secs(1));
-            }
 
-            let Some((rate, samples)) = read_wav_tail_mono(&mic_path, WINDOW_SECS) else {
-                continue;
-            };
-            if samples.len() < rate as usize {
-                // Less than ~1s of audio — nothing worth previewing yet.
-                continue;
-            }
-
-            // Whisper wants a file; write the window to a temp WAV at the
-            // mic's native rate (the transcriber resamples to 16k itself).
-            let tmp = std::env::temp_dir().join(format!("attune-live-{}.wav", std::process::id()));
-            if write_mono_wav(&tmp, rate, &samples).is_err() {
-                continue;
-            }
-            let text = match transcriber.transcribe(&tmp, language.as_deref()) {
-                Ok(t) => t.full_text().trim().to_string(),
-                Err(e) => {
-                    debug!(error = %e, "live transcript pass failed");
+                let Some((rate, samples)) = read_wav_tail_mono(&mic_path, WINDOW_SECS) else {
+                    continue;
+                };
+                if samples.len() < rate as usize {
+                    // Less than ~1s of audio — nothing worth previewing yet.
                     continue;
                 }
-            };
-            let _ = std::fs::remove_file(&tmp);
 
-            if text.is_empty() || text == last_emitted {
-                continue;
+                // Whisper wants a file; write the window to a temp WAV at the
+                // mic's native rate (the transcriber resamples to 16k itself).
+                let tmp =
+                    std::env::temp_dir().join(format!("attune-live-{}.wav", std::process::id()));
+                if write_mono_wav(&tmp, rate, &samples).is_err() {
+                    continue;
+                }
+                let text = match transcriber.transcribe(&tmp, language.as_deref()) {
+                    Ok(t) => t.full_text().trim().to_string(),
+                    Err(e) => {
+                        debug!(error = %e, "live transcript pass failed");
+                        continue;
+                    }
+                };
+                let _ = std::fs::remove_file(&tmp);
+
+                if text.is_empty() || text == last_emitted {
+                    continue;
+                }
+                last_emitted = text.clone();
+                let _ = app.emit(
+                    LIVE_TRANSCRIPT_EVENT,
+                    LiveTranscript {
+                        session_dir: session_id.clone(),
+                        text,
+                    },
+                );
             }
-            last_emitted = text.clone();
-            let _ = app.emit(
-                LIVE_TRANSCRIPT_EVENT,
-                LiveTranscript {
-                    session_dir: session_id.clone(),
-                    text,
-                },
-            );
-        }
-    });
+        })
+        .expect("spawn live-transcript thread")
 }
 
 /// Read the last `window_secs` of a (possibly still-being-written) PCM
