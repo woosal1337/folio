@@ -25,6 +25,7 @@ import {
   pauseRecording as ipcPause,
   resumeRecording as ipcResume,
   transcribeRecording as ipcTranscribe,
+  diarizeSession as ipcDiarize,
   runVad as ipcRunVad,
 } from "@/shared/lib/ipc";
 import { estimateOpenAITranscribeCost, formatUsd } from "@/shared/lib/cost-estimate";
@@ -389,6 +390,35 @@ export const useRecording = create<RecordingState>((set, get) => {
         transcribingDir: null,
         lastTranscriptPath: result.transcript_path,
       });
+
+      // Speaker diarization: now a dedicated step with its own job pill
+      // so the user can see "Identifying speakers…" separately from the
+      // transcription step. Runs after the transcript is saved to disk
+      // so diarize_session can re-read it. Non-blocking — any failure
+      // just leaves the "Others" label intact; agents still work.
+      if (settings?.diarization_enabled ?? true) {
+        const diarizeJobId = `diarize:${sessionDir}`;
+        useJobsStore.getState().push({
+          id: diarizeJobId,
+          kind: "diarize",
+          label: `Identifying speakers in ${basename(sessionDir)}`,
+          sessionDir,
+          recordingLabel: basename(sessionDir),
+        });
+        try {
+          const labeled = await ipcDiarize(sessionDir);
+          if (labeled) {
+            toast.info("Speakers identified", {
+              description: basename(sessionDir),
+            });
+          }
+        } catch (e) {
+          console.error("diarize_session failed:", e);
+          // Non-fatal — transcript is still usable without speaker labels.
+        } finally {
+          useJobsStore.getState().pop(diarizeJobId);
+        }
+      }
       const segments = result.session_transcript.channels.reduce(
         (acc, channel) => acc + channel.segments.length,
         0

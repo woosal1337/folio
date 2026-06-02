@@ -43,13 +43,12 @@ pub async fn transcribe_recording(
     state: State<'_, AppState>,
     session_dir: PathBuf,
 ) -> Result<TranscriptionResult, String> {
-    let (transcriber_kind, settings_language, local_model, diarization_enabled, output_dir) = {
+    let (transcriber_kind, settings_language, local_model, output_dir) = {
         let settings = state.settings.lock();
         (
             settings.transcriber.clone(),
             settings.transcription_language.clone(),
             settings.local_whisper_model.clone(),
-            settings.diarization_enabled,
             settings.output_dir.clone(),
         )
     };
@@ -208,79 +207,10 @@ pub async fn transcribe_recording(
         ));
     }
 
-    let mut session_transcript = SessionTranscript { channels };
+    let session_transcript = SessionTranscript { channels };
 
-    // Speaker diarization + identification (GET-189): tag the system-
-    // channel segments with per-speaker labels (Speaker 1/2/3…), extract a
-    // voice embedding per speaker, and resolve names from the cross-
-    // recording registry. CPU-heavy, so it runs on a blocking task. Missing
-    // models / failures degrade gracefully — the transcript is still saved,
-    // just with the v0 "Others" labelling.
-    if diarization_enabled {
-        let dir = session_dir.clone();
-        let mut to_label = session_transcript.clone();
-        let labeled = tauri::async_runtime::spawn_blocking(move || {
-            use attune_core::diarization::{
-                anchor_self_from_session, identify_session_speakers, DiarizationError,
-                DiarizationOptions,
-            };
-            use attune_core::speaker_memory::{self, SpeakerRegistry};
-
-            let opts = DiarizationOptions::default();
-
-            // Load the cross-recording registry (keychain-encrypted). A load
-            // failure (bad key, corruption) must never block transcription —
-            // fall back to an empty registry so speakers are still labelled.
-            let mut registry = speaker_memory::load_default().unwrap_or_else(|e| {
-                tracing::warn!(error = %e, "speaker registry load failed; using empty");
-                SpeakerRegistry::new()
-            });
-
-            let ident = match identify_session_speakers(&dir, &mut to_label, &opts, &registry) {
-                Ok(i) => i,
-                Err(DiarizationError::ModelsNotDownloaded) => {
-                    info!("diarization skipped: models not downloaded");
-                    return None;
-                }
-                Err(e) => {
-                    tracing::warn!(error = %e, "diarization failed; leaving channel labels");
-                    return None;
-                }
-            };
-            info!(
-                speakers = ident.outcome.num_speakers,
-                labeled = ident.outcome.num_labeled,
-                segments = ident.outcome.num_segments,
-                "diarization: system channel labelled",
-            );
-
-            // Persist the per-recording speaker sidecar (embeddings + any
-            // auto-resolved names) next to the transcript.
-            if let Err(e) = ident.speakers.write(&dir) {
-                tracing::warn!(error = %e, "could not write speakers sidecar");
-            }
-
-            // Best-effort: strengthen the user's "You" anchor from this
-            // recording's mic, then persist the registry. Never blocks the
-            // transcript.
-            match anchor_self_from_session(&mut registry, &dir, &opts) {
-                Ok(true) => {
-                    if let Err(e) = speaker_memory::save_default(&registry) {
-                        tracing::warn!(error = %e, "saving speaker registry failed");
-                    }
-                }
-                Ok(false) => {}
-                Err(e) => tracing::warn!(error = %e, "anchoring self voice failed"),
-            }
-
-            Some(to_label)
-        })
-        .await
-        .map_err(|e| format!("diarization task panicked: {e}"))?;
-        if let Some(t) = labeled {
-            session_transcript = t;
-        }
-    }
+    // NOTE: diarization has been moved to a dedicated `diarize_session`
+    // command so the frontend can show a separate job strip pill for it.
 
     let transcript_path = session_dir.join(TRANSCRIPT_FILENAME);
     session_transcript
@@ -645,4 +575,100 @@ pub async fn set_recording_language(
     })
     .await
     .map_err(|e| format!("set_recording_language task panicked: {e}"))?
+}
+
+/// Run speaker diarization on an already-transcribed session. Called by
+/// the recording store after `transcribe_recording` completes so the job
+/// strip can show a dedicated "Identifying speakers…" pill.
+///
+/// Reads the on-disk `transcript.json`, runs WeSpeaker diarization on the
+/// system channel, and overwrites `transcript.json` with speaker labels.
+/// Degrading gracefully — if models are not downloaded or diarization fails
+/// the transcript is left untouched and `Ok(false)` is returned.
+#[tauri::command]
+pub async fn diarize_session(
+    state: State<'_, AppState>,
+    session_dir: PathBuf,
+) -> Result<bool, String> {
+    let (diarization_enabled, output_dir) = {
+        let s = state.settings.lock();
+        (s.diarization_enabled, s.output_dir.clone())
+    };
+    if !diarization_enabled {
+        return Ok(false);
+    }
+    let session_dir = {
+        let target = session_dir;
+        tauri::async_runtime::spawn_blocking(move || {
+            attune_core::paths::canonicalize_under(&output_dir, &target).map_err(|e| e.to_string())
+        })
+        .await
+        .map_err(|e| format!("canonicalize panicked: {e}"))??
+    };
+
+    let did_label = tauri::async_runtime::spawn_blocking(move || -> Result<bool, String> {
+        use attune_core::diarization::{
+            anchor_self_from_session, identify_session_speakers, DiarizationError,
+            DiarizationOptions,
+        };
+        use attune_core::speaker_memory::{self, SpeakerRegistry};
+        use attune_core::storage::session::TRANSCRIPT_FILENAME;
+
+        let transcript_path = session_dir.join(TRANSCRIPT_FILENAME);
+        let mut session_transcript = SessionTranscript::read_json(&transcript_path)
+            .map_err(|e| format!("read transcript: {e}"))?;
+
+        let opts = DiarizationOptions::default();
+        let mut registry = speaker_memory::load_default().unwrap_or_else(|e| {
+            tracing::warn!(error = %e, "speaker registry load failed; using empty");
+            SpeakerRegistry::new()
+        });
+
+        let ident = match identify_session_speakers(
+            &session_dir,
+            &mut session_transcript,
+            &opts,
+            &registry,
+        ) {
+            Ok(i) => i,
+            Err(DiarizationError::ModelsNotDownloaded) => {
+                info!("diarization skipped: models not downloaded");
+                return Ok(false);
+            }
+            Err(e) => {
+                tracing::warn!(error = %e, "diarization failed; leaving channel labels");
+                return Ok(false);
+            }
+        };
+        info!(
+            speakers = ident.outcome.num_speakers,
+            labeled = ident.outcome.num_labeled,
+            segments = ident.outcome.num_segments,
+            "diarization complete",
+        );
+
+        if let Err(e) = ident.speakers.write(&session_dir) {
+            tracing::warn!(error = %e, "could not write speakers sidecar");
+        }
+
+        session_transcript
+            .write_json(&transcript_path)
+            .map_err(|e| format!("write transcript: {e}"))?;
+
+        match anchor_self_from_session(&mut registry, &session_dir, &opts) {
+            Ok(true) => {
+                if let Err(e) = speaker_memory::save_default(&registry) {
+                    tracing::warn!(error = %e, "saving speaker registry failed");
+                }
+            }
+            Ok(false) => {}
+            Err(e) => tracing::warn!(error = %e, "anchoring self voice failed"),
+        }
+
+        Ok(true)
+    })
+    .await
+    .map_err(|e| format!("diarize_session task panicked: {e}"))??;
+
+    Ok(did_label)
 }
