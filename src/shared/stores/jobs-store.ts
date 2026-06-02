@@ -17,7 +17,7 @@
 
 import { create } from "zustand";
 
-export type JobKind = "vad" | "transcribe" | "agent" | "download";
+export type JobKind = "vad" | "transcribe" | "diarize" | "agent" | "download";
 
 export interface Job {
   id: string;

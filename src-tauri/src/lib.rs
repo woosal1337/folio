@@ -171,6 +171,7 @@ pub fn run() {
             commands::ask::ask_library,
             commands::ask::ask_folder,
             commands::transcription::transcribe_recording,
+            commands::transcription::diarize_session,
             commands::vad::run_vad,
             commands::transcription::read_transcript,
             commands::transcription::locate_transcript_span,

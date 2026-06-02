@@ -259,6 +259,16 @@ export function transcribeRecording(sessionDir: string): Promise<TranscriptionRe
 }
 
 /**
+ * Run speaker diarization on an already-transcribed session. Returns true
+ * when speakers were labeled, false when models are missing or diarization
+ * is disabled. Called after transcribeRecording so the job strip can show
+ * a dedicated "Identifying speakers…" pill.
+ */
+export function diarizeSession(sessionDir: string): Promise<boolean> {
+  return call<boolean>("diarize_session", { sessionDir });
+}
+
+/**
  * Per-channel result of the VAD pre-pass over a session. Mirrors the
  * Rust-side `ChannelVadResult` so the recording-store can log
  * stripped-silence telemetry without an extra IPC roundtrip. The
