@@ -3,6 +3,7 @@ import {
   AudioLines,
   Bot,
   FileAudio,
+  Layers,
   Loader2,
   ScanFace,
   Sparkles,
@@ -14,6 +15,7 @@ import { cn } from "@/shared/lib/utils";
 import { useJobsStore, type Job, type JobKind } from "@/shared/stores/jobs-store";
 
 const KIND_META: Record<JobKind, { icon: LucideIcon; tone: string }> = {
+  finalize: { icon: Layers, tone: "text-primary" },
   vad: { icon: AudioLines, tone: "text-primary" },
   transcribe: { icon: FileAudio, tone: "text-primary" },
   diarize: { icon: ScanFace, tone: "text-primary" },

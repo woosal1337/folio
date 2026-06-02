@@ -1,10 +1,18 @@
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
 
-import { onMeetingTakeNotes, onTrayEvent } from "@/shared/lib/ipc";
+import {
+  onMeetingTakeNotes,
+  onTrayEvent,
+  onStitchingStarted,
+  onStitchingDone,
+} from "@/shared/lib/ipc";
 import { registerNavigateFn } from "@/shared/lib/navigate-bridge";
+import { useJobsStore } from "@/shared/stores/jobs-store";
 import { useRecording } from "@/shared/stores/recording-store";
 import { useTakeNotes } from "@/shared/hooks/use-take-notes";
+
+const STITCHING_JOB_ID = "finalize:stitching";
 
 /**
  * GET-144 — converges every "start a meeting note" entry point onto the
@@ -52,6 +60,24 @@ export function EntryPointBridge() {
     );
     track(onTrayEvent("tray:open-library", () => navigate("/library")));
     track(onTrayEvent("tray:open-inbox", () => navigate("/inbox")));
+
+    // WAV segment stitching events (multi-part pause/resume notes).
+    // Only fires when the recording had at least one pause — so the pill
+    // never flashes on single-shot recordings.
+    track(
+      onStitchingStarted(() => {
+        useJobsStore.getState().push({
+          id: STITCHING_JOB_ID,
+          kind: "finalize",
+          label: "Stitching recording segments…",
+        });
+      })
+    );
+    track(
+      onStitchingDone(() => {
+        useJobsStore.getState().pop(STITCHING_JOB_ID);
+      })
+    );
 
     return () => unlisteners.forEach((fn) => fn());
   }, [navigate, takeNotes, stop]);
