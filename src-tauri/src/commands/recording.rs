@@ -8,7 +8,7 @@ use attune_core::audio::{
     concat_wavs, CaptureArtifacts, CaptureConfig, CaptureSession, RecordingResult, RecordingStatus,
 };
 use attune_core::storage::RecordingSummary;
-use tauri::State;
+use tauri::{Emitter, State};
 use tracing::{debug, info};
 
 use crate::app::state::PausedNote;
@@ -369,8 +369,16 @@ pub async fn resume_recording(
 /// the artifacts. For a multi-part note (the user paused at least once),
 /// the segments are merged into one continuous `mic.wav` / `system.wav`
 /// before returning.
+/// Tauri event emitted when WAV segment stitching starts (multi-part notes).
+pub const STITCHING_STARTED_EVENT: &str = "recording:stitching-started";
+/// Tauri event emitted when WAV segment stitching finishes.
+pub const STITCHING_DONE_EVENT: &str = "recording:stitching-done";
+
 #[tauri::command]
-pub async fn stop_recording(state: State<'_, AppState>) -> Result<RecordingResult, String> {
+pub async fn stop_recording(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+) -> Result<RecordingResult, String> {
     // End the live-transcript preview (GET-160); the final on-stop
     // transcript below is the source of truth.
     state.stop_live_transcript();
@@ -388,9 +396,14 @@ pub async fn stop_recording(state: State<'_, AppState>) -> Result<RecordingResul
 
     // Multi-part note: merge every segment into the note dir. Single-shot
     // recordings (note is None) return the artifacts untouched.
+    // Emits events so the frontend can show a "Stitching segments…" pill
+    // only when real work is happening.
     let note = state.active_note.lock().take();
     let artifacts = if let Some(note) = note {
-        merge_note_segments(note, artifacts).await?
+        let _ = app.emit(STITCHING_STARTED_EVENT, ());
+        let result = merge_note_segments(note, artifacts).await;
+        let _ = app.emit(STITCHING_DONE_EVENT, ());
+        result?
     } else {
         artifacts
     };

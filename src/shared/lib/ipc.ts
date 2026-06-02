@@ -951,6 +951,18 @@ export async function onTrayEvent(
   return listen(event, () => handler());
 }
 
+// ---- Recording segment stitching events -------------------------
+
+/** Subscribe to the Rust event emitted when WAV segment stitching starts. */
+export async function onStitchingStarted(handler: () => void): Promise<UnlistenFn> {
+  return listen("recording:stitching-started", () => handler());
+}
+
+/** Subscribe to the Rust event emitted when WAV segment stitching finishes. */
+export async function onStitchingDone(handler: () => void): Promise<UnlistenFn> {
+  return listen("recording:stitching-done", () => handler());
+}
+
 // ---- Live notes (GET-145) ----------------------------------------
 
 import type { RawNoteLine } from "@/shared/types/RawNoteLine";
