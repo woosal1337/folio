@@ -39,7 +39,6 @@ import {
   type CoverageNote,
   type UserRecipe,
 } from "@/shared/lib/ipc";
-import { useAuthStore } from "@/shared/stores/auth-store";
 import { confirmDelete } from "@/shared/stores/confirm-delete-store";
 import type { ChatThread } from "@/shared/types/ChatThread";
 import type { ModelInfo } from "@/shared/types/ModelInfo";
@@ -187,12 +186,6 @@ function formatRecentTime(iso: string): string {
 }
 
 export default function Chat() {
-  const identity = useAuthStore((s) => s.identity);
-  const firstName = React.useMemo(() => {
-    const name = identity?.display_name?.trim() || identity?.email?.split("@")[0] || "";
-    return name ? name.split(/[\s.]+/)[0] : "";
-  }, [identity]);
-
   const location = useLocation();
   const seed = (location.state as { seed?: string } | null)?.seed;
   const seededRef = React.useRef(false);
@@ -392,9 +385,7 @@ export default function Chat() {
   return (
     <div className="mx-auto flex h-full w-full max-w-3xl flex-col px-8 py-8">
       <header data-drag="" className="flex select-none items-center justify-between">
-        <h1 className="font-serif text-3xl font-medium tracking-tight">
-          {firstName ? `Hi ${firstName}, ask anything` : "Ask anything"}
-        </h1>
+        <h1 className="font-serif text-3xl font-medium tracking-tight">Ask anything</h1>
         <div className="flex items-center gap-1.5">
           <Button
             variant="ghost"

@@ -80,19 +80,4 @@ describe("floating recording-bar IPC wrappers", () => {
     expect(mockedInvoke).toHaveBeenCalledWith("recording_bar_pause", undefined);
     expect(mockedInvoke).toHaveBeenCalledWith("recording_bar_resume", undefined);
   });
-
-  it("account_update forwards the display name", async () => {
-    const { accountUpdate } = await import("./ipc");
-    mockedInvoke.mockResolvedValueOnce({
-      id: "u1",
-      email: "x@y.z",
-      display_name: "New Name",
-      privacy_tier: null,
-      subscription_tier: null,
-    });
-    await accountUpdate("New Name");
-    expect(mockedInvoke).toHaveBeenCalledWith("account_update", {
-      displayName: "New Name",
-    });
-  });
 });

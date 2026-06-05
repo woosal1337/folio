@@ -42,7 +42,6 @@ const SettingsModal = React.lazy(() =>
 );
 import { ErrorBoundary } from "@/error-boundary";
 import { useWindowDoubleClick, useWindowDrag } from "@/shared/hooks/use-window-drag";
-import { useAuthStore } from "@/shared/stores/auth-store";
 import { useSettingsStore } from "@/shared/stores/settings-store";
 import { useSettingsUiStore } from "@/shared/stores/settings-ui-store";
 import {
@@ -59,8 +58,8 @@ import { useRecording } from "@/shared/stores/recording-store";
 
 export default function App() {
   // The meeting-detection HUD (GET-143) is a separate frameless window.
-  // It renders a standalone surface with no sidebar, chrome, or auth
-  // gate — short-circuit before any of that mounts.
+  // It renders a standalone surface with no sidebar or chrome —
+  // short-circuit before any of that mounts.
   if (currentWindowLabel() === MEETING_HUD_WINDOW_LABEL) {
     return (
       <ErrorBoundary>
@@ -71,7 +70,7 @@ export default function App() {
     );
   }
   // The floating recording bar (frameless, always-on-top) is likewise a
-  // standalone window with no sidebar, chrome, or auth gate.
+  // standalone window with no sidebar or chrome.
   if (currentWindowLabel() === RECORDING_BAR_WINDOW_LABEL) {
     return (
       <ErrorBoundary>
@@ -96,7 +95,6 @@ function MainApp() {
   const onMouseDown = useWindowDrag();
   const onDoubleClick = useWindowDoubleClick();
   const loadSettings = useSettingsStore((s) => s.load);
-  const hydrateAuth = useAuthStore((s) => s.hydrate);
   const syncRecording = useRecording((s) => s.syncFromBackend);
 
   // Load settings once at mount. The recording store reads from this
@@ -107,9 +105,8 @@ function MainApp() {
   // recording after a reload so the in-note dock reflects it.
   React.useEffect(() => {
     loadSettings();
-    void hydrateAuth();
     void syncRecording();
-  }, [loadSettings, hydrateAuth, syncRecording]);
+  }, [loadSettings, syncRecording]);
 
   // The floating recording bar's Stop button can't reach the recording
   // store directly (separate window/JS context), so it emits an event the
@@ -142,26 +139,21 @@ function MainApp() {
     };
   }, []);
 
-  // Force-login + post-signup setup: the sidebar + every route is
-  // invisible until BOTH the user holds a valid Keychain session AND
-  // `onboarding_completed` is true on disk. The conductor takes the
-  // full window for either case — signed-out users sign in; freshly-
-  // signed-in users finish workspace setup (EventKit → workspace
-  // name → bucket → invite teammates → transcriber → "I'm ready").
-  // Only after the conductor flips `onboarding_completed` does the
-  // main chrome render.
-  const authHydrated = useAuthStore((s) => s.hydrated);
-  const signedIn = useAuthStore((s) => s.signedIn);
+  // First-run setup: the sidebar + every route is invisible until
+  // `onboarding_completed` is true on disk. Attune is fully local — no
+  // account or sign-in — so the local conductor just primes permissions,
+  // offers calendar access, and picks a transcriber. Only after it flips
+  // `onboarding_completed` does the main chrome render.
   const settingsHydrated = useSettingsStore((s) => s.settings !== null);
   const onboardingCompleted = useSettingsStore(
     (s) => s.settings?.onboarding_completed ?? false
   );
   const reloadSettings = useSettingsStore((s) => s.load);
 
-  if (!authHydrated || !settingsHydrated) {
+  if (!settingsHydrated) {
     return (
       <ErrorBoundary>
-        {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions -- Tauri drag-region root, same pattern as the signed-in shell below. */}
+        {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions -- Tauri drag-region root, same pattern as the main shell below. */}
         <div
           className="flex h-screen w-screen items-center justify-center bg-background text-sm text-muted-foreground"
           onMouseDown={onMouseDown}
@@ -172,7 +164,7 @@ function MainApp() {
       </ErrorBoundary>
     );
   }
-  if (!signedIn || !onboardingCompleted) {
+  if (!onboardingCompleted) {
     return (
       <ErrorBoundary>
         {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions -- Tauri drag-region root, same pattern as the signed-in shell below. */}

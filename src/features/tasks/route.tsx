@@ -57,7 +57,6 @@ import { Label } from "@/shared/ui/label";
 import { cn } from "@/shared/lib/utils";
 import { copyToClipboard, taskToMarkdown } from "@/shared/lib/share";
 import { useTasksStore } from "@/shared/stores/tasks-store";
-import { useDisplayName } from "@/shared/hooks/use-current-user";
 import type { NewTask } from "@/shared/types/NewTask";
 import type { Task } from "@/shared/types/Task";
 import type { TaskStatus } from "@/shared/types/TaskStatus";
@@ -105,9 +104,6 @@ export default function Tasks() {
   const loading = useTasksStore((s) => s.loading);
   const refresh = useTasksStore((s) => s.refresh);
   const create = useTasksStore((s) => s.create);
-  // Default the owner of self-added cards to the signed-in user, so a
-  // task you jot down is attributed to you without retyping your name.
-  const displayName = useDisplayName();
   const setStatus = useTasksStore((s) => s.setStatus);
   const remove = useTasksStore((s) => s.remove);
   const update = useTasksStore((s) => s.update);
@@ -241,9 +237,7 @@ export default function Tasks() {
               key={col.id}
               column={col}
               tasks={byStatus[col.id]}
-              onCreate={(title) =>
-                create(blankNewTask(title, col.id, displayName || null))
-              }
+              onCreate={(title) => create(blankNewTask(title, col.id, null))}
               onOpen={(task) => setEditing(task)}
               onDelete={(id) => remove(id)}
             />
@@ -497,7 +491,6 @@ interface EditTaskDialogProps {
 }
 
 function EditTaskDialog({ task, onClose, onSave }: EditTaskDialogProps) {
-  const displayName = useDisplayName();
   // Local state shadowed off the task so editing doesn't mutate the
   // store until the user hits Save.
   const [title, setTitle] = React.useState("");
@@ -572,7 +565,7 @@ function EditTaskDialog({ task, onClose, onSave }: EditTaskDialogProps) {
                 id="task-owner"
                 value={owner}
                 onChange={(e) => setOwner(e.target.value)}
-                placeholder={displayName || "Owner"}
+                placeholder="Owner"
               />
             </div>
             <div className="grid gap-1.5">

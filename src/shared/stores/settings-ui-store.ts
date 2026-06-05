@@ -14,7 +14,6 @@ import { create } from "zustand";
 
 export type SettingsSection =
   | "preferences"
-  | "profile"
   | "calendar"
   | "notifications"
   | "general"
@@ -23,13 +22,10 @@ export type SettingsSection =
   | "ai"
   | "storage"
   | "analytics"
-  | "billing"
   | "connectors"
   | "webhooks"
   | "usage"
-  | "referrals"
   | "privacy"
-  | "pro"
   | "appearance";
 
 interface SettingsUiState {

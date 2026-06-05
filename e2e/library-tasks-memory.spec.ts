@@ -50,7 +50,7 @@ test("Tasks — empty state, add a task via the UI, see it appear", async ({ pag
     .first()
     .click();
   const input = page.getByPlaceholder(/what needs doing/i);
-  await input.fill("Confirm the Resend domain at chele.bi");
+  await input.fill("Confirm the email domain at example.com");
   await input.press("Enter");
 
   // create_task IPC fires with a NewTask payload.

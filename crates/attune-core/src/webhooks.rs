@@ -54,7 +54,7 @@ impl WebhookEvent {
 #[ts(export, export_to = "../../../src/shared/types/")]
 pub struct WebhookSubscription {
     pub id: String,
-    /// Human label shown in Settings (e.g. "eBrain sync").
+    /// Human label shown in Settings (e.g. "Notion sync").
     pub label: String,
     /// Target URL. Must be http(s); the store will reject anything
     /// else at save time.
@@ -214,7 +214,7 @@ mod tests {
     fn sub() -> WebhookSubscription {
         WebhookSubscription {
             id: new_subscription_id(),
-            label: "eBrain sync".into(),
+            label: "Notion sync".into(),
             url: "http://localhost:9000/attune".into(),
             secret: "top-secret".into(),
             events: vec![WebhookEvent::RecordingFinished],
@@ -264,7 +264,7 @@ mod tests {
         store.save(&subs).unwrap();
         let loaded = store.load();
         assert_eq!(loaded.len(), 1);
-        assert_eq!(loaded[0].label, "eBrain sync");
+        assert_eq!(loaded[0].label, "Notion sync");
         assert_eq!(loaded[0].events, vec![WebhookEvent::RecordingFinished]);
     }
 

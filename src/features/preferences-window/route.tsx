@@ -15,7 +15,6 @@ import { SectionAppearance } from "@/features/settings/section-appearance";
 import { SectionAudio } from "@/features/settings/section-audio";
 import { SectionGeneral } from "@/features/settings/section-general";
 import { SectionPrivacy } from "@/features/settings/section-privacy";
-import { SectionPro } from "@/features/settings/section-pro";
 import { SectionStorage } from "@/features/settings/section-storage";
 import { SectionTranscription } from "@/features/settings/section-transcription";
 import { SectionUsage } from "@/features/settings/section-usage";
@@ -32,7 +31,6 @@ type Section =
   | "permissions"
   | "storage"
   | "webhooks"
-  | "pro"
   | "usage";
 
 interface TabSpec {
@@ -51,10 +49,6 @@ const TABS: TabSpec[] = [
   { id: "privacy", label: "Privacy", icon: Lock },
   { id: "storage", label: "Storage", icon: Folder },
   { id: "webhooks", label: "Webhooks", icon: Plug },
-  // Pro tab hidden until billing + license verification ship end-to-end.
-  // Component and the `section === "pro"` render branch below remain on
-  // disk so re-enabling is a one-line uncomment.
-  // { id: "pro", label: "Pro", icon: Crown },
 ];
 
 /**
@@ -143,23 +137,32 @@ export default function PreferencesWindow() {
         <ScrollArea className="h-full">
           <div className="px-8 py-8">
             {section === "general" ? (
-              <SectionGeneral settings={settings} onChange={onChange} devices={devices} />
+              <SectionGeneral
+                settings={settings}
+                onChange={onChange}
+                devices={devices}
+              />
             ) : null}
             {section === "appearance" ? (
               <SectionAppearance theme={theme} onChange={setTheme} />
             ) : null}
-            {section === "audio" ? <SectionAudio settings={settings} onChange={onChange} /> : null}
+            {section === "audio" ? (
+              <SectionAudio settings={settings} onChange={onChange} />
+            ) : null}
             {section === "transcription" ? (
               <SectionTranscription settings={settings} onChange={onChange} />
             ) : null}
-            {section === "ai" ? <SectionAi settings={settings} onChange={onChange} /> : null}
+            {section === "ai" ? (
+              <SectionAi settings={settings} onChange={onChange} />
+            ) : null}
             {section === "permissions" ? <SectionPermissions /> : null}
             {section === "privacy" ? (
               <SectionPrivacy settings={settings} onChange={onChange} />
             ) : null}
-            {section === "storage" ? <SectionStorage settings={settings} onChange={onChange} /> : null}
+            {section === "storage" ? (
+              <SectionStorage settings={settings} onChange={onChange} />
+            ) : null}
             {section === "webhooks" ? <SectionWebhooks /> : null}
-            {section === "pro" ? <SectionPro settings={settings} onChange={onChange} /> : null}
             {section === "usage" ? <SectionUsage /> : null}
           </div>
         </ScrollArea>

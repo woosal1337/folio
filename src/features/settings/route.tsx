@@ -4,16 +4,13 @@ import {
   Bell,
   Bot,
   Calendar as CalendarIcon,
-  CreditCard,
   Folder,
-  Gift,
   Lock,
   Mic,
   Palette,
   Plug,
   Settings as SettingsIcon,
   Sparkles,
-  User,
   Wallet,
   Waves,
   Workflow,
@@ -49,15 +46,11 @@ import { SectionGeneral } from "./section-general";
 import { SectionNotifications } from "./section-notifications";
 import { SectionPreferences } from "./section-preferences";
 import { SectionPrivacy } from "./section-privacy";
-import { SectionPro } from "./section-pro";
-import { SectionProfile } from "./section-profile";
 import { SectionStorage } from "./section-storage";
 import { SectionTranscription } from "./section-transcription";
 import { SectionUsage } from "./section-usage";
 import { SectionWebhooks } from "./section-webhooks";
 import { SectionAnalytics } from "./section-analytics";
-import { SectionBilling } from "./section-billing";
-import { SectionReferrals } from "./section-referrals";
 
 type Section = SettingsSection;
 
@@ -77,16 +70,15 @@ interface NavGroup {
   items: NavItem[];
 }
 
-// Personal-only sidebar — Attune ships as a single-user app, so there
-// is no workspace/team grouping. "Personal" holds identity + activity,
-// "Recording" holds capture config, "Account" holds billing + the
-// account-level integrations.
+// Personal-only sidebar — Attune ships as a fully local, single-user
+// app, so there is no account, workspace, or team grouping. "Personal"
+// holds activity, "Recording" holds capture config, "Integrations"
+// holds local usage + the connector/automation surfaces.
 const NAV_GROUPS: NavGroup[] = [
   {
     label: "Personal",
     items: [
       { id: "preferences", label: "Preferences", icon: SettingsIcon },
-      { id: "profile", label: "Profile", icon: User },
       { id: "analytics", label: "Analytics", icon: BarChart3 },
       { id: "calendar", label: "Calendar", icon: CalendarIcon },
       { id: "notifications", label: "Notifications", icon: Bell },
@@ -105,17 +97,11 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    label: "Account",
+    label: "Integrations",
     items: [
-      { id: "billing", label: "Billing", icon: CreditCard },
       { id: "usage", label: "Usage", icon: Wallet },
-      { id: "referrals", label: "Referrals", icon: Gift },
       { id: "connectors", label: "Connectors", icon: Plug },
       { id: "webhooks", label: "Webhooks", icon: Workflow },
-      // Pro tab is hidden until payment + license verification land
-      // end-to-end. SectionPro + the `id: "pro"` branch below stay on
-      // disk so re-enabling is a one-line uncomment.
-      // { id: "pro", label: "Pro", icon: Crown },
     ],
   },
 ];
@@ -238,8 +224,6 @@ export function SettingsModal({ open, onOpenChange }: Props) {
                 <p className="text-sm text-muted-foreground">Loading…</p>
               ) : section === "preferences" ? (
                 <SectionPreferences settings={settings} onChange={update} />
-              ) : section === "profile" ? (
-                <SectionProfile settings={settings} onChange={update} />
               ) : section === "calendar" ? (
                 <SectionCalendar settings={settings} onChange={update} />
               ) : section === "notifications" ? (
@@ -260,20 +244,14 @@ export function SettingsModal({ open, onOpenChange }: Props) {
                 <SectionStorage settings={settings} onChange={update} />
               ) : section === "analytics" ? (
                 <SectionAnalytics />
-              ) : section === "billing" ? (
-                <SectionBilling />
               ) : section === "connectors" ? (
                 <SectionConnectors />
               ) : section === "webhooks" ? (
                 <SectionWebhooks />
               ) : section === "usage" ? (
                 <SectionUsage />
-              ) : section === "referrals" ? (
-                <SectionReferrals />
               ) : section === "privacy" ? (
                 <SectionPrivacy settings={settings} onChange={update} />
-              ) : section === "pro" ? (
-                <SectionPro settings={settings} onChange={update} />
               ) : (
                 <SectionAppearance
                   theme={(settings.theme === "dark" ? "dark" : "light") as Theme}

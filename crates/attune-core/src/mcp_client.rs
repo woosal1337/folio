@@ -1,6 +1,6 @@
 //! MCP client config. v2 finding 071 / GET-73.
 //!
-//! Attune calls Linear / GitHub / eBrain / anything-else via the
+//! Attune calls Linear / GitHub / Notion / anything-else via the
 //! user's own MCP servers, declared in `.attune/mcp.toml`. The
 //! agent layer reads this config and routes tool calls through the
 //! configured server. No OAuth: the user pastes their existing
