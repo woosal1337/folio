@@ -1,0 +1,58 @@
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+#[non_exhaustive]
+pub enum FolioError {
+    #[error("no default audio input device available")]
+    NoInputDevice,
+
+    #[error("audio device error: {0}")]
+    AudioDevice(String),
+
+    #[error("audio stream build failed: {0}")]
+    StreamBuild(String),
+
+    #[error("audio stream play failed: {0}")]
+    StreamPlay(String),
+
+    #[error("system audio capture requires macOS 13.0 or later")]
+    SystemAudioUnsupported,
+
+    #[error("system audio capture failed: {0}")]
+    SystemAudio(String),
+
+    #[error("resampler error: {0}")]
+    Resampler(String),
+
+    #[error("wav writer error: {0}")]
+    WavWriter(String),
+
+    #[error("io error: {0}")]
+    Io(#[from] std::io::Error),
+
+    #[error("hound (wav) error: {0}")]
+    Hound(#[from] hound::Error),
+
+    #[error("storage error: {0}")]
+    Storage(String),
+
+    #[error("transcription error: {0}")]
+    Transcription(String),
+
+    #[error("llm provider error: {0}")]
+    Llm(String),
+
+    #[error("keychain error: {0}")]
+    Keychain(String),
+
+    #[error("internal: {0}")]
+    Internal(String),
+
+    #[error("backend api error: {0}")]
+    Backend(String),
+
+    #[error("{0}")]
+    Other(String),
+}
+
+pub type Result<T> = std::result::Result<T, FolioError>;

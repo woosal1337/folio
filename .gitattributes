@@ -1,0 +1,22 @@
+* text=auto eol=lf
+
+# Lock files should not be modified casually
+Cargo.lock linguist-generated=true
+pnpm-lock.yaml linguist-generated=true
+
+# Generated icon set
+src-tauri/icons/icon.icns binary
+src-tauri/icons/icon.ico binary
+src-tauri/icons/*.png binary
+src-tauri/icons/ios/*.png binary
+src-tauri/icons/android/**/*.png binary
+
+# Fonts
+crates/folio-core/assets/fonts/*.ttf binary
+crates/folio-core/assets/fonts/*.otf binary
+
+# Generated TypeScript bindings (ts-rs)
+src/shared/types/*.ts linguist-generated=true
+
+# Don't munge SVGs
+*.svg text eol=lf

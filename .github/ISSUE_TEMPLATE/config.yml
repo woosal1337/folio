@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/woosal1337/folio/security/advisories/new
+    about: Report security issues privately. Do not file public issues for vulnerabilities.
+  - name: Discussion
+    url: https://github.com/woosal1337/folio/discussions
+    about: Open-ended questions, ideas, and general support.

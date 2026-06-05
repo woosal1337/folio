@@ -1,0 +1,257 @@
+<svg width="1600" height="800" viewBox="0 0 1600 800" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1600" y2="800" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#18181B"/>
+      <stop offset="0.58" stop-color="#111114"/>
+      <stop offset="1" stop-color="#0A0A0B"/>
+    </linearGradient>
+    <linearGradient id="cardDark" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#1D1D20"/>
+      <stop offset="1" stop-color="#111114"/>
+    </linearGradient>
+    <linearGradient id="cardSoft" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#242428"/>
+      <stop offset="1" stop-color="#151518"/>
+    </linearGradient>
+    <linearGradient id="cardLight" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#F4F4F5"/>
+      <stop offset="1" stop-color="#D4D4D8"/>
+    </linearGradient>
+    <linearGradient id="lineMuted" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#F4F4F5"/>
+      <stop offset="1" stop-color="#A1A1AA"/>
+    </linearGradient>
+    <radialGradient id="orb" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(0.34 0.18) rotate(58) scale(0.74 0.84)">
+      <stop stop-color="#F0F0F0"/>
+      <stop offset="0.3" stop-color="#B0B0B8"/>
+      <stop offset="0.66" stop-color="#4A4A52"/>
+      <stop offset="1" stop-color="#18181B"/>
+    </radialGradient>
+    <linearGradient id="orbWave" x1="0" y1="0" x2="1" y2="0">
+      <stop stop-color="#F4F4F5"/>
+      <stop offset="0.5" stop-color="#EBEBEB"/>
+      <stop offset="1" stop-color="#D4D4D8"/>
+    </linearGradient>
+    <filter id="cardShadow" x="-10%" y="-15%" width="120%" height="140%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="14" stdDeviation="18" flood-color="#000000" flood-opacity="0.28"/>
+      <feDropShadow dx="0" dy="1" stdDeviation="0" flood-color="#FFFFFF" flood-opacity="0.05"/>
+    </filter>
+    <filter id="orbShadow" x="-40%" y="-40%" width="180%" height="180%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="24" stdDeviation="28" flood-color="#000000" flood-opacity="0.46"/>
+      <feDropShadow dx="0" dy="8" stdDeviation="14" flood-color="#303034" flood-opacity="0.2"/>
+    </filter>
+    <clipPath id="orbClip">
+      <circle cx="0" cy="0" r="1"/>
+    </clipPath>
+
+    <symbol id="icon-lock" viewBox="0 0 96 96">
+      <path d="M28 42V31C28 19 36 11 48 11C60 11 68 19 68 31V42" stroke="currentColor" stroke-width="8" stroke-linecap="round"/>
+      <rect x="22" y="39" width="56" height="44" rx="17" fill="currentColor"/>
+    </symbol>
+    <symbol id="icon-wave" viewBox="0 0 120 96">
+      <path d="M10 50C28 32 44 32 62 50C80 68 96 68 114 50" stroke="currentColor" stroke-width="12" stroke-linecap="round"/>
+      <path d="M12 56C30 66 47 66 64 56C80 46 96 46 112 56" stroke="currentColor" stroke-width="7" stroke-linecap="round" opacity="0.42"/>
+    </symbol>
+    <symbol id="icon-chip" viewBox="0 0 96 96">
+      <rect x="22" y="22" width="52" height="52" rx="15" fill="none" stroke="currentColor" stroke-width="8"/>
+      <rect x="35" y="35" width="26" height="26" rx="7" fill="currentColor"/>
+      <path d="M10 34H20M10 48H20M10 62H20M76 34H86M76 48H86M76 62H86M34 10V20M48 10V20M62 10V20M34 76V86M48 76V86M62 76V86" stroke="currentColor" stroke-width="6" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="icon-calendar" viewBox="0 0 96 96">
+      <rect x="17" y="22" width="62" height="58" rx="16" fill="currentColor"/>
+      <rect x="17" y="22" width="62" height="18" rx="12" fill="#D4D4D8"/>
+      <rect x="29" y="49" width="12" height="12" rx="4" fill="#71717A"/>
+      <rect x="48" y="49" width="12" height="12" rx="4" fill="#71717A"/>
+      <rect x="67" y="49" width="12" height="12" rx="4" fill="#A1A1AA"/>
+      <rect x="32" y="67" width="34" height="7" rx="3.5" fill="#18181B"/>
+    </symbol>
+    <symbol id="icon-shield" viewBox="0 0 96 96">
+      <path d="M48 11L76 23V46C76 63 65 76 48 86C31 76 20 63 20 46V23L48 11Z" fill="none" stroke="currentColor" stroke-width="8" stroke-linejoin="round"/>
+      <path d="M36 38L60 62M60 38L36 62" stroke="currentColor" stroke-width="8" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="icon-file" viewBox="0 0 96 96">
+      <path d="M24 13H56L76 33V78C76 83 72 87 67 87H24C19 87 15 83 15 78V22C15 17 19 13 24 13Z" fill="none" stroke="currentColor" stroke-width="8" stroke-linejoin="round"/>
+      <path d="M56 14V31C56 35 59 38 63 38H75" stroke="currentColor" stroke-width="8" stroke-linejoin="round"/>
+      <path d="M31 51H62M31 64H55" stroke="currentColor" stroke-width="7" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="icon-memory" viewBox="0 0 96 96">
+      <circle cx="43" cy="43" r="27" fill="none" stroke="currentColor" stroke-width="8"/>
+      <path d="M64 64L82 82" stroke="currentColor" stroke-width="9" stroke-linecap="round"/>
+      <path d="M27 44C37 34 45 34 55 44C60 49 64 50 69 47" stroke="currentColor" stroke-width="6" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="icon-chat" viewBox="0 0 96 96">
+      <path d="M27 24H66C78 24 86 32 86 44C86 56 78 64 66 64H45L27 80V64H26C14 64 6 56 6 44C6 32 14 24 27 24Z" fill="currentColor"/>
+      <path d="M28 44H66" stroke="#18181B" stroke-width="7" stroke-linecap="round" opacity="0.9"/>
+    </symbol>
+    <symbol id="icon-kanban" viewBox="0 0 120 96">
+      <rect x="8" y="22" width="30" height="54" rx="12" fill="currentColor" opacity="0.22"/>
+      <rect x="45" y="22" width="30" height="54" rx="12" fill="currentColor" opacity="0.38"/>
+      <rect x="82" y="22" width="30" height="54" rx="12" fill="currentColor"/>
+      <path d="M17 39H29M54 39H66M91 39H103" stroke="#18181B" stroke-width="6" stroke-linecap="round" opacity="0.65"/>
+    </symbol>
+    <symbol id="icon-agent" viewBox="0 0 96 96">
+      <path d="M48 12L58 37L84 48L58 59L48 84L37 59L12 48L37 37L48 12Z" fill="currentColor"/>
+      <circle cx="48" cy="48" r="13" fill="#18181B"/>
+    </symbol>
+    <symbol id="icon-menubar" viewBox="0 0 120 96">
+      <rect x="10" y="31" width="100" height="34" rx="17" fill="currentColor"/>
+      <circle cx="33" cy="48" r="9" fill="#18181B"/>
+      <rect x="51" y="44" width="39" height="8" rx="4" fill="#71717A"/>
+    </symbol>
+    <symbol id="icon-git" viewBox="0 0 96 96">
+      <circle cx="28" cy="24" r="10" fill="none" stroke="currentColor" stroke-width="7"/>
+      <circle cx="70" cy="48" r="10" fill="none" stroke="currentColor" stroke-width="7"/>
+      <circle cx="28" cy="76" r="10" fill="none" stroke="currentColor" stroke-width="7"/>
+      <path d="M28 34V66M38 24C54 24 59 48 60 48" stroke="currentColor" stroke-width="7" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="folio-orb" viewBox="-1 -1 2 2">
+      <circle cx="0" cy="0" r="1" fill="url(#orb)"/>
+      <g clip-path="url(#orbClip)">
+        <path d="M-1.06 0.02C-0.66 -0.25 -0.36 -0.25 0 0.02C0.39 0.32 0.73 0.32 1.1 0.02" stroke="url(#orbWave)" stroke-width="0.2" stroke-linecap="round"/>
+        <path d="M-0.72 0.34C-0.42 0.78 0.28 0.9 0.74 0.54" stroke="#0E0E10" stroke-width="0.16" stroke-linecap="round" opacity="0.18"/>
+      </g>
+    </symbol>
+
+    <style>
+      .darkCard { fill: url(#cardDark); stroke: #303034; stroke-width: 1.5; }
+      .softCard { fill: url(#cardSoft); stroke: #333338; stroke-width: 1.5; }
+      .lightCard { fill: url(#cardLight); }
+      .title { fill: #F4F4F5; font-family: Inter, -apple-system, BlinkMacSystemFont, "SF Pro Display", Arial, sans-serif; font-weight: 740; letter-spacing: 0; }
+      .label { fill: #D4D4D8; font-family: Inter, -apple-system, BlinkMacSystemFont, "SF Pro Text", Arial, sans-serif; font-weight: 720; letter-spacing: 0; }
+      .muted { fill: #A1A1AA; font-family: Inter, -apple-system, BlinkMacSystemFont, "SF Pro Text", Arial, sans-serif; font-weight: 600; letter-spacing: 0; }
+      .mono { fill: #E4E4E7; font-family: "JetBrains Mono", ui-monospace, Menlo, monospace; font-weight: 650; letter-spacing: 0; }
+      .wordmark { fill: #F4F4F5; font-family: Georgia, "Times New Roman", serif; font-weight: 400; letter-spacing: -2px; }
+      .iconLight { color: #E4E4E7; }
+      .iconMuted { color: #A1A1AA; }
+      .iconDark { color: #18181B; }
+    </style>
+  </defs>
+
+  <rect width="1600" height="800" fill="url(#bg)"/>
+  <circle cx="770" cy="410" r="460" fill="#27272A" opacity="0.14"/>
+
+  <g filter="url(#cardShadow)">
+    <rect x="22" y="22" width="264" height="178" rx="34" class="softCard"/>
+    <text x="48" y="64" class="label" font-size="30">Local</text>
+    <text x="48" y="98" class="muted" font-size="23">by default</text>
+    <use href="#icon-lock" x="104" y="96" width="96" height="96" class="iconLight"/>
+  </g>
+
+  <g filter="url(#cardShadow)">
+    <rect x="302" y="22" width="290" height="178" rx="34" class="darkCard"/>
+    <text x="330" y="64" class="label" font-size="29">2 streams</text>
+    <text x="330" y="98" class="muted" font-size="21">mic and system audio</text>
+    <use href="#icon-wave" x="348" y="106" width="204" height="90" class="iconLight"/>
+  </g>
+
+  <g filter="url(#cardShadow)">
+    <rect x="608" y="22" width="306" height="178" rx="34" class="lightCard"/>
+    <text x="642" y="64" fill="#18181B" font-family="Inter, -apple-system, BlinkMacSystemFont, Arial, sans-serif" font-weight="760" font-size="29">Local Whisper</text>
+    <text x="642" y="98" fill="#52525B" font-family="Inter, -apple-system, BlinkMacSystemFont, Arial, sans-serif" font-weight="650" font-size="21">Metal accelerated</text>
+    <use href="#icon-chip" x="808" y="102" width="70" height="70" class="iconDark" opacity="0.9"/>
+    <rect x="642" y="128" width="146" height="46" rx="23" fill="#18181B"/>
+    <text x="666" y="158" class="mono" font-size="20">on-device</text>
+  </g>
+
+  <g filter="url(#cardShadow)">
+    <rect x="930" y="22" width="272" height="178" rx="34" class="darkCard"/>
+    <text x="958" y="64" class="label" font-size="28">Calendar</text>
+    <text x="958" y="98" class="muted" font-size="21">call aware</text>
+    <use href="#icon-calendar" x="1020" y="106" width="92" height="92" class="iconLight"/>
+  </g>
+
+  <g filter="url(#cardShadow)">
+    <rect x="1218" y="22" width="358" height="178" rx="34" class="softCard"/>
+    <text x="1252" y="64" class="label" font-size="30">Privacy</text>
+    <text x="1252" y="98" class="muted" font-size="22">blocks HTTP</text>
+    <text x="1252" y="158" class="mono" font-size="25">local only</text>
+    <use href="#icon-shield" x="1444" y="52" width="96" height="96" class="iconLight" opacity="0.9"/>
+  </g>
+
+  <g filter="url(#cardShadow)">
+    <rect x="22" y="216" width="336" height="214" rx="34" class="darkCard"/>
+    <text x="50" y="265" class="label" font-size="30">Markdown vault</text>
+    <text x="50" y="302" class="muted" font-size="21">writes every meeting</text>
+    <rect x="50" y="332" width="214" height="58" rx="20" fill="#0E0E10" stroke="#303034"/>
+    <text x="72" y="368" class="mono" font-size="20">2026-06-06.md</text>
+    <use href="#icon-file" x="276" y="322" width="78" height="78" class="iconMuted"/>
+  </g>
+
+  <g filter="url(#cardShadow)">
+    <rect x="22" y="446" width="336" height="184" rx="34" class="lightCard"/>
+    <text x="50" y="500" fill="#18181B" font-family="Inter, -apple-system, BlinkMacSystemFont, Arial, sans-serif" font-weight="780" font-size="31">Searchable</text>
+    <text x="50" y="536" fill="#3F3F46" font-family="Inter, -apple-system, BlinkMacSystemFont, Arial, sans-serif" font-weight="690" font-size="22">memory</text>
+    <use href="#icon-memory" x="220" y="548" width="74" height="74" class="iconDark"/>
+  </g>
+
+  <g filter="url(#cardShadow)">
+    <rect x="22" y="646" width="336" height="132" rx="34" class="softCard"/>
+    <text x="50" y="702" class="label" font-size="32">Ask Folio</text>
+    <text x="50" y="737" class="muted" font-size="21">cited answers</text>
+    <use href="#icon-chat" x="238" y="694" width="76" height="76" class="iconLight"/>
+  </g>
+
+  <g filter="url(#cardShadow)">
+    <rect x="374" y="216" width="746" height="410" rx="38" fill="#0E0E10" stroke="#303034" stroke-width="1.5"/>
+    <rect x="409" y="252" width="676" height="336" rx="28" fill="#18181B" stroke="#303034"/>
+    <rect x="433" y="284" width="132" height="256" rx="20" fill="#111114"/>
+    <circle cx="466" cy="323" r="14" fill="#52525B"/>
+    <rect x="489" y="312" width="70" height="11" rx="5.5" fill="#D4D4D8"/>
+    <rect x="457" y="370" width="88" height="13" rx="6.5" fill="#71717A"/>
+    <rect x="457" y="406" width="72" height="13" rx="6.5" fill="#3F3F46"/>
+    <rect x="457" y="442" width="102" height="13" rx="6.5" fill="#3F3F46"/>
+    <rect x="592" y="284" width="448" height="54" rx="18" fill="#0E0E10" stroke="#303034"/>
+    <text x="614" y="319" class="muted" font-size="19">Weekly product sync</text>
+    <rect x="592" y="360" width="448" height="152" rx="22" fill="#111114" stroke="#303034"/>
+    <text x="620" y="407" class="label" font-size="24">Transcript ready</text>
+    <rect x="620" y="434" width="330" height="13" rx="6.5" fill="#71717A"/>
+    <rect x="620" y="462" width="384" height="13" rx="6.5" fill="#3F3F46"/>
+    <rect x="620" y="490" width="250" height="13" rx="6.5" fill="#52525B"/>
+    <rect x="592" y="532" width="448" height="28" rx="14" fill="#E4E4E7"/>
+    <rect x="592" y="532" width="234" height="28" rx="14" fill="#A1A1AA"/>
+  </g>
+
+  <g filter="url(#cardShadow)">
+    <rect x="374" y="646" width="746" height="132" rx="34" class="softCard"/>
+    <text x="426" y="733" class="wordmark" font-size="84">folio</text>
+    <text x="614" y="711" class="title" font-size="36">Local-first notes</text>
+    <text x="616" y="744" class="muted" font-size="21">Capture, transcribe, search locally.</text>
+    <g transform="translate(1050 712) scale(54)" filter="url(#orbShadow)">
+      <use href="#folio-orb" x="-1" y="-1" width="2" height="2"/>
+    </g>
+  </g>
+
+  <g filter="url(#cardShadow)">
+    <rect x="1136" y="216" width="440" height="186" rx="34" class="darkCard"/>
+    <text x="1168" y="268" class="label" font-size="31">Tasks from meetings</text>
+    <text x="1168" y="304" class="muted" font-size="21">actions, owners, due dates</text>
+    <use href="#icon-kanban" x="1392" y="317" width="98" height="78" class="iconLight"/>
+    <rect x="1168" y="336" width="96" height="42" rx="15" fill="#27272A" stroke="#3F3F46"/>
+    <rect x="1280" y="336" width="96" height="42" rx="15" fill="#27272A" stroke="#3F3F46"/>
+    <text x="1192" y="363" class="muted" font-size="15">todo</text>
+    <text x="1300" y="363" class="muted" font-size="15">doing</text>
+  </g>
+
+  <g filter="url(#cardShadow)">
+    <rect x="1136" y="418" width="204" height="260" rx="34" class="lightCard"/>
+    <text x="1162" y="469" fill="#18181B" font-family="Inter, -apple-system, BlinkMacSystemFont, Arial, sans-serif" font-weight="780" font-size="30">Agents</text>
+    <text x="1162" y="506" fill="#52525B" font-family="Inter, -apple-system, BlinkMacSystemFont, Arial, sans-serif" font-weight="660" font-size="21">summaries,</text>
+    <text x="1162" y="532" fill="#52525B" font-family="Inter, -apple-system, BlinkMacSystemFont, Arial, sans-serif" font-weight="660" font-size="21">briefs, reels</text>
+    <use href="#icon-agent" x="1198" y="576" width="76" height="76" class="iconDark"/>
+  </g>
+
+  <g filter="url(#cardShadow)">
+    <rect x="1356" y="418" width="220" height="260" rx="34" class="softCard"/>
+    <text x="1384" y="469" class="label" font-size="30">Menu bar</text>
+    <text x="1384" y="505" class="muted" font-size="21">starts when</text>
+    <text x="1384" y="531" class="muted" font-size="21">meetings do</text>
+    <use href="#icon-menubar" x="1398" y="585" width="132" height="96" class="iconLight"/>
+  </g>
+
+  <g filter="url(#cardShadow)">
+    <rect x="1136" y="694" width="440" height="84" rx="30" class="darkCard"/>
+    <text x="1168" y="746" class="title" font-size="30">Open source</text>
+    <use href="#icon-git" x="1355" y="712" width="58" height="58" class="iconMuted"/>
+    <text x="1446" y="746" class="mono" font-size="20">macOS</text>
+  </g>
+</svg>

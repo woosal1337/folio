@@ -1,0 +1,6 @@
+<svg width="1400" height="420" viewBox="0 0 1400 420" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect x="60" y="60" width="300" height="300" rx="72" fill="#B8CE4B"/>
+  <path d="M254 131C234 118 199 117 176 132C152 148 140 176 140 215V300" stroke="#202329" stroke-width="44" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M140 226H240" stroke="#202329" stroke-width="44" stroke-linecap="round"/>
+  <text x="430" y="276" fill="#202329" font-family="Inter, Arial, sans-serif" font-size="162" font-weight="750" letter-spacing="0">folio</text>
+</svg>

@@ -1,0 +1,95 @@
+[graph]
+all-features = false
+no-default-features = false
+
+[output]
+feature-depth = 1
+
+[advisories]
+version = 2
+db-urls = ["https://github.com/rustsec/advisory-db"]
+yanked = "deny"
+# Only flag unmaintained advisories for crates we depend on directly.
+# Tauri 2 still pulls gtk-rs / gtk3 on Linux transitively (RUSTSEC-2024-0411
+# through 0420) and there is nothing we can do about that until upstream
+# migrates; the desktop binary targets macOS first so these are not
+# load-bearing for us today.
+unmaintained = "workspace"
+ignore = []
+
+[licenses]
+version = 2
+confidence-threshold = 0.85
+allow = [
+  "MIT",
+  "Apache-2.0",
+  "Apache-2.0 WITH LLVM-exception",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  "ISC",
+  "Unicode-DFS-2016",
+  "Unicode-3.0",
+  "Zlib",
+  "MPL-2.0",
+  "CC0-1.0",
+  "BSL-1.0",
+  "OFL-1.1",
+  "0BSD",
+  # Used by webpki-roots (pulled in by reqwest's rustls TLS stack).
+  # Permissive Linux Foundation license, safe to allow.
+  "CDLA-Permissive-2.0",
+  # Used by whisper-rs / whisper-rs-sys (Rust bindings to whisper.cpp).
+  # OSI-approved, FSF-Libre — strictly more permissive than MIT.
+  "Unlicense",
+]
+
+[[licenses.exceptions]]
+allow = ["LicenseRef-ring"]
+name = "ring"
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+# Workspace member crates are referenced by path (e.g. folio-app depends
+# on folio-core via `path = "../crates/folio-core"`), which cargo-deny
+# would otherwise flag as a wildcard. Allow those.
+allow-wildcard-paths = true
+highlight = "all"
+workspace-default-features = "allow"
+external-default-features = "allow"
+allow = []
+deny = [
+  # Production TLS goes through rustls. openssl is allowed only when
+  # pulled by `native-tls`, which itself only enters our graph via
+  # ort-sys's build-script download of the ONNX Runtime archive (used
+  # by voice_activity_detector for Silero V5). That code does not ship
+  # in the runtime binary — it runs once at compile time to fetch the
+  # ORT release. If a new direct user of openssl shows up in the
+  # graph, the ban will fire again because `wrappers` only excuses the
+  # native-tls path. See
+  { name = "openssl", reason = "use rustls; openssl pulls libssl/libcrypto and has a noisy CVE history", wrappers = [
+    "native-tls",
+  ] },
+  { name = "openssl-sys", reason = "use rustls", wrappers = [
+    "openssl",
+    "native-tls",
+  ] },
+  { name = "git2", reason = "use gix; git2 pulls libgit2" },
+]
+skip = []
+# `ort-sys` is the build-dependency of the `ort` ONNX Runtime crate,
+# which `voice_activity_detector` pulls in for the Silero V5 VAD
+# Its build script uses `ureq` with native-tls to download the ONNX
+# Runtime archive at compile time. That brings `openssl` into the
+# build-dep graph — banned by policy above because of its
+# libssl/libcrypto + CVE profile. The ban reason doesn't apply here
+# (openssl is a host-side tool used once at build time; it does not
+# ship in the folio binary), so we exempt the subtree explicitly
+# rather than weakening the ban or vendoring the entire ORT runtime.
+skip-tree = ["ort-sys"]
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []

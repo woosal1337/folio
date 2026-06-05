@@ -1,0 +1,77 @@
+[package]
+name = "folio-app"
+description = "Folio — local-first meeting transcription"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish = false
+
+# Tauri requires a library target so the binary can also be linked as a
+# library (mobile, integration tests, etc.). The crate uses lib + bin.
+[lib]
+name = "folio_app_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "Folio"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { workspace = true }
+
+[dependencies]
+folio-core = { path = "../crates/folio-core" }
+
+tauri = { workspace = true }
+urlencoding = { workspace = true }
+tauri-plugin-dialog = { workspace = true }
+tauri-plugin-fs = { workspace = true }
+tauri-plugin-opener = { workspace = true }
+tauri-plugin-deep-link = { workspace = true }
+tauri-plugin-updater = { workspace = true }
+reqwest = { workspace = true }
+url = "2"
+tokio = { workspace = true }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+# Used to set the Dock icon at runtime for dev binaries that aren't
+# launched from a .app bundle. We use raw msg_send! rather than the
+# feature-gated high-level wrappers because the dock-icon trick needs
+# only NSData / NSImage / NSApplication, and the high-level crates'
+# feature flags are brittle across versions.
+objc = "0.2"
+cocoa = "0.26"
+# Objective-C completion-handler blocks for AVCaptureDevice mic-access requests.
+block = "0.1"
+
+# Audio HAL per-process input watcher (macOS 14.2+): reads the same
+# per-PID "is using a mic input" signal that powers the orange menu-bar
+# dot, so meeting detection fires when the user actually joins a voice
+# channel, not when the app launches. coreaudio-sys gives us the raw
+# AudioObject* API; core-foundation wraps the CFString bundle id the
+# audio server hands back.
+coreaudio-sys = { workspace = true }
+core-foundation = "0.9"
+
+# State + IO
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+chrono = { workspace = true }
+parking_lot = { workspace = true }
+uuid = { workspace = true }
+
+# Used by the library scan to read WAV headers for duration + sample rate
+hound = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3.10"
+
+[lints]
+workspace = true
