@@ -1,8 +1,3 @@
-//! WAV file writer for captured audio.
-//!
-//! Mono 16-bit PCM at the target sample rate (16 kHz by default). Files are
-//! written incrementally during capture and finalized atomically on close.
-
 use std::path::Path;
 
 use hound::{SampleFormat, WavSpec, WavWriter};
@@ -10,14 +5,6 @@ use parking_lot::Mutex;
 
 use crate::error::{AttuneError, Result};
 
-/// Concatenate mono 16-bit PCM WAV `parts`, in order, into `out`.
-///
-/// Used by the pause/resume flow (GET-149) to merge a note's capture
-/// segments into one continuous file on finalize. The output adopts the
-/// sample rate of the first part; parts at a different rate are an error
-/// (all parts of one note share a config, so this should not happen).
-/// Writes to a sibling temp file and renames into place so a crash
-/// mid-merge cannot leave a half-written WAV. Missing parts are skipped.
 pub fn concat_wavs(parts: &[std::path::PathBuf], out: &Path) -> Result<()> {
     let existing: Vec<&std::path::PathBuf> = parts.iter().filter(|p| p.exists()).collect();
     if existing.is_empty() {
@@ -65,10 +52,6 @@ pub fn concat_wavs(parts: &[std::path::PathBuf], out: &Path) -> Result<()> {
     Ok(())
 }
 
-/// Thread-safe wrapper around `hound::WavWriter`. Capture callbacks lock,
-/// write, and release per buffer. The lock is contended only between the
-/// callback thread and the finalize call. `parking_lot::Mutex` matches
-/// `docs/CODE_STYLE.md` §6.1 — `std::sync::Mutex` is banned.
 pub struct AudioWavWriter {
     inner: Mutex<Option<WavWriter<std::io::BufWriter<std::fs::File>>>>,
     sample_rate: u32,
@@ -76,8 +59,6 @@ pub struct AudioWavWriter {
 }
 
 impl AudioWavWriter {
-    /// Create a new mono 16-bit PCM WAV writer at `path`. The file is created
-    /// or truncated.
     pub fn create<P: AsRef<Path>>(path: P, sample_rate: u32) -> Result<Self> {
         let spec = WavSpec {
             channels: 1,
@@ -101,8 +82,6 @@ impl AudioWavWriter {
         *self.samples_written.lock()
     }
 
-    /// Append mono float samples. Values are clamped to [-1.0, 1.0] then
-    /// quantized to int16. No-op if the writer has been finalized.
     pub fn append(&self, samples: &[f32]) -> Result<()> {
         let mut guard = self.inner.lock();
         let Some(writer) = guard.as_mut() else {
@@ -117,7 +96,6 @@ impl AudioWavWriter {
         Ok(())
     }
 
-    /// Finalize the WAV file. Subsequent writes are silently dropped.
     pub fn finalize(&self) -> Result<()> {
         let mut guard = self.inner.lock();
         if let Some(writer) = guard.take() {
@@ -166,7 +144,7 @@ mod tests {
         assert_eq!(samples.len(), 4);
         assert_eq!(samples[0], i16::MAX);
         assert_eq!(samples[1], -i16::MAX);
-        // 0.5 * 32767 = 16383.5 → 16383 (truncation)
+
         assert!((samples[2] as i32 - 16_383).abs() <= 1);
         assert!((samples[3] as i32 + 16_383).abs() <= 1);
     }
@@ -215,7 +193,7 @@ mod tests {
         let w = AudioWavWriter::create(&path, 16_000).unwrap();
         w.append(&[0.1; 10]).unwrap();
         w.finalize().unwrap();
-        // Should not error, should not write.
+
         w.append(&[0.5; 10]).unwrap();
         assert_eq!(w.samples_written(), 10);
     }

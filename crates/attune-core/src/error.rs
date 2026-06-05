@@ -1,13 +1,5 @@
 use thiserror::Error;
 
-/// Public error type for [`attune-core`]. New error categories are added here,
-/// not invented per-module.
-///
-/// Marked `#[non_exhaustive]` so adding a variant in a future release
-/// isn't a SemVer break for downstream `match` expressions. See
-/// `docs/guidelines/rust-error-handling.md` for the per-subsystem
-/// split (`AudioError`, `TranscriptionError`, `StorageError`,
-/// `LlmError`) this enum is expected to grow into over time.
 #[derive(Error, Debug)]
 #[non_exhaustive]
 pub enum AttuneError {

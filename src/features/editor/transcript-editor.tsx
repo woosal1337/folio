@@ -45,14 +45,6 @@ interface Props {
   onSaved: (next: SessionTranscript) => void;
 }
 
-/**
- * Number of visible segments above which the channel switches from a
- * flat `<ol>` to a virtualised list. v2 finding 062 / GET-97. Below
- * the threshold the flat list keeps the simpler DOM + spell-check
- * affordances; above, the virtualiser caps off-screen render cost so
- * a 4-hour meeting (~5000 segments) doesn't blow the WebView memory
- * budget.
- */
 const VIRTUALIZATION_THRESHOLD = 200;
 
 const EXPORT_FORMATS: Array<{
@@ -81,20 +73,6 @@ const EXPORT_FORMATS: Array<{
   },
 ];
 
-/**
- * Editable transcript surface. The mic and system channels are merged
- * into one chronological, speaker-labelled conversation ("You" for the
- * note-taker, "Speaker 1/2/3…" for each diarized participant); every
- * segment is individually editable while its timestamp stays anchored.
- *
- * v2 roadmap finding 102 (GET-114) adds:
- *  - a live search box that filters segments by case-insensitive
- *    substring match and highlights the match in-line
- *  - a click-to-seek timestamp on every segment, which fires a
- *    `attune:seek-audio` window event the AudioPlayer subscribes to
- *  - SRT / WebVTT / plain-text-timestamps export via a native save
- *    dialog
- */
 export function TranscriptEditor({ sessionDir, initial, onSaved }: Props) {
   const [working, setWorking] = React.useState<SessionTranscript>(initial);
   const [saving, setSaving] = React.useState(false);
@@ -106,8 +84,6 @@ export function TranscriptEditor({ sessionDir, initial, onSaved }: Props) {
     setWorking(initial);
   }, [initial]);
 
-  // Load the recording's speaker names (diarized + any the user set). Used
-  // to show real names instead of "Speaker N" and to drive the rename strip.
   React.useEffect(() => {
     let cancelled = false;
     void listSessionSpeakers(sessionDir)
@@ -120,7 +96,6 @@ export function TranscriptEditor({ sessionDir, initial, onSaved }: Props) {
     };
   }, [sessionDir]);
 
-  // cluster id → real name, for the conversation builder.
   const speakerNames = React.useMemo(() => {
     const m = new Map<number, string>();
     for (const l of speakerLabels) {
@@ -195,8 +170,7 @@ export function TranscriptEditor({ sessionDir, initial, onSaved }: Props) {
     try {
       const content = renderTranscript(working, format);
       const ext = extensionFor(format);
-      // Suggest a filename derived from the session directory's leaf
-      // name (the recording label), with the right extension.
+
       const leaf = sessionDir.split("/").filter(Boolean).pop() ?? "transcript";
       const path = await showSaveDialog({
         defaultPath: `${leaf}.${ext}`,
@@ -344,24 +318,15 @@ interface ConversationEditorProps {
   working: SessionTranscript;
   query: string;
   sessionDir: string;
-  /** cluster id → real name, applied over the default "Speaker N". */
+
   names: Map<number, string>;
-  /** Backend speaker labels keyed by cluster (has_embedding / auto_named). */
+
   labelsByCluster: Map<number, SpeakerLabel>;
-  /** Fresh label set after a rename. */
+
   onSpeakersChanged: (labels: SpeakerLabel[]) => void;
   onSegmentChange: (channelIndex: number, segmentIndex: number, text: string) => void;
 }
 
-/**
- * The whole session as one chronological, speaker-labelled conversation:
- * the user's mic turns ("You") interleaved by time with each diarized
- * participant ("Speaker 1/2/3…", or the real name the user gave them).
- * This is the same shape the AI agents read (see `buildConversation` /
- * the Rust `to_labeled_dialogue`), so the transcript a person edits
- * matches the dialogue the summary reasons over. A rename strip lets the
- * user name each voice (GET-189).
- */
 function ConversationEditor({
   working,
   query,
@@ -374,8 +339,7 @@ function ConversationEditor({
   const rows = React.useMemo(() => buildConversation(working, names), [working, names]);
   const speakers = React.useMemo(() => otherSpeakerLabels(rows), [rows]);
   const legend = React.useMemo(() => conversationSpeakers(rows), [rows]);
-  // Surface per-segment language badges only when the recording is
-  // code-switched (≥2 languages) — a monolingual note needs no labelling.
+
   const multilingual = React.useMemo(
     () => conversationLanguages(rows).length > 1,
     [rows]
@@ -439,9 +403,7 @@ function ConversationEditor({
               query={query}
               speakerLabel={row.label}
               pillClass={row.pillClass}
-              language={
-                multilingual ? row.segment.language ?? undefined : undefined
-              }
+              language={multilingual ? (row.segment.language ?? undefined) : undefined}
               onChange={(text) =>
                 onSegmentChange(row.channelIndex, row.segmentIndex, text)
               }
@@ -490,18 +452,6 @@ interface VirtualConversationListProps {
   onSegmentChange: (channelIndex: number, segmentIndex: number, text: string) => void;
 }
 
-/**
- * Virtualised list for very long conversations. Uses @tanstack/react-
- * virtual with dynamic measurement — segments auto-grow to match
- * their textarea height, and the virtualiser observes each rendered
- * row so the absolute positions stay accurate as the user edits. We
- * keep an overscan of 8 rows above and below the viewport so
- * scrolling feels instant on common gesture distances.
- *
- * Height is capped at 1200px (vs. the whole transcript) so the
- * scrolling lives inside the card; the parent route's ScrollArea
- * handles document-level navigation. v2 finding 062 / GET-97.
- */
 function VirtualConversationList({
   filtered,
   query,
@@ -549,7 +499,7 @@ function VirtualConversationList({
                 speakerLabel={row.label}
                 pillClass={row.pillClass}
                 language={
-                  multilingual ? row.segment.language ?? undefined : undefined
+                  multilingual ? (row.segment.language ?? undefined) : undefined
                 }
                 onChange={(text) =>
                   onSegmentChange(row.channelIndex, row.segmentIndex, text)

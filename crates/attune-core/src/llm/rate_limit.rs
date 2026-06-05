@@ -1,22 +1,3 @@
-//! Global agent-run rate limiter + daily budget cap.
-//!
-//! v2 finding 061 / GET-96. Three auto-agents firing on a 4hr
-//! transcript can hammer the provider with ~200k tokens in 10s,
-//! triggering 429s and (more importantly) a surprise OpenAI bill.
-//! This module gates every agent run through:
-//!   1. a global semaphore (max-concurrency)
-//!   2. a per-UTC-day cost budget read from a tiny JSON file
-//!
-//! Settings → AI gets two knobs (max_concurrent_agent_runs +
-//! daily_agent_budget_usd) that drive the limiter; the agent
-//! dispatcher (src-tauri/src/commands/agents.rs) calls
-//! `RateLimiter::reserve` before firing and `record_cost` after
-//! the run lands.
-//!
-//! Persistence is deliberately tiny — a `today.json` file under
-//! `<config>/Attune/agent-budget/` holds the rolling UTC-day cost.
-//! A new day automatically resets the file.
-
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -25,21 +6,15 @@ use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use tokio::sync::{Semaphore, SemaphorePermit};
 
-/// The maximum concurrent agent runs we'll ever allow even if the
-/// user cranks the setting up. Belt + braces against
-/// misconfiguration.
 const HARD_CAP: usize = 8;
 
-/// State persisted in `today.json`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct DailyBudgetFile {
-    /// UTC date YYYY-MM-DD this row refers to.
     pub date: String,
-    /// Total USD spent today.
+
     pub spent_usd: f64,
 }
 
-/// Concurrency semaphore + daily USD budget guard for agent runs.
 #[derive(Debug)]
 pub struct RateLimiter {
     permits: Semaphore,
@@ -50,7 +25,6 @@ pub struct RateLimiter {
 }
 
 impl RateLimiter {
-    /// Build a limiter, loading any persisted spend from `store_path` and resetting it when the UTC date has changed.
     pub fn new(max_concurrency: usize, budget_usd: f64, store_path: PathBuf) -> Self {
         let n = max_concurrency.clamp(1, HARD_CAP);
         let today = Utc::now().format("%Y-%m-%d").to_string();
@@ -58,8 +32,7 @@ impl RateLimiter {
             Some(state) => (state.date, state.spent_usd),
             None => (today.clone(), 0.0),
         };
-        // If the persisted row is from a previous UTC day, drop the
-        // count — the budget rolls over at midnight UTC.
+
         let spent = if loaded_date == today {
             loaded_spent
         } else {
@@ -74,22 +47,16 @@ impl RateLimiter {
         }
     }
 
-    /// Return the total USD spent today according to the in-memory atomic counter.
     #[must_use]
     pub fn spent_usd(&self) -> f64 {
         self.spent_usd_cents.load(Ordering::Relaxed) as f64 / 100.0
     }
 
-    /// Return the configured daily budget ceiling in USD (0.0 means unlimited).
     #[must_use]
     pub fn budget_usd(&self) -> f64 {
         self.budget_usd
     }
 
-    /// Cheap budget probe. Returns false when the run would push
-    /// the day's spend over the cap. Caller uses this to gate
-    /// optional auto-fires (the user can still manually run by
-    /// raising the budget).
     #[must_use]
     pub fn would_exceed_budget(&self, projected_run_usd: f64) -> bool {
         if self.budget_usd <= 0.0 {
@@ -98,12 +65,6 @@ impl RateLimiter {
         self.spent_usd() + projected_run_usd > self.budget_usd
     }
 
-    /// Reserve one slot. Awaits until a permit is free OR returns
-    /// an Err immediately when the budget is already exhausted.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the semaphore has been explicitly closed, which should never happen in normal app operation.
     pub async fn reserve(&self) -> Result<SemaphorePermit<'_>, BudgetExceeded> {
         if self.budget_usd > 0.0 && self.spent_usd() >= self.budget_usd {
             return Err(BudgetExceeded {
@@ -119,8 +80,6 @@ impl RateLimiter {
         Ok(permit)
     }
 
-    /// Add the cost of a finished agent run to the day's tally and
-    /// flush to disk. Called by the dispatcher after the run lands.
     pub fn record_cost(&self, run_usd: f64) {
         let cents = (run_usd * 100.0).round() as u64;
         self.spent_usd_cents.fetch_add(cents, Ordering::Relaxed);
@@ -134,13 +93,11 @@ impl RateLimiter {
     }
 }
 
-/// Error returned by [`RateLimiter::reserve`] when the day's spend already meets or exceeds the configured ceiling.
 #[derive(Debug, thiserror::Error, Clone, Copy)]
 #[error("daily agent budget exceeded: ${spent_usd:.4} of ${budget_usd:.2}")]
 pub struct BudgetExceeded {
-    /// Total USD already consumed today at the moment the reserve attempt was made.
     pub spent_usd: f64,
-    /// The daily ceiling (from settings) that was exceeded.
+
     pub budget_usd: f64,
 }
 
@@ -156,8 +113,6 @@ fn save_file(path: &Path, state: &DailyBudgetFile) -> std::io::Result<()> {
     fs::write(path, serde_json::to_vec_pretty(state).unwrap_or_default())
 }
 
-/// Default location for the daily-budget file. Matches the
-/// SettingsStore convention.
 pub fn default_budget_path() -> PathBuf {
     let home = std::env::var_os("HOME")
         .map(PathBuf::from)
@@ -197,7 +152,7 @@ mod tests {
         let limiter = RateLimiter::new(2, 1.0, path.clone());
         limiter.record_cost(0.123);
         limiter.record_cost(0.45);
-        // Reload from disk → spent picks up where we left off.
+
         let reloaded = RateLimiter::new(2, 1.0, path);
         assert!((reloaded.spent_usd() - 0.57).abs() < 0.01);
     }

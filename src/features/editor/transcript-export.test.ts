@@ -18,16 +18,40 @@ const sample: SessionTranscript = {
       channel: "mic",
       language: "en",
       segments: [
-        { start_seconds: 0, end_seconds: 1.25, text: "Hello there.", speaker: null, language: null },
-        { start_seconds: 3.5, end_seconds: 5, text: "How are you?", speaker: null, language: null },
+        {
+          start_seconds: 0,
+          end_seconds: 1.25,
+          text: "Hello there.",
+          speaker: null,
+          language: null,
+        },
+        {
+          start_seconds: 3.5,
+          end_seconds: 5,
+          text: "How are you?",
+          speaker: null,
+          language: null,
+        },
       ],
     },
     {
       channel: "system",
       language: "en",
       segments: [
-        { start_seconds: 1.5, end_seconds: 3, text: "Hi, doing well.", speaker: null, language: null },
-        { start_seconds: 5.25, end_seconds: 7, text: "  ", speaker: null, language: null }, // blank → dropped
+        {
+          start_seconds: 1.5,
+          end_seconds: 3,
+          text: "Hi, doing well.",
+          speaker: null,
+          language: null,
+        },
+        {
+          start_seconds: 5.25,
+          end_seconds: 7,
+          text: "  ",
+          speaker: null,
+          language: null,
+        }, // blank → dropped
       ],
     },
   ],
@@ -121,23 +145,56 @@ describe("renderTranscript", () => {
 
 describe("segmentMatches", () => {
   it("returns true when the query is blank", () => {
-    expect(segmentMatches({ start_seconds: 0, end_seconds: 1, text: "abc", speaker: null, language: null }, "")).toBe(
-      true
-    );
     expect(
-      segmentMatches({ start_seconds: 0, end_seconds: 1, text: "abc", speaker: null, language: null }, "   ")
+      segmentMatches(
+        {
+          start_seconds: 0,
+          end_seconds: 1,
+          text: "abc",
+          speaker: null,
+          language: null,
+        },
+        ""
+      )
+    ).toBe(true);
+    expect(
+      segmentMatches(
+        {
+          start_seconds: 0,
+          end_seconds: 1,
+          text: "abc",
+          speaker: null,
+          language: null,
+        },
+        "   "
+      )
     ).toBe(true);
   });
 
   it("is case-insensitive substring match", () => {
     expect(
       segmentMatches(
-        { start_seconds: 0, end_seconds: 1, text: "Hello THERE.", speaker: null, language: null },
+        {
+          start_seconds: 0,
+          end_seconds: 1,
+          text: "Hello THERE.",
+          speaker: null,
+          language: null,
+        },
         "there"
       )
     ).toBe(true);
     expect(
-      segmentMatches({ start_seconds: 0, end_seconds: 1, text: "Hello there.", speaker: null, language: null }, "xyz")
+      segmentMatches(
+        {
+          start_seconds: 0,
+          end_seconds: 1,
+          text: "Hello there.",
+          speaker: null,
+          language: null,
+        },
+        "xyz"
+      )
     ).toBe(false);
   });
 });

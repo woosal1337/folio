@@ -1,27 +1,3 @@
-//! Onboarding sample-meeting demo. v2 finding 002 / GET-30.
-//!
-//! Compresses the value loop to under two minutes without forcing
-//! the user to record anything. The bundle is a 90-second canned
-//! meeting:
-//!
-//!   * `transcript.json` — pre-baked transcript with two speakers.
-//!   * `summary.md` — what the summarize agent would produce.
-//!   * `tasks.json` — extracted action items.
-//!   * `memories.json` — extracted memories.
-//!   * `decisions.json` — decisions the find-decisions agent saw.
-//!
-//! The Record page renders an "Onboarding demo" button on first
-//! launch (when `Settings.onboarding_completed == false`). Clicking
-//! it materialises the bundle into the user's recordings folder as
-//! a normal session directory, then jumps to the editor with the
-//! agent runs pre-populated. The demo plays back in real time:
-//! transcript scrolls, agent slots fill in the same order they would
-//! during a real recording.
-//!
-//! This module ships the data + materialisation logic. The Record-
-//! page button + the playback animation are a thin follow-up on
-//! the frontend that consumes `materialise()`.
-
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -73,10 +49,6 @@ pub struct DemoDecision {
     pub rationale: Option<String>,
 }
 
-/// The canned 90-second meeting bundle the onboarding flow plays back.
-/// Numbers are arbitrary but stable across releases — when the demo
-/// content changes, bump the label so users who already saw the demo
-/// don't see two copies in their library.
 pub fn bundle() -> DemoBundle {
     let started_at = Utc::now();
     DemoBundle {
@@ -163,9 +135,6 @@ fn seg(start: f64, end: f64, channel: &str, speaker: &str, text: &str) -> DemoTr
     }
 }
 
-/// Write the demo bundle into `<recordings_root>/<DEMO_LABEL>/`.
-/// Idempotent: re-running clobbers prior artifacts so a user who
-/// resets onboarding gets the same materialised demo.
 pub fn materialise(recordings_root: &Path) -> Result<PathBuf> {
     let session_dir = recordings_root.join(DEMO_LABEL);
     fs::create_dir_all(&session_dir).map_err(|e| {

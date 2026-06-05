@@ -1,10 +1,3 @@
-/**
- * Confirmation modal for destructive actions. Mounted once at App root;
- * any code path triggers it via `confirmDelete({ ... })` and awaits the
- * result. The dialog itself is the confirmation — nothing is removed
- * until the user clicks the destructive button.
- */
-
 import { AlertTriangle } from "lucide-react";
 
 import {

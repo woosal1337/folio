@@ -1,23 +1,3 @@
-//! Tauri commands for running agents against a recording's transcript.
-//!
-//! Each `run_agent` call:
-//!   1. Loads the recording's transcript from disk.
-//!   2. Pulls the always-inject memory profile (identity + prefs +
-//!      active projects + pinned memories) and prepends it to the
-//!      agent's system prompt so every agent reads "what's true
-//!      about this user" before reading the transcript.
-//!   3. Builds a ChatRequest with the agent's tools attached.
-//!      `extract-tasks` gets `create_task`; `extract-memories` gets
-//!      `remember`; every agent gets `search_memory`.
-//!   4. Calls OpenAI; on tool calls, dispatches them synchronously
-//!      (MemoryStore + TaskStore writes), appends results, loops up
-//!      to `MAX_TOOL_ITERATIONS`.
-//!   5. After the loop, any memories the model created get their
-//!      embeddings computed in parallel and upserted into the vec
-//!      index (best-effort).
-//!   6. Persists the final assistant text under
-//!      `<session_dir>/agent_runs/<agent>.json`.
-
 use std::path::PathBuf;
 
 use attune_core::llm::agent_tools;
@@ -37,12 +17,9 @@ use tracing::{debug, info, warn};
 
 use crate::app::AppState;
 
-/// Fallback model used by the two-stage evidence extractor (GET-207).
-/// The main agent model is chosen by the model-tier router (GET-204).
 const EVIDENCE_EXTRACTOR_MODEL: &str = "gpt-4o-mini";
 const MAX_TOOL_ITERATIONS: usize = 5;
-/// Sampling temperature for agent completions. Low (0.2) keeps output
-/// deterministic and factual; the user can override per-agent via the TOML.
+
 const AGENT_TEMPERATURE: f32 = 0.2;
 
 #[tauri::command]
@@ -119,10 +96,7 @@ pub async fn run_agent(
     if transcript_text.trim().is_empty() {
         return Err("transcript is empty — there is nothing for the agent to read".to_string());
     }
-    // GET-147: the summary folds in the notes the user typed live during
-    // the call so action items / decisions they captured seed the
-    // structured note instead of being lost. Other agents read the
-    // transcript only.
+
     let live_notes_md = if matches!(agent.id.as_str(), "summarize" | "write-followup-email") {
         let dir = session_dir.clone();
         tauri::async_runtime::spawn_blocking(move || prompt::read_live_notes_markdown(&dir))
@@ -131,9 +105,7 @@ pub async fn run_agent(
     } else {
         None
     };
-    // GET-195: when summarizing, the headings the user typed in their notes
-    // become the note's section spine (the agent fleshes each out), instead
-    // of the fixed template. Only the summary uses this.
+
     let note_outline = if agent.id == "summarize" {
         let dir = session_dir.clone();
         tauri::async_runtime::spawn_blocking(move || prompt::read_note_outline(&dir))
@@ -148,20 +120,13 @@ pub async fn run_agent(
         note_outline.as_deref(),
     );
 
-    // Snapshot paths + briefing language from settings (cheap, won't
-    // block agent run). The lock is dropped before any IPC.
     let (tasks_path, briefing_language) = {
         let s = state.settings.lock();
         (s.tasks_path.clone(), s.briefing_language.clone())
     };
-    // Shared MemoryStore from AppState — single SQLite connection
-    // reused across this whole agent run (preamble + every tool
-    // dispatch + post-run embedding). v2 finding R14.
+
     let memory_store = state.memory_store()?;
 
-    // Build the "what's true about the user" preamble before any
-    // network call. This runs on a blocking thread because MemoryStore
-    // touches SQLite.
     let memory_preamble = {
         let store = memory_store.clone();
         tauri::async_runtime::spawn_blocking(move || -> Option<String> {
@@ -192,10 +157,6 @@ pub async fn run_agent(
         })?;
     let provider = OpenAiProvider::new(api_key.clone());
 
-    // Model-tier routing (GET-204): pick Standard vs Premium model
-    // based on transcript complexity. Privacy Mode always wins — the
-    // api_key being present already implies egress is allowed (cloud_guard
-    // blocks the KeyStore call if airgap is on).
     let routing_tier = {
         let signals = signals_from(&transcript);
         let decision = decide(signals, RouterPolicy::default());
@@ -211,18 +172,13 @@ pub async fn run_agent(
     let tools = agent_tools::tools_for_agent(&agent.id);
     let session_label = prompt::session_label_from_dir(&session_dir);
 
-    // Two-stage pipeline (GET-207): for long-transcript agents, run a
-    // cheap evidence-extraction pass first, then feed the condensed
-    // evidence to the synthesis stage. Falls through to single-stage
-    // if the API call fails or the evidence is empty.
     let user_message = if attune_core::llm::two_stage::should_apply(&agent.id, &transcript_text) {
         tracing::info!(
             agent = %agent.id,
             transcript_chars = transcript_text.len(),
             "two-stage pipeline: extracting evidence"
         );
-        // Evidence extraction always uses the Standard (cheap) model —
-        // it's a bulk extraction pass, not a reasoning task.
+
         match attune_core::llm::two_stage::extract_evidence(
             &transcript_text,
             &api_key,
@@ -243,7 +199,6 @@ pub async fn run_agent(
                 )
             }
             _ => {
-                // Fallback to single-stage.
                 tracing::warn!("two-stage evidence extraction failed or was no shorter — using full transcript");
                 user_message
             }
@@ -252,15 +207,6 @@ pub async fn run_agent(
         user_message
     };
 
-    // Compose system prompt:
-    //   1. Memory preamble (if any) — background facts about the user
-    //   2. User profile context (GET-206) — role, team, focus areas
-    //   3. The agent's own prompt — task instructions
-    //   4. Language trailer — keeps output in the meeting's language
-    //
-    // Preamble + profile are ABOVE the agent prompt so the model treats
-    // them as background context; the language rule is BELOW so it's
-    // the last thing the model reads (strongest position for overrides).
     let output_dir = state.settings.lock().output_dir.clone();
     let vault_root = output_dir
         .parent()
@@ -381,9 +327,6 @@ pub async fn run_agent(
         final_text = prompt::synth_summary(&agent.id, tasks_created, memories_created.len());
     }
 
-    // Best-effort embeddings for any memories the agent created.
-    // Failures here are non-fatal: the memory still lives in the FTS5
-    // index, search just falls back to BM25 for those rows.
     if !memories_created.is_empty() {
         embed_new_memories(&api_key, memory_store.clone(), &memories_created).await;
     }
@@ -425,11 +368,6 @@ pub async fn run_agent(
     Ok(run)
 }
 
-/// After the agent run finishes, fetch embeddings for the memories
-/// it just created and upsert them into the vec index. Done outside
-/// the tool loop because embedding is a network call and we don't
-/// want to block tool dispatch on it. Errors are logged, not
-/// surfaced — search still works via BM25.
 async fn embed_new_memories(api_key: &str, store: std::sync::Arc<MemoryStore>, ids: &[String]) {
     let client = EmbeddingClient::new(api_key);
     for id in ids {

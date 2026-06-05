@@ -1,27 +1,3 @@
-//! `.attune/showcase.md` — the Linktree-style portfolio file that the
-//! eventual attune.app/u/<handle> page reads from. Local-first: the
-//! source of truth lives in the user's vault, the public page is
-//! just a renderer.
-//!
-//! Schema is intentionally tiny:
-//!
-//! ```yaml
-//! ---
-//! handle: ege
-//! display_name: Ege Çelebi
-//! bio: Builds things in public.
-//! ---
-//!
-//! - title: Pricing sync with Lila
-//!   url: https://attune.app/s/abc123
-//! - title: Q3 planning offsite
-//!   url: https://attune.app/s/def456
-//! ```
-//!
-//! v2 roadmap finding 087 / GET-107. The web renderer is a separate
-//! follow-up; this PR ships the on-disk format + the Settings UI
-//! that helps the user start one.
-
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -48,14 +24,10 @@ pub struct Showcase {
     pub entries: Vec<ShowcaseEntry>,
 }
 
-/// Path to the user's showcase file. Lives next to the
-/// outbox / inbox under `.attune/`.
 pub fn path_for(memory_dir: &Path) -> PathBuf {
     memory_dir.join(".attune").join(SHOWCASE_FILENAME)
 }
 
-/// Render a Showcase struct as the markdown shape documented above.
-/// Stable bytes for git diff cleanliness.
 pub fn render(showcase: &Showcase) -> String {
     let mut out = String::new();
     out.push_str("---\n");
@@ -70,9 +42,6 @@ pub fn render(showcase: &Showcase) -> String {
     out
 }
 
-/// Parse the showcase file or return `Ok(None)` if it doesn't exist
-/// yet (a fresh install). Returns an error only on read or parse
-/// failure.
 pub fn read(memory_dir: &Path) -> Result<Option<Showcase>> {
     let path = path_for(memory_dir);
     let raw = match fs::read_to_string(&path) {
@@ -88,7 +57,6 @@ pub fn read(memory_dir: &Path) -> Result<Option<Showcase>> {
     parse(&raw).map(Some)
 }
 
-/// Write the showcase file. Creates `.attune/` if missing.
 pub fn write(memory_dir: &Path, showcase: &Showcase) -> Result<PathBuf> {
     let dir = memory_dir.join(".attune");
     fs::create_dir_all(&dir)
@@ -100,9 +68,6 @@ pub fn write(memory_dir: &Path, showcase: &Showcase) -> Result<PathBuf> {
     Ok(path)
 }
 
-/// Parse the simple shape — frontmatter + entry list. Tolerant to
-/// extra whitespace and missing keys (returns defaults rather than
-/// erroring) so a hand-edited file doesn't lock the UI out.
 fn parse(raw: &str) -> Result<Showcase> {
     let mut handle = String::new();
     let mut display_name = String::new();
@@ -139,8 +104,6 @@ fn parse(raw: &str) -> Result<Showcase> {
             }
             if let Some(rest) = trimmed.strip_prefix("- title:") {
                 if let Some(title) = pending_title.take() {
-                    // Previous title without a url — surface as
-                    // an entry pointing at the placeholder.
                     entries.push(ShowcaseEntry {
                         title,
                         url: String::new(),

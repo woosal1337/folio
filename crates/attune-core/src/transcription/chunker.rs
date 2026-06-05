@@ -1,15 +1,3 @@
-//! Silence-aware audio chunker. v2 finding 043 + 044 / GET-64 + GET-65.
-//!
-//! Splits a PCM stream into ≤24 MB chunks at silence boundaries so:
-//!   * Each chunk fits under OpenAI Whisper's 25 MB upload limit.
-//!   * Re-transcription on retry doesn't tear a word in half.
-//!   * `notify`-driven streaming transcription (#043) can transcribe
-//!     each chunk the instant it closes.
-//!
-//! The chunker is pure: it takes a PCM slice + sample rate and emits
-//! `ChunkRange { start_sample, end_sample, bytes }`. The caller
-//! turns ranges into WAVs.
-
 use serde::{Deserialize, Serialize};
 
 pub const OPENAI_UPLOAD_LIMIT_BYTES: usize = 25 * 1024 * 1024;
@@ -48,10 +36,6 @@ impl Default for ChunkerConfig {
     }
 }
 
-/// Split `pcm` (mono f32 in [-1.0, 1.0]) into chunks. Each chunk is
-/// at most `target_bytes` and at most `target_seconds` long, with
-/// the final boundary nudged backwards to the nearest silence frame
-/// when one exists in the `silence_lookback_seconds` window.
 pub fn split(pcm: &[f32], config: ChunkerConfig) -> Vec<ChunkRange> {
     if pcm.is_empty() {
         return Vec::new();
@@ -70,11 +54,6 @@ pub fn split(pcm: &[f32], config: ChunkerConfig) -> Vec<ChunkRange> {
         let end = if nominal_end == pcm.len() {
             pcm.len()
         } else {
-            // NOTE: the silence-nudge can land on a frame at or before
-            // `start` when the lookback window (silence_lookback_seconds)
-            // is wider than the chunk (small target_seconds). Reject any
-            // candidate that wouldn't advance the cursor, otherwise
-            // `start = end` loops forever. nominal_end is always > start.
             find_silence_split(pcm, nominal_end, lookback_samples, config.silence_rms_floor)
                 .filter(|&e| e > start)
                 .unwrap_or(nominal_end)
@@ -89,10 +68,6 @@ pub fn split(pcm: &[f32], config: ChunkerConfig) -> Vec<ChunkRange> {
     out
 }
 
-/// Search backwards from `nominal_end` by up to `lookback` samples
-/// for a frame whose RMS over the next 50 ms window dips below
-/// `floor`. Returns the index of the first such frame, or None when
-/// no silence is found in the window.
 fn find_silence_split(
     pcm: &[f32],
     nominal_end: usize,

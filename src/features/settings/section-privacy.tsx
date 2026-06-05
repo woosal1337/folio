@@ -8,12 +8,6 @@ interface Props {
   onChange: <K extends keyof Settings>(key: K, value: Settings[K]) => void;
 }
 
-/**
- * Settings → Privacy. Houses opt-in switches for any information
- * Attune wants permission to share with the outside world. Currently
- * one entry: the anonymous aggregate-stats counter
- * (v2 finding 095 / GET-110).
- */
 export function SectionPrivacy({ settings, onChange }: Props) {
   return (
     <div className="flex flex-col gap-7">

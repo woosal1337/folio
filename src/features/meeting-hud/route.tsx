@@ -1,21 +1,3 @@
-/**
- * GET-143 — Meeting-detection HUD.
- *
- * A pill that surfaces when a conferencing app is detected. GET-197 adds a
- * pre-meeting brief panel above the pill: 2-3 locally-generated bullets
- * that auto-recede after 8s so the user can read-and-forget.
- *
- * Window layout (196px tall, transparent):
- *   ┌──────────────────────────────┐ ← top (transparent when no brief)
- *   │  brief card (140px)          │
- *   │  • bullet 1                  │
- *   │  • bullet 2                  │
- *   │  • bullet 3                  │
- *   ├──────────────────────────────┤
- *   │  ● Meeting detected  [Take]  │ ← pill (56px)
- *   └──────────────────────────────┘
- */
-
 import * as React from "react";
 import { X } from "lucide-react";
 
@@ -30,9 +12,8 @@ import {
   type DetectedMeeting,
 } from "@/shared/lib/ipc";
 
-/** Auto-dismiss the whole HUD after this many ms. */
 const AUTO_DISMISS_MS = 14_000;
-/** Brief panel fades out after this many ms (before the HUD auto-dismisses). */
+
 const BRIEF_RECEDE_MS = 9_000;
 
 export default function MeetingHud() {
@@ -41,7 +22,6 @@ export default function MeetingHud() {
   const [briefVisible, setBriefVisible] = React.useState(true);
   const [sourcesCount, setSourcesCount] = React.useState(0);
 
-  // Blank the window background so the transparent corners show through.
   React.useEffect(() => {
     const els = [document.documentElement, document.body];
     const prev = els.map((el) => el.style.background);
@@ -55,7 +35,6 @@ export default function MeetingHud() {
     };
   }, []);
 
-  // Initial read + live refresh while open.
   React.useEffect(() => {
     let unlisten: (() => void) | undefined;
     void getPendingMeeting()
@@ -69,7 +48,6 @@ export default function MeetingHud() {
     return () => unlisten?.();
   }, []);
 
-  // Fetch pre-meeting brief from the next calendar event (GET-197).
   React.useEffect(() => {
     if (!meeting) return;
     void (async () => {
@@ -82,13 +60,10 @@ export default function MeetingHud() {
           setBullets(brief.bullets);
           setSourcesCount(brief.sources_count);
         }
-      } catch {
-        // Brief generation failed — HUD still works without it.
-      }
+      } catch {}
     })();
   }, [meeting]);
 
-  // Auto-dismiss timer — resets on new detection.
   React.useEffect(() => {
     if (!meeting) return;
     const id = window.setTimeout(() => {
@@ -97,7 +72,6 @@ export default function MeetingHud() {
     return () => window.clearTimeout(id);
   }, [meeting]);
 
-  // Brief auto-recede — fades out after BRIEF_RECEDE_MS.
   React.useEffect(() => {
     if (bullets.length === 0) return;
     const id = window.setTimeout(() => setBriefVisible(false), BRIEF_RECEDE_MS);
@@ -117,7 +91,6 @@ export default function MeetingHud() {
 
   return (
     <div className="fixed inset-0 flex select-none flex-col justify-end overflow-hidden">
-      {/* Brief card — slides in when bullets are ready (GET-197). */}
       <div
         aria-live="polite"
         style={{
@@ -152,7 +125,6 @@ export default function MeetingHud() {
         ) : null}
       </div>
 
-      {/* Detection pill — unchanged from GET-143. */}
       <div
         className="flex items-center gap-2.5 overflow-hidden rounded-full border border-white/10 bg-neutral-900/95 px-3 text-white shadow-2xl backdrop-blur"
         style={{ height: 56 }}

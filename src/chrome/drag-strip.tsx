@@ -2,21 +2,18 @@ import * as React from "react";
 import { ShieldCheck } from "lucide-react";
 
 import { cn } from "@/shared/lib/utils";
-import { onPrivacyModeChanged, startWindowDrag, toggleWindowMaximize } from "@/shared/lib/ipc";
+import {
+  onPrivacyModeChanged,
+  startWindowDrag,
+  toggleWindowMaximize,
+} from "@/shared/lib/ipc";
 import { useSettingsStore } from "@/shared/stores/settings-store";
 
-/** A full-width drag handle that lives at the top of the window. macOS
- *  traffic lights overlay this region at the system level and stay
- *  clickable. Both `data-tauri-drag-region` and an explicit `startDragging`
- *  handler are wired so dragging works regardless of which path the
- *  current Tauri/macOS combo prefers. */
 export function DragStrip({ className }: { className?: string }) {
   const handleMouseDown = React.useCallback(
     async (e: React.MouseEvent<HTMLDivElement>) => {
-      // Left button only.
       if (e.button !== 0) return;
-      // Don't hijack clicks on interactive children (we have none in this
-      // strip today, but stay defensive in case we add a topbar later).
+
       const target = e.target as HTMLElement;
       if (target.closest("button, a, input, select, textarea, [role='button']")) {
         return;
@@ -38,10 +35,6 @@ export function DragStrip({ className }: { className?: string }) {
     }
   }, []);
 
-  // Mirror the privacy_mode flag from settings + Rust-side
-  // `privacy-mode-changed` events. The badge appears in the titlebar
-  // whenever the CloudGuard is actively blocking egress. v2 finding
-  // 048 / GET-42.
   const privacyMode = useSettingsStore((s) => s.settings?.privacy_mode ?? false);
   const [eventMode, setEventMode] = React.useState<boolean | null>(null);
   React.useEffect(() => {
@@ -60,10 +53,6 @@ export function DragStrip({ className }: { className?: string }) {
   const airgap = eventMode ?? privacyMode;
 
   return (
-    // NOTE: window drag region. Pure pointer surface owned by Tauri;
-    // keyboard alternatives for window controls live in the OS chrome
-    // (macOS traffic-light buttons overlay the strip at the system
-    // level). eslint disable is intentional, not a missing a11y story.
     // eslint-disable-next-line jsx-a11y/no-static-element-interactions
     <div
       data-tauri-drag-region

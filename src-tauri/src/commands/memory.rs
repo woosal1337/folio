@@ -1,16 +1,3 @@
-//! Memory CRUD commands backing the /memory page + the `remember`
-//! and `search_memory` agent tools.
-//!
-//! Disk + embedding work runs inside `spawn_blocking` so the IPC
-//! runtime stays free. Embedding calls go to OpenAI; if the API
-//! errors (no key, transient), the memory is still persisted to
-//! files + FTS5 — only the vec index slot is empty, which the
-//! hybrid retrieval path falls back from gracefully.
-//!
-//! v2 roadmap finding R14: all commands share a single
-//! [`attune_core::memory::MemoryStore`] cached in [`AppState`] (one
-//! SQLite connection per process), not one open per IPC.
-
 use std::sync::Arc;
 
 use attune_core::llm::{KeyStore, ProviderId};
@@ -22,7 +9,6 @@ use tracing::{debug, info, warn};
 
 use crate::app::AppState;
 
-/// Read the OpenAI key from the keyring on a blocking task.
 async fn openai_key_opt() -> Result<Option<String>, String> {
     tauri::async_runtime::spawn_blocking(|| KeyStore::get(ProviderId::OpenAi))
         .await
@@ -30,9 +16,6 @@ async fn openai_key_opt() -> Result<Option<String>, String> {
         .map_err(|e| e.to_string())
 }
 
-/// Embed `text` if an OpenAI key is configured; otherwise return
-/// None so the upsert proceeds without a vector. Embedding failures
-/// are logged but not surfaced as errors — the memory still lands.
 async fn embed_if_possible(text: &str) -> Option<Vec<f32>> {
     let key = match openai_key_opt().await {
         Ok(Some(k)) => k,
@@ -52,8 +35,6 @@ async fn embed_if_possible(text: &str) -> Option<Vec<f32>> {
     }
 }
 
-/// Resolve the shared memory store handle. Lazy (opens on first
-/// IPC, reused thereafter); reopens if `memory_dir` was edited.
 fn shared_store(state: &AppState) -> Result<Arc<MemoryStore>, String> {
     state.memory_store()
 }
@@ -87,8 +68,6 @@ pub async fn create_memory(
     let store = shared_store(&state)?;
     let content_for_embed = memory.content.clone();
 
-    // Write via the shared store; conflict resolution may mutate
-    // previously-current rows (supersede). All on a blocking thread.
     let written = {
         let store = store.clone();
         tauri::async_runtime::spawn_blocking(move || {
@@ -101,8 +80,6 @@ pub async fn create_memory(
         .map_err(|e| format!("create_memory panicked: {e}"))??
     };
 
-    // Best-effort embedding upsert so the vec index can serve future
-    // searches. Failure is logged but not fatal.
     if let Some(embedding) = embed_if_possible(&content_for_embed).await {
         let store = store.clone();
         let m = written.clone();
@@ -211,11 +188,6 @@ pub async fn search_memories(
     .map_err(|e| format!("search_memories panicked: {e}"))?
 }
 
-/// Resolve the absolute path on disk for a memory's markdown page.
-/// Returns `None` if the memory exists in the index but the file is
-/// missing (which would be a drift the user should Reindex from).
-/// Used by the frontend to build `obsidian://` deep-links + Copy-path
-/// affordances (v2 roadmap finding 069).
 #[tauri::command]
 pub async fn memory_file_path(
     state: State<'_, AppState>,
@@ -241,10 +213,6 @@ pub async fn rebuild_memory_index(state: State<'_, AppState>) -> Result<usize, S
     info!("rebuild_memory_index");
     let store = shared_store(&state)?;
     tauri::async_runtime::spawn_blocking(move || {
-        // Embeddings are not refetched during rebuild — they survive
-        // only via the .md files (currently we do not write
-        // embeddings to disk). After a rebuild, vec rows are empty
-        // until each memory is touched again.
         store.rebuild_index(|_| None).map_err(|e| e.to_string())
     })
     .await

@@ -29,14 +29,6 @@ const MODELS: { id: WhisperModel; label: string; size: string; note: string }[] 
   { id: "large-v3", label: "Large v3", size: "~3.1 GB", note: "best quality" },
 ];
 
-/**
- * The local-Whisper subsection of the Transcription settings panel.
- * Only rendered when `settings.transcriber === "local_whisper"`.
- *
- * Owns the model picker, the current model's download status, and the
- * live download progress feed (subscribed via Tauri's event channel
- * while the section is mounted).
- */
 export function LocalWhisperSection({ settings, onChange }: Props) {
   const [status, setStatus] = React.useState<WhisperModelStatus | null>(null);
   const [statusLoading, setStatusLoading] = React.useState(true);
@@ -56,20 +48,20 @@ export function LocalWhisperSection({ settings, onChange }: Props) {
     }
   }, []);
 
-  // Re-read status whenever the selected model changes.
   React.useEffect(() => {
     refreshStatus();
   }, [refreshStatus, settings.local_whisper_model]);
 
-  // Subscribe to live download progress while this section is mounted.
   React.useEffect(() => {
     let unlistenFn: (() => void) | null = null;
     let cancelled = false;
     (async () => {
-      const unlisten = await onWhisperDownloadProgress<WhisperDownloadProgress>((payload) => {
-        if (cancelled) return;
-        setProgress(payload);
-      });
+      const unlisten = await onWhisperDownloadProgress<WhisperDownloadProgress>(
+        (payload) => {
+          if (cancelled) return;
+          setProgress(payload);
+        }
+      );
       if (cancelled) {
         unlisten();
       } else {
@@ -144,9 +136,6 @@ export function LocalWhisperSection({ settings, onChange }: Props) {
       </div>
 
       <div className="flex flex-col gap-3 rounded-md border border-border bg-card p-3">
-        {/* Top row: status badge + actions. `flex-wrap` so the action
-            buttons drop below the badge on narrow modals instead of
-            forcing horizontal overflow that breaks the layout. */}
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-2">
             <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
@@ -199,10 +188,6 @@ export function LocalWhisperSection({ settings, onChange }: Props) {
           </div>
         </div>
 
-        {/* Bottom row: details. Path strings are full and wrap with
-            `break-all` so they stay inside the card no matter how long
-            the home directory + model filename run. No truncation,
-            so the user can read the whole path inline. */}
         <div className="min-w-0">
           {downloading && progress ? (
             <div className="flex flex-col gap-1" role="status" aria-live="polite">
@@ -212,8 +197,6 @@ export function LocalWhisperSection({ settings, onChange }: Props) {
                 {percent !== null ? ` · ${percent}%` : ""}
               </span>
               <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
-                {/* scaleX, not width — animating width thrashes layout
-                    every frame; transform stays on the compositor (GET-200). */}
                 <div
                   className="h-full w-full origin-left bg-primary transition-transform"
                   style={{ transform: `scaleX(${(percent ?? 0) / 100})` }}

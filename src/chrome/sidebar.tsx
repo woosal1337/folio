@@ -24,12 +24,7 @@ interface NavItem {
   to: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
-  /** Extra path prefixes that should also light this item up. The
-   * editor route is a per-recording detail page reached from Library;
-   * NavLink's default isActive only matches the exact `to`, which left
-   * the sidebar feeling unmoored on /editor/*. Including the prefix
-   * here makes Library stay highlighted while the user is inside a
-   * recording. */
+
   alsoActiveOn?: string[];
 }
 
@@ -56,16 +51,10 @@ export function Sidebar({ onOpenSettings }: SidebarProps) {
       aria-label="Primary navigation"
       data-collapsed={collapsed || undefined}
       className={cn(
-        // A one-off sidebar collapse genuinely reflows layout width (content
-        // must rewrap); it's user-triggered, not hot/looping, so this width
-        // transition is justified — motion-allow (GET-200).
         "flex select-none flex-col border-r border-border bg-sidebar text-sidebar-foreground transition-[width] duration-150 ease-out",
         collapsed ? "w-[56px] items-center" : "w-[220px]"
       )}
     >
-      {/* Brand + collapse toggle. In rail mode the wordmark hides and
-          the toggle stays centered under the logo so the column reads
-          as one stack of icons. */}
       <div
         className={cn(
           "flex w-full items-center pt-4",
@@ -103,7 +92,6 @@ export function Sidebar({ onOpenSettings }: SidebarProps) {
       </div>
       <div className="pb-4" />
 
-      {/* Primary nav + Spaces (scrolls together when the list grows) */}
       <div className="flex-1 overflow-y-auto">
         <nav className={cn("space-y-0.5", collapsed ? "w-full px-1.5" : "px-2")}>
           {items.map((item) => {
@@ -121,8 +109,7 @@ export function Sidebar({ onOpenSettings }: SidebarProps) {
                 className={({ isActive }) =>
                   cn(
                     "group flex items-center text-sm font-medium transition-colors",
-                    // Collapsed: a centred fixed-size rounded square behind the
-                    // icon (not a full-width bar). Expanded: a normal row pill.
+
                     collapsed
                       ? "mx-auto h-9 w-9 justify-center rounded-xl"
                       : "gap-3 rounded-md px-3 py-2",
@@ -139,11 +126,9 @@ export function Sidebar({ onOpenSettings }: SidebarProps) {
           })}
         </nav>
 
-        {/* Spaces / folders (GET-162) */}
         <SpacesSection collapsed={collapsed} />
       </div>
 
-      {/* Footer */}
       <div
         className={cn(
           "flex w-full flex-col gap-1 border-t border-border py-3",

@@ -1,15 +1,3 @@
-/**
- * GET-150 — "Chat with this transcript" (per-note scoped chat).
- *
- * A conversation restricted to one meeting: its transcript, the live
- * notes, and any generated summary. Answers cite `[mm:ss]` timestamps
- * which render as clickable chips that seek the editor's audio player
- * (via the shared seek-audio event; a no-op where no player is mounted).
- *
- * Reused by the editor's "Chat with this transcript" affordance and the
- * post-recording bar's "Ask anything / What did I miss".
- */
-
 import * as React from "react";
 import { Loader2, MessageCircleQuestion, Send } from "lucide-react";
 import { toast } from "sonner";
@@ -35,11 +23,10 @@ interface Props {
   sessionDir: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Optional seed question (e.g. "What did I miss?"). */
+
   seed?: string;
 }
 
-/** Parse "1:02:05" / "12:34" into absolute seconds. */
 function parseTimestamp(ts: string): number {
   const parts = ts.split(":").map((n) => parseInt(n, 10));
   if (parts.some((n) => Number.isNaN(n))) return 0;
@@ -48,7 +35,6 @@ function parseTimestamp(ts: string): number {
 
 const TS_RE = /\[(\d{1,2}:\d{2}(?::\d{2})?)\]/g;
 
-/** Render assistant text, turning [mm:ss] citations into seek chips. */
 function renderAnswer(text: string): React.ReactNode[] {
   const out: React.ReactNode[] = [];
   let last = 0;
@@ -87,13 +73,9 @@ export function NoteChat({ sessionDir, open, onOpenChange, seed }: Props) {
   const [busy, setBusy] = React.useState(false);
   const scrollRef = React.useRef<HTMLDivElement>(null);
 
-  // Persisted per-note thread (GET-167): stable id + creation time so each
-  // turn upserts the same file.
   const threadIdRef = React.useRef<string | null>(null);
   const createdAtRef = React.useRef<string | null>(null);
 
-  // On open, restore this note's most recent conversation (if any) so the
-  // history is there when the user comes back; seed the input otherwise.
   React.useEffect(() => {
     if (!open) return;
     let cancelled = false;
@@ -118,7 +100,7 @@ export function NoteChat({ sessionDir, open, onOpenChange, seed }: Props) {
     return () => {
       cancelled = true;
     };
-    // Only on open / note change.
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, sessionDir]);
 

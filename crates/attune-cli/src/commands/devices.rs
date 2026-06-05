@@ -1,5 +1,3 @@
-//! `attune-cli devices` — enumerate input audio devices.
-
 use anyhow::Result;
 use attune_core::audio::list_input_devices;
 

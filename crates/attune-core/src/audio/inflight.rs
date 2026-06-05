@@ -1,17 +1,3 @@
-//! Rolling WAV ring buffer on disk.
-//!
-//! Capture appends 5s PCM chunks (per channel) into
-//! `.attune/_inflight/<session-id>/<channel>/NNNN.wav` so a crash
-//! mid-recording converts catastrophic loss into a 10s gap. On
-//! launch, the recover step lists every session under `_inflight/`
-//! and prompts the user to assemble the chunks into a full WAV.
-//!
-//! v2 finding 042 / GET-63.
-//!
-//! Format: each chunk is a self-contained WAV (16 kHz mono 16-bit
-//! PCM for mic, 48 kHz mono f32 for system). Numbered 0001.wav,
-//! 0002.wav, … so a sort by filename gives chronological order.
-
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -19,25 +5,20 @@ use crate::error::{AttuneError, Result};
 
 const INFLIGHT_DIRNAME: &str = "_inflight";
 
-/// Inflight root under the user's memory dir. Sessions live as
-/// subdirectories named by session id.
 pub fn root(memory_dir: &Path) -> PathBuf {
     memory_dir.join(".attune").join(INFLIGHT_DIRNAME)
 }
 
-/// Path for a single session's inflight directory.
 pub fn session_dir(memory_dir: &Path, session_id: &str) -> PathBuf {
     root(memory_dir).join(session_id)
 }
 
-/// Path for the next chunk file. `chunk_index` is 1-based.
 pub fn chunk_path(memory_dir: &Path, session_id: &str, channel: &str, chunk_index: u32) -> PathBuf {
     session_dir(memory_dir, session_id)
         .join(channel)
         .join(format!("{:04}.wav", chunk_index))
 }
 
-/// Ensure the channel dir exists for a session.
 pub fn ensure_channel_dir(memory_dir: &Path, session_id: &str, channel: &str) -> Result<PathBuf> {
     let path = session_dir(memory_dir, session_id).join(channel);
     fs::create_dir_all(&path).map_err(|e| {
@@ -49,7 +30,6 @@ pub fn ensure_channel_dir(memory_dir: &Path, session_id: &str, channel: &str) ->
     Ok(path)
 }
 
-/// A recoverable session — found on disk at launch time.
 #[derive(Debug, Clone)]
 pub struct InflightSession {
     pub session_id: String,
@@ -63,8 +43,6 @@ pub struct InflightChannel {
     pub chunks: Vec<PathBuf>,
 }
 
-/// List every session under `_inflight/`. Empty list when no
-/// crash leftovers exist. Sorted oldest first by directory mtime.
 pub fn list_recoverable(memory_dir: &Path) -> Vec<InflightSession> {
     let r = root(memory_dir);
     let entries = match fs::read_dir(&r) {
@@ -120,9 +98,6 @@ pub fn list_recoverable(memory_dir: &Path) -> Vec<InflightSession> {
     out
 }
 
-/// Discard a recovered session (rm -rf the directory). Called
-/// after the user either accepts the recover-into-recordings flow
-/// or explicitly dismisses the prompt.
 pub fn discard(session: &InflightSession) -> Result<()> {
     fs::remove_dir_all(&session.session_dir).map_err(|e| {
         AttuneError::Storage(format!(

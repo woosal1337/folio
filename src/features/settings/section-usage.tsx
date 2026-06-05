@@ -29,9 +29,7 @@ interface UsageSummary {
   totalUsd: number;
   byAgent: PerAgent[];
   byDay: PerDay[];
-  /** True when at least one run reported usage tokens. False means the
-   *  provider returned no usage and our totals would all be zero —
-   *  surface a hint in the UI in that case. */
+
   hasTokenData: boolean;
 }
 
@@ -50,8 +48,7 @@ export function SectionUsage() {
     try {
       const recordings = await listRecordings();
       const allRuns: AgentRun[] = [];
-      // Concurrency cap of 8 so we don't open more than a few file
-      // handles at once.
+
       const queue = [...recordings];
       const workers = Array.from({ length: 8 }, () => worker(queue, allRuns));
       await Promise.all(workers);
@@ -169,8 +166,6 @@ async function worker(queue: { session_dir: string }[], out: AgentRun[]) {
       const runs = await listAgentRuns(item.session_dir);
       out.push(...runs);
     } catch (e) {
-      // A recording with no agent_runs/ directory throws — that's
-      // expected, not an error worth surfacing.
       console.info("listAgentRuns skipped:", item.session_dir, e);
     }
   }
@@ -214,7 +209,6 @@ function aggregate(runs: AgentRun[]): UsageSummary {
     byDay.set(day, d);
   }
 
-  // Trim byDay to the last DAYS entries.
   const days = Array.from(byDay.values())
     .sort((a, b) => a.date.localeCompare(b.date))
     .slice(-DAYS);

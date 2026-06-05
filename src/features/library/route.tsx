@@ -62,8 +62,6 @@ export default function Library() {
     }
   }, []);
 
-  // Shared right-click menu (Open / Move to folder / Re-transcribe /
-  // Reveal / Delete). Same handler powers Home's recent notes.
   const openContextMenu = useNoteContextMenu(refresh);
 
   React.useEffect(() => {
@@ -125,10 +123,6 @@ export default function Library() {
     [refresh]
   );
 
-  // Full-text content search (GET-165). When the query is non-empty we
-  // also scan note bodies (transcript / summary / live notes) in the
-  // backend and fold those matches into the list with a snippet. The
-  // map is session_dir → snippet; debounced so typing stays smooth.
   const [contentHits, setContentHits] = React.useState<Map<string, string>>(
     () => new Map()
   );
@@ -162,7 +156,7 @@ export default function Library() {
       if (needle) {
         const hay =
           `${r.label} ${r.suggested_title ?? ""} ${r.title ?? ""}`.toLowerCase();
-        // A metadata match OR a body (content) match keeps the note.
+
         if (!hay.includes(needle) && !contentHits.has(r.session_dir)) return false;
       }
       return true;
@@ -294,7 +288,7 @@ function NoteRow({
 }: {
   item: RecordingSummary;
   transcribing: boolean;
-  /** Content-search excerpt (GET-165); shown instead of the subtitle. */
+
   snippet: string | null;
   onOpen: () => void;
   onReveal: () => void;
@@ -304,7 +298,7 @@ function NoteRow({
 }) {
   const title =
     item.title?.trim() || item.suggested_title?.trim() || item.draft_name || item.label;
-  // A content-match snippet takes the second line; else the subtitle.
+
   const secondary = snippet ?? item.suggested_subtitle ?? null;
 
   return (

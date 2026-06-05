@@ -1,11 +1,3 @@
-/**
- * Note folders ("Spaces"), GET-162. A tiny shared cache of the folder
- * list so the sidebar Spaces section, My Notes filter, and the note
- * header "Add to folder" chip all read/write one source of truth. The
- * backend (`folder.txt` per note + `folders.json` registry) is
- * authoritative; mutators return the fresh list and we store it.
- */
-
 import { create } from "zustand";
 
 import {
@@ -23,7 +15,7 @@ interface FoldersState {
   create: (name: string) => Promise<void>;
   rename: (from: string, to: string) => Promise<void>;
   remove: (name: string) => Promise<void>;
-  /** Assign/clear a note's folder, then refresh the list. */
+
   assign: (sessionDir: string, folder: string | null) => Promise<void>;
 }
 

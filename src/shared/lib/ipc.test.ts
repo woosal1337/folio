@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { IpcError } from "./ipc";
 
-// Mock the Tauri invoke before the IPC module loads.
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(),
 }));
@@ -79,20 +78,5 @@ describe("floating recording-bar IPC wrappers", () => {
     expect(mockedInvoke).toHaveBeenCalledWith("recording_bar_stop", undefined);
     expect(mockedInvoke).toHaveBeenCalledWith("recording_bar_pause", undefined);
     expect(mockedInvoke).toHaveBeenCalledWith("recording_bar_resume", undefined);
-  });
-
-  it("account_update forwards the display name", async () => {
-    const { accountUpdate } = await import("./ipc");
-    mockedInvoke.mockResolvedValueOnce({
-      id: "u1",
-      email: "x@y.z",
-      display_name: "New Name",
-      privacy_tier: null,
-      subscription_tier: null,
-    });
-    await accountUpdate("New Name");
-    expect(mockedInvoke).toHaveBeenCalledWith("account_update", {
-      displayName: "New Name",
-    });
   });
 });

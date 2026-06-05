@@ -1,7 +1,3 @@
-//! Attune CLI. Test harness for the `attune-core` library during
-//! development. `main` is a thin dispatch table; each subcommand lives
-//! in its own module under [`commands`].
-
 mod cli;
 mod commands;
 mod tracing_init;

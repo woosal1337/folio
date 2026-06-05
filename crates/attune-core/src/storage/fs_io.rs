@@ -1,22 +1,3 @@
-//! Filesystem outbox + inbox under `<memory_dir>/.attune/`.
-//!
-//! - **outbox/**: Attune writes one JSON file per lifecycle event
-//!   (recording.finished, task.created, …) so external tools can
-//!   pick them up by polling a dir or running an fs-watcher. Same
-//!   shape as the webhook payload (v2 #079) for parity.
-//! - **inbox/**: External tools drop `record-this.json` /
-//!   `start-recording.json` / etc. into this dir; Attune scans on
-//!   demand (or every N seconds — follow-up) and executes the
-//!   matching action.
-//!
-//! Stable file format is the contract: any tool that learns to
-//! write JSON in these shapes integrates forever. v2 finding 073
-//! / GET-75.
-//!
-//! For MVP we ship: outbox write helper + inbox scan helper +
-//! Tauri command to list pending inbox entries. An auto-execute
-//! watcher is the natural follow-up.
-
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -30,8 +11,6 @@ use crate::error::{AttuneError, Result};
 const OUTBOX_DIRNAME: &str = "outbox";
 const INBOX_DIRNAME: &str = "inbox";
 
-/// Resolve the `.attune/` root under the memory dir, creating it
-/// (and its outbox + inbox children) if missing.
 pub fn ensure_dirs(memory_dir: &Path) -> Result<PathBuf> {
     let root = memory_dir.join(".attune");
     for sub in ["", OUTBOX_DIRNAME, INBOX_DIRNAME] {
@@ -47,9 +26,6 @@ pub fn ensure_dirs(memory_dir: &Path) -> Result<PathBuf> {
     Ok(root)
 }
 
-/// Internal-only outbox shape — we don't expose this across IPC since
-/// the data field is arbitrary JSON. External tools read the JSON
-/// files directly off disk; that's the whole contract.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OutboxEntry {
     pub id: String,
@@ -58,9 +34,6 @@ pub struct OutboxEntry {
     pub data: serde_json::Value,
 }
 
-/// Append one event to the outbox. Filename pattern is
-/// `<utc-iso>_<topic>_<short-uuid>.json` so chronological + topic
-/// browsing in the shell stays cheap.
 pub fn write_outbox_event(
     memory_dir: &Path,
     topic: &str,
@@ -94,22 +67,15 @@ pub fn write_outbox_event(
 #[derive(Debug, Clone, Serialize, TS)]
 #[ts(export, export_to = "../../../src/shared/types/")]
 pub struct InboxEntry {
-    /// Absolute path on disk; the UI uses this both as a stable
-    /// React key and to surface 'reveal in Finder'.
     pub path: PathBuf,
-    /// The file's basename, with the `.json` extension stripped.
+
     pub name: String,
-    /// Bytes — useful when surfacing 'looks empty' empty-state
-    /// without re-reading the file.
+
     pub bytes: u64,
-    /// Modified time as RFC-3339 (best effort; empty when the
-    /// platform doesn't supply it).
+
     pub modified_at: String,
 }
 
-/// List pending entries in the inbox, newest first. Files that
-/// don't end in `.json` are silently skipped so the user can drop
-/// `notes.md` in there without it showing up as a pending command.
 pub fn list_inbox(memory_dir: &Path) -> Vec<InboxEntry> {
     let inbox = memory_dir.join(".attune").join(INBOX_DIRNAME);
     let entries = match fs::read_dir(&inbox) {
@@ -148,8 +114,6 @@ pub fn list_inbox(memory_dir: &Path) -> Vec<InboxEntry> {
     out
 }
 
-/// Mark an inbox entry as handled by moving it to `inbox/.processed/`
-/// with the same filename. Idempotent.
 pub fn archive_inbox_entry(path: &Path) -> Result<PathBuf> {
     let parent = path
         .parent()
@@ -174,9 +138,6 @@ pub fn archive_inbox_entry(path: &Path) -> Result<PathBuf> {
     Ok(target)
 }
 
-/// Discriminated-union shape Attune knows how to act on. Unknown
-/// `kind` values are surfaced as Other so the UI can show them
-/// without exploding.
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(tag = "kind")]
 pub enum InboxAction {
@@ -185,12 +146,7 @@ pub enum InboxAction {
     #[serde(rename = "stop-recording")]
     StopRecording,
     #[serde(rename = "record-this")]
-    RecordThis {
-        /// Absolute path to an audio file the user wants ingested +
-        /// transcribed. Same contract as the drag-onto-dock-icon path
-        /// from GET-103.
-        path: PathBuf,
-    },
+    RecordThis { path: PathBuf },
     #[serde(other)]
     Other,
 }

@@ -1,33 +1,3 @@
-//! System audio capture via CoreAudio process tap (GET-170).
-//!
-//! On macOS 14.4+, `AudioHardwareCreateProcessTap` lets apps capture system
-//! audio without requesting the Screen Recording permission that
-//! ScreenCaptureKit requires. Apps using this API appear under
-//! **System Audio Recording Only** in System Settings → Privacy, not under
-//! Screen & System Audio Recording.
-//!
-//! ## Architecture
-//!
-//! 1. Check OS version ≥ 14.4 at runtime.
-//! 2. Create a `CATapDescription` for a stereo global mixdown (all processes
-//!    except Attune itself, which is excluded automatically by CoreAudio).
-//! 3. Call `AudioHardwareCreateProcessTap` → `AudioObjectID` (tap ID).
-//! 4. Read the tap's format from `kAudioTapPropertyFormat`.
-//! 5. Create a private aggregate device that has the tap as its sub-device.
-//! 6. Open an AUHAL (IO AudioUnit) on the aggregate device, wire an input
-//!    callback, resample → write to the WAV.
-//! 7. On stop: stop AUHAL, destroy aggregate device, destroy tap.
-//!
-//! ## Notes
-//!
-//! - Requires on-device verification (audio hardware + TCC grant). The tap
-//!   permission appears the FIRST time `AudioHardwareCreateProcessTap` is
-//!   called; no separate entitlement is needed.
-//! - Falls back gracefully to ScreenCaptureKit when macOS < 14.4 or when
-//!   any step fails — callers must handle the error.
-//! - `unsafe` throughout: CoreAudio + Objective-C FFI. Each call cites the
-//!   Apple developer docs selector / enum it uses.
-
 #![allow(non_snake_case, non_upper_case_globals)]
 
 use std::ffi::CStr;
@@ -49,21 +19,13 @@ use crate::audio::resampler::StreamingResampler;
 use crate::audio::wav_writer::AudioWavWriter;
 use crate::error::{AttuneError, Result};
 
-// ---------------------------------------------------------------------------
-// OS version gate
-// ---------------------------------------------------------------------------
-
-/// Minimum macOS version for `AudioHardwareCreateProcessTap`.
 const MIN_MAJOR: u32 = 14;
 const MIN_MINOR: u32 = 4;
 
-/// True when the running OS is macOS 14.4 or later.
 pub fn is_supported() -> bool {
     let mut major: u32 = 0;
     let mut minor: u32 = 0;
-    // SAFETY: Gestalt selectors 0x73797376 / 0x73797376 are stable on all
-    // macOS versions going back to 10.0. We use libc::sysctlbyname for the
-    // modern replacement.
+
     let major_ok = get_os_release_component("kern.osproductversion", &mut major, &mut minor);
     if !major_ok {
         return false;
@@ -96,18 +58,13 @@ fn get_os_release_component(key: &str, major: &mut u32, minor: &mut u32) -> bool
         Ok(s) => s.to_string_lossy(),
         Err(_) => return false,
     };
-    // Parse "14.4" or "14.4.1".
+
     let mut parts = s.splitn(3, '.');
     *major = parts.next().and_then(|p| p.parse().ok()).unwrap_or(0);
     *minor = parts.next().and_then(|p| p.parse().ok()).unwrap_or(0);
     *major > 0
 }
 
-// ---------------------------------------------------------------------------
-// CoreAudio tap constants (macOS 14.4+, not yet in coreaudio-sys 0.2)
-// ---------------------------------------------------------------------------
-
-/// AudioObjectPropertySelector for the tap's format (kAudioTapPropertyFormat).
 const kAudioTapPropertyFormat: AudioObjectPropertySelector = 0x74666d74;
 
 fn global_address(selector: AudioObjectPropertySelector) -> AudioObjectPropertyAddress {
@@ -118,32 +75,15 @@ fn global_address(selector: AudioObjectPropertySelector) -> AudioObjectPropertyA
     }
 }
 
-// ---------------------------------------------------------------------------
-// Tap capture implementation
-// ---------------------------------------------------------------------------
-
-/// Captures system audio on macOS 14.4+ via `AudioHardwareCreateProcessTap`.
-///
-/// Call [`ProcessTapCapture::start`]; it either succeeds or returns an error
-/// that the caller can use to fall back to ScreenCaptureKit.
 pub struct ProcessTapCapture {
     audio_unit: AudioUnit,
     writer: Arc<AudioWavWriter>,
     tap_id: AudioObjectID,
 }
 
-// SAFETY: CoreAudio objects are thread-safe for start/stop lifecycle use
-// when owned by a single thread (the capture session Mutex ensures this).
 unsafe impl Send for ProcessTapCapture {}
 
 impl ProcessTapCapture {
-    /// Build and start a process-tap capture writing into `writer`.
-    ///
-    /// Returns `Err` when:
-    /// - OS < 14.4
-    /// - `AudioHardwareCreateProcessTap` fails (permission not granted yet —
-    ///   the OS will prompt; retry after the grant)
-    /// - Any subsequent setup step fails (log + propagate)
     pub fn start(writer: Arc<AudioWavWriter>, target_sample_rate: u32) -> Result<Self> {
         if !is_supported() {
             return Err(AttuneError::SystemAudio(
@@ -151,12 +91,9 @@ impl ProcessTapCapture {
             ));
         }
 
-        // 1. Create tap description — stereo global mixdown of all processes.
-        //    Attune's own output is automatically excluded by CoreAudio.
         let tap_id = Self::create_tap()?;
         debug!(tap_id, "process tap created");
 
-        // 2. Read the tap's negotiated format.
         let tap_format = Self::read_tap_format(tap_id)?;
         let tap_rate = tap_format.mSampleRate.round() as u32;
         info!(
@@ -166,11 +103,8 @@ impl ProcessTapCapture {
             "process tap format negotiated"
         );
 
-        // 3. Open an AUHAL on the tap object directly. CoreAudio 14.4+
-        //    treats the tap ID as a device ID for AUHAL purposes.
         let audio_unit = Self::open_auhal_on_tap(tap_id)?;
 
-        // 4. Wire the resampling + WAV-write input callback.
         let resampler = Arc::new(Mutex::new(StreamingResampler::new(
             tap_rate,
             1,
@@ -236,13 +170,12 @@ impl ProcessTapCapture {
     }
 
     pub fn stop(mut self) -> Result<()> {
-        // Stop AUHAL.
         if let Err(e) = self.audio_unit.stop() {
             warn!(error = %e, "process-tap AUHAL stop error (non-fatal)");
         }
-        // Let the audio thread drain.
+
         std::thread::sleep(std::time::Duration::from_millis(150));
-        // Destroy tap.
+
         let status = unsafe { AudioHardwareDestroyProcessTap(self.tap_id) };
         if status != 0 {
             warn!(
@@ -255,15 +188,7 @@ impl ProcessTapCapture {
         Ok(())
     }
 
-    // -----------------------------------------------------------------------
-    // Helpers
-    // -----------------------------------------------------------------------
-
     fn create_tap() -> Result<AudioObjectID> {
-        // SAFETY: ObjC message sends; CATapDescription is an NSObject subclass.
-        // Use `new()` which gives us a default-initialised description.
-        // CoreAudio treats a default CATapDescription as "capture all system audio
-        // in stereo, excluding the calling process" — exactly what we need.
         let tap_desc = unsafe { CATapDescription::new() };
 
         let mut tap_id: AudioObjectID = 0;
@@ -311,8 +236,7 @@ impl ProcessTapCapture {
                 "kAudioTapPropertyFormat read failed: OSStatus {status}"
             )));
         }
-        // Default to 48 kHz stereo when the tap reports zero (shouldn't happen
-        // on a real tap, but guards against a degenerate state during testing).
+
         if fmt.mSampleRate < 1.0 {
             fmt.mSampleRate = 48_000.0;
             fmt.mChannelsPerFrame = 2;
@@ -324,7 +248,6 @@ impl ProcessTapCapture {
         let mut unit = AudioUnit::new_uninitialized(IOType::HalOutput)
             .map_err(|e| AttuneError::SystemAudio(format!("AUHAL new: {e}")))?;
 
-        // Disable output, enable input — we are a capture-only unit.
         let off: u32 = 0;
         unit.set_property(
             kAudioOutputUnitProperty_EnableIO,
@@ -343,9 +266,6 @@ impl ProcessTapCapture {
         )
         .map_err(|e| AttuneError::SystemAudio(format!("AUHAL enable input: {e}")))?;
 
-        // Bind the AUHAL to the tap object ID. On macOS 14.4+, the HAL
-        // accepts a tap ID where a device ID is expected.
-        // kAudioOutputUnitProperty_CurrentDevice = 2000
         const kAudioOutputUnitProperty_CurrentDevice: u32 = 2000;
         unit.set_property(
             kAudioOutputUnitProperty_CurrentDevice,
@@ -375,8 +295,6 @@ mod tests {
 
     #[test]
     fn is_supported_does_not_panic() {
-        // Just verify the sysctlbyname path doesn't crash. The actual
-        // boolean value depends on the test runner's OS version.
         let _ = is_supported();
     }
 

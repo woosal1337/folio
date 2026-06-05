@@ -1,26 +1,13 @@
-/**
- * Share helpers: render Attune artifacts as portable Markdown and
- * open them in Obsidian via the `obsidian://` URI scheme.
- *
- * The Obsidian "path" param accepts an absolute filesystem path and
- * Obsidian works out which configured vault contains it. We use
- * `path` rather than `vault=&file=` because the user may have
- * multiple vaults and we don't know which name corresponds to
- * `<memory_dir>`. v2 roadmap finding 069.
- */
-
 import { openExternalUrl } from "@/shared/lib/ipc";
 import { toast } from "sonner";
 
 import type { Memory } from "@/shared/types/Memory";
 import type { Task } from "@/shared/types/Task";
 
-/** Build an `obsidian://open?path=<encoded>` URI for an absolute file path. */
 export function obsidianHref(absolutePath: string): string {
   return `obsidian://open?path=${encodeURIComponent(absolutePath)}`;
 }
 
-/** Open a path in Obsidian. Silently no-ops if the path is empty. */
 export async function openInObsidian(
   absolutePath: string | null | undefined
 ): Promise<void> {
@@ -36,11 +23,6 @@ export async function openInObsidian(
   }
 }
 
-/**
- * Render a memory as portable Markdown. Same shape as the on-disk
- * file (frontmatter + body), so pasting into Obsidian or any vault
- * round-trips cleanly with whatever frontmatter the user expects.
- */
 export function memoryToMarkdown(m: Memory): string {
   const frontmatter: string[] = ["---"];
   frontmatter.push(`id: ${m.id}`);
@@ -62,11 +44,6 @@ export function memoryToMarkdown(m: Memory): string {
   }`;
 }
 
-/**
- * Render a task as portable Markdown — a single line in checkbox
- * form, with key metadata as suffix. Designed to paste into a Notes,
- * Reminders, or vault daily-note.
- */
 export function taskToMarkdown(t: Task): string {
   const check = t.status === "done" ? "x" : " ";
   const parts: string[] = [`- [${check}] ${t.title}`];
@@ -79,7 +56,6 @@ export function taskToMarkdown(t: Task): string {
   return parts.join(" ");
 }
 
-/** Copy text to clipboard and surface a toast. */
 export async function copyToClipboard(text: string, label = "Copied"): Promise<void> {
   try {
     await navigator.clipboard.writeText(text);
@@ -91,8 +67,6 @@ export async function copyToClipboard(text: string, label = "Copied"): Promise<v
 }
 
 function quote(s: string): string {
-  // Same YAML-quote heuristic as the Rust side: quote if string
-  // contains a YAML-special character; otherwise pass through bare.
   if (s === "" || /[:#'",\n[\]{}]/.test(s)) {
     return `"${s.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
   }

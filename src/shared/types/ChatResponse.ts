@@ -2,9 +2,5 @@
 import type { FinishReason } from "./FinishReason";
 import type { ToolCall } from "./ToolCall";
 
-/**
- * A non-streaming chat response. When `tool_calls` is non-empty the
- * model is asking the caller to invoke one or more tools and feed the
- * results back as `Tool`-role messages on the next turn.
- */
+
 export type ChatResponse = { text: string, finish_reason: FinishReason, prompt_tokens: number | null, completion_tokens: number | null, tool_calls: Array<ToolCall>, };

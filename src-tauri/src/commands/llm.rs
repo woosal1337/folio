@@ -1,17 +1,8 @@
-//! Tauri commands for LLM provider configuration.
-//!
-//! Phase 1 of the AI chat feature ships the bare minimum the Settings
-//! UI needs: list providers, see their status, store/delete a key in
-//! the keychain, and a "Test" button that pings the provider with the
-//! stored key. Chat commands (send_message, etc.) land in phase 4.
-
 use attune_core::llm::provider::LlmProvider;
 use attune_core::llm::types::{ModelInfo, ProviderStatus};
 use attune_core::llm::{KeyStore, OpenAiProvider, ProviderId};
 use tracing::{debug, info};
 
-/// List every provider Attune supports plus its current configured /
-/// not-configured state.
 #[tauri::command]
 pub fn list_providers() -> Vec<ProviderStatus> {
     debug!("list_providers");
@@ -27,7 +18,6 @@ pub fn list_providers() -> Vec<ProviderStatus> {
         .collect()
 }
 
-/// Store an API key for `provider`. Empty strings are rejected.
 #[tauri::command]
 pub async fn set_provider_key(provider: ProviderId, api_key: String) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || KeyStore::set(provider, &api_key))
@@ -38,7 +28,6 @@ pub async fn set_provider_key(provider: ProviderId, api_key: String) -> Result<(
     Ok(())
 }
 
-/// Remove the API key for `provider`. Idempotent.
 #[tauri::command]
 pub async fn delete_provider_key(provider: ProviderId) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || KeyStore::delete(provider))
@@ -49,10 +38,6 @@ pub async fn delete_provider_key(provider: ProviderId) -> Result<(), String> {
     Ok(())
 }
 
-/// Hit the provider's auth endpoint to confirm the stored key works.
-/// Phase 1 only ships OpenAI; the other providers return a "not yet
-/// implemented" error so the UI can disable their Test buttons until
-/// phase 2.
 #[tauri::command]
 pub async fn test_provider(provider: ProviderId) -> Result<(), String> {
     let key = tauri::async_runtime::spawn_blocking(move || KeyStore::get(provider))
@@ -75,12 +60,11 @@ pub async fn test_provider(provider: ProviderId) -> Result<(), String> {
             "{} support arrives in phase 2 of the AI chat rollout",
             provider.display_name()
         )),
-        // #[non_exhaustive] wildcard — future provider variants fall here.
+
         _ => Err(format!("{} is not yet supported", provider.display_name())),
     }
 }
 
-/// List chat models the provider exposes for the configured key.
 #[tauri::command]
 pub async fn list_provider_models(provider: ProviderId) -> Result<Vec<ModelInfo>, String> {
     let key = tauri::async_runtime::spawn_blocking(move || KeyStore::get(provider))

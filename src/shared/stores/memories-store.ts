@@ -1,14 +1,3 @@
-/**
- * Memories store — mirrors useTasksStore. Source of truth lives in
- * the Rust MemoryStore (markdown files + SQLite); this Zustand store
- * caches the list for the /memory page and exposes optimistic
- * mutations.
- *
- * Refresh-after-write is the default rather than splice-into-array
- * because `create` may supersede a prior memory — the server-side
- * conflict resolution can change more than one row in a single call.
- */
-
 import { create } from "zustand";
 import { toast } from "sonner";
 
@@ -31,9 +20,9 @@ interface MemoriesState {
   memories: Memory[];
   loading: boolean;
   error: string | null;
-  /** Whether the current view includes superseded / soft-deleted rows. */
+
   includeArchived: boolean;
-  /** Optional kind filter; empty array means "all". */
+
   kindsFilter: MemoryKind[];
 
   setIncludeArchived: (include: boolean) => void;
@@ -87,7 +76,7 @@ export const useMemoriesStore = create<MemoriesState>((set, get) => ({
   create: async (newMemory) => {
     try {
       const memory = await ipcCreate(newMemory);
-      // Refresh in case create superseded a prior memory.
+
       await get().refresh();
       return memory;
     } catch (e) {
@@ -126,8 +115,6 @@ export const useMemoriesStore = create<MemoriesState>((set, get) => ({
   },
 
   remove: async (id) => {
-    // Soft delete — the row stays in the on-disk store but gets
-    // valid_until set. We optimistically hide it from the live view.
     const prev = get().memories;
     set((s) => ({ memories: s.memories.filter((m) => m.id !== id) }));
     try {

@@ -1,18 +1,3 @@
-//! Derived index for the memory layer.
-//!
-//! Markdown files in `memory_dir` are the source of truth. This module
-//! owns the FTS5 + sqlite-vec index that sits on top so retrieval can
-//! happen in <1ms even at thousands of memories. The schema is small
-//! enough that a corrupt index just gets wiped and rebuilt from the
-//! files — there is no migration path. Two-phase write: callers write
-//! the .md file first, then call `upsert` here; if the upsert fails
-//! the next `rebuild_from_files` heals it.
-//!
-//! Vector dimensions: 3072. Matches OpenAI's
-//! `text-embedding-3-large`, which the user explicitly picked over the
-//! `-small` variant for quality. Storing 3072 f32s per memory means a
-//! 1000-memory corpus uses ~12 MB on disk — trivial.
-
 use std::path::{Path, PathBuf};
 use std::sync::Once;
 
@@ -28,10 +13,6 @@ use crate::memory::types::{Memory, MemoryKind};
 pub const EMBEDDING_DIMS: usize = 3072;
 const SCHEMA_VERSION: i64 = 1;
 
-/// One-time process registration of the bundled sqlite-vec extension
-/// via `sqlite3_auto_extension`. After this, every `Connection::open`
-/// in the process exposes `vec0`. Calling `sqlite3_vec_init` directly
-/// would segfault — it expects the auto-extension calling convention.
 static REGISTER_VEC: Once = Once::new();
 
 type AutoExtFn = unsafe extern "C" fn(
@@ -41,33 +22,19 @@ type AutoExtFn = unsafe extern "C" fn(
 ) -> std::os::raw::c_int;
 
 fn register_vec_extension_once() {
-    REGISTER_VEC.call_once(|| {
-        // SAFETY: registering an auto-extension exactly once at
-        // process startup is the documented sqlite-vec Rust pattern
-        // (alexgarcia.xyz/sqlite-vec/rust.html). The cast bridges
-        // sqlite-vec's init signature to rusqlite's auto-extension
-        // slot — both end up the same underlying fn pointer at the
-        // C ABI level.
-        unsafe {
-            sqlite3_auto_extension(Some(std::mem::transmute::<*const (), AutoExtFn>(
-                sqlite3_vec_init as *const (),
-            )));
-        }
+    REGISTER_VEC.call_once(|| unsafe {
+        sqlite3_auto_extension(Some(std::mem::transmute::<*const (), AutoExtFn>(
+            sqlite3_vec_init as *const (),
+        )));
     });
 }
 
-/// Index handle. Owns one [`Connection`] to the on-disk SQLite file
-/// that sits next to the memory directory.
 pub struct MemoryIndex {
     conn: Connection,
     db_path: PathBuf,
 }
 
 impl MemoryIndex {
-    /// Open the index at `<memory_dir>/.index.sqlite`, creating the
-    /// schema on first open. If the existing schema version doesn't
-    /// match, the file is removed and the caller is expected to call
-    /// [`MemoryIndex::rebuild_from`] before reading anything.
     pub fn open(memory_dir: &Path) -> Result<Self> {
         register_vec_extension_once();
         std::fs::create_dir_all(memory_dir).map_err(|e| {
@@ -89,7 +56,6 @@ impl MemoryIndex {
     }
 
     fn init_schema(&mut self) -> Result<()> {
-        // Quick check: does the meta table exist with our version?
         let current: Option<i64> = self
             .conn
             .query_row(
@@ -175,10 +141,6 @@ INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', '{version}');
         Ok(())
     }
 
-    /// Insert or update a memory row + its FTS row. Embedding is
-    /// optional; if `None` the memory is searchable via FTS5 only.
-    /// The corresponding vec row is removed on a None embedding so
-    /// no stale vector is left behind.
     pub fn upsert(&self, memory: &Memory, embedding: Option<&[f32]>) -> Result<()> {
         let tx = self
             .conn
@@ -228,8 +190,6 @@ ON CONFLICT(id) DO UPDATE SET
         )
         .map_err(|e| AttuneError::Storage(format!("memories upsert: {e}")))?;
 
-        // FTS5 doesn't support proper upsert; delete-then-insert is
-        // the documented pattern.
         tx.execute(
             "DELETE FROM memories_fts WHERE rowid = (SELECT rowid FROM memories WHERE id = ?)",
             params![memory.id],
@@ -270,7 +230,6 @@ ON CONFLICT(id) DO UPDATE SET
         Ok(())
     }
 
-    /// Drop the memory's rows from every index table.
     pub fn delete(&self, id: &str) -> Result<()> {
         let tx = self
             .conn
@@ -297,7 +256,6 @@ ON CONFLICT(id) DO UPDATE SET
         Ok(())
     }
 
-    /// Return all currently-stored rows mapped back to [`Memory`].
     pub fn list_all(&self, include_archived: bool) -> Result<Vec<Memory>> {
         let where_clause = if include_archived {
             ""
@@ -324,7 +282,6 @@ ORDER BY created_at DESC
             .map_err(|e| AttuneError::Storage(format!("collect list: {e}")))
     }
 
-    /// Get a single memory by id, archived or not.
     pub fn get(&self, id: &str) -> Result<Option<Memory>> {
         let mut stmt = self
             .conn
@@ -346,8 +303,6 @@ FROM memories WHERE id = ?
         }
     }
 
-    /// Find the currently-valid memory for a given (kind, key) pair,
-    /// if any. Used by the conflict-resolution path.
     pub fn current_for_key(&self, kind: MemoryKind, key: &str) -> Result<Option<Memory>> {
         let mut stmt = self
             .conn
@@ -372,9 +327,6 @@ LIMIT 1
         }
     }
 
-    /// Hybrid search: FTS5 BM25 ∪ vec cosine, merged via reciprocal
-    /// rank fusion (k=60, the standard from the RRF paper). Returns
-    /// currently-valid memories only by default.
     pub fn search(
         &self,
         query: &str,
@@ -384,14 +336,12 @@ LIMIT 1
         include_archived: bool,
     ) -> Result<Vec<Memory>> {
         if query.trim().is_empty() && embedding.is_none() {
-            // No signal — fall back to recency.
             let mut all = self.list_all(include_archived)?;
             all.truncate(limit);
             return Ok(all);
         }
         let mut scores: std::collections::HashMap<String, f64> = std::collections::HashMap::new();
 
-        // --- FTS5 pass --------------------------------------------------
         if !query.trim().is_empty() {
             let fts_query = sanitize_fts_query(query);
             let mut stmt = self
@@ -419,7 +369,6 @@ LIMIT ?
             }
         }
 
-        // --- vec pass ---------------------------------------------------
         if let Some(embedding) = embedding {
             if embedding.len() == EMBEDDING_DIMS {
                 let mut stmt = self
@@ -470,11 +419,6 @@ ORDER BY distance
         Ok(out)
     }
 
-    /// Wipe every index table + replay `memories` from the given
-    /// page set. Used on schema upgrade and as a manual `doctor`-like
-    /// repair tool from the UI. `embeddings_for(id)` returns the
-    /// embedding to re-index for a given memory id, or `None` to
-    /// skip the vec table entry.
     pub fn rebuild_from(
         &mut self,
         memories: &[Memory],
@@ -503,11 +447,6 @@ DELETE FROM memory_vec;
     }
 }
 
-/// Rewrite a free-form user query for safe FTS5 consumption. We:
-/// - Strip FTS-special characters that would otherwise cause syntax errors.
-/// - Append `*` to each token so bare words become prefix queries
-///   (this is Avid Brain's "FTS5 query rewriting" trick — without it
-///   `ask fast` misses `fastapi` notes).
 fn sanitize_fts_query(query: &str) -> String {
     let cleaned: String = query
         .chars()
@@ -567,10 +506,7 @@ fn row_to_memory(row: &rusqlite::Row<'_>) -> rusqlite::Result<Memory> {
         pinned: row.get::<_, i64>("pinned")? != 0,
         created_at: parse_dt(row.get("created_at")?)?,
         updated_at: parse_dt(row.get("updated_at")?)?,
-        // The SQLite index is a derived projection; the canonical
-        // on-disk markdown file owns the `extras` catch-all. Empty
-        // here is fine — writers always merge in the on-disk extras
-        // before round-tripping the page.
+
         extras: std::collections::BTreeMap::new(),
     })
 }

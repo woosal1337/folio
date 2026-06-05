@@ -1,16 +1,3 @@
-/**
- * First-class keyboard shortcut layer (v2 finding 008 / GET-32).
- *
- * The shortcut catalogue is the single source of truth. The
- * cheat-sheet overlay (Cmd-Shift-/), the global handler in App.tsx,
- * and the future Settings → Keyboard customisation pane all read
- * from this list. New shortcuts get added here and only here.
- *
- * Cap on the catalogue is ~12 entries so the surface stays
- * Apple-like (Lens 2). Add a new one only when an existing chord
- * would be ambiguous.
- */
-
 import type { NavigateFunction } from "react-router-dom";
 
 export type ShortcutAction =
@@ -113,11 +100,6 @@ export const SHORTCUTS: Shortcut[] = [
   },
 ];
 
-/**
- * Pretty-printed chord for the cheat-sheet UI. Uses the Apple
- * conventions: ⌘ ⇧ ⌥ ⌃ before the key. Falls back to "Ctrl-…" on
- * non-Mac platforms.
- */
 export function formatChord(chord: KeyChord): string {
   const isMac = typeof navigator !== "undefined" && /Mac/.test(navigator.platform);
   const parts: string[] = [];
@@ -135,11 +117,6 @@ export function formatChord(chord: KeyChord): string {
   return parts.join(isMac ? "" : "-");
 }
 
-/**
- * Compare a DOM KeyboardEvent against a shortcut's chord. Treats
- * Cmd and Ctrl as the same key on non-Mac platforms so Linux /
- * Windows builds get the same surface without a parallel chord table.
- */
 export function matchesChord(event: KeyboardEvent, chord: KeyChord): boolean {
   const isMac = typeof navigator !== "undefined" && /Mac/.test(navigator.platform);
   const cmdKey = isMac ? event.metaKey : event.ctrlKey;
@@ -150,11 +127,6 @@ export function matchesChord(event: KeyboardEvent, chord: KeyChord): boolean {
   return event.key.toLowerCase() === chord.key.toLowerCase();
 }
 
-/**
- * True when the keyboard focus is in a text-entry surface. The
- * shortcut layer suppresses single-letter actions (J / K) while
- * the user is typing in an input.
- */
 export function focusInTextInput(): boolean {
   const el = document.activeElement;
   if (!(el instanceof HTMLElement)) return false;
@@ -163,11 +135,6 @@ export function focusInTextInput(): boolean {
   return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
 }
 
-/**
- * Dispatch table the App-level handler uses. Side-effect-only.
- * Keeps the route-aware logic (navigation) in one place so the
- * cheat-sheet labels stay accurate as routes evolve.
- */
 export function dispatch(
   action: ShortcutAction,
   ctx: {

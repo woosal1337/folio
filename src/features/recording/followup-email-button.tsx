@@ -1,12 +1,3 @@
-/**
- * GET-148 — "Write follow-up email" action.
- *
- * Runs the `write-followup-email` agent over a recording's transcript +
- * live notes and shows the draft (subject + body) in a dialog. The draft
- * is copyable and can open the default mail client via `mailto:` with the
- * subject + body prefilled.
- */
-
 import * as React from "react";
 import { Check, Copy, Loader2, Mail } from "lucide-react";
 import { toast } from "sonner";
@@ -24,11 +15,10 @@ import { openExternalUrl, runAgent } from "@/shared/lib/ipc";
 
 interface Props {
   sessionDir: string;
-  /** Disabled until a transcript exists to draft from. */
+
   disabled: boolean;
 }
 
-/** Split the agent output into a subject line + body. */
 function splitDraft(text: string): { subject: string; body: string } {
   const trimmed = text.trim();
   const m = /^subject:\s*(.+?)\r?\n([\s\S]*)$/i.exec(trimmed);

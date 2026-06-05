@@ -1,19 +1,5 @@
-//! Tray-state updater bridge from the React side. v2 finding 006 /
-//! GET-25.
-//!
-//! The recording store ticks the elapsed counter every second; this
-//! command lets it push the current value to the menu bar tray so
-//! the title updates live. GET-201 extends this to also carry the
-//! paused / airgapped flag so the tray icon glyph updates correctly.
-
 use crate::app::tray::{self, TrayState};
 
-/// Update the menu bar tray state.
-///
-/// - `elapsed_secs = None, paused = false, airgapped = false` → idle
-/// - `elapsed_secs = Some(n), paused = false`                 → recording
-/// - `elapsed_secs = Some(n), paused = true`                  → paused
-/// - `airgapped = true`                                        → airgap glyph
 #[tauri::command]
 pub fn set_tray_recording(
     app: tauri::AppHandle,

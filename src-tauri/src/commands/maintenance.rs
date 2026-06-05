@@ -1,8 +1,3 @@
-//! One-off maintenance commands the frontend calls when the user wants
-//! to undo work and start over on a recording. Today: clearing
-//! transcripts so they can be regenerated against the latest pipeline,
-//! plus building a vault-snapshot zip (v2 finding 057 / GET-92).
-
 use std::path::PathBuf;
 
 use attune_core::llm::AgentRunStore;
@@ -26,16 +21,6 @@ use crate::app::AppState;
 
 const TRANSCRIPT_FILENAME: &str = "transcript.json";
 
-/// Delete the transcript and every saved agent run for a recording so
-/// that the next transcription pass starts from a clean slate.
-///
-/// Used by the "Re-transcribe" UX path on legacy transcripts: the
-/// frontend calls this, then calls the normal `transcribe_recording`
-/// command. Idempotent — succeeds whether anything was actually
-/// present to delete.
-///
-/// Audio files (`mic.wav`, `system.wav`) are intentionally left
-/// alone. This command never touches the source recording.
 #[tauri::command]
 pub async fn clear_recording_artifacts(
     state: State<'_, AppState>,
@@ -59,10 +44,6 @@ pub async fn clear_recording_artifacts(
             }
         }
 
-        // Delete every saved agent run by walking the directory and
-        // removing each .json file. We use the per-agent delete path
-        // (rather than rm -rf) so we keep the dir itself around with
-        // any future siblings (audit log etc.) intact.
         let runs_dir = AgentRunStore::dir(&dir);
         if runs_dir.is_dir() {
             for entry in std::fs::read_dir(&runs_dir).map_err(|e| {
@@ -82,7 +63,7 @@ pub async fn clear_recording_artifacts(
                     }
                 }
             }
-            // Remove the empty directory if it's empty now.
+
             let _ = std::fs::remove_dir(&runs_dir);
             info!(path = %runs_dir.display(), "cleared agent_runs");
         }
@@ -92,23 +73,11 @@ pub async fn clear_recording_artifacts(
     .map_err(|e| format!("clear_recording_artifacts task panicked: {e}"))?
 }
 
-/// Build a vault-snapshot zip at `destination`. The destination is
-/// chosen by the user via the native save dialog on the frontend; we
-/// accept it here as an absolute path. The snapshot bundles the
-/// current settings, tasks file, recordings tree, and memory tree —
-/// see `attune_core::storage::snapshot` for the on-disk layout.
-///
-/// v2 finding 057 / GET-92. Restore + scheduled drops are tracked as
-/// follow-ups; this command lands the export half of the contract so
-/// the user can already drag the resulting zip into iCloud / Dropbox.
 #[tauri::command]
 pub async fn export_vault_snapshot(
     destination: PathBuf,
     state: State<'_, AppState>,
 ) -> Result<SnapshotSummary, String> {
-    // Capture every path off the AppState's settings + store before
-    // the spawn_blocking jump so we don't hold the lock across the
-    // worker boundary.
     let paths = {
         let settings = state.settings.lock();
         SnapshotPaths {
@@ -134,11 +103,6 @@ pub async fn export_vault_snapshot(
     .map_err(|e| format!("export_vault_snapshot task panicked: {e}"))?
 }
 
-/// Defence-in-depth deny-list for export destinations. The native save
-/// dialog already restricts users to writable directories, but a
-/// frontend bug or a deep-link could still hand us a path aimed at a
-/// system directory. Refuse anything that lands inside one of these
-/// roots. v2 finding R02 / Phase-3 audit B8.
 fn check_export_destination(destination: &std::path::Path) -> Result<(), String> {
     const DENYLIST: &[&str] = &[
         "/etc/",
@@ -167,13 +131,6 @@ fn check_export_destination(destination: &std::path::Path) -> Result<(), String>
     Ok(())
 }
 
-/// Walk every session under `recordings_dir` and delete mic.wav +
-/// system.wav from sessions where the source audio is at least
-/// `older_than_days` old AND a transcript is already on disk. v2
-/// finding 063 / GET-98. When `older_than_days` is None we read the
-/// retention from the active settings; when both are missing the
-/// command returns a zero-summary so the UI's 'Purge now' button
-/// can fire safely on any configuration.
 #[tauri::command]
 pub async fn purge_old_wav_files(
     state: State<'_, AppState>,
@@ -208,10 +165,6 @@ pub async fn purge_old_wav_files(
     .map_err(|e| format!("purge_old_wav_files task panicked: {e}"))?
 }
 
-/// Generate a weekly digest markdown file and return where it landed.
-/// v2 finding 082 / GET-80. Reads the current settings to resolve
-/// recordings/memory/tasks paths; the digest itself goes to
-/// `~/Documents/Attune/Digests/` by default.
 #[tauri::command]
 pub async fn generate_weekly_digest(state: State<'_, AppState>) -> Result<DigestResult, String> {
     let paths = {
@@ -238,9 +191,6 @@ pub async fn generate_weekly_digest(state: State<'_, AppState>) -> Result<Digest
     .map_err(|e| format!("generate_weekly_digest task panicked: {e}"))?
 }
 
-/// Export a single recording as a sealed .attune-share zip with a
-/// manifest carrying SHA-256 hashes of every file inside. v2 finding
-/// 052 / GET-69.
 #[tauri::command]
 pub async fn export_share_bundle(
     state: State<'_, AppState>,
@@ -267,11 +217,6 @@ pub async fn export_share_bundle(
     .map_err(|e| format!("export_share_bundle task panicked: {e}"))?
 }
 
-/// Sync the user's vault (memory dir) via the system git binary.
-/// v2 finding 070 / GET-72. Pulls with rebase + autostash, commits
-/// any local changes with a generic 'attune sync' message, then
-/// pushes. Returns the structured summary so the UI can render the
-/// outcome without parsing git output.
 #[tauri::command]
 pub async fn git_sync_vault(state: State<'_, AppState>) -> Result<GitSyncSummary, String> {
     let vault_dir = {
@@ -293,8 +238,6 @@ pub async fn git_sync_vault(state: State<'_, AppState>) -> Result<GitSyncSummary
     .map_err(|e| format!("git_sync_vault task panicked: {e}"))?
 }
 
-/// Cheap check: is the vault dir under version control? UI uses
-/// this to decide whether to surface the Sync card.
 #[tauri::command]
 pub async fn git_vault_is_repo(state: State<'_, AppState>) -> Result<bool, String> {
     let vault_dir = {
@@ -308,8 +251,6 @@ pub async fn git_vault_is_repo(state: State<'_, AppState>) -> Result<bool, Strin
     .map_err(|e| format!("git_vault_is_repo task panicked: {e}"))?
 }
 
-/// List pending inbox entries from `<memory_dir>/.attune/inbox/`.
-/// v2 finding 073 / GET-75.
 #[tauri::command]
 pub async fn list_inbox_entries(state: State<'_, AppState>) -> Result<Vec<InboxEntry>, String> {
     let memory_dir = {
@@ -323,8 +264,6 @@ pub async fn list_inbox_entries(state: State<'_, AppState>) -> Result<Vec<InboxE
     .map_err(|e| format!("list_inbox_entries task panicked: {e}"))?
 }
 
-/// Archive a single inbox entry (rename into .processed/).
-/// v2 finding 073 / GET-75.
 #[tauri::command]
 pub async fn archive_inbox_entry(state: State<'_, AppState>, path: PathBuf) -> Result<(), String> {
     let memory_dir = state.settings.lock().memory_dir.clone();
@@ -338,8 +277,6 @@ pub async fn archive_inbox_entry(state: State<'_, AppState>, path: PathBuf) -> R
     .map_err(|e| format!("archive_inbox_entry task panicked: {e}"))?
 }
 
-/// Load the user's showcase if one exists.
-/// v2 finding 087 / GET-107.
 #[tauri::command]
 pub async fn get_showcase(state: State<'_, AppState>) -> Result<Option<Showcase>, String> {
     let memory_dir = {
@@ -353,7 +290,6 @@ pub async fn get_showcase(state: State<'_, AppState>) -> Result<Option<Showcase>
     .map_err(|e| format!("get_showcase task panicked: {e}"))?
 }
 
-/// Persist the user's showcase. v2 finding 087 / GET-107.
 #[tauri::command]
 pub async fn save_showcase(state: State<'_, AppState>, showcase: Showcase) -> Result<(), String> {
     let memory_dir = {
@@ -368,9 +304,6 @@ pub async fn save_showcase(state: State<'_, AppState>, showcase: Showcase) -> Re
     .map_err(|e| format!("save_showcase task panicked: {e}"))?
 }
 
-/// Apply cross-track AEC to a session's mic.wav using system.wav as the
-/// reference signal (GET-202). Writes `mic.aec.wav` next to the originals.
-/// Returns the output path as a string.
 #[tauri::command]
 pub async fn apply_cross_track_aec(
     state: State<'_, AppState>,

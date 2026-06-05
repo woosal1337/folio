@@ -1,93 +1,54 @@
-//! Recording-session metadata: scans the on-disk session directories
-//! produced by the capture pipeline and reports a summary per session.
-
 use std::path::{Path, PathBuf};
 
 use chrono::{DateTime, Local, Utc};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-/// Filename of the transcript JSON that the transcription pipeline
-/// writes inside each session directory.
 pub const TRANSCRIPT_FILENAME: &str = "transcript.json";
 
-/// Metadata about a saved recording session, as discovered on disk.
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../src/shared/types/")]
 pub struct RecordingSummary {
-    /// Absolute path to the on-disk directory that holds all assets for this session.
     pub session_dir: PathBuf,
-    /// Directory name used as the human-visible recording identifier (e.g. `"2026-05-23-19-15-22"`).
+
     pub label: String,
-    /// Approximate recording length in whole seconds, derived from the WAV header.
+
     pub duration_seconds: i64,
-    /// Size of `mic.wav` in bytes; `None` when no microphone audio was captured.
+
     pub mic_bytes: Option<u64>,
-    /// Size of `system.wav` in bytes; `None` when no system audio was captured.
+
     pub system_bytes: Option<u64>,
-    /// Sample rate of the microphone WAV file, read from its header.
+
     pub mic_sample_rate: Option<u32>,
-    /// Sample rate of the system-audio WAV file, read from its header.
+
     pub system_sample_rate: Option<u32>,
-    /// Filesystem creation timestamp of the session directory, converted to UTC.
+
     pub created_at: Option<DateTime<Utc>>,
-    /// True iff `<session_dir>/transcript.json` exists. Used by the UI
-    /// to mark previously transcribed sessions in the library list.
+
     pub has_transcript: bool,
-    /// Title proposed by the `autoname` agent if its run is on disk
-    /// (`<session_dir>/agent_runs/autoname.json`). Surfaced in the UI
-    /// as a subtle suggestion under the recording's label; the user
-    /// can accept it (a future PR) or ignore it. `None` when no
-    /// autoname run exists or the run's JSON could not be parsed.
-    /// v2 finding 024 / GET-37.
+
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub suggested_title: Option<String>,
-    /// 1-3 lowercase tags from the `autoname` agent, same source as
-    /// `suggested_title`. v2 finding 024 / GET-37.
+
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub suggested_tags: Vec<String>,
-    /// One-line subtitle from the `autoname` agent. Same source as
-    /// `suggested_title`. v2 finding 024 / GET-37.
+
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub suggested_subtitle: Option<String>,
-    /// Per-recording language override from
-    /// `<session_dir>/language.txt`, if present. Used by the Library
-    /// row's language chip to indicate when an explicit language is
-    /// pinned for this recording. Empty / missing file → None.
-    /// v2 finding 046 / GET-89.
+
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub language_override: Option<String>,
-    /// User-set note title from `<session_dir>/title.txt` (GET-163).
-    /// Takes precedence over `suggested_title` + `label` in the UI.
-    /// None when the user has not renamed the note.
+
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
-    /// Folder this note is filed under, from `<session_dir>/folder.txt`
-    /// (GET-162). None when the note is unfiled. Used by the sidebar
-    /// Spaces filter and My Notes grouping.
+
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub folder: Option<String>,
-    /// Placeholder name for an as-yet-unnamed note, from
-    /// `<session_dir>/draft.txt` (e.g. "Draft 3"). Shown only when there's
-    /// no user title and no autoname suggestion yet; once the note is
-    /// named (agents or the user), those take precedence. None for older
-    /// notes created before drafts existed.
+
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub draft_name: Option<String>,
 }
 
-/// Scan `output_dir` for recording sessions and return one summary per
-/// session, sorted newest first by filesystem creation time (falling
-/// back to label-descending when the platform did not give us a
-/// create-time, which keeps timestamp-named sessions in the right
-/// order). Directories without any WAV file are skipped.
-///
-/// We deliberately do NOT sort by label alone — labels happen to be
-/// chronological for sessions Attune created itself (e.g.
-/// "2026-05-23-19-15-22"), but imported or hand-named sessions like
-/// "2026-05-23-mark-cuban-yahoo-trade" break that assumption. The
-/// filesystem mtime/ctime is the canonical source of "when this
-/// landed in the library."
 pub fn scan_recordings(output_dir: &Path) -> Vec<RecordingSummary> {
     let Ok(entries) = std::fs::read_dir(output_dir) else {
         return Vec::new();
@@ -108,9 +69,7 @@ pub fn scan_recordings(output_dir: &Path) -> Vec<RecordingSummary> {
         let system_path = path.join("system.wav");
         let mic_bytes = std::fs::metadata(&mic_path).ok().map(|m| m.len());
         let system_bytes = std::fs::metadata(&system_path).ok().map(|m| m.len());
-        // Include empty notes (GET-155): a note created via `create_note`
-        // has no audio yet but writes a `live_notes.json` marker so it
-        // still appears in the library and opens in the editor.
+
         let is_note = path.join("live_notes.json").is_file();
         if mic_bytes.is_none() && system_bytes.is_none() && !is_note {
             continue;
@@ -169,10 +128,7 @@ pub fn scan_recordings(output_dir: &Path) -> Vec<RecordingSummary> {
             draft_name,
         });
     }
-    // Newest first. Recordings that have a created_at sort by that;
-    // anything missing the timestamp falls back to label-descending
-    // and sorts after the dated ones so the user does not lose them
-    // entirely.
+
     out.sort_by(|a, b| match (a.created_at, b.created_at) {
         (Some(x), Some(y)) => y.cmp(&x),
         (Some(_), None) => std::cmp::Ordering::Less,
@@ -186,11 +142,6 @@ fn wav_sample_rate(path: &Path) -> Option<u32> {
     Some(hound::WavReader::open(path).ok()?.spec().sample_rate)
 }
 
-/// Read `<session_dir>/<filename>` and return its trimmed first line if
-/// non-empty. This is the on-disk format for every small per-note string —
-/// the language override (`language.txt`, GET-89), the user title
-/// (`title.txt`, GET-163), the draft name (`draft.txt`), the folder
-/// (`folder.txt`, GET-162). None when the file is missing or blank.
 pub(crate) fn read_first_line(session_dir: &Path, filename: &str) -> Option<String> {
     let raw = std::fs::read_to_string(session_dir.join(filename)).ok()?;
     let trimmed = raw.lines().next()?.trim();
@@ -201,11 +152,6 @@ pub(crate) fn read_first_line(session_dir: &Path, filename: &str) -> Option<Stri
     }
 }
 
-/// Allocate the next monotonic draft name ("Draft N") for a freshly
-/// created note. Backed by a small counter at
-/// `<output_dir>/.attune/draft_counter` so numbers keep increasing even
-/// as drafts are named or deleted. Best-effort: a write failure just
-/// means the next note may reuse the number, which is harmless.
 pub fn allocate_draft_name(output_dir: &Path) -> String {
     let path = output_dir.join(".attune").join("draft_counter");
     let last = std::fs::read_to_string(&path)
@@ -217,10 +163,6 @@ pub fn allocate_draft_name(output_dir: &Path) -> String {
     format!("Draft {next}")
 }
 
-/// Lightweight mirror of the `autoname` agent's JSON response. We
-/// parse only the three fields the library list needs; missing or
-/// malformed runs return None and the caller falls back to empty
-/// suggestions. v2 finding 024 / GET-37.
 #[derive(Debug, Clone, Deserialize)]
 struct AutonameRun {
     #[serde(default)]
@@ -234,12 +176,7 @@ struct AutonameRun {
 fn read_autoname_run(session_dir: &Path) -> Option<AutonameRun> {
     let path = session_dir.join("agent_runs").join("autoname.json");
     let raw = std::fs::read_to_string(&path).ok()?;
-    // The AgentRunStore wraps the model's reply in an AgentRun struct
-    // with a `response` field. The autoname prompt insists on JSON-
-    // only output, so the response itself is parseable as the inner
-    // shape. We tolerate prose around the JSON by extracting the
-    // first {..} block — keeps us robust to the occasional model
-    // that ignores "no prose" instructions.
+
     #[derive(Deserialize)]
     struct OuterRun {
         response: String,
@@ -250,9 +187,6 @@ fn read_autoname_run(session_dir: &Path) -> Option<AutonameRun> {
     serde_json::from_str::<AutonameRun>(json_slice).ok()
 }
 
-/// Find the first balanced `{...}` JSON object inside a string. Used
-/// to defend against the occasional model that wraps the JSON in
-/// prose / markdown fences despite explicit instructions otherwise.
 fn extract_json_object(text: &str) -> Option<&str> {
     let start = text.find('{')?;
     let bytes = text.as_bytes();
@@ -319,27 +253,16 @@ mod tests {
         assert!(scan_recordings(dir.path()).is_empty());
     }
 
-    /// Imported sessions with non-timestamp labels (e.g. the
-    /// "mark-cuban-yahoo-trade" Twitter import) used to sort
-    /// lexicographically next to dated sessions, which put them in
-    /// the wrong place in the library. The fix: sort by filesystem
-    /// creation time. This test creates two sessions where the
-    /// alphabetically-later session is the *older* one on disk, and
-    /// asserts the newer one comes first.
     #[test]
     fn scan_sorts_by_created_at_not_label() {
         let dir = TempDir::new().unwrap();
-        // "alpha" alphabetically beats "zulu", so a label-based sort
-        // (descending) would put "zulu" first. We want the newer one
-        // (alpha, created last) first regardless.
+
         let old_session = dir.path().join("zulu-session");
         let new_session = dir.path().join("alpha-session");
         std::fs::create_dir(&old_session).unwrap();
-        // Write a 1-frame wav into each so scan_recordings includes them.
+
         write_minimal_wav(&old_session.join("mic.wav"));
-        // Pause a beat so the filesystem can distinguish the two
-        // creation times. macOS APFS records ctime at second
-        // granularity in some configs.
+
         std::thread::sleep(std::time::Duration::from_millis(1100));
         std::fs::create_dir(&new_session).unwrap();
         write_minimal_wav(&new_session.join("mic.wav"));
@@ -403,8 +326,7 @@ mod tests {
         write_minimal_wav(&session.join("mic.wav"));
         let runs = session.join("agent_runs");
         std::fs::create_dir_all(&runs).unwrap();
-        // Some models prepend a markdown fence despite our instructions.
-        // The extractor should still recover the inner JSON.
+
         let response_text = "Sure, here's the JSON:\n```json\n{\"title\":\"Standup\",\"tags\":[\"sync\"],\"subtitle\":\"Daily kickoff\"}\n```";
         let run_json = serde_json::json!({
             "agent_id": "autoname",
@@ -449,11 +371,6 @@ mod tests {
         assert!(result[0].suggested_tags.is_empty());
     }
 
-    /// Regression for the post-#066 (zstd) bug: after the transcript
-    /// writer switched to `transcript.json.zst` (and removed the
-    /// legacy `transcript.json`), the library row stayed in "needs
-    /// transcription" because `scan_recordings` only looked at the
-    /// uncompressed filename.
     #[test]
     fn has_transcript_detects_zstd_compressed_files() {
         let dir = TempDir::new().unwrap();

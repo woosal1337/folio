@@ -1,16 +1,3 @@
-/**
- * Privacy / airgap mode verification.
- *
- * Attune's privacy story is local-first with optional cloud sync.
- * The Settings → Privacy "Privacy mode" toggle flips the Rust-side
- * `cloud_guard::set_airgap`, which short-circuits every outbound
- * HTTP call. We verify the React side wires the toggle into
- * `save_settings` with `privacy_mode: true` so the Rust mirror
- * reflects the user's choice. Encryption-at-rest is a Rust-side
- * concern (Tier-1 / Tier-2 in attune-api) — the UI just surfaces
- * which tier is active via the colour band toggle.
- */
-
 import { expect, test } from "@playwright/test";
 
 import { readSettings, setupScenario } from "./fixtures/scenario";

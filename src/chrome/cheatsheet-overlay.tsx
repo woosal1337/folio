@@ -15,11 +15,6 @@ interface Props {
 
 const GROUP_ORDER: Shortcut["group"][] = ["Recording", "Navigation", "Editing", "Help"];
 
-/**
- * Cmd-Shift-/ cheat sheet. Renders the SHORTCUTS catalogue grouped
- * by category with Apple-style chord glyphs (⌘ ⇧ ⌥ ⌃). The catalogue
- * is the source of truth; this component never hand-codes a label.
- */
 export function CheatsheetOverlay({ open, onClose }: Props) {
   const grouped = React.useMemo(() => {
     const out: Record<string, Shortcut[]> = {};

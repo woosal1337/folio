@@ -1,17 +1,3 @@
-//! `diarize` — run speaker diarization over a recording and print
-//! "who spoke when".
-//!
-//! Wraps `attune_core::diarization::DiarizationRuntime` (sherpa-onnx:
-//! pyannote segmentation + WeSpeaker embedding + clustering). Models
-//! default to the app model store; pass `--segmentation` / `--embedding`
-//! to point at specific ONNX files.
-//!
-//! ```text
-//! attune-cli diarize ~/Documents/Attune/Recordings/<session> \
-//!   --segmentation /path/to/model.onnx \
-//!   --embedding   /path/to/wespeaker_en_voxceleb_resnet34_LM.onnx
-//! ```
-
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::time::Instant;

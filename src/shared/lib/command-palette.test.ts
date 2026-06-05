@@ -5,9 +5,27 @@ import { rank, scoreFuzzy, type CommandItem } from "./command-palette";
 const noop = () => undefined;
 
 const items: CommandItem[] = [
-  { id: "1", kind: "verb", title: "Open Library", keywords: ["recordings"], action: noop },
-  { id: "2", kind: "verb", title: "Start recording", keywords: ["meeting"], action: noop },
-  { id: "3", kind: "recording", title: "Standup with Alice", subtitle: "yesterday", action: noop },
+  {
+    id: "1",
+    kind: "verb",
+    title: "Open Library",
+    keywords: ["recordings"],
+    action: noop,
+  },
+  {
+    id: "2",
+    kind: "verb",
+    title: "Start recording",
+    keywords: ["meeting"],
+    action: noop,
+  },
+  {
+    id: "3",
+    kind: "recording",
+    title: "Standup with Alice",
+    subtitle: "yesterday",
+    action: noop,
+  },
   { id: "4", kind: "memory", title: "user.company is Attune", action: noop },
 ];
 

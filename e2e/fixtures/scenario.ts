@@ -1,25 +1,3 @@
-/**
- * Shared scenario setup for the e2e suite.
- *
- * Every spec calls `setupScenario(page, overrides)` to wire up the
- * Tauri IPC stub with a sensible default in-memory backend. The
- * defaults model a real signed-in user with onboarding complete, so
- * specs that focus on the main app don't have to re-declare 50
- * handler stubs.
- *
- * Overrides can patch initial settings, auth state, and the list of
- * recordings / tasks / agents the IPC returns. Mutations issued by
- * the React UI (`save_settings`, `account_update`, etc.) update the
- * in-page mutable state so subsequent reads see the changes — the
- * harness behaves like a real backend with no persistence between
- * test runs.
- *
- * After a scenario is set up, tests can:
- *   - `goto('/')` to load the app
- *   - `await ipcLog(page)` to inspect the call trail
- *   - `await readSettings(page)` to assert on the saved state
- */
-
 import type { Page } from "@playwright/test";
 
 import { installTauriStub, ipcLog } from "./tauri-ipc";
@@ -133,28 +111,22 @@ export function freshSettings(overrides: Partial<MockSettings> = {}): MockSettin
 
 export interface ScenarioOptions {
   initialSettings?: Partial<MockSettings>;
-  /** When true, the IPC stub returns a signed-in identity from
-   * `auth_status` on first call. */
+
   startSignedIn?: boolean;
-  /** When true, no `__TAURI_INTERNALS__.invoke` handlers throw on
-   * unmapped commands. Useful for narrow spec files. Default true. */
+
   passthroughUnknown?: boolean;
-  /** Pre-seeded recordings the IPC returns from `list_recordings`. */
+
   recordings?: RecordingSummaryStub[];
-  /** Pre-seeded tasks the IPC returns from `list_tasks`. */
+
   tasks?: TaskStub[];
-  /** Pre-seeded memories the IPC returns from `list_memories`. */
+
   memories?: MemoryStub[];
-  /** Pre-seeded webhooks the IPC returns from `list_webhooks`. */
+
   webhooks?: unknown[];
-  /** Pre-seeded LLM providers the IPC returns from `list_providers`. */
+
   providers?: ProviderStub[];
 }
 
-/** Recording / task / memory stubs are passed straight through to
- * the IPC as JSON. The Rust-side shapes are big and ts-rs-generated;
- * tests pass partial records that exercise the specific UI bits
- * they care about, so we keep the stub types open. */
 export type RecordingSummaryStub = Record<string, unknown>;
 export type TaskStub = Record<string, unknown>;
 export type MemoryStub = Record<string, unknown>;
@@ -177,10 +149,6 @@ export async function setupScenario(page: Page, options: ScenarioOptions = {}) {
   const startSignedIn = options.startSignedIn ?? true;
   const passthroughUnknown = options.passthroughUnknown ?? true;
 
-  // Each handler is serialised + run inside the page context. Closures
-  // can't capture across the boundary, so we stash mutable state on
-  // `window` (under `__ATTUNE_E2E_*` keys) and read/write it from the
-  // handler bodies.
   await page.addInitScript(
     ([seed, signedIn, recordings, tasks, memories, webhooks, providers]) => {
       const w = window as unknown as Record<string, unknown>;
@@ -265,7 +233,7 @@ export async function setupScenario(page: Page, options: ScenarioOptions = {}) {
       open_permission_settings: () => null,
       request_calendar_access: () => null,
       list_attendee_suggestions: () => [],
-      // Coming-up calendar (GET-161). Tests override via window globals.
+
       calendar_authorization_status: () =>
         (window as unknown as Record<string, unknown>).__ATTUNE_CAL_ACCESS__ ??
         "not_determined",
@@ -311,9 +279,7 @@ export async function setupScenario(page: Page, options: ScenarioOptions = {}) {
         },
         device_count: 1,
       }),
-      // Real `account_update` returns a flat UserDoc (the command
-      // unwraps the API's { user } envelope). Match that shape so the
-      // frontend reads `display_name` off the top level.
+
       account_update: (args) => {
         const a = args as { displayName: string | null };
         return {
@@ -350,9 +316,7 @@ export async function setupScenario(page: Page, options: ScenarioOptions = {}) {
       list_recordings: () =>
         (window as unknown as Record<string, unknown>).__ATTUNE_RECORDINGS__,
       get_recording: () => null,
-      // Full-text content search (GET-165): match the query against each
-      // seeded recording's transcript_text / suggested_title / label and
-      // return hits with a snippet, mirroring the Rust scan.
+
       search_note_content: (args) => {
         const a = args as { query: string };
         const q = (a.query ?? "").trim().toLowerCase();
@@ -388,14 +352,12 @@ export async function setupScenario(page: Page, options: ScenarioOptions = {}) {
       delete_recording: () => null,
       reveal_in_finder: () => null,
       share_paths: () => null,
-      // Markdown export (GET-166): pretend we wrote the file, return path.
+
       export_note_markdown: (args) => {
         const a = args as { sessionDir: string };
         return `${a.sessionDir}/note.md`;
       },
-      // Folders / Spaces (GET-162): a stateful in-page registry. Each
-      // handler returns a FRESH array (like the Rust backend's Vec over
-      // IPC) so zustand selectors see a new reference and re-render.
+
       list_folders: () => [
         ...((window as unknown as Record<string, unknown>)
           .__ATTUNE_FOLDERS__ as string[]),
@@ -438,16 +400,13 @@ export async function setupScenario(page: Page, options: ScenarioOptions = {}) {
         session_dir: null,
         paused: false,
       }),
-      // Floating recording-bar window controls. The bar is a real OS
-      // window in the app; in the mocked browser harness these are no-ops
-      // so recording flows that show/hide it don't hit "unmapped IPC".
+
       show_recording_bar: () => null,
       hide_recording_bar: () => null,
       recording_bar_stop: () => null,
       recording_bar_pause: () => null,
       recording_bar_resume: () => null,
-      // Note-first recording (GET-155): create_note returns a fresh
-      // empty-note summary the UI navigates into.
+
       create_note: () => ({
         session_dir: "/tmp/Attune/2026-05-28-note",
         label: "2026-05-28-note",
@@ -461,7 +420,7 @@ export async function setupScenario(page: Page, options: ScenarioOptions = {}) {
         suggested_tags: [],
         draft_name: "Draft 1",
       }),
-      // Rename a note (GET-163): persists title.txt; mock just acks.
+
       rename_note: () => null,
       start_recording: () => ({
         recording: true,
@@ -514,8 +473,6 @@ export async function setupScenario(page: Page, options: ScenarioOptions = {}) {
       test_provider: () => ({ ok: true, latency_ms: 120 }),
       list_provider_models: () => [],
 
-      // Chat history + Recents (GET-167): persisted in localStorage so it
-      // survives a page reload, emulating the real on-disk store.
       list_chat_threads: (args) => {
         const a = args as { scope?: string; sessionDir?: string };
         const all = JSON.parse(
@@ -615,9 +572,6 @@ export async function setupScenario(page: Page, options: ScenarioOptions = {}) {
   });
 }
 
-/** Read the in-page settings snapshot after the React app has saved
- * something. Drives assertions like "Save in Settings actually
- * triggered a save_settings call with the toggle flipped". */
 export async function readSettings(page: Page): Promise<MockSettings> {
   return await page.evaluate(
     () =>
@@ -625,7 +579,6 @@ export async function readSettings(page: Page): Promise<MockSettings> {
   );
 }
 
-/** Filter the IPC log to one command. Convenience for assertions. */
 export async function ipcCalls(page: Page, cmd: string) {
   const log = await ipcLog(page);
   return log.filter((e) => e.cmd === cmd);

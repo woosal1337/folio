@@ -4,16 +4,13 @@ import {
   Bell,
   Bot,
   Calendar as CalendarIcon,
-  CreditCard,
   Folder,
-  Gift,
   Lock,
   Mic,
   Palette,
   Plug,
   Settings as SettingsIcon,
   Sparkles,
-  User,
   Wallet,
   Waves,
   Workflow,
@@ -49,15 +46,11 @@ import { SectionGeneral } from "./section-general";
 import { SectionNotifications } from "./section-notifications";
 import { SectionPreferences } from "./section-preferences";
 import { SectionPrivacy } from "./section-privacy";
-import { SectionPro } from "./section-pro";
-import { SectionProfile } from "./section-profile";
 import { SectionStorage } from "./section-storage";
 import { SectionTranscription } from "./section-transcription";
 import { SectionUsage } from "./section-usage";
 import { SectionWebhooks } from "./section-webhooks";
 import { SectionAnalytics } from "./section-analytics";
-import { SectionBilling } from "./section-billing";
-import { SectionReferrals } from "./section-referrals";
 
 type Section = SettingsSection;
 
@@ -77,16 +70,11 @@ interface NavGroup {
   items: NavItem[];
 }
 
-// Personal-only sidebar — Attune ships as a single-user app, so there
-// is no workspace/team grouping. "Personal" holds identity + activity,
-// "Recording" holds capture config, "Account" holds billing + the
-// account-level integrations.
 const NAV_GROUPS: NavGroup[] = [
   {
     label: "Personal",
     items: [
       { id: "preferences", label: "Preferences", icon: SettingsIcon },
-      { id: "profile", label: "Profile", icon: User },
       { id: "analytics", label: "Analytics", icon: BarChart3 },
       { id: "calendar", label: "Calendar", icon: CalendarIcon },
       { id: "notifications", label: "Notifications", icon: Bell },
@@ -105,25 +93,16 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    label: "Account",
+    label: "Integrations",
     items: [
-      { id: "billing", label: "Billing", icon: CreditCard },
       { id: "usage", label: "Usage", icon: Wallet },
-      { id: "referrals", label: "Referrals", icon: Gift },
       { id: "connectors", label: "Connectors", icon: Plug },
       { id: "webhooks", label: "Webhooks", icon: Workflow },
-      // Pro tab is hidden until payment + license verification land
-      // end-to-end. SectionPro + the `id: "pro"` branch below stay on
-      // disk so re-enabling is a one-line uncomment.
-      // { id: "pro", label: "Pro", icon: Crown },
     ],
   },
 ];
 
 export function SettingsModal({ open, onOpenChange }: Props) {
-  // Section is owned by the global UI store so external deep-links
-  // (agent-panel "configure in Settings → AI" etc.) can jump straight
-  // to a target tab via `useSettingsUiStore.getState().openAt("ai")`.
   const section = useSettingsUiStore((s) => s.section);
   const setSection = useSettingsUiStore((s) => s.setSection);
   const [settings, setSettings] = React.useState<Settings | null>(null);
@@ -131,7 +110,6 @@ export function SettingsModal({ open, onOpenChange }: Props) {
   const [saving, setSaving] = React.useState(false);
   const { setTheme } = useTheme();
 
-  // Load settings + devices once the modal opens.
   React.useEffect(() => {
     if (!open) return;
     let cancelled = false;
@@ -164,9 +142,6 @@ export function SettingsModal({ open, onOpenChange }: Props) {
     if (!settings) return;
     setSaving(true);
     try {
-      // Persist via the store so the in-memory cache (read by the
-      // recording-store when deciding whether to auto-transcribe) stays
-      // in sync with disk.
       await saveToStore(settings);
       toast.success("Settings saved");
       onOpenChange(false);
@@ -220,17 +195,6 @@ export function SettingsModal({ open, onOpenChange }: Props) {
           ))}
         </nav>
 
-        {/*
-          min-h-0 is load-bearing: this column is a grid item, and grid
-          items default to `min-height: auto`, which lets the content
-          push past the container's fixed height and prevents the inner
-          ScrollArea from ever constraining its viewport. Without this,
-          the modal silently overflows and tall sections (e.g. the
-          Local Whisper model picker) get clipped off the bottom.
-          overflow-hidden + shrink-0 on the footer below guarantee the
-          Save / Cancel row is always rendered, no matter how tall the
-          scrolling content grows.
-        */}
         <div className="flex h-full min-h-0 flex-col overflow-hidden">
           <ScrollArea className="min-h-0 flex-1">
             <div className="px-8 py-7">
@@ -238,8 +202,6 @@ export function SettingsModal({ open, onOpenChange }: Props) {
                 <p className="text-sm text-muted-foreground">Loading…</p>
               ) : section === "preferences" ? (
                 <SectionPreferences settings={settings} onChange={update} />
-              ) : section === "profile" ? (
-                <SectionProfile settings={settings} onChange={update} />
               ) : section === "calendar" ? (
                 <SectionCalendar settings={settings} onChange={update} />
               ) : section === "notifications" ? (
@@ -260,20 +222,14 @@ export function SettingsModal({ open, onOpenChange }: Props) {
                 <SectionStorage settings={settings} onChange={update} />
               ) : section === "analytics" ? (
                 <SectionAnalytics />
-              ) : section === "billing" ? (
-                <SectionBilling />
               ) : section === "connectors" ? (
                 <SectionConnectors />
               ) : section === "webhooks" ? (
                 <SectionWebhooks />
               ) : section === "usage" ? (
                 <SectionUsage />
-              ) : section === "referrals" ? (
-                <SectionReferrals />
               ) : section === "privacy" ? (
                 <SectionPrivacy settings={settings} onChange={update} />
-              ) : section === "pro" ? (
-                <SectionPro settings={settings} onChange={update} />
               ) : (
                 <SectionAppearance
                   theme={(settings.theme === "dark" ? "dark" : "light") as Theme}

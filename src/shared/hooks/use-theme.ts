@@ -33,8 +33,6 @@ export function useTheme() {
   return { theme, setTheme, toggle };
 }
 
-/** Read + apply the saved theme on first paint, before React mounts, so the
- *  app doesn't flash the wrong palette. Call from main.tsx. */
 export function applyInitialTheme() {
   applyTheme(readInitial());
 }

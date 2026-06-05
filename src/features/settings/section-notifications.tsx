@@ -1,26 +1,6 @@
-/**
- * GET-135 — Settings → Notifications.
- *
- * Three deviations from Granola's layout:
- *   1. Expanded default monitored-app list (Granola ships 6; we ship
- *      11 — Chrome, Safari, Firefox, Arc, Zoom, Teams, Meet, Webex,
- *      Slack huddles, Discord, FaceTime).
- *   2. Accessibility-API permission is optional, not required
- *      (Sasha). Fall back to NSRunningApplication bundle-identifier
- *      matching when the user denies the Accessibility prompt.
- *   3. Drop the marketing-emails section entirely — Attune does not
- *      send marketing email.
- *
- * Focus mode integration (Kenji) lives in the macOS layer via
- * UNUserNotificationCenter; nothing user-tweakable in this UI.
- */
-
 import * as React from "react";
 import { Bell, Inbox, Mic2 } from "lucide-react";
 
-// Brand glyphs vendored under src/assets/app-icons (Simple Icons CC0 +
-// Bootstrap Icons MIT). Imported as React components via vite-plugin-svgr
-// so they render inline and inherit currentColor.
 import ChromeIcon from "@/assets/app-icons/chrome.svg?react";
 import SafariIcon from "@/assets/app-icons/safari.svg?react";
 import FirefoxIcon from "@/assets/app-icons/firefox.svg?react";
@@ -45,8 +25,6 @@ interface SectionNotificationsProps {
 
 type IconComponent = React.ComponentType<React.SVGProps<SVGSVGElement>>;
 
-// FaceTime has no brand glyph in these sets, so it uses a neutral video
-// icon vendored alongside the others.
 const MONITORABLE_APPS: { bundleId: string; label: string; icon: IconComponent }[] = [
   { bundleId: "com.google.Chrome", label: "Chrome", icon: ChromeIcon },
   { bundleId: "com.apple.Safari", label: "Safari", icon: SafariIcon },
@@ -96,7 +74,6 @@ export function SectionNotifications({
         </p>
       </header>
 
-      {/* Meeting notifications */}
       <Group title="Meeting notifications">
         <ToggleRow
           icon={Bell}
@@ -152,7 +129,6 @@ export function SectionNotifications({
         </div>
       </Group>
 
-      {/* Shared notes */}
       <Group title="Shared notes">
         <SelectRow
           icon={Inbox}
@@ -164,7 +140,6 @@ export function SectionNotifications({
         />
       </Group>
 
-      {/* Marketing emails — explicit absence note. */}
       <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-4 py-3 text-2xs text-emerald-900 dark:text-emerald-200">
         <p className="flex items-center gap-1.5 font-medium">
           <Badge
@@ -183,10 +158,6 @@ export function SectionNotifications({
     </section>
   );
 }
-
-// ---------------------------------------------------------------
-// Building blocks
-// ---------------------------------------------------------------
 
 function Group({ title, children }: { title: string; children: React.ReactNode }) {
   return (

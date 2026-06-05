@@ -1,6 +1,3 @@
-//! `attune-cli record` — capture mic + system audio for a fixed
-//! duration and write WAV files to disk.
-
 use std::time::Duration;
 
 use anyhow::Result;

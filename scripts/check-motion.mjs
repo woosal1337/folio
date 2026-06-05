@@ -1,29 +1,11 @@
 #!/usr/bin/env node
-/**
- * Motion lint (GET-200): ban layout/paint-thrashing CSS transitions.
- *
- * Only `transform` and `opacity` are compositor-only — animating
- * width/height/top/left/margin (or, in hot/looping UI, color/fill) forces
- * the browser to re-run layout or paint every frame. Granola measured a
- * single `height` transition at 60% CPU / 25% GPU on an M2; for an always-
- * recording, battery-sensitive app that's exactly the wrong default.
- *
- * Flags:
- *   - `transition-all` (Tailwind) — sweeps in layout/paint props.
- *   - `transition-[<layout-prop>]` (Tailwind arbitrary value).
- *   - CSS `transition: <layout-prop>` / `transition-property: <layout-prop>`.
- *
- * Escape hatch: put `motion-allow` in the offending line or the line above
- * it to justify a rare one-off (e.g. a sidebar collapse that genuinely
- * changes layout width and isn't hot/looping).
- */
+
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { extname, join } from "node:path";
 
 const ROOTS = ["src"];
 const EXTS = new Set([".ts", ".tsx", ".css"]);
-const LAYOUT_PAINT =
-  "height|width|top|left|right|bottom|margin|padding|inset|fill";
+const LAYOUT_PAINT = "height|width|top|left|right|bottom|margin|padding|inset|fill";
 
 const RULES = [
   {
@@ -63,7 +45,12 @@ for (const root of ROOTS) {
       if (allowed) return;
       for (const rule of RULES) {
         if (rule.re.test(line)) {
-          offenders.push({ file, line: i + 1, text: line.trim().slice(0, 110), why: rule.why });
+          offenders.push({
+            file,
+            line: i + 1,
+            text: line.trim().slice(0, 110),
+            why: rule.why,
+          });
           break;
         }
       }

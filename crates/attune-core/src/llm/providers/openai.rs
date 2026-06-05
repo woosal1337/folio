@@ -1,8 +1,3 @@
-//! OpenAI Chat Completions backend.
-//!
-//! Hits `/v1/chat/completions`. Phase 1 is non-streaming only; phase 5
-//! adds the SSE streaming path on top of the same provider.
-
 use async_trait::async_trait;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
@@ -14,7 +9,6 @@ use crate::llm::types::{ChatRequest, ChatResponse, ChatRole, FinishReason, Model
 
 const DEFAULT_BASE_URL: &str = "https://api.openai.com/v1";
 
-/// OpenAI Chat Completions backend.
 pub struct OpenAiProvider {
     api_key: String,
     base_url: String,
@@ -22,14 +16,10 @@ pub struct OpenAiProvider {
 }
 
 impl OpenAiProvider {
-    /// New provider with the default base URL (`api.openai.com`).
     pub fn new(api_key: impl Into<String>) -> Self {
         Self::with_base_url(api_key, DEFAULT_BASE_URL)
     }
 
-    /// New provider with a custom base URL. Used by the DeepSeek
-    /// provider in phase 2 (DeepSeek is OpenAI-compatible) and by
-    /// tests that point at a recorded fixture server.
     pub fn with_base_url(api_key: impl Into<String>, base_url: impl Into<String>) -> Self {
         Self {
             api_key: api_key.into(),
@@ -38,11 +28,6 @@ impl OpenAiProvider {
         }
     }
 
-    /// Privacy-mode gate (GET-174): refuse any outbound request when the
-    /// host is blocked (airgap / Privacy Mode; localhost stays allowed).
-    /// Called before every `send()` so chat transcript content, model
-    /// listing, and key tests all honour the cutoff — mirrors the
-    /// transcription + embedding gating.
     fn ensure_egress_allowed(&self) -> Result<()> {
         let host = crate::cloud_guard::host_of(&self.base_url).unwrap_or_default();
         crate::cloud_guard::ensure_allowed(host).map_err(|e| AttuneError::Llm(e.to_string()))
@@ -97,10 +82,6 @@ impl LlmProvider for OpenAiProvider {
             .await
             .map_err(|e| AttuneError::Llm(format!("openai /models json decode failed: {e}")))?;
 
-        // Filter to the chat-capable families. The /models endpoint
-        // returns every model the org has access to, including
-        // embeddings/tts/dalle entries that the UI does not want to
-        // show in the chat-model picker.
         let mut models: Vec<ModelInfo> = parsed
             .data
             .into_iter()
@@ -108,12 +89,10 @@ impl LlmProvider for OpenAiProvider {
             .map(|m| ModelInfo {
                 id: m.id.clone(),
                 display_name: m.id,
-                context_window: 0, // OpenAI does not return this; future phase fills it from a static table
+                context_window: 0,
             })
             .collect();
 
-        // Stable order so the UI dropdown does not jump around between
-        // refreshes.
         models.sort_by(|a, b| a.id.cmp(&b.id));
         Ok(models)
     }
@@ -185,8 +164,6 @@ fn build_chat_request_body(req: &ChatRequest) -> ChatCompletionRequestBody {
         messages.push(OpenAiMessage {
             role: role_to_str(m.role).to_string(),
             content: if m.content.is_empty() && m.tool_calls.is_some() {
-                // Assistant turn that was purely tool calls: OpenAI's
-                // schema permits content == null in that case.
                 None
             } else {
                 Some(m.content.clone())
@@ -247,9 +224,6 @@ fn parse_finish_reason(s: Option<&str>) -> FinishReason {
 }
 
 fn is_chat_model(id: &str) -> bool {
-    // Conservative allow-by-prefix list. We do NOT use a deny list
-    // because OpenAI adds new model families all the time and we
-    // want them to surface in the picker automatically.
     const CHAT_PREFIXES: &[&str] = &["gpt-", "o1", "o3", "o4", "chatgpt-", "openai/gpt-"];
     CHAT_PREFIXES.iter().any(|p| id.starts_with(p))
 }
@@ -341,11 +315,6 @@ mod tests {
 
     #[test]
     fn egress_host_resolves_to_openai_for_the_airgap_guard() {
-        // GET-174: every send() gates on this host via cloud_guard, so it
-        // must be the real OpenAI host for Privacy Mode to block it. Paired
-        // with cloud_guard::tests::airgap_blocks_external_hosts; avoids
-        // mutating the process-global airgap flag (which races parallel
-        // tests), mirroring the embed.rs approach.
         let provider = OpenAiProvider::new("sk-test");
         let host = crate::cloud_guard::host_of(&provider.base_url).expect("host must parse");
         assert_eq!(host, "api.openai.com");

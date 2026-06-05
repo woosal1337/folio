@@ -1,18 +1,3 @@
-/**
- * Tasks store — single source of truth for the kanban UI.
- *
- * Pattern: the Rust TaskStore is authoritative on disk; this store
- * mirrors it in memory and re-fetches after every mutation. Mutations
- * are optimistic where it matters for feel (status drag-drop) and
- * pessimistic everywhere else (create/edit/delete go through IPC and
- * then refresh).
- *
- * The store also exposes a `seedFromBackend()` call invoked once on
- * app mount so the kanban renders instantly when the user navigates
- * to /tasks, and a `refresh()` for "the model just created a task,
- * please reload" callers (the agent panel + auto-extract-tasks hook).
- */
-
 import { create } from "zustand";
 import { toast } from "sonner";
 
@@ -30,9 +15,9 @@ import type { TaskUpdate } from "@/shared/types/TaskUpdate";
 
 interface TasksState {
   tasks: Task[];
-  /** True while the first list() is in flight. UI uses this to render skeletons. */
+
   loading: boolean;
-  /** Last load error, surfaced as a banner. */
+
   error: string | null;
 
   refresh: () => Promise<void>;
@@ -63,8 +48,7 @@ export const useTasksStore = create<TasksState>((set, get) => ({
   create: async (newTask) => {
     try {
       const task = await ipcCreate(newTask);
-      // Append rather than re-fetch: the user just typed this in,
-      // the latency would feel like a stall.
+
       set((s) => ({ tasks: [...s.tasks, task] }));
       return task;
     } catch (e) {
@@ -91,9 +75,6 @@ export const useTasksStore = create<TasksState>((set, get) => ({
   },
 
   remove: async (id) => {
-    // Optimistic remove + rollback on failure. Deletes are common,
-    // failures are rare, and the row disappearing instantly feels
-    // right.
     const prev = get().tasks;
     set((s) => ({ tasks: s.tasks.filter((t) => t.id !== id) }));
     try {
@@ -106,8 +87,6 @@ export const useTasksStore = create<TasksState>((set, get) => ({
   },
 
   setStatus: async (id, status) => {
-    // Optimistic status flip so drag-drop feels instant. The card
-    // moves columns immediately; if the IPC fails we roll back.
     const prev = get().tasks;
     set((s) => ({
       tasks: s.tasks.map((t) =>
@@ -116,7 +95,7 @@ export const useTasksStore = create<TasksState>((set, get) => ({
     }));
     try {
       const updated = await ipcSetStatus(id, status);
-      // Sync server-side updated_at back in.
+
       set((s) => ({ tasks: s.tasks.map((t) => (t.id === id ? updated : t)) }));
     } catch (e) {
       console.error("tasks_store.setStatus:", e);

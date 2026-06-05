@@ -1,8 +1,3 @@
-/**
- * Share a note (GET-166). The note ⋯ menu offers Share / export, which
- * writes a Markdown file and hands it to the OS share sheet.
- */
-
 import { expect, test } from "@playwright/test";
 
 import { ipcCalls, setupScenario } from "./fixtures/scenario";
@@ -26,11 +21,9 @@ test("Share / export writes Markdown and opens the share sheet", async ({ page }
   await page.goto("/#/library");
   await page.getByText("Shareable note").first().click();
   await expect(page).toHaveURL(/#\/editor\//);
-  // Wait for the transcript-driven sections to settle before opening the
-  // menu (the Transcript & audio disclosure renders for a transcribed note).
+
   await expect(page.getByRole("button", { name: /transcript & audio/i })).toBeVisible();
 
-  // Open the ⋯ menu and trigger Share / export.
   await page.getByRole("button", { name: /more actions/i }).click();
   await page.getByRole("menuitem", { name: /share \/ export/i }).click();
 

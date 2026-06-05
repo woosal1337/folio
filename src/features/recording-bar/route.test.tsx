@@ -40,7 +40,7 @@ describe("RecordingBar widget", () => {
     render(<RecordingBar />);
     await waitFor(() => expect(screen.getByText("0:12")).toBeInTheDocument());
     expect(screen.getByTitle("Recording")).toBeInTheDocument();
-    // Recording (not paused) → Pause control + Stop control present.
+
     expect(
       screen.getByRole("button", { name: /pause recording/i })
     ).toBeInTheDocument();

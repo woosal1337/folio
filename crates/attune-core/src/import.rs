@@ -1,19 +1,3 @@
-//! Switcher import from Granola / Otter / Fathom. v2 finding 004 /
-//! GET-44. One-click importer for competitor exports — neutralises
-//! switching cost, the killer objection from anyone with two years
-//! of meeting history.
-//!
-//! Each provider hands users a different export shape; this module
-//! normalises them into an [`ImportedMeeting`] that the materialiser
-//! writes into a new Attune session directory with a transcript and
-//! agent-run sidecars pre-populated.
-//!
-//! Today's coverage is shape-detection + normalisation. The
-//! per-provider zip readers (Granola's `meetings.json`, Otter's
-//! `<meeting>/<transcript.json>` shape, Fathom's `*.csv` rows) live
-//! in follow-up modules that feed normalised structs into the same
-//! materialiser.
-
 use std::path::{Path, PathBuf};
 
 use chrono::{DateTime, Utc};
@@ -51,9 +35,6 @@ pub struct ImportedMeeting {
     pub action_items: Vec<String>,
 }
 
-/// Detect which provider an export archive came from by sniffing the
-/// names of files inside. The actual zip reader is upstream; this
-/// helper takes a list of entry paths and returns the best guess.
 pub fn detect_source(entry_names: &[String]) -> SourceProvider {
     let lc: Vec<String> = entry_names.iter().map(|n| n.to_lowercase()).collect();
     if lc.iter().any(|n| n.contains("granola")) {
@@ -74,14 +55,6 @@ pub fn detect_source(entry_names: &[String]) -> SourceProvider {
     SourceProvider::Generic
 }
 
-/// Materialise an imported meeting as a new Attune session directory.
-/// Writes:
-///   * `<root>/<safe_label>/transcript.json` with the segments.
-///   * `<root>/<safe_label>/imported.json` carrying the full normalised
-///     bundle so a follow-up agent pass can re-extract tasks /
-///     memories / decisions from the canned content.
-///
-/// Idempotent: re-running on the same label overwrites both files.
 pub fn materialise(recordings_root: &Path, meeting: &ImportedMeeting) -> Result<PathBuf> {
     let safe_label = safe_dir_name(&meeting.label);
     let session_dir = recordings_root.join(&safe_label);
@@ -149,10 +122,6 @@ fn write_atomic(final_path: &Path, body: &str) -> Result<()> {
     Ok(())
 }
 
-/// Sanitise a label for use as a directory name. Replaces every
-/// path-separator and control character with `_`, collapses repeated
-/// underscores, and trims to 80 characters so the resulting path is
-/// stable across filesystems.
 pub fn safe_dir_name(label: &str) -> String {
     let mut out = String::with_capacity(label.len());
     let mut prev_underscore = false;

@@ -1,15 +1,3 @@
-//! `enhance-compare` — GET-188 speech-enhancement A/B harness.
-//!
-//! Runs the RNNoise enhancement pass over a recording's system audio and
-//! prints before/after metrics (level change, real-time factor). Writes
-//! `<stem>.enhanced.wav` next to the input so the user can listen to both
-//! and transcribe each with the `transcribe` subcommand to eyeball the
-//! WER impact on a real recording:
-//!
-//! ```text
-//! cargo run -p attune-cli -- enhance-compare ~/Documents/Attune/Recordings/<session>
-//! ```
-
 use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Context, Result};
@@ -67,8 +55,6 @@ pub fn run(args: EnhanceCompareArgs) -> Result<()> {
     Ok(())
 }
 
-/// Accept either a session directory (use its `system.wav`) or a direct
-/// WAV path.
 fn resolve_input(p: &Path) -> Result<PathBuf> {
     if p.is_dir() {
         let candidate = p.join("system.wav");

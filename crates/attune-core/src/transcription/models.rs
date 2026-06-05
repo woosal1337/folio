@@ -1,11 +1,3 @@
-//! Local Whisper model registry, on-disk layout, and downloader.
-//!
-//! Models live under the platform's standard application-support
-//! directory (`~/Library/Application Support/Attune/models/` on macOS),
-//! one `ggml-<id>.bin` per variant. The set of supported variants is a
-//! small, stable enum because we only surface ones we know whisper-rs
-//! can load.
-
 use std::fs;
 use std::io::Read;
 use std::path::{Path, PathBuf};
@@ -18,12 +10,9 @@ use ts_rs::TS;
 use crate::error::{AttuneError, Result};
 
 const HF_BASE_URL: &str = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main";
-/// Connection timeout for the download. The model file itself can run
-/// 30+ min on slow links — we only bound the dial, not the body.
+
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(30);
 
-/// One of the GGML model variants whisper.cpp publishes. Sizes are the
-/// approximate on-disk size of the .bin file.
 #[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../src/shared/types/")]
@@ -38,7 +27,6 @@ pub enum WhisperModel {
 }
 
 impl WhisperModel {
-    /// Parse the kebab-case string used in `Settings.local_whisper_model`.
     pub fn from_id(id: &str) -> Option<Self> {
         Some(match id {
             "tiny" => Self::Tiny,
@@ -60,9 +48,6 @@ impl WhisperModel {
         }
     }
 
-    /// Approximate on-disk size, used to drive the download progress
-    /// UI when the server doesn't return a Content-Length header (rare
-    /// for HuggingFace, but possible behind some proxies).
     pub fn approx_bytes(self) -> u64 {
         match self {
             Self::Tiny => 75 * 1024 * 1024,
@@ -82,8 +67,6 @@ impl WhisperModel {
     }
 }
 
-/// On-disk status of a model file. Carries the path even when the file
-/// is missing so callers can show "would be downloaded to <path>".
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../src/shared/types/")]
 pub struct WhisperModelStatus {
@@ -94,14 +77,12 @@ pub struct WhisperModelStatus {
     pub approx_total_bytes: u64,
 }
 
-/// Progress reported by [`WhisperModelStore::download`].
 #[derive(Debug, Clone, Copy)]
 pub struct DownloadProgress {
     pub downloaded: u64,
     pub total: Option<u64>,
 }
 
-/// Knows where the model directory lives and how to download a model.
 pub struct WhisperModelStore {
     root: PathBuf,
 }
@@ -111,7 +92,6 @@ impl WhisperModelStore {
         Self { root: root.into() }
     }
 
-    /// Default store rooted at the platform's standard config directory.
     pub fn default_location() -> Self {
         Self::new(default_models_dir())
     }
@@ -124,8 +104,6 @@ impl WhisperModelStore {
         self.root.join(model.filename())
     }
 
-    /// Report on-disk status without doing any IO besides a single
-    /// `metadata()` call.
     pub fn status(&self, model: WhisperModel) -> WhisperModelStatus {
         let path = self.path_for(model);
         let meta = fs::metadata(&path).ok();
@@ -139,12 +117,6 @@ impl WhisperModelStore {
         }
     }
 
-    /// Download `model` to disk, streaming the response body so the
-    /// caller can show progress. Writes to a `.part` file and renames
-    /// into place on completion — a crash mid-download leaves a partial
-    /// file the caller can discover and clean up rather than a
-    /// `ggml-<id>.bin` that whisper-rs would fail to load on next
-    /// launch.
     pub fn download<F: FnMut(DownloadProgress)>(
         &self,
         model: WhisperModel,
@@ -163,13 +135,8 @@ impl WhisperModelStore {
 
         let client = reqwest::blocking::Client::builder()
             .connect_timeout(CONNECT_TIMEOUT)
-            // No total timeout — large-v3 can take 30+ minutes on a
-            // slow link and that is fine. We rely on the connect
-            // timeout + the user being able to cancel the app.
             .build()
-            .map_err(|e| {
-                AttuneError::Storage(format!("could not build download client: {e}"))
-            })?;
+            .map_err(|e| AttuneError::Storage(format!("could not build download client: {e}")))?;
 
         let mut response = client
             .get(model.url())
@@ -207,7 +174,6 @@ impl WhisperModelStore {
             on_progress(DownloadProgress { downloaded, total });
         }
 
-        // Make sure everything hit the disk before the rename.
         file.sync_all()
             .map_err(|e| AttuneError::Storage(format!("download sync error: {e}")))?;
         drop(file);
@@ -227,8 +193,6 @@ impl WhisperModelStore {
         Ok(target)
     }
 
-    /// Best-effort cleanup of stale .part files from a previous failed
-    /// download. Logged, never returned as an error.
     pub fn clean_partials(&self) {
         let Ok(entries) = fs::read_dir(&self.root) else {
             return;

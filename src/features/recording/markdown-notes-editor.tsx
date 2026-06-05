@@ -1,15 +1,3 @@
-/**
- * Markdown notes editor — the user's personal notes pane.
- *
- * A live WYSIWYG markdown editor (TipTap): typing markdown syntax
- * (`# `, `**bold**`, `- `, `>`, `` `code` ``…) auto-converts and styles
- * inline as you write. The document is stored as markdown text, autosaved
- * into the session dir as `live_notes.json` (one line per `RawNoteLine`,
- * anchored to the recording position when capturing) so it stays the
- * input the on-stop summary folds in (GET-147). Replaces the older
- * slash-command textarea.
- */
-
 import * as React from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -22,21 +10,13 @@ import type { RawNoteLine } from "@/shared/types/RawNoteLine";
 const AUTOSAVE_MS = 800;
 
 interface Props {
-  /** Live session directory to persist into; null disables persistence. */
   sessionDir: string | null;
-  /** Current recording-relative elapsed seconds, for anchoring new lines. */
+
   elapsedSeconds: number;
-  /**
-   * Lock the editor read-only while the note is being processed
-   * (transcription / AI summary). The notes feed the summary (GET-147),
-   * so editing them mid-pipeline would race the input — grey out and
-   * block typing until processing settles.
-   */
+
   disabled?: boolean;
 }
 
-/** Split a markdown string into `RawNoteLine[]`, preserving prior line
- *  anchors by index and stamping new lines with the current elapsed. */
 function toLines(
   markdown: string,
   prev: RawNoteLine[],
@@ -102,7 +82,6 @@ export function MarkdownNotesEditor({
     },
   });
 
-  // Load existing notes once the session dir is known (re-open / resume).
   React.useEffect(() => {
     if (!sessionDir || !editor) return;
     let cancelled = false;
@@ -118,7 +97,6 @@ export function MarkdownNotesEditor({
     };
   }, [sessionDir, editor]);
 
-  // Flush the last edits on unmount (e.g. the user hits Stop).
   React.useEffect(
     () => () => {
       if (saveTimer.current) window.clearTimeout(saveTimer.current);
@@ -127,8 +105,6 @@ export function MarkdownNotesEditor({
     [flush]
   );
 
-  // Lock / unlock the editor as processing toggles. Flush any pending
-  // edits before locking so nothing is lost going into the pipeline.
   React.useEffect(() => {
     if (!editor) return;
     if (disabled && saveTimer.current) {

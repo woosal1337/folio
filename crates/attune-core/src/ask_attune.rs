@@ -1,16 +1,3 @@
-//! Cross-library Ask Attune chat — RAG pipeline + citation types.
-//! v2 finding 021 / GET-27 / Hero.
-//!
-//! Persistent /chat surface (also Cmd-K-routable) that converses
-//! across every transcript, memory, task, and agent run with
-//! citations + timestamp jumps. Without it Attune is a notebook;
-//! with it Attune is a brain the user talks to.
-//!
-//! This module owns the source-agnostic citation shape + the
-//! retrieved-corpus packer that turns a hit list into the prompt
-//! context the LLM sees. The actual retrieval (FTS5 + vec) and the
-//! LLM call live in the runner; this is the contract both speak.
-
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
@@ -40,8 +27,7 @@ pub struct Citation {
     pub start_seconds: Option<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub end_seconds: Option<f64>,
-    /// Verbatim snippet — the LLM injects this into its system prompt
-    /// and the renderer also shows it under the citation chip.
+
     pub snippet: String,
 }
 
@@ -51,11 +37,6 @@ pub struct PackedContext {
     pub prompt_body: String,
 }
 
-/// Pack a candidate list into a prompt context that fits the
-/// `token_budget`. Stops adding citations once the running character
-/// budget (token_budget × APPROX_CHARS_PER_TOKEN) would be exceeded.
-/// Preserves input order so the LLM sees the highest-ranked citations
-/// first.
 pub fn pack(candidates: Vec<Citation>, token_budget: usize) -> PackedContext {
     let char_budget = token_budget * APPROX_CHARS_PER_TOKEN;
     let mut total = 0usize;

@@ -1,9 +1,3 @@
-/**
- * Settings → Webhooks — the only fully-functional settings section
- * with real CRUD wired through `save_webhook` / `delete_webhook` /
- * `test_webhook`. Verifies the IPC contract.
- */
-
 import { expect, test } from "@playwright/test";
 
 import { ipcCalls, setupScenario } from "./fixtures/scenario";

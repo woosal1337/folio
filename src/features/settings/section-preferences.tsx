@@ -1,23 +1,3 @@
-/**
- * GET-133 — Settings → Preferences (rebuilt).
- *
- * Matches Granola's structure (Invite teammates / General / Appearance
- * / Privacy) but with Sasha Volkov's red lines applied verbatim:
- *
- *   - No "Use my data to improve models for everyone" toggle anywhere.
- *     This is Attune's privacy red line. Granola defaults this ON.
- *   - Auto-delete period for transcripts defaults to 90 days
- *     (GDPR Art. 5(1)(c)). Granola defaults to Off, which is
- *     an Art. 5 violation in the EU.
- *   - Default link sharing defaults to "Workspace only", stricter
- *     than Granola's "Anyone with the link".
- *
- * Also adds the Privacy Tier Colour Band toggle (roundtable consensus #5).
- *
- * The Invite-teammates section is a stub for v1 — backend workspace
- * endpoints (GET-122 epic Sprint 2) light it up.
- */
-
 import * as React from "react";
 import {
   Bell,
@@ -70,7 +50,11 @@ const LINK_SHARING_OPTIONS: { value: string; label: string; description: string 
   },
 ];
 
-const AUTO_DELETE_OPTIONS: { value: number | null; label: string; description?: string }[] = [
+const AUTO_DELETE_OPTIONS: {
+  value: number | null;
+  label: string;
+  description?: string;
+}[] = [
   { value: 7, label: "7 days" },
   { value: 30, label: "30 days" },
   {
@@ -115,9 +99,6 @@ export function SectionPreferences({ settings, onChange }: SectionPreferencesPro
         </p>
       </header>
 
-      {/* ------------------------------------------------------------- */}
-      {/* Invite teammates (placeholder until backend lands)             */}
-      {/* ------------------------------------------------------------- */}
       <PreferencesGroup title="Invite teammates to Attune">
         <div className="space-y-2 rounded-lg border border-border bg-card p-4">
           <p className="text-sm text-muted-foreground">
@@ -135,9 +116,6 @@ export function SectionPreferences({ settings, onChange }: SectionPreferencesPro
         </div>
       </PreferencesGroup>
 
-      {/* ------------------------------------------------------------- */}
-      {/* General                                                       */}
-      {/* ------------------------------------------------------------- */}
       <PreferencesGroup title="General">
         <ToggleRow
           icon={Sparkles}
@@ -162,9 +140,6 @@ export function SectionPreferences({ settings, onChange }: SectionPreferencesPro
         />
       </PreferencesGroup>
 
-      {/* ------------------------------------------------------------- */}
-      {/* Appearance                                                    */}
-      {/* ------------------------------------------------------------- */}
       <PreferencesGroup title="Appearance">
         <SelectRow
           icon={Palette}
@@ -198,9 +173,6 @@ export function SectionPreferences({ settings, onChange }: SectionPreferencesPro
         />
       </PreferencesGroup>
 
-      {/* ------------------------------------------------------------- */}
-      {/* Privacy                                                       */}
-      {/* ------------------------------------------------------------- */}
       <PreferencesGroup title="Privacy">
         <SelectRow
           icon={LinkIcon}
@@ -208,7 +180,10 @@ export function SectionPreferences({ settings, onChange }: SectionPreferencesPro
           description="Who can open a shared meeting link by default. You can override per share."
           value={settings.default_link_sharing}
           onChange={(v) => onChange("default_link_sharing", v)}
-          options={LINK_SHARING_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+          options={LINK_SHARING_OPTIONS.map((o) => ({
+            value: o.value,
+            label: o.label,
+          }))}
           longDescription={
             LINK_SHARING_OPTIONS.find((o) => o.value === settings.default_link_sharing)
               ?.description
@@ -233,9 +208,7 @@ export function SectionPreferences({ settings, onChange }: SectionPreferencesPro
           title="Auto-delete transcripts"
           description="Older transcripts are removed automatically. GDPR Art. 5 data minimisation default."
           value={autoDeleteValue(settings.auto_delete_period_days)}
-          onChange={(v) =>
-            onChange("auto_delete_period_days", autoDeletePersist(v))
-          }
+          onChange={(v) => onChange("auto_delete_period_days", autoDeletePersist(v))}
           options={AUTO_DELETE_OPTIONS.map((o) => ({
             value: autoDeleteValue(o.value),
             label: o.label,
@@ -252,10 +225,6 @@ export function SectionPreferences({ settings, onChange }: SectionPreferencesPro
   );
 }
 
-// ---------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------
-
 function autoDeleteValue(v: number | null | undefined): string {
   return v === null || v === undefined ? "off" : String(v);
 }
@@ -263,10 +232,6 @@ function autoDeleteValue(v: number | null | undefined): string {
 function autoDeletePersist(v: string): number | null {
   return v === "off" ? null : Number.parseInt(v, 10);
 }
-
-// ---------------------------------------------------------------
-// Building blocks
-// ---------------------------------------------------------------
 
 function PreferencesGroup({
   title,
@@ -310,9 +275,7 @@ function ToggleRow({
         <Label htmlFor={id} className="text-sm font-medium">
           {title}
         </Label>
-        <p className="max-w-prose text-xs text-muted-foreground">
-          {description}
-        </p>
+        <p className="max-w-prose text-xs text-muted-foreground">{description}</p>
       </div>
       <Switch
         id={id}
@@ -351,9 +314,7 @@ function SelectRow({
         <Label htmlFor={id} className="text-sm font-medium">
           {title}
         </Label>
-        <p className="max-w-prose text-xs text-muted-foreground">
-          {description}
-        </p>
+        <p className="max-w-prose text-xs text-muted-foreground">{description}</p>
         {longDescription ? (
           <p className="max-w-prose text-2xs italic text-muted-foreground">
             {longDescription}
@@ -390,9 +351,9 @@ function PlaceholderButton({
       type="button"
       disabled={disabled}
       onClick={() => {
-        toast.info("Workspaces ship in v1.0", {
+        toast.info("Workspaces aren't part of the local build", {
           description:
-            "Backend identity, calendar-derived teammate suggestions, and invite links are in Sprint 2 of the GET-122 epic.",
+            "Attune runs fully on-device, so shared identity, teammate suggestions, and invite links aren't available.",
         });
       }}
       className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground disabled:cursor-not-allowed disabled:opacity-60"
@@ -415,8 +376,8 @@ function PrivacyRedLineNotice() {
         <span>What you won&apos;t see here</span>
       </p>
       <p className="mt-1.5 leading-relaxed">
-        Attune does not collect transcripts to train models — there is no
-        opt-out toggle because there is no collection.{" "}
+        Attune does not collect transcripts to train models — there is no opt-out toggle
+        because there is no collection.{" "}
         <span className="italic">
           Your meetings stay on your Mac unless you explicitly share them.
         </span>
@@ -425,7 +386,4 @@ function PrivacyRedLineNotice() {
   );
 }
 
-// Marker so Vite tree-shakes nothing and `Languages` stays available
-// for the upcoming workspace-language picker (GET-137). Keeps imports
-// honest until Profile section lands.
 void Languages;

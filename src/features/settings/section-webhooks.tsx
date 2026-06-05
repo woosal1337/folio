@@ -113,8 +113,8 @@ export function SectionWebhooks() {
       <div>
         <h2 className="font-serif text-2xl font-medium">Webhooks</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Forward lifecycle events to localhost endpoints with an HMAC-SHA256 signature.
-          Drives eBrain syncs, n8n flows, home-lab dashboards, and anything else that
+          Forward lifecycle events to local endpoints with an HMAC-SHA256 signature.
+          Drives note-taking syncs, automation flows, dashboards, and anything else that
           wants to react when Attune captures a recording.
         </p>
       </div>
@@ -195,7 +195,7 @@ export function SectionWebhooks() {
             <Input
               value={draft.label}
               onChange={(e) => setDraft({ ...draft, label: e.target.value })}
-              placeholder="eBrain sync"
+              placeholder="Notion sync"
               className="mt-1"
             />
           </Label>
@@ -260,10 +260,6 @@ export function SectionWebhooks() {
   );
 }
 
-/** Generate a 32-byte random secret as hex. crypto.randomUUID is
- *  unavailable in some Tauri webviews, so we fall back to Math.random
- *  in that case — the secret is only used for HMAC over localhost,
- *  not for cryptographic confidentiality. */
 function cryptoRandomSecret(): string {
   const bytes = new Uint8Array(16);
   if (typeof crypto !== "undefined" && crypto.getRandomValues) {

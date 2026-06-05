@@ -5,8 +5,6 @@ import { Pause, Play } from "lucide-react";
 import { cn, formatDuration } from "@/shared/lib/utils";
 import { onSeekAudio } from "@/features/editor/seek-audio";
 
-/** Module-level coordination so kicking off one player pauses every other
- *  audio element currently rendered in the app. */
 let currentAudio: HTMLAudioElement | null = null;
 function takeFocus(el: HTMLAudioElement) {
   if (currentAudio && currentAudio !== el && !currentAudio.paused) {
@@ -16,16 +14,10 @@ function takeFocus(el: HTMLAudioElement) {
 }
 
 interface AudioPlayerProps {
-  /** Absolute path to a local WAV / audio file. */
   filePath: string;
-  /** Optional small label rendered to the left of the scrubber. */
+
   label?: string;
-  /**
-   * Channel id ("mic" / "system"). When set, this player subscribes to
-   * the `attune:seek-audio` event and jumps + plays whenever a matching
-   * detail.channel arrives. Used by the transcript editor's click-to-
-   * seek timestamps (v2 finding 102 / GET-114).
-   */
+
   channel?: string;
   className?: string;
 }
@@ -38,7 +30,6 @@ export function AudioPlayer({ filePath, label, channel, className }: AudioPlayer
   const [ready, setReady] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
-  // Convert the OS path to a Tauri asset:// URL the webview can load.
   const src = React.useMemo(() => {
     try {
       return assetUrl(filePath);
@@ -55,7 +46,6 @@ export function AudioPlayer({ filePath, label, channel, className }: AudioPlayer
     setError(null);
 
     const onLoaded = () => {
-      // Some browsers report Infinity until they sniff the WAV further.
       const d = Number.isFinite(audio.duration) ? audio.duration : 0;
       setDuration(d);
       setReady(true);
@@ -117,9 +107,6 @@ export function AudioPlayer({ filePath, label, channel, className }: AudioPlayer
     [duration]
   );
 
-  // Subscribe to the editor's click-to-seek event when this player is
-  // bound to a transcript channel. Seek + play so the user hears the
-  // segment they clicked.
   React.useEffect(() => {
     if (!channel) return;
     return onSeekAudio((detail) => {
@@ -213,9 +200,7 @@ function Scrubber({ current, duration, onSeek, disabled }: ScrubberProps) {
     setHoverFrac(null);
     try {
       (e.target as HTMLElement).releasePointerCapture(e.pointerId);
-    } catch {
-      // ignore
-    }
+    } catch {}
   };
 
   return (
@@ -230,14 +215,13 @@ function Scrubber({ current, duration, onSeek, disabled }: ScrubberProps) {
         disabled && "cursor-not-allowed opacity-50"
       )}
     >
-      {/* Track */}
       <div className="absolute left-0 right-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-secondary" />
-      {/* Fill */}
+
       <div
         className="absolute left-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-primary"
         style={{ width: `${displayFrac * 100}%` }}
       />
-      {/* Thumb */}
+
       <div
         className="absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border border-primary bg-card shadow-sm"
         style={{ left: `${displayFrac * 100}%` }}

@@ -1,38 +1,18 @@
-//! Floating recording-control bar.
-//!
-//! A compact, frameless, always-on-top window that appears while a
-//! capture is in progress so the user always has a recording indicator +
-//! a Stop button on hand, no matter which app is focused. Replaces the
-//! menu-bar-title-only affordance (the tray still updates too).
-//!
-//! The bar is draggable (the user parks it wherever), polls
-//! `recording_status` for the live elapsed/paused state, and routes its
-//! Stop through the main window's recording store (via the
-//! `recording-bar:stop` event) so the normal post-stop chain —
-//! auto-transcribe, toasts, tray reset — all fire exactly as if the user
-//! hit Stop in the app.
-
 use tauri::{Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 
-/// Tauri window label for the floating recording bar.
 pub const RECORDING_BAR_LABEL: &str = "recording-bar";
-/// Label of the app's primary window.
+
 const MAIN_WINDOW_LABEL: &str = "main";
-/// Event the main window listens for to run its stop flow.
+
 const STOP_EVENT: &str = "recording-bar:stop";
-/// Events the main window listens for to pause / resume the capture.
+
 const PAUSE_EVENT: &str = "recording-bar:pause";
 const RESUME_EVENT: &str = "recording-bar:resume";
 
-// Vertical capsule (Granola-style): narrow column the user parks against
-// a screen edge. Width/height stay in sync with the CSS pill. The window
-// is transparent so only the rounded pill shows (no square backdrop).
 const BAR_W: f64 = 46.0;
 const BAR_H: f64 = 196.0;
 const MARGIN: f64 = 24.0;
 
-/// Create (or reveal) the floating recording bar, parked against the
-/// right edge, vertically centred. Never steals focus. Idempotent.
 #[tauri::command]
 pub fn show_recording_bar(app: tauri::AppHandle) -> Result<(), String> {
     if let Some(existing) = app.get_webview_window(RECORDING_BAR_LABEL) {
@@ -57,8 +37,6 @@ pub fn show_recording_bar(app: tauri::AppHandle) -> Result<(), String> {
     .build()
     .map_err(|e| e.to_string())?;
 
-    // Park against the right edge, vertically centred — the user drags it
-    // wherever from there.
     if let Ok(Some(monitor)) = window.current_monitor() {
         let size = monitor.size();
         let scale = monitor.scale_factor();
@@ -73,11 +51,6 @@ pub fn show_recording_bar(app: tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-/// Hide the floating recording bar. We `hide()` (not `close()`) so the
-/// webview persists and the next `show_recording_bar` is an instant
-/// `.show()` instead of rebuilding a whole WKWebView on the main thread —
-/// that rebuild was freezing the app for ~1s on every start/resume.
-/// No-op when the window doesn't exist yet.
 #[tauri::command]
 pub fn hide_recording_bar(app: tauri::AppHandle) -> Result<(), String> {
     if let Some(window) = app.get_webview_window(RECORDING_BAR_LABEL) {
@@ -86,32 +59,24 @@ pub fn hide_recording_bar(app: tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-/// Stop from the bar: tell the main window to run its stop flow. Routed
-/// as an event (not a direct backend stop) so the recording store's
-/// auto-transcribe + toast + tray-reset chain fires.
 #[tauri::command]
 pub fn recording_bar_stop(app: tauri::AppHandle) -> Result<(), String> {
     emit_to_main(&app, STOP_EVENT);
     Ok(())
 }
 
-/// Pause from the bar — routed through the main window's pause flow so
-/// the ticker, tray, and multi-part note bookkeeping all update.
 #[tauri::command]
 pub fn recording_bar_pause(app: tauri::AppHandle) -> Result<(), String> {
     emit_to_main(&app, PAUSE_EVENT);
     Ok(())
 }
 
-/// Resume from the bar — counterpart to [`recording_bar_pause`].
 #[tauri::command]
 pub fn recording_bar_resume(app: tauri::AppHandle) -> Result<(), String> {
     emit_to_main(&app, RESUME_EVENT);
     Ok(())
 }
 
-/// Emit an event to the main window, falling back to an app-wide
-/// broadcast if it can't be resolved.
 fn emit_to_main(app: &tauri::AppHandle, event: &str) {
     if let Some(main) = app.get_webview_window(MAIN_WINDOW_LABEL) {
         let _ = main.emit(event, ());

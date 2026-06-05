@@ -1,12 +1,3 @@
-//! Live notes / commands pane. v2 finding 009 / GET-33.
-//!
-//! Split-pane Record view: live transcript on the left, free-form
-//! markdown on the right with `/action`, `/decision`, `/question`
-//! slash-commands. Lens 5 demands every bullet be anchored to its
-//! audio timestamp; this module owns the timestamping + parser so
-//! the renderer can render and the post-meeting pipeline can pick
-//! the bullets up unchanged.
-
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
@@ -24,17 +15,11 @@ pub enum NoteKind {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, TS)]
 #[ts(export, export_to = "../../../src/shared/types/")]
 pub struct LiveNote {
-    /// Recording-relative timestamp the note was anchored to.
     pub anchor_seconds: f64,
     pub kind: NoteKind,
     pub text: String,
 }
 
-/// A raw editor line as the live-notes UI holds it: the verbatim text
-/// (slash command included) plus the timestamp the line was anchored
-/// to. This is the lossless round-trip shape persisted to disk so the
-/// editor can repopulate on resume; [`parse_line`] turns it into the
-/// grouped [`LiveNote`] shape only at render time.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, TS)]
 #[ts(export, export_to = "../../../src/shared/types/")]
 pub struct RawNoteLine {
@@ -42,8 +27,6 @@ pub struct RawNoteLine {
     pub anchor_seconds: f64,
 }
 
-/// Parse raw editor lines into anchored notes, dropping blanks and bare
-/// command keywords. Each line keeps its own anchor.
 pub fn parse_lines(lines: &[RawNoteLine]) -> Vec<LiveNote> {
     lines
         .iter()
@@ -51,9 +34,6 @@ pub fn parse_lines(lines: &[RawNoteLine]) -> Vec<LiveNote> {
         .collect()
 }
 
-/// Parse a single line of live notes. Recognises slash commands as
-/// a leading `/word` followed by whitespace. Unknown commands fall
-/// through to `Plain` with the leading slash kept.
 pub fn parse_line(line: &str, anchor_seconds: f64) -> Option<LiveNote> {
     let trimmed = line.trim();
     if trimmed.is_empty() {
@@ -64,10 +44,7 @@ pub fn parse_line(line: &str, anchor_seconds: f64) -> Option<LiveNote> {
         Some(("/decision", rest)) => (NoteKind::Decision, rest),
         Some(("/question", rest)) => (NoteKind::Question, rest),
         Some(("/highlight", rest)) => (NoteKind::Highlight, rest),
-        // A bare command keyword with no body (e.g. `/action` after
-        // trimming trailing whitespace) is an empty command — map it
-        // to an empty body so the is_empty() guard below drops it,
-        // rather than treating "/action" as plain note text.
+
         None if is_command_keyword(trimmed) => (NoteKind::Plain, ""),
         _ => (NoteKind::Plain, trimmed),
     };
@@ -86,9 +63,6 @@ fn is_command_keyword(s: &str) -> bool {
     matches!(s, "/action" | "/decision" | "/question" | "/highlight")
 }
 
-/// Parse a full notes buffer. The caller passes the current
-/// recording-relative timestamp; every non-blank line gets anchored
-/// to it. Useful for the renderer's draft-state read.
 pub fn parse_buffer(buffer: &str, anchor_seconds: f64) -> Vec<LiveNote> {
     buffer
         .lines()
@@ -96,8 +70,6 @@ pub fn parse_buffer(buffer: &str, anchor_seconds: f64) -> Vec<LiveNote> {
         .collect()
 }
 
-/// Render a notes buffer as Markdown that pairs with the editor's
-/// briefing card. Each kind gets its own grouped section.
 pub fn render_markdown(notes: &[LiveNote]) -> String {
     let mut sections: Vec<(NoteKind, Vec<&LiveNote>)> = Vec::new();
     for kind in [
@@ -129,25 +101,13 @@ pub fn render_markdown(notes: &[LiveNote]) -> String {
     out
 }
 
-/// One section the user sketched by typing a markdown header in their live
-/// notes (GET-195): the heading plus any plain lines they wrote under it.
-/// The summarize agent fleshes each of these out from the transcript,
-/// growing the user's structure instead of imposing the fixed template.
 #[derive(Debug, Clone, PartialEq)]
 pub struct NoteOutlineSection {
-    /// Heading text with the leading `#`s stripped (e.g. "Risks").
     pub heading: String,
-    /// The user's own plain lines under this heading, in order — seed
-    /// material the agent should expand, not discard.
+
     pub user_lines: Vec<String>,
 }
 
-/// Extract the user-authored section outline from raw note lines: every
-/// markdown header (`#`..`######` followed by a space) opens a section, and
-/// the plain (non-command, non-header) lines beneath it are that section's
-/// seed text. Slash-command lines (`/action` …) are left to the grouped
-/// renderer. Returns empty when the user typed no headers — the signal to
-/// fall back to the default summary template.
 pub fn extract_outline(lines: &[RawNoteLine]) -> Vec<NoteOutlineSection> {
     let mut sections: Vec<NoteOutlineSection> = Vec::new();
     for line in lines {
@@ -161,9 +121,6 @@ pub fn extract_outline(lines: &[RawNoteLine]) -> Vec<NoteOutlineSection> {
                 user_lines: Vec::new(),
             });
         } else if !is_command_keyword_prefix(trimmed) {
-            // A plain line seeds the current section (if the user has
-            // opened one). Lines before the first header are the user's
-            // freeform notes and stay with the grouped renderer.
             if let Some(section) = sections.last_mut() {
                 section.user_lines.push(trimmed.to_string());
             }
@@ -172,8 +129,6 @@ pub fn extract_outline(lines: &[RawNoteLine]) -> Vec<NoteOutlineSection> {
     sections
 }
 
-/// Parse a markdown ATX header line (`## Risks`) → its text ("Risks").
-/// Requires 1–6 leading `#` then whitespace, matching the editor's render.
 fn parse_header(line: &str) -> Option<String> {
     let hashes = line.chars().take_while(|c| *c == '#').count();
     if !(1..=6).contains(&hashes) {
@@ -181,13 +136,12 @@ fn parse_header(line: &str) -> Option<String> {
     }
     let rest = &line[hashes..];
     if !rest.starts_with(char::is_whitespace) {
-        return None; // "##Risks" is not a header (matches CommonMark)
+        return None;
     }
     let heading = rest.trim();
     (!heading.is_empty()).then(|| heading.to_string())
 }
 
-/// True for a line that is a slash command (handled by the grouped render).
 fn is_command_keyword_prefix(line: &str) -> bool {
     let head = line
         .split_once(char::is_whitespace)
@@ -195,9 +149,6 @@ fn is_command_keyword_prefix(line: &str) -> bool {
     is_command_keyword(head)
 }
 
-/// Render a user outline as a scaffold block for the summarize agent: the
-/// user's headings in order, each with their seed lines as bullets. Empty
-/// string when there are no sections.
 pub fn render_outline_scaffold(sections: &[NoteOutlineSection]) -> String {
     let mut out = String::new();
     for section in sections {
@@ -341,10 +292,10 @@ mod tests {
     #[test]
     fn extract_outline_groups_plain_lines_under_user_headers() {
         let lines = vec![
-            raw("freeform before any header"), // pre-header → ignored by outline
+            raw("freeform before any header"),
             raw("## Risks"),
             raw("vendor lock-in"),
-            raw("/action chase the SLA"), // command → not part of the outline
+            raw("/action chase the SLA"),
             raw("### Decisions"),
             raw("ship Friday"),
             raw("revisit pricing"),
@@ -371,9 +322,9 @@ mod tests {
         assert_eq!(parse_header("## Risks"), Some("Risks".to_string()));
         assert_eq!(parse_header("# A"), Some("A".to_string()));
         assert_eq!(parse_header("###### Deep"), Some("Deep".to_string()));
-        assert_eq!(parse_header("##Risks"), None); // no space
-        assert_eq!(parse_header("####### Too deep"), None); // 7 hashes
-        assert_eq!(parse_header("#"), None); // empty heading
+        assert_eq!(parse_header("##Risks"), None);
+        assert_eq!(parse_header("####### Too deep"), None);
+        assert_eq!(parse_header("#"), None);
         assert_eq!(parse_header("not a header"), None);
     }
 

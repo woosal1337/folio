@@ -1,10 +1,3 @@
-/**
- * Host for the right-click context menu (see context-menu-store). Mounted
- * once at App root. Renders a fixed-position menu at the cursor, flips to
- * stay on-screen, supports one level of flyout submenu, and closes on
- * select / click-away / Escape / scroll / resize.
- */
-
 import * as React from "react";
 import { ChevronRight } from "lucide-react";
 
@@ -24,7 +17,6 @@ export function ContextMenu() {
   const items = useContextMenu((s) => s.items);
   const close = useContextMenu((s) => s.close);
 
-  // Close on Escape / scroll / resize.
   React.useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -43,14 +35,12 @@ export function ContextMenu() {
 
   if (!open) return null;
 
-  // Keep the menu on-screen.
   const estHeight = items.length * ITEM_H + 8;
   const left = Math.min(x, window.innerWidth - MENU_WIDTH - 8);
   const top = Math.min(y, Math.max(8, window.innerHeight - estHeight - 8));
 
   return (
     <>
-      {/* Click-away / right-click-away catcher. */}
       <button
         type="button"
         aria-hidden="true"
@@ -107,9 +97,6 @@ function Row({ item, onClose }: { item: ContextMenuItem; onClose: () => void }) 
           <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
         </button>
         {submenuOpen ? (
-          // `-mt-1` cancels the submenu's own py-1 so its first item lines
-          // up with the parent row; `-ml-1` overlaps the parent edge so the
-          // cursor can cross into the submenu without a gap closing it.
           <div
             role="menu"
             className="absolute left-full top-0 -ml-1 -mt-1 max-h-72 w-52 overflow-y-auto rounded-md border border-border bg-popover py-1 shadow-lg"

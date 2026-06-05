@@ -1,13 +1,3 @@
-/**
- * GET-139 — Settings → Analytics (personal).
- *
- * Your own activity totals only — no per-user engagement scoring.
- * Read.ai's "attention surveillance" pattern is explicitly rejected.
- *
- * v1 reads local counts from the library where possible (recordings,
- * minutes); richer aggregates ship with attune-api.
- */
-
 import * as React from "react";
 import {
   BarChart3,

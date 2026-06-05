@@ -1,31 +1,3 @@
-//! MCP client config. v2 finding 071 / GET-73.
-//!
-//! Attune calls Linear / GitHub / eBrain / anything-else via the
-//! user's own MCP servers, declared in `.attune/mcp.toml`. The
-//! agent layer reads this config and routes tool calls through the
-//! configured server. No OAuth: the user pastes their existing
-//! credentials into the MCP server config they already own.
-//!
-//! Config format:
-//!
-//! ```toml
-//! [[servers]]
-//! name = "linear"
-//! command = "npx"
-//! args = ["-y", "linear-mcp-server"]
-//! env = { LINEAR_API_KEY = "lin_api_..." }
-//!
-//! [[servers]]
-//! name = "github"
-//! transport = "http"
-//! url = "https://mcp.github.com/sse"
-//! headers = { Authorization = "Bearer ghp_..." }
-//! ```
-//!
-//! This module owns the parser + the type the runner consumes. The
-//! actual JSON-RPC transport (stdio + HTTP-SSE) lives in a follow-up
-//! that calls into the upstream `mcp-rs` crate once it stabilises.
-
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::Path;
@@ -69,8 +41,6 @@ pub struct McpServer {
 }
 
 impl McpServer {
-    /// True when the server has the fields its declared transport
-    /// requires. Stdio needs `command`; HTTP needs `url`.
     pub fn is_valid(&self) -> bool {
         match self.transport {
             Transport::Stdio => self.command.is_some(),
@@ -83,19 +53,11 @@ pub fn config_path(vault_root: &Path) -> std::path::PathBuf {
     vault_root.join(MCP_PATH)
 }
 
-/// Parse a config string into [`McpConfig`].
 pub fn parse(input: &str) -> Result<McpConfig> {
     toml::from_str::<McpConfig>(input)
         .map_err(|e| AttuneError::Storage(format!("invalid mcp.toml: {e}")))
 }
 
-/// Read and parse `<vault>/.attune/mcp.toml`. Returns
-/// `Ok(McpConfig { servers: vec![] })` when the file is missing so
-/// callers can treat 'no MCP configured' as a normal state.
-///
-/// # Errors
-///
-/// Returns `Err` if the config file exists but cannot be read or parsed.
 pub fn load(vault_root: &Path) -> Result<McpConfig> {
     let path = config_path(vault_root);
     if !path.exists() {

@@ -1,18 +1,3 @@
-/**
- * GET-134 — Settings → Calendar.
- *
- * Display + per-calendar visibility. Mirrors Granola's layout with two
- * Attune deviations:
- *   1. The "Show events with no participants" toggle is hidden behind
- *      an Advanced disclosure (Tony — 95% of users don't need it).
- *   2. Per-calendar visibility uses smart defaults — when the backend
- *      lands, calendars matching the user's email domain are auto-
- *      enabled, personal/family/holiday calendars auto-disabled.
- *
- * The per-calendar list is a stub until the backend's calendar OAuth
- * + EventKit access endpoints ship (GET-122 epic Sprint 3).
- */
-
 import * as React from "react";
 import { Calendar, ChevronDown, ChevronRight, Eye, ExternalLink } from "lucide-react";
 
@@ -130,16 +115,18 @@ function CalendarVisibilityStub() {
         <div className="flex items-start gap-3">
           <Calendar className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" />
           <div className="flex-1 space-y-1.5">
-            <p className="text-sm font-medium">Grant Calendar access in macOS to see your calendars here</p>
+            <p className="text-sm font-medium">
+              Grant Calendar access in macOS to see your calendars here
+            </p>
             <p className="max-w-prose text-xs text-muted-foreground">
-              Attune reads your macOS Calendar locally — whatever accounts
-              you&apos;ve already added (iCloud, Google, Outlook, CalDAV) appear
-              automatically. Attune does not connect to any cloud calendar
-              itself; your calendar data stays on your Mac.
+              Attune reads your macOS Calendar locally — whatever accounts you&apos;ve
+              already added (iCloud, Google, Outlook, CalDAV) appear automatically.
+              Attune does not connect to any cloud calendar itself; your calendar data
+              stays on your Mac.
               <br />
-              Smart defaults when access is granted: any calendar whose recent
-              events have attendees in your workspace domain is enabled
-              automatically; personal / family / holiday calendars stay off.
+              Smart defaults when access is granted: any calendar whose recent events
+              have attendees in your workspace domain is enabled automatically; personal
+              / family / holiday calendars stay off.
             </p>
             <a
               href="x-apple.systempreferences:com.apple.preference.security?Privacy_Calendars"

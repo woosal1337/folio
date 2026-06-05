@@ -1,25 +1,3 @@
-//! Locate an evidence span inside a transcript. v2 finding 038 / GET-41.
-//!
-//! Every memory, task, and decision Attune emits carries a verbatim
-//! transcript span (see #031 / GET-57). To make those backlinks
-//! actually clickable — "jump to that exact second of audio" — we
-//! need to find which segment the span lives in. This module is the
-//! pure helper.
-//!
-//! Algorithm:
-//!   * Normalise (collapse whitespace, lowercase) both the haystack
-//!     (the channel's joined segment text) and the needle (the span).
-//!   * Find the byte index of the first match.
-//!   * Walk the segments forward, accumulating their normalised text
-//!     lengths, until the cumulative byte index passes the match. That
-//!     segment is the hit.
-//!   * Return the segment index, the original `start_seconds` /
-//!     `end_seconds`, and the channel id ("mic" / "system").
-//!
-//! Per-channel pass: we try each channel in order and return the first
-//! hit. The two channels rarely contain the same speech, so collisions
-//! are not a practical concern.
-
 use super::SessionTranscript;
 use serde::Serialize;
 use ts_rs::TS;
@@ -34,17 +12,12 @@ pub struct TranscriptHit {
     pub matched_text: String,
 }
 
-/// Find which channel + segment the span lives in. Returns None if
-/// the span does not appear in the transcript.
 pub fn locate_span(transcript: &SessionTranscript, span: &str) -> Option<TranscriptHit> {
     let needle = normalize(span);
     if needle.is_empty() {
         return None;
     }
     for channel in &transcript.channels {
-        // Build a cumulative-length table over normalised segment text
-        // joined with single spaces. The byte index of the first
-        // separator after segment i is `cum[i+1] - 1`.
         let mut cum: Vec<usize> = Vec::with_capacity(channel.segments.len() + 1);
         cum.push(0);
         let mut joined = String::new();
@@ -57,8 +30,6 @@ pub fn locate_span(transcript: &SessionTranscript, span: &str) -> Option<Transcr
             cum.push(joined.len());
         }
         if let Some(byte_idx) = joined.find(&needle) {
-            // Walk cum[] to find the segment whose [cum[i]..cum[i+1])
-            // range contains byte_idx.
             let seg_idx = match cum.binary_search_by(|probe| {
                 if *probe <= byte_idx {
                     std::cmp::Ordering::Less
@@ -82,12 +53,6 @@ pub fn locate_span(transcript: &SessionTranscript, span: &str) -> Option<Transcr
     None
 }
 
-/// Best-effort fuzzy locate (GET-198): find the transcript segment that
-/// most overlaps a *paraphrased* query line — an enhanced-note line the AI
-/// wrote, which won't appear verbatim. Scores each segment by shared
-/// content words (≥4 chars, so short stopwords drop out across languages)
-/// and returns the best, or `None` when nothing clears the confidence
-/// floor — so the UI shows no "jump" for a line it can't pin to a moment.
 pub fn locate_fuzzy(transcript: &SessionTranscript, query: &str) -> Option<TranscriptHit> {
     use std::collections::HashSet;
 
@@ -97,8 +62,6 @@ pub fn locate_fuzzy(transcript: &SessionTranscript, query: &str) -> Option<Trans
         return None;
     }
 
-    /// At least this fraction of the line's content words must appear in a
-    /// single segment for it to count as the source.
     const FLOOR: f32 = 0.34;
 
     let mut best_score = 0.0_f32;
@@ -134,12 +97,6 @@ pub fn locate_fuzzy(transcript: &SessionTranscript, query: &str) -> Option<Trans
     }
 }
 
-/// How many distinct transcript segments corroborate a claim — segments
-/// sharing ≥2 content words with it (GET-209). A claim whose evidence shows
-/// up in only ONE segment rests on a single passing remark; the agents flag
-/// it "mentioned once" so a forgotten throwaway line never ambushes the
-/// user. Returns 0 when the claim is too short to judge (so callers don't
-/// flag it).
 pub fn support_count(transcript: &SessionTranscript, claim: &str) -> usize {
     use std::collections::HashSet;
 
@@ -162,9 +119,6 @@ pub fn support_count(transcript: &SessionTranscript, claim: &str) -> usize {
     count
 }
 
-/// Lowercased alphanumeric tokens of length ≥ 4 — the content-bearing
-/// words. The length floor naturally drops most stopwords without a
-/// language-specific list (the transcripts are multilingual).
 fn content_tokens(s: &str) -> Vec<String> {
     s.to_lowercase()
         .split(|c: char| !c.is_alphanumeric())
@@ -233,8 +187,7 @@ mod tests {
     #[test]
     fn fuzzy_locates_paraphrased_line_to_best_segment() {
         let t = fixture();
-        // A paraphrase of segment 1 — no verbatim substring, but shares
-        // the content words "ship"/"redesign"/"Friday".
+
         let hit = locate_fuzzy(&t, "Team agreed to ship the redesign before Friday").unwrap();
         assert_eq!(hit.segment_index, 1);
         assert!((hit.start_seconds - 3.5).abs() < 1e-6);
@@ -243,14 +196,14 @@ mod tests {
     #[test]
     fn fuzzy_returns_none_for_unrelated_line() {
         let t = fixture();
-        // Nothing in the transcript is about budget/quarterly numbers.
+
         assert!(locate_fuzzy(&t, "Quarterly budget projections exceeded estimates").is_none());
     }
 
     #[test]
     fn fuzzy_needs_at_least_two_content_words() {
         let t = fixture();
-        // One content word ("redesign") isn't enough signal to jump.
+
         assert!(locate_fuzzy(&t, "the redesign").is_none());
     }
 
@@ -271,12 +224,11 @@ mod tests {
                 ],
             }],
         };
-        // "redesign" + "launch" recur across two segments → corroborated.
+
         assert_eq!(support_count(&t, "ship the redesign before launch"), 2);
-        // The skydiving aside shares ≥2 content words with exactly one
-        // segment → mentioned once.
+
         assert_eq!(support_count(&t, "skydived over Dubai"), 1);
-        // Too few content words to judge.
+
         assert_eq!(support_count(&t, "Dubai"), 0);
     }
 
@@ -300,8 +252,6 @@ mod tests {
 
     #[test]
     fn span_spanning_segment_boundary_maps_to_first_segment() {
-        // Span crosses segments 1 → 2; the matched start lives in
-        // segment 1 so that's where we point the user.
         let t = fixture();
         let hit = locate_span(&t, "by Friday. Alice will").unwrap();
         assert_eq!(hit.segment_index, 1);

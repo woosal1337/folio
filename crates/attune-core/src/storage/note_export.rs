@@ -1,11 +1,3 @@
-//! Export a note as a clean, self-contained Markdown file (GET-166).
-//!
-//! Local-first sharing: assemble the note's title, date, enhanced-notes
-//! summary, the user's live notes, and the transcript into one Markdown
-//! document and write it next to the recording. The caller then reveals
-//! it or hands it to the OS share sheet. Nothing leaves the machine, so
-//! it's safe under `privacy_mode` with no cloud egress.
-
 use std::path::{Path, PathBuf};
 
 use crate::error::{AttuneError, Result};
@@ -14,8 +6,6 @@ use crate::storage::atomic_write::atomic_write;
 use crate::storage::session::scan_recordings;
 use crate::transcription::SessionTranscript;
 
-/// Build the Markdown document from already-loaded pieces. Pure so the
-/// formatting is unit-testable. Sections with no content are omitted.
 pub fn render_markdown(
     title: &str,
     date_line: Option<&str>,
@@ -54,9 +44,6 @@ pub fn render_markdown(
     out
 }
 
-/// Render a transcript into readable Markdown: one labelled block per
-/// channel ("You" for mic, "Others" for system), segments joined into a
-/// paragraph. `None` when the transcript is missing or empty.
 fn transcript_markdown(session_dir: &Path) -> Option<String> {
     let transcript = SessionTranscript::read_json(&session_dir.join("transcript.json")).ok()?;
     let mut blocks: Vec<String> = Vec::new();
@@ -85,7 +72,6 @@ fn transcript_markdown(session_dir: &Path) -> Option<String> {
     }
 }
 
-/// Read + render the user's live notes for a note, if any.
 fn live_notes_markdown(session_dir: &Path) -> Option<String> {
     let bytes = std::fs::read(session_dir.join("live_notes.json")).ok()?;
     let lines: Vec<crate::live_notes::RawNoteLine> = serde_json::from_slice(&bytes).ok()?;
@@ -96,10 +82,6 @@ fn live_notes_markdown(session_dir: &Path) -> Option<String> {
     Some(crate::live_notes::render_markdown(&notes))
 }
 
-/// Assemble + write the note's Markdown export to
-/// `<session_dir>/<label>.md` and return its path. Reads the title (user
-/// title → autoname → label), the enhanced-notes summary, live notes,
-/// and the transcript from disk.
 pub fn write_markdown(output_dir: &Path, session_dir: &Path) -> Result<PathBuf> {
     let summary_meta = scan_recordings(output_dir)
         .into_iter()

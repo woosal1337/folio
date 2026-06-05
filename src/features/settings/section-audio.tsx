@@ -13,13 +13,7 @@ interface Props {
   onChange: <K extends keyof Settings>(key: K, value: Settings[K]) => void;
 }
 
-/**
- * Audio capture settings — mic device selector, voice processing toggle,
- * and the Discord-style "Test microphone" monitor that plays your mic
- * input back through your speakers/headphones.
- */
 export function SectionAudio({ settings, onChange }: Props) {
-  // ---- Device list --------------------------------------------------
   const [devices, setDevices] = React.useState<DeviceInfo[]>([]);
   React.useEffect(() => {
     listInputDevices()
@@ -27,11 +21,9 @@ export function SectionAudio({ settings, onChange }: Props) {
       .catch(() => {});
   }, []);
 
-  // ---- Mic monitor (loopback test) ----------------------------------
   const [monitoring, setMonitoring] = React.useState(false);
   const [monitorError, setMonitorError] = React.useState<string | null>(null);
 
-  // Stop monitor when the component unmounts (user leaves Settings).
   React.useEffect(() => {
     return () => {
       if (monitoring) {
@@ -59,7 +51,6 @@ export function SectionAudio({ settings, onChange }: Props) {
     <div className="flex flex-col gap-7">
       <h2 className="font-serif text-2xl font-medium">Audio</h2>
 
-      {/* Input device */}
       <section className="space-y-3">
         <Label className="flex items-center gap-2 text-sm font-medium">
           <Mic className="h-4 w-4 text-muted-foreground" />
@@ -82,7 +73,6 @@ export function SectionAudio({ settings, onChange }: Props) {
             ))}
           </select>
 
-          {/* Test mic — Discord-style loopback monitor */}
           <Button
             type="button"
             variant={monitoring ? "destructive" : "outline"}
@@ -104,7 +94,6 @@ export function SectionAudio({ settings, onChange }: Props) {
           </Button>
         </div>
 
-        {/* Live feedback while monitoring */}
         {monitoring ? (
           <p className="text-xs text-primary">
             🎙 Listening — you should hear your mic through your speakers or headphones.
@@ -123,7 +112,6 @@ export function SectionAudio({ settings, onChange }: Props) {
         ) : null}
       </section>
 
-      {/* Voice processing */}
       <section className="space-y-4">
         <div className="flex items-start justify-between gap-6">
           <div className="space-y-1">

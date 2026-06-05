@@ -1,13 +1,3 @@
-/**
- * GET-152 — Chat.
- *
- * A first-class cross-library chat surface: a greeting, a big ask input,
- * a model picker, and recipe quick-actions (List recent todos, Coach me,
- * Write weekly recap, Streamline my calendar, Blind spots). The engine is
- * the `ask_library` command, which packs open tasks + recent meeting
- * summaries + relevant memories into the model's context.
- */
-
 import * as React from "react";
 import { useLocation } from "react-router-dom";
 import {
@@ -39,7 +29,6 @@ import {
   type CoverageNote,
   type UserRecipe,
 } from "@/shared/lib/ipc";
-import { useAuthStore } from "@/shared/stores/auth-store";
 import { confirmDelete } from "@/shared/stores/confirm-delete-store";
 import type { ChatThread } from "@/shared/types/ChatThread";
 import type { ModelInfo } from "@/shared/types/ModelInfo";
@@ -48,11 +37,10 @@ interface Recipe {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   prompt: string;
-  /** True for recipes loaded from .attune/recipes/ (GET-194). */
+
   userDefined?: boolean;
 }
 
-/** Map a kebab-case icon name from a user recipe TOML to a lucide component. */
 function iconForName(
   name: string | null | undefined
 ): React.ComponentType<{ className?: string }> {
@@ -71,7 +59,6 @@ function iconForName(
   }
 }
 
-/** Convert a UserRecipe (from the vault) into the internal Recipe shape. */
 function toRecipe(r: UserRecipe): Recipe {
   return {
     label: r.label,
@@ -119,7 +106,6 @@ interface Msg {
   coverage?: CoverageNote;
 }
 
-/** Coverage panel shown below each library-chat assistant reply (GET-193). */
 function CoveragePanel({ coverage }: { coverage: CoverageNote }) {
   const [open, setOpen] = React.useState(false);
 
@@ -179,7 +165,6 @@ function CoveragePanel({ coverage }: { coverage: CoverageNote }) {
   );
 }
 
-/** Short relative-ish label for a Recents row's updated time. */
 function formatRecentTime(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "";
@@ -187,12 +172,6 @@ function formatRecentTime(iso: string): string {
 }
 
 export default function Chat() {
-  const identity = useAuthStore((s) => s.identity);
-  const firstName = React.useMemo(() => {
-    const name = identity?.display_name?.trim() || identity?.email?.split("@")[0] || "";
-    return name ? name.split(/[\s.]+/)[0] : "";
-  }, [identity]);
-
   const location = useLocation();
   const seed = (location.state as { seed?: string } | null)?.seed;
   const seededRef = React.useRef(false);
@@ -205,7 +184,6 @@ export default function Chat() {
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
 
-  // User-authored recipes from .attune/recipes/ (GET-194).
   const [userRecipes, setUserRecipes] = React.useState<Recipe[]>([]);
   React.useEffect(() => {
     listRecipes()
@@ -213,7 +191,6 @@ export default function Chat() {
       .catch(() => {});
   }, []);
 
-  // Folder scope selector (GET-205): "all" = library, anything else = folder name.
   const [folders, setFolders] = React.useState<string[]>([]);
   const [scopeFolder, setScopeFolder] = React.useState<string>("all");
   React.useEffect(() => {
@@ -222,10 +199,8 @@ export default function Chat() {
       .catch(() => {});
   }, []);
 
-  // All recipes: built-ins first, user-defined appended.
   const allRecipes = React.useMemo(() => [...RECIPES, ...userRecipes], [userRecipes]);
 
-  // Slash-command palette (GET-192).
   const [paletteOpen, setPaletteOpen] = React.useState(false);
   const [paletteQuery, setPaletteQuery] = React.useState("");
   const [paletteIndex, setPaletteIndex] = React.useState(0);
@@ -236,9 +211,6 @@ export default function Chat() {
     return allRecipes.filter((r) => r.label.toLowerCase().includes(q));
   }, [allRecipes, paletteQuery]);
 
-  // Persisted conversation (GET-167): a thread id + creation time we keep
-  // stable across turns so each save upserts the same file, plus the
-  // Recents list shown in the header.
   const threadIdRef = React.useRef<string | null>(null);
   const createdAtRef = React.useRef<string | null>(null);
   const [recents, setRecents] = React.useState<ChatThread[]>([]);
@@ -269,7 +241,6 @@ export default function Chat() {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
   }, [messages, busy]);
 
-  // Persist the conversation after each completed turn (GET-167).
   const persist = React.useCallback(
     (msgs: Msg[]) => {
       if (msgs.length === 0) return;
@@ -317,7 +288,6 @@ export default function Chat() {
       setBusy(true);
 
       try {
-        // GET-205: use folder-scoped chat when a folder is selected.
         const { answer, coverage } =
           scopeFolder !== "all"
             ? await askFolder(scopeFolder, q, history, model || undefined)
@@ -379,7 +349,6 @@ export default function Chat() {
     [loadRecents, newChat]
   );
 
-  // Auto-ask the seed passed from the Home Ask bar (GET-156), once.
   React.useEffect(() => {
     if (seed && !seededRef.current) {
       seededRef.current = true;
@@ -392,9 +361,7 @@ export default function Chat() {
   return (
     <div className="mx-auto flex h-full w-full max-w-3xl flex-col px-8 py-8">
       <header data-drag="" className="flex select-none items-center justify-between">
-        <h1 className="font-serif text-3xl font-medium tracking-tight">
-          {firstName ? `Hi ${firstName}, ask anything` : "Ask anything"}
-        </h1>
+        <h1 className="font-serif text-3xl font-medium tracking-tight">Ask anything</h1>
         <div className="flex items-center gap-1.5">
           <Button
             variant="ghost"
@@ -464,7 +431,7 @@ export default function Chat() {
               </>
             ) : null}
           </div>
-          {/* Folder scope selector (GET-205) */}
+
           {folders.length > 0 ? (
             <select
               value={scopeFolder}
@@ -552,7 +519,6 @@ export default function Chat() {
         ) : null}
       </div>
 
-      {/* Slash-command recipe palette (GET-192) */}
       {paletteOpen && paletteMatches.length > 0 ? (
         <div
           role="listbox"

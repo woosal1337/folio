@@ -1,30 +1,3 @@
-//! Diarization model registry, on-disk layout, and downloader.
-//!
-//! Two models drive the pipeline:
-//!
-//! 1. **Segmentation** — pyannote-segmentation-3.0 ONNX (MIT). Powerset
-//!    7-class model that detects up to three concurrent speakers per
-//!    10 s window. ~6 MB on disk.
-//! 2. **Embedding** — WeSpeaker ResNet34-LM (Apache-2.0). 256-dim
-//!    speaker embeddings, 0.72 % EER on VoxCeleb1-O. ~26 MB on disk.
-//!
-//! silero-vad is intentionally NOT here — it ships embedded inside the
-//! `voice_activity_detector` crate (~1.6 MB inside the binary) and is
-//! already plumbed by `audio::vad_filter`.
-//!
-//! Models live in `~/Library/Application Support/Attune/models/diarization/`
-//! on macOS. The downloader writes to `.part` and atomic-renames into
-//! place so a mid-download crash leaves a partial file rather than a
-//! truncated model the runtime would fail to load on next launch — the
-//! same pattern `transcription::models` uses for the Whisper GGMLs.
-//!
-//! ## sha256 hashes
-//!
-//! `expected_sha256` is `None` until P0b records the verified hash for
-//! the published model file. Until then `download` skips verification.
-//! Once the first model is downloaded and verified manually, the hash
-//! is hardcoded here and verification becomes mandatory.
-
 use std::fs;
 use std::io::Read;
 use std::path::{Path, PathBuf};
@@ -36,21 +9,14 @@ use ts_rs::TS;
 
 use crate::error::{AttuneError, Result};
 
-/// Connection timeout for the download. Body timeout is intentionally
-/// absent — slow links can take many minutes for the 26 MB embedding
-/// model.
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(30);
 
-/// The two ONNX models the diarization pipeline depends on. Variants
-/// are stable identifiers used by `Settings.diarization` and the Tauri
-/// command surface.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../src/shared/types/")]
 #[serde(rename_all = "kebab-case")]
 pub enum DiarizationModel {
-    /// pyannote-segmentation-3.0, ONNX export. MIT.
     Segmentation,
-    /// WeSpeaker ResNet34-LM (VoxCeleb1-O EER 0.72 %), ONNX. Apache-2.0.
+
     EmbeddingResnet34Lm,
 }
 
@@ -72,7 +38,6 @@ impl DiarizationModel {
         }
     }
 
-    /// Human-readable label for the download-progress UI.
     pub fn label(self) -> &'static str {
         match self {
             Self::Segmentation => "Speaker segmentation",
@@ -80,8 +45,6 @@ impl DiarizationModel {
         }
     }
 
-    /// File the model is written to on disk. Stable across versions of
-    /// `attune-core` so a user's existing download survives upgrades.
     fn filename(self) -> &'static str {
         match self {
             Self::Segmentation => "pyannote_segmentation_3_0.onnx",
@@ -89,26 +52,13 @@ impl DiarizationModel {
         }
     }
 
-    /// Upstream URL. Both point at the exact single-file ONNX exports
-    /// sherpa-onnx's runtime expects.
-    ///
-    /// The segmentation model MUST be sherpa-onnx's own export, not the
-    /// generic onnx-community one — they differ byte-for-byte and only the
-    /// sherpa export loads in `OfflineSpeakerDiarization` (verified: the
-    /// onnx-community file hashes 057ee564…, the working one 220ad67c…).
-    /// `csukuangfj` (the sherpa-onnx author) mirrors the extracted
-    /// `model.onnx` on HuggingFace, so we get the right file as a single
-    /// download without pulling tar/bzip2 deps for the release bundle.
     fn url(self) -> &'static str {
         match self {
             Self::Segmentation => {
                 "https://huggingface.co/csukuangfj/\
                  sherpa-onnx-pyannote-segmentation-3-0/resolve/main/model.onnx"
             }
-            // sherpa-onnx mirrors WeSpeaker's official ONNX. Same SHA-256
-            // as the HuggingFace original. The release-tag segment below is
-            // spelled exactly as upstream published it — do not "fix" its
-            // spelling or the download 404s.
+
             Self::EmbeddingResnet34Lm => {
                 "https://github.com/k2-fsa/sherpa-onnx/releases/download/\
                  speaker-recongition-models/wespeaker_en_voxceleb_resnet34_LM.onnx"
@@ -116,8 +66,6 @@ impl DiarizationModel {
         }
     }
 
-    /// Exact published size in bytes (confirmed against the live files),
-    /// used to drive the progress UI when the server omits Content-Length.
     pub fn approx_bytes(self) -> u64 {
         match self {
             Self::Segmentation => 5_992_913,
@@ -125,12 +73,6 @@ impl DiarizationModel {
         }
     }
 
-    /// Hex-encoded SHA-256 of the canonical published file. Verified by
-    /// downloading each URL and hashing it against the known-good models
-    /// staged locally (both confirmed to drive the runtime end to end).
-    /// [`download`] rejects any mismatch, so a corrupted or swapped file
-    /// can never reach `OfflineSpeakerDiarization` — which would otherwise
-    /// `abort()` the whole process on a malformed ONNX.
     fn expected_sha256(self) -> Option<&'static str> {
         match self {
             Self::Segmentation => {
@@ -143,7 +85,6 @@ impl DiarizationModel {
     }
 }
 
-/// On-disk status of a single model.
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../src/shared/types/")]
 pub struct DiarizationModelStatus {
@@ -155,16 +96,12 @@ pub struct DiarizationModelStatus {
     pub approx_total_bytes: u64,
 }
 
-/// Progress callback shape — same fields as
-/// `transcription::models::DownloadProgress` for callsite parity.
 #[derive(Debug, Clone, Copy)]
 pub struct DownloadProgress {
     pub downloaded: u64,
     pub total: Option<u64>,
 }
 
-/// Knows where the diarization model directory lives and how to fetch
-/// each model.
 pub struct DiarizationModelStore {
     root: PathBuf,
 }
@@ -174,10 +111,6 @@ impl DiarizationModelStore {
         Self { root: root.into() }
     }
 
-    /// Default store rooted at the platform's standard config
-    /// directory. Sits *alongside* the whisper store (under the same
-    /// `models/` parent) so a future cleanup tool can sweep both at
-    /// once.
     pub fn default_location() -> Self {
         Self::new(default_models_dir())
     }
@@ -190,7 +123,6 @@ impl DiarizationModelStore {
         self.root.join(model.filename())
     }
 
-    /// Single `metadata()` call per model. No bytes read.
     pub fn status(&self, model: DiarizationModel) -> DiarizationModelStatus {
         let path = self.path_for(model);
         let meta = fs::metadata(&path).ok();
@@ -204,8 +136,6 @@ impl DiarizationModelStore {
         }
     }
 
-    /// Status for every model the runtime needs. The runtime is ready
-    /// when every entry's `present` is true.
     pub fn status_all(&self) -> Vec<DiarizationModelStatus> {
         DiarizationModel::ALL
             .iter()
@@ -213,16 +143,10 @@ impl DiarizationModelStore {
             .collect()
     }
 
-    /// True iff every required model is on disk.
     pub fn is_ready(&self) -> bool {
         self.status_all().iter().all(|s| s.present)
     }
 
-    /// Download `model` to disk, streaming the body and reporting
-    /// progress. Writes to `<filename>.part` and atomic-renames into
-    /// place so a mid-download crash leaves a partial file (which
-    /// [`clean_partials`] can sweep) rather than a truncated ONNX the
-    /// runtime would fail to load.
     pub fn download<F: FnMut(DownloadProgress)>(
         &self,
         model: DiarizationModel,
@@ -309,8 +233,6 @@ impl DiarizationModelStore {
                 "diarization model verified"
             );
         } else {
-            // P0: hashes not yet recorded. Log the value so the
-            // downloader operator can paste it into `expected_sha256`.
             info!(
                 model = model.id(),
                 sha256 = got,
@@ -334,8 +256,6 @@ impl DiarizationModelStore {
         Ok(target)
     }
 
-    /// Best-effort sweep of stale `.onnx.part` files from prior crashed
-    /// downloads. Logged, never returned as an error.
     pub fn clean_partials(&self) {
         let Ok(entries) = fs::read_dir(&self.root) else {
             return;
@@ -429,10 +349,6 @@ mod tests {
 
     #[test]
     fn url_points_at_canonical_publishers() {
-        // Sanity check: if either URL changes upstream we want a
-        // compile-time literal change, not a silent breakage. The
-        // segmentation model must be sherpa-onnx's own export (the
-        // `csukuangfj` mirror), never the incompatible onnx-community one.
         assert!(DiarizationModel::Segmentation
             .url()
             .contains("huggingface.co"));
@@ -455,10 +371,6 @@ mod tests {
 
     #[test]
     fn every_model_has_a_pinned_sha256() {
-        // Verification is mandatory: a swapped/corrupt ONNX must be
-        // rejected before it reaches sherpa, which aborts the process on
-        // a malformed model. Hashes are the byte-for-byte values of the
-        // files confirmed to drive the runtime.
         for m in DiarizationModel::ALL {
             let hash = m.expected_sha256();
             assert!(hash.is_some(), "{} has no pinned sha256", m.id());

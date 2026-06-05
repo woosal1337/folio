@@ -1,14 +1,3 @@
-/**
- * Global Cmd-K command palette tokens. v2 finding 007 / GET-26.
- *
- * Spotlight-grade fuzzy palette across recordings, tasks, memories,
- * agent runs, and verbs. Doubles as entry to cross-library Ask.
- *
- * This module owns the source-agnostic data model + fuzzy scorer.
- * The palette component (Cmd-K overlay) consumes a `CommandSource`
- * per data type — those live in the route files that own the data.
- */
-
 export type CommandKind =
   | "recording"
   | "task"
@@ -30,29 +19,10 @@ export interface CommandItem {
 export interface CommandSource {
   kind: CommandKind;
   load: () => Promise<CommandItem[]>;
-  /**
-   * Optional query-aware search (GET-165). Sources that can't index
-   * everything up-front (e.g. transcript bodies) implement this; the
-   * palette calls it, debounced, as the query changes and merges the
-   * results with the statically-loaded items. Items returned here are
-   * assumed already relevant — their snippet should contain the query.
-   */
+
   search?: (query: string) => Promise<CommandItem[]>;
 }
 
-/**
- * Token-set fuzzy match score. Returns 0 when the query has tokens
- * not present in the haystack, otherwise a positive score that
- * rewards prefix matches and contiguous runs.
- *
- * Algorithm (Spotlight-flavoured, deliberately small):
- *   - lowercase everything, split query on whitespace.
- *   - every query token must appear in the haystack as a substring.
- *   - score += 100 per token that prefix-matches a haystack word.
- *   - score += 30 per token that matches anywhere.
- *   - score += 10 bonus when consecutive query tokens land in the
- *     same haystack word.
- */
 export function scoreFuzzy(query: string, haystack: string): number {
   const q = query.trim().toLowerCase();
   if (q.length === 0) return 1;
@@ -80,12 +50,6 @@ export function scoreFuzzy(query: string, haystack: string): number {
   return score;
 }
 
-/**
- * Rank a candidate set against `query`. Returns items sorted by
- * descending score with zero-score entries dropped. Stable: equal
- * scores keep their input order so the upstream "default" ordering
- * carries through.
- */
 export function rank(items: CommandItem[], query: string): CommandItem[] {
   if (query.trim().length === 0) return items;
   const scored = items.map((item, idx) => {
@@ -98,12 +62,6 @@ export function rank(items: CommandItem[], query: string): CommandItem[] {
     .map((s) => s.item);
 }
 
-/**
- * The verbs that always appear in the palette regardless of indexed
- * data: Start recording, Open Inbox, etc. Mirrors the keyboard
- * shortcut catalogue from #008 / GET-32 so a user who memorises
- * either surface stays consistent.
- */
 export function verbSource(actions: {
   startRecording: () => void;
   openChat: () => void;

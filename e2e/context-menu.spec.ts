@@ -1,8 +1,3 @@
-/**
- * Right-click context menu on a note row (My Notes): quick actions —
- * Open, Move to folder, Re-transcribe, Reveal, Delete.
- */
-
 import { expect, test } from "@playwright/test";
 
 import { setupScenario } from "./fixtures/scenario";
@@ -42,7 +37,6 @@ test("Delete from the context menu routes through the confirm dialog", async ({
   await page.getByText("Quarterly review").first().click({ button: "right" });
   await page.getByRole("menuitem", { name: /delete note/i }).click();
 
-  // The confirmation dialog pops — nothing deleted until confirmed.
   await expect(page.getByRole("dialog").getByText(/delete this note/i)).toBeVisible();
 });
 

@@ -1,22 +1,4 @@
 #!/usr/bin/env node
-/**
- * Voice-fixture generator for the e2e suite.
- *
- * Generates a small bank of TTS audio clips via the ElevenLabs API
- * (multi-language, multi-context) into `e2e/fixtures/audio/`. The
- * filename is deterministic per fixture id; if the file already
- * exists on disk, the entry is skipped — running this script twice
- * never burns extra ElevenLabs credits.
- *
- * Usage:
- *
- *   # Put ELEVENLABS_API_KEY in .env.e2e (gitignored) then:
- *   bun run e2e:fixtures
- *
- * The fixture catalogue + voice picks live in CATALOG below. Add new
- * entries with stable ids; the script will only generate the new
- * ones on the next run.
- */
 
 import { promises as fs } from "node:fs";
 import { spawn } from "node:child_process";
@@ -28,29 +10,14 @@ const REPO_ROOT = path.resolve(__dirname, "..");
 const OUTPUT_DIR = path.join(REPO_ROOT, "e2e", "fixtures", "audio");
 const MANIFEST_PATH = path.join(OUTPUT_DIR, "manifest.json");
 
-// ElevenLabs default voices. These IDs are stable across the API
-// surface; if any are deprecated the script will fail loudly and
-// you can swap to a still-supported voice from
-// https://elevenlabs.io/docs/api-reference/get-voices.
 const VOICES = {
-  rachel: "21m00Tcm4TlvDq8ikWAM",   // American English, calm — narration default
-  domi: "AZnzlk1XvdvUeBnXmlld",     // American English, strong
-  bella: "EXAVITQu4vr4xnSDxMaL",    // American English, soft
-  adam: "pNInz6obpgDQGcFmaJgB",     // American English, deep
-  antoni: "ErXwobaYiN019PkySvjV",   // American English, well-rounded
+  rachel: "21m00Tcm4TlvDq8ikWAM", // American English, calm — narration default
+  domi: "AZnzlk1XvdvUeBnXmlld", // American English, strong
+  bella: "EXAVITQu4vr4xnSDxMaL", // American English, soft
+  adam: "pNInz6obpgDQGcFmaJgB", // American English, deep
+  antoni: "ErXwobaYiN019PkySvjV", // American English, well-rounded
 };
 
-/**
- * Each fixture is rendered to `<id>.mp3`. The text is short — long
- * enough to read like a meeting snippet but short enough to keep
- * the files <100 KB on disk so they live inside the repo cache
- * without bloat. (Note: still gitignored; we cache them per dev
- * machine.)
- *
- * `model_id`: ElevenLabs supports `eleven_multilingual_v2` (best
- * for non-English) and `eleven_turbo_v2_5` (fast, mostly English).
- * We pick per-fixture so multi-language clips sound natural.
- */
 const CATALOG = [
   {
     id: "en-business-1min",
@@ -135,7 +102,7 @@ const CATALOG = [
     language: "fr",
     context: "pitch",
     text:
-      "Notre produit garde toutes les transcriptions sur votre Mac. Pas de cloud, pas de bots, " +
+      "Notre produit garde toutes les transcriptions sure votre Mac. Pas de cloud, pas de bots, " +
       "pas de comptes obligatoires pour commencer.",
   },
   {
@@ -154,8 +121,7 @@ const CATALOG = [
     model_id: "eleven_multilingual_v2",
     language: "ja",
     context: "greeting",
-    text:
-      "こんにちは、本日の会議へようこそ。まずは前回のアクションアイテムを確認しましょう。",
+    text: "こんにちは、本日の会議へようこそ。まずは前回のアクションアイテムを確認しましょう。",
   },
 ];
 
@@ -172,9 +138,7 @@ async function loadEnv() {
       const v = trimmed.slice(eq + 1).trim();
       if (!(k in process.env)) process.env[k] = v;
     }
-  } catch {
-    // .env.e2e is optional — the env var can come from the shell.
-  }
+  } catch {}
 }
 
 async function exists(p) {
@@ -186,20 +150,12 @@ async function exists(p) {
   }
 }
 
-/**
- * Transcode an MP3 to 16 kHz mono signed-16 WAV — exactly the shape
- * `attune_core::transcription::local::decode_wav_to_mono_f32`
- * expects. Used so the Rust transcription integration tests can run
- * the real whisper.cpp pipeline against these fixtures without any
- * decode step of their own. Skipped if ffmpeg is missing (the WAV
- * fixtures are optional; MP3s are the source of truth).
- */
 function mp3ToWav(mp3Path, wavPath) {
   return new Promise((resolve, reject) => {
     const ff = spawn(
       "ffmpeg",
       ["-y", "-i", mp3Path, "-ac", "1", "-ar", "16000", "-sample_fmt", "s16", wavPath],
-      { stdio: ["ignore", "ignore", "pipe"] },
+      { stdio: ["ignore", "ignore", "pipe"] }
     );
     let stderr = "";
     ff.stderr.on("data", (d) => (stderr += d.toString()));
@@ -251,23 +207,17 @@ async function main() {
   await loadEnv();
   const apiKey = process.env.ELEVENLABS_API_KEY;
   if (!apiKey) {
-    console.error(
-      "missing ELEVENLABS_API_KEY (put it in .env.e2e at the repo root)",
-    );
+    console.error("missing ELEVENLABS_API_KEY (put it in .env.e2e at the repo root)");
     process.exit(1);
   }
 
   await fs.mkdir(OUTPUT_DIR, { recursive: true });
 
-  // Load + maintain a manifest so the e2e suite can list available
-  // fixtures + their metadata without re-running this script.
   let manifest = { generated_at: null, fixtures: {} };
   if (await exists(MANIFEST_PATH)) {
     try {
       manifest = JSON.parse(await fs.readFile(MANIFEST_PATH, "utf8"));
-    } catch {
-      // Corrupt manifest — rebuild.
-    }
+    } catch {}
   }
 
   const ffmpegAvailable = await hasFfmpeg();
@@ -289,7 +239,9 @@ async function main() {
       skipped += 1;
       console.log(`  skip  ${filename} (cached)`);
     } else {
-      process.stdout.write(`  gen   ${filename} (${fx.language}, ${fx.text.length} chars)…`);
+      process.stdout.write(
+        `  gen   ${filename} (${fx.language}, ${fx.text.length} chars)…`
+      );
       const buf = await ttsViaElevenLabs({
         apiKey,
         voice: fx.voice,
@@ -301,9 +253,6 @@ async function main() {
       process.stdout.write(` ${(buf.length / 1024).toFixed(1)} KB\n`);
     }
 
-    // Always (re)derive the WAV when ffmpeg exists and it's missing —
-    // cheap + idempotent. The WAV is the input for the Rust whisper
-    // integration tests.
     let transcript_text = fx.text;
     if (ffmpegAvailable && !(await exists(wavPath))) {
       try {
@@ -322,9 +271,7 @@ async function main() {
       context: fx.context,
       voice: fx.voice,
       chars: fx.text.length,
-      // The exact prompt text is kept so the Rust transcription
-      // tests can assert the whisper output contains expected
-      // keywords from it (case-insensitive substring match).
+
       transcript_text,
     };
   }
@@ -334,7 +281,7 @@ async function main() {
 
   console.log("");
   console.log(
-    `done. ${generated} mp3 generated, ${skipped} cached, ${wavMade} wav transcoded.`,
+    `done. ${generated} mp3 generated, ${skipped} cached, ${wavMade} wav transcoded.`
   );
   console.log(`manifest at ${path.relative(REPO_ROOT, MANIFEST_PATH)}`);
 }

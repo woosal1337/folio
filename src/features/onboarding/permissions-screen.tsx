@@ -1,26 +1,3 @@
-/**
- * GET-125 — Permissions screen rebuild (Granola-style two-row card,
- * but moved BEFORE signup per Mira + Sasha consensus). Honest labels
- * ("My microphone" / "The meeting audio") + per-row state machine
- * (not-asked → asking → granted, with a re-prompt affordance) +
- * VoiceOver-readable transitions.
- *
- * Replaces the permissions block in the legacy
- * `src/features/onboarding/first-run.tsx`. Called as its own step
- * in the new onboarding state machine; can be re-entered later
- * from Settings → Profile.
- *
- * Persona contracts:
- *  - Anya: row labels do not lie — "The meeting audio" not
- *    "Transcribe other people's voices" (system audio includes
- *    the user's own echo).
- *  - Sasha: the copy under the heading places the privacy claim
- *    visible to the user BEFORE they click anything. We do not
- *    have telemetry, so the wording can be terser than Granola's.
- *  - Kenji: every state transition announces via VoiceOver and
- *    each row is keyboard-focusable in order.
- */
-
 import * as React from "react";
 import { Check, Loader2, Mic, Monitor, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
@@ -35,8 +12,8 @@ type Slot = "microphone" | "screen_recording";
 
 interface SlotConfig {
   slot: Slot;
-  title: string;                 // honest label, not the verb
-  description: string;           // single sentence, screen-reader friendly
+  title: string; // honest label, not the verb
+  description: string; // single sentence, screen-reader friendly
   icon: React.ComponentType<{ className?: string }>;
 }
 
@@ -50,18 +27,15 @@ const SLOTS: SlotConfig[] = [
   {
     slot: "screen_recording",
     title: "The meeting audio",
-    description: "Capture what the other participants say — through your computer's audio.",
+    description:
+      "Capture what the other participants say — through your computer's audio.",
     icon: Monitor,
   },
 ];
 
 interface Props {
   onContinue: () => void;
-  /**
-   * Optional skip handler. The user can finish onboarding without
-   * granting permissions — every record attempt will re-prompt
-   * downstream. Hidden when `onContinue` should be the only exit.
-   */
+
   onSkip?: () => void;
 }
 
@@ -78,8 +52,6 @@ export function PermissionsScreen({ onContinue, onSkip }: Props) {
     }
   }, []);
 
-  // Re-poll on focus — when the user returns from System Settings
-  // we want the row to flip to ✓ Granted without requiring a click.
   React.useEffect(() => {
     void refresh();
     const onFocus = () => void refresh();
@@ -93,21 +65,16 @@ export function PermissionsScreen({ onContinue, onSkip }: Props) {
     return map;
   }, [rows]);
 
-  const allGranted = SLOTS.every(
-    (s) => byPermission.get(s.slot)?.status === "granted"
-  );
+  const allGranted = SLOTS.every((s) => byPermission.get(s.slot)?.status === "granted");
 
   const handleEnable = async (slot: Slot) => {
     setPending((s) => new Set(s).add(slot));
     try {
       await openPermissionSettings(slot);
-      // System Settings opens; we'll re-poll when the user returns.
     } catch (e) {
       console.error("open_permission_settings:", e);
       toast.error("Could not open System Settings", { description: String(e) });
     } finally {
-      // Drop pending after a beat so the spinner doesn't hang if the
-      // user dismisses the System Settings window without granting.
       window.setTimeout(() => {
         setPending((s) => {
           const next = new Set(s);

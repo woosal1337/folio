@@ -2,10 +2,5 @@
 import type { ChatRole } from "./ChatRole";
 import type { ToolCall } from "./ToolCall";
 
-/**
- * One message in a chat conversation. `content` may be empty when the
- * assistant turn is purely a tool call. `tool_calls` carries the
- * model's request to invoke one or more declared tools. `tool_call_id`
- * pairs a `Tool`-role message back to the call it answers.
- */
+
 export type ChatMessage = { role: ChatRole, content: string, tool_calls: Array<ToolCall> | null, tool_call_id: string | null, };

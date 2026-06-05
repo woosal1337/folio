@@ -142,7 +142,7 @@ src/
 - `captions.json` — captions window. Renderer only; no fs / opener grants.
 - `preferences.json` — Cmd-, NSWindow. No fs (everything funnels through
   canonicalised Tauri commands); opener limited to docs + Apple system settings.
-- `secondary.json` — record-*, library-standalone, editor-* secondary windows
+- `secondary.json` — record-_, library-standalone, editor-_ secondary windows
   from GET-48. Same surface as main minus the home-recursive fs grants.
 
 Add new URL schemes via the relevant capability file's
@@ -278,11 +278,11 @@ gates run on every commit, well before CI sees the branch.
 
 This project tracks work in three places that round-trip:
 
-| Layer                                                                                                 | What lives there                                                                              |
-| ----------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| **Linear** ([Attune v2 Roadmap](https://linear.app/getattune/project/attune-v2-roadmap-2157bd3be9d8)) | Status, priority, assignment. The live source of truth. Issues are `GET-<n>` (e.g. `GET-29`). |
-| **Obsidian vault** (`projects/attune/plan/`)                                                          | Long-form rationale, lens citations, conflicts, prose. Stable canonical write-up.             |
-| **GitHub** (`woosal1337/attune`)                                                                      | Code. PRs link back to Linear via the `GET-<n>` identifier.                                   |
+| Layer                                        | What lives there                                                                              |
+| -------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| **Issue tracker**                            | Status, priority, assignment. The live source of truth. Issues are `GET-<n>` (e.g. `GET-29`). |
+| **Obsidian vault** (`projects/attune/plan/`) | Long-form rationale, lens citations, conflicts, prose. Stable canonical write-up.             |
+| **GitHub** (`woosal1337/attune`)             | Code. PRs link back to Linear via the `GET-<n>` identifier.                                   |
 
 ### Workflow for a new feature
 
@@ -325,7 +325,7 @@ a corresponding issue.
 ```markdown
 ## Summary
 
-Closes [GET-<n>](https://linear.app/getattune/issue/GET-<n>).
+Closes GET-<n>.
 
 <1-3 bullets summarising the change>
 
@@ -452,9 +452,9 @@ The following capabilities were explicitly removed from the roadmap.
 Future agents should not re-introduce them without an updated decision
 record in the vault under `projects/attune/notes/`.
 
-| Capability | Removed in | Replaced by | Reason |
-|---|---|---|---|
-| `attune-api` cloud sync service | v2 finding R01 / GET-119 | Git remote sync (#072 / GET-72) | Duplicates `git push`. Introduces account, server, billing surface, attack surface, and outage mode. Sync over the user's own git remote covers the same use case with zero new server infrastructure. |
-| In-app Settings modal | v2 finding R10 / GET-116 | Real Preferences NSWindow (#020 / GET-86) | Cmd-, now opens a separate 640×520 NSWindow rendered at `/preferences-window`. The in-app modal stays for one release as a fallback, then gets removed in a tiny cleanup PR. |
-| Flat reverse-chronological `/ai` page | v2 finding R04 / GET-120 + GET-50 | Unified `/inbox` route with today's open actions + run-cards | The flat agent-runs list was a debugging artifact. The Inbox shows what needs you today, and the editor's run-cards subsume the old per-recording detail. |
-| Manual "Reindex" memory button | v2 finding R04 / GET-40 | Debounced fs-watch + auto-reindex orchestrator | The manual button was a debugging artifact. External edits (Obsidian, `git pull`) now trigger a debounced background reindex automatically. |
+| Capability                            | Removed in                        | Replaced by                                                  | Reason                                                                                                                                                                                                 |
+| ------------------------------------- | --------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `attune-api` cloud sync service       | v2 finding R01 / GET-119          | Git remote sync (#072 / GET-72)                              | Duplicates `git push`. Introduces account, server, billing surface, attack surface, and outage mode. Sync over the user's own git remote covers the same use case with zero new server infrastructure. |
+| In-app Settings modal                 | v2 finding R10 / GET-116          | Real Preferences NSWindow (#020 / GET-86)                    | Cmd-, now opens a separate 640×520 NSWindow rendered at `/preferences-window`. The in-app modal stays for one release as a fallback, then gets removed in a tiny cleanup PR.                           |
+| Flat reverse-chronological `/ai` page | v2 finding R04 / GET-120 + GET-50 | Unified `/inbox` route with today's open actions + run-cards | The flat agent-runs list was a debugging artifact. The Inbox shows what needs you today, and the editor's run-cards subsume the old per-recording detail.                                              |
+| Manual "Reindex" memory button        | v2 finding R04 / GET-40           | Debounced fs-watch + auto-reindex orchestrator               | The manual button was a debugging artifact. External edits (Obsidian, `git pull`) now trigger a debounced background reindex automatically.                                                            |

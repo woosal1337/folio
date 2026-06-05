@@ -1,11 +1,3 @@
-//! On-disk persistence for agent runs against a recording.
-//!
-//! Phase 1.5 MVP design: one JSON file per (recording, agent), at
-//! `<recording_session_dir>/agent_runs/<agent_id>.json`. Re-running an
-//! agent overwrites its file — we only keep the latest result for the
-//! MVP. Multi-history persistence + the vault-rooted location described
-//! in the plan land in phase 3.
-
 use std::path::{Path, PathBuf};
 
 use chrono::{DateTime, Utc};
@@ -15,11 +7,8 @@ use ts_rs::TS;
 use crate::error::{AttuneError, Result};
 use crate::llm::ProviderId;
 
-/// Subdirectory inside each recording where agent results live. Hidden
-/// from the user's `ls` by convention but easy to spot in Finder.
 const AGENT_RUNS_DIR: &str = "agent_runs";
 
-/// One agent's most recent run on a recording. Persisted as JSON.
 #[derive(Clone, Debug, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../src/shared/types/")]
 pub struct AgentRun {
@@ -27,32 +16,26 @@ pub struct AgentRun {
     pub agent_name: String,
     pub provider: ProviderId,
     pub model: String,
-    /// The model's response text. Markdown is allowed and expected.
+
     pub response: String,
-    /// Set if the provider returned token usage.
+
     pub prompt_tokens: Option<u32>,
     pub completion_tokens: Option<u32>,
-    /// ISO-8601 timestamp the run finished at.
+
     pub finished_at: DateTime<Utc>,
 }
 
-/// Read/write [`AgentRun`] artifacts under a recording's session dir.
 pub struct AgentRunStore;
 
 impl AgentRunStore {
-    /// Path to the agent-runs subdirectory inside a recording.
     pub fn dir(session_dir: &Path) -> PathBuf {
         session_dir.join(AGENT_RUNS_DIR)
     }
 
-    /// Path to a specific agent's run file.
     pub fn path(session_dir: &Path, agent_id: &str) -> PathBuf {
         Self::dir(session_dir).join(format!("{}.json", agent_id))
     }
 
-    /// Persist a run. Creates the agent_runs/ directory if missing.
-    /// Atomic-ish (write to temp + rename) so a crash mid-write cannot
-    /// leave a half-written JSON file.
     pub fn save(session_dir: &Path, run: &AgentRun) -> Result<PathBuf> {
         let dir = Self::dir(session_dir);
         std::fs::create_dir_all(&dir).map_err(|e| {
@@ -79,10 +62,6 @@ impl AgentRunStore {
         Ok(final_path)
     }
 
-    /// Load all agent runs for a recording. Returns an empty vec if the
-    /// agent_runs/ directory does not exist. Files that fail to parse
-    /// are skipped (with a tracing warning); we never fail the whole
-    /// list because of one corrupt file.
     pub fn list(session_dir: &Path) -> Result<Vec<AgentRun>> {
         let dir = Self::dir(session_dir);
         if !dir.is_dir() {
@@ -126,8 +105,6 @@ impl AgentRunStore {
         Ok(out)
     }
 
-    /// Delete the saved run for a single agent on a recording.
-    /// Idempotent — succeeds whether the file existed or not.
     pub fn delete(session_dir: &Path, agent_id: &str) -> Result<()> {
         let path = Self::path(session_dir, agent_id);
         match std::fs::remove_file(&path) {
@@ -192,22 +169,22 @@ mod tests {
     #[test]
     fn delete_is_idempotent() {
         let dir = TempDir::new().unwrap();
-        AgentRunStore::delete(dir.path(), "summarize").unwrap(); // no-op
+        AgentRunStore::delete(dir.path(), "summarize").unwrap();
         AgentRunStore::save(dir.path(), &sample_run()).unwrap();
         AgentRunStore::delete(dir.path(), "summarize").unwrap();
-        AgentRunStore::delete(dir.path(), "summarize").unwrap(); // no-op again
+        AgentRunStore::delete(dir.path(), "summarize").unwrap();
         assert!(AgentRunStore::list(dir.path()).unwrap().is_empty());
     }
 
     #[test]
-    fn list_skips_unparseable_files() {
+    fn list_skips_unparsable_files() {
         let dir = TempDir::new().unwrap();
         let runs_dir = AgentRunStore::dir(dir.path());
         std::fs::create_dir_all(&runs_dir).unwrap();
         std::fs::write(runs_dir.join("garbage.json"), "this is not json").unwrap();
         AgentRunStore::save(dir.path(), &sample_run()).unwrap();
         let runs = AgentRunStore::list(dir.path()).unwrap();
-        // The good one survives, the garbage one is dropped.
+
         assert_eq!(runs.len(), 1);
     }
 }

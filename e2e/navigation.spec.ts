@@ -1,8 +1,3 @@
-/**
- * Sidebar navigation — every surviving route renders, and the surfaces
- * retired by the Granola overhaul (Record / Inbox / Chat tabs) are gone.
- */
-
 import { expect, test } from "@playwright/test";
 
 import { setupScenario } from "./fixtures/scenario";

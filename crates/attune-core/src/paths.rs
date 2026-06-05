@@ -1,24 +1,7 @@
-//! Path containment helpers. `docs/CODE_STYLE.md` §8.1 requires every
-//! command that accepts a path to canonicalise it and verify it lives
-//! under the configured root. `strip_prefix`/`starts_with` defences
-//! defeat under symlinks; canonicalisation closes that gap.
-
 use std::path::{Path, PathBuf};
 
 use crate::error::{AttuneError, Result};
 
-/// Canonicalise `candidate` and assert it lives under `root` (which
-/// is itself canonicalised). Returns the canonicalised candidate on
-/// success, or an `AttuneError::Storage` describing the violation.
-///
-/// Both `root` and `candidate` must exist on disk — `canonicalize`
-/// resolves symlinks and verifies presence. Callers that need to
-/// validate a not-yet-created child path should canonicalise the
-/// parent + verify, then join the leaf themselves.
-///
-/// # Errors
-///
-/// Returns `Err` if `candidate` escapes `root` or the path cannot be resolved.
 pub fn canonicalize_under(root: &Path, candidate: &Path) -> Result<PathBuf> {
     let canon_root = std::fs::canonicalize(root).map_err(|e| {
         AttuneError::Storage(format!(
@@ -42,13 +25,6 @@ pub fn canonicalize_under(root: &Path, candidate: &Path) -> Result<PathBuf> {
     Ok(canon_target)
 }
 
-/// Canonicalise `candidate` and assert it lives under any of the
-/// supplied roots. Useful when the call site allows multiple
-/// canonical roots (recordings root + memory root, say).
-///
-/// # Errors
-///
-/// Returns `Err` if `candidate` cannot be resolved or does not fall under any of `roots`.
 pub fn canonicalize_under_any(roots: &[&Path], candidate: &Path) -> Result<PathBuf> {
     let canon_target = std::fs::canonicalize(candidate).map_err(|e| {
         AttuneError::Storage(format!(

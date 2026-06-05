@@ -1,19 +1,3 @@
-/**
- * GET-136 — Settings → Connectors.
- *
- * Single-column layout led by the localhost MCP card (the signature
- * Attune inversion of Granola's cloud-routed MCP). Below it: tiles
- * for Slack / Notion / Linear / Gmail OAuth integrations plus the
- * already-shipped Apple Reminders / Apple Calendar surfaces.
- *
- * v1 ships the UI scaffold + copy-the-localhost-URL affordance. The
- * actual MCP server binding and per-connector OAuth flows are
- * separate epics; clicking Connect on any cloud tile shows a toast
- * acknowledging the deferral. The MCP card surfaces a "coming soon"
- * status until the server lands so the copy-URL button doesn't
- * mislead users into pointing Claude/Cursor at a dead port.
- */
-
 import * as React from "react";
 import {
   Calendar as CalendarIcon,
@@ -138,10 +122,6 @@ export function SectionConnectors() {
     </section>
   );
 }
-
-// ---------------------------------------------------------------------------
-// MCP consent + access ledger panel (GET-210)
-// ---------------------------------------------------------------------------
 
 function McpConsentPanel() {
   const [grants, setGrants] = React.useState<McpClientGrant[]>([]);
@@ -296,7 +276,6 @@ function McpFeatureCard() {
 
   return (
     <div className="relative overflow-hidden rounded-xl border border-primary/30 bg-gradient-to-br from-primary/5 via-card to-card p-6">
-      {/* Header */}
       <div className="flex items-start gap-3">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
           <Workflow className="h-5 w-5" />
@@ -316,7 +295,6 @@ function McpFeatureCard() {
         </div>
       </div>
 
-      {/* Client rows */}
       {loading ? (
         <div className="mt-5 flex items-center gap-2 text-sm text-muted-foreground">
           <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -408,7 +386,6 @@ function McpFeatureCard() {
         </div>
       )}
 
-      {/* Footer */}
       <div className="mt-4 flex items-center justify-end gap-3">
         <a
           href="https://modelcontextprotocol.io"
@@ -442,7 +419,7 @@ function ConnectorRow({ card }: { card: ConnectorCard }) {
   const handleConnect = () => {
     toast.info(`${card.name} connector`, {
       description:
-        "OAuth flow ships with the attune-api backend (GET-123). The tile is in place so it lights up automatically when ready.",
+        "OAuth connectors aren't available in the local build. Use webhooks or an MCP server to integrate for now.",
     });
   };
 

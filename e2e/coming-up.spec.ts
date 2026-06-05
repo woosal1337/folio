@@ -1,10 +1,3 @@
-/**
- * "Coming up" calendar card (GET-161). With calendar access granted Home
- * shows the next meeting; with access denied it shows the enable-calendar
- * state. (The native EventKit reader itself is exercised on-device; here
- * the mocked command drives the UI states.)
- */
-
 import { expect, test } from "@playwright/test";
 
 import { ipcCalls, setupScenario } from "./fixtures/scenario";
@@ -51,7 +44,6 @@ test("take notes on the coming-up card pre-names the note", async ({ page }) => 
   await page.goto("/");
   await page.getByRole("button", { name: /take notes/i }).click();
 
-  // The note is created and renamed to the meeting title.
   await expect.poll(async () => (await ipcCalls(page, "create_note")).length).toBe(1);
   await expect
     .poll(async () => (await ipcCalls(page, "rename_note")).length)

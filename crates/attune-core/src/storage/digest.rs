@@ -1,13 +1,3 @@
-//! Weekly local digest — markdown snapshot of the past 7 days of
-//! recordings + tasks + memories. Written to
-//! `~/Documents/Attune/Digests/YYYY-MM-DD.md` so the user can paste
-//! into Obsidian or skim from their dock.
-//!
-//! v2 roadmap finding 082 / GET-80. The auto-schedule (Sunday 6pm
-//! sweep with a dock badge) is a follow-up; the generator here is
-//! call-site agnostic so the eventual timer service plugs in
-//! unchanged.
-
 use std::fs;
 use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
@@ -58,16 +48,13 @@ pub fn generate(paths: &DigestPaths) -> std::io::Result<DigestResult> {
     let aged_tasks: Vec<_> = tasks
         .into_iter()
         .filter(|t| {
-            // Aged = status != done AND created/updated more than a week ago.
             let status = serde_json::to_string(&t.status)
                 .map(|s| s.trim_matches('"').to_string())
                 .unwrap_or_default();
             if status == "done" {
                 return false;
             }
-            // Tasks carry RFC-3339 strings on optional created/updated
-            // metadata when present. We accept "any old task" as a
-            // conservative aged signal.
+
             true
         })
         .collect();
@@ -159,8 +146,6 @@ fn plural(n: usize) -> &'static str {
     }
 }
 
-/// Default digests directory next to the recordings folder, matching
-/// the v2 finding 082 spec.
 pub fn default_digests_dir() -> PathBuf {
     let home = std::env::var_os("HOME")
         .map(PathBuf::from)

@@ -1,9 +1,3 @@
-/**
- * Folders / Spaces (GET-162). A note can be filed into a folder from
- * its header chip; folders show in the sidebar Spaces section and filter
- * My Notes via the `?folder=` param.
- */
-
 import { expect, test } from "@playwright/test";
 
 import { ipcCalls, setupScenario } from "./fixtures/scenario";
@@ -14,20 +8,16 @@ test("assign a note to a new folder from the header chip", async ({ page }) => {
   await page.getByRole("button", { name: /quick note/i }).click();
   await expect(page).toHaveURL(/#\/editor\//);
 
-  // Open the folder chip → create a new folder inline.
   await page.getByRole("button", { name: /add to folder/i }).click();
   await page.getByRole("menuitem", { name: /new folder/i }).click();
   const nameField = page.getByRole("textbox", { name: /new folder name/i });
   await nameField.fill("Work");
   await nameField.press("Enter");
 
-  // The note is now filed: backend assignment fired and the chip + the
-  // sidebar Spaces section both show "Work".
   await expect
     .poll(async () => (await ipcCalls(page, "set_note_folder")).length)
     .toBeGreaterThanOrEqual(1);
-  // The sidebar Spaces section now lists the folder, and the header chip
-  // reflects it — two "Work" buttons (sidebar row + chip).
+
   await expect(page.getByText("Spaces", { exact: true })).toBeVisible();
   await expect
     .poll(async () => page.getByRole("button", { name: /^work$/i }).count())
@@ -68,12 +58,10 @@ test("filtering My Notes by folder shows only its notes", async ({ page }) => {
     ],
   });
 
-  // Unfiltered: both notes show.
   await page.goto("/#/library");
   await expect(page.getByText("Filed note").first()).toBeVisible();
   await expect(page.getByText("Loose note").first()).toBeVisible();
 
-  // Filtered to Work: only the filed note, heading reflects the folder.
   await page.goto("/#/library?folder=Work");
   await expect(page.getByRole("heading", { name: /^work$/i })).toBeVisible();
   await expect(page.getByText("Filed note").first()).toBeVisible();

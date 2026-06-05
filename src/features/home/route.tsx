@@ -1,17 +1,3 @@
-/**
- * GET-151 — Home.
- *
- * The signed-in landing surface, replacing the bare Record page:
- *   - a "Coming up" card (next calendar event + Take Notes),
- *   - recent notes grouped Today / Yesterday / Earlier,
- *   - a + Quick note action.
- *
- * Recording becomes a verb (sidebar + Cmd-R + the meeting HUD), not the
- * home tab. The EventKit next-event reader is still deferred (GET-134),
- * so "Coming up" shows a graceful empty state for now; the Take Notes
- * affordance works regardless.
- */
-
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
 import { CalendarClock, FileAudio, FileText, Lock, Mic, Plus } from "lucide-react";
@@ -45,7 +31,6 @@ function groupFor(createdAt: string | null): Group {
   return "Earlier";
 }
 
-/** "in 12 min · 3 people" / "starts now" line for the Coming-up card. */
 function comingUpSubtitle(event: CalendarEvent): string {
   const start = new Date(event.starts_at);
   const parts: string[] = [];
@@ -77,7 +62,6 @@ export default function Home() {
   const [recordings, setRecordings] = React.useState<RecordingSummary[]>([]);
   const [loading, setLoading] = React.useState(true);
 
-  // Coming-up calendar (GET-161): the next meeting + access state.
   const [nextEvent, setNextEvent] = React.useState<CalendarEvent | null>(null);
   const [calAccess, setCalAccess] = React.useState<string>("not_determined");
 
@@ -95,8 +79,6 @@ export default function Home() {
     void reload();
   }, [reload]);
 
-  // Shared right-click menu (Open / Move to folder / Re-transcribe /
-  // Reveal / Delete) — same as My Notes.
   const openContextMenu = useNoteContextMenu(reload);
 
   const loadCalendar = React.useCallback(async () => {
@@ -146,7 +128,6 @@ export default function Home() {
         </Button>
       </header>
 
-      {/* Coming up */}
       <section className="space-y-2">
         <h2 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
           Coming up
@@ -205,7 +186,6 @@ export default function Home() {
         </Card>
       </section>
 
-      {/* Recent notes */}
       <section className="space-y-3">
         <h2 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
           Recent notes

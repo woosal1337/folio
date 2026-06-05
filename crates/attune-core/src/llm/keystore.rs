@@ -1,32 +1,14 @@
-//! macOS Keychain (and Linux/Windows native equivalents) wrapper for
-//! LLM provider API keys.
-//!
-//! One keychain entry per provider, under service
-//! `com.attune.app.provider-key`, account = the provider's wire id
-//! ("openai", "anthropic", "deepseek"). Reading a missing key returns
-//! `Ok(None)`, not an error — the "not configured" state must be
-//! distinguishable from a real keychain failure.
-//!
-//! Setting overwrites unconditionally. Deleting is idempotent (no-op
-//! if absent). The plaintext key never appears in logs.
-
 use keyring::Entry;
 use tracing::debug;
 
 use crate::error::{AttuneError, Result};
 use crate::llm::ProviderId;
 
-/// Service identifier used for every entry this app stores in the
-/// keychain. Stable across versions; changing it orphans existing keys.
 const KEYCHAIN_SERVICE: &str = "com.attune.app.provider-key";
 
-/// Read/write API keys for LLM providers.
 pub struct KeyStore;
 
 impl KeyStore {
-    /// Read the API key for `provider`. `Ok(None)` means "not
-    /// configured" and is the normal first-launch state. `Err` means
-    /// the keychain itself failed.
     pub fn get(provider: ProviderId) -> Result<Option<String>> {
         let entry = entry_for(provider)?;
         match entry.get_password() {
@@ -39,9 +21,6 @@ impl KeyStore {
         }
     }
 
-    /// Store `api_key` under `provider`, overwriting any existing
-    /// entry. Empty strings are rejected — pass [`Self::delete`]
-    /// to clear a slot intentionally.
     pub fn set(provider: ProviderId, api_key: &str) -> Result<()> {
         if api_key.trim().is_empty() {
             return Err(AttuneError::Llm(
@@ -56,8 +35,6 @@ impl KeyStore {
         Ok(())
     }
 
-    /// Remove the key for `provider`. Returns `Ok(())` whether or not
-    /// an entry existed.
     pub fn delete(provider: ProviderId) -> Result<()> {
         let entry = entry_for(provider)?;
         match entry.delete_credential() {
@@ -73,14 +50,10 @@ impl KeyStore {
         }
     }
 
-    /// True if a key is present for `provider`. Convenience wrapper
-    /// over `get(..).is_some()`.
     pub fn has(provider: ProviderId) -> bool {
         matches!(Self::get(provider), Ok(Some(_)))
     }
 
-    /// Last 4 characters of the stored key, for UI display. Returns
-    /// `None` if no key is stored. Never returns the full key.
     pub fn redacted_suffix(provider: ProviderId) -> Option<String> {
         let key = Self::get(provider).ok().flatten()?;
         let chars: Vec<char> = key.chars().collect();
@@ -103,10 +76,6 @@ fn entry_for(provider: ProviderId) -> Result<Entry> {
 mod tests {
     use super::*;
 
-    /// All keychain integration tests are `#[ignore]` because they
-    /// touch the real macOS keychain and require an interactive prompt
-    /// on first run. They serve as a smoke-test you can run manually:
-    /// `cargo test -p attune-core keystore -- --ignored`.
     #[test]
     #[ignore]
     fn round_trip_set_get_delete() {

@@ -1,6 +1,3 @@
-//! Recording lifecycle: start, stop, pause, resume, and poll the
-//! current capture session.
-
 use std::path::PathBuf;
 use std::time::Instant;
 
@@ -14,11 +11,6 @@ use tracing::{debug, info};
 use crate::app::state::PausedNote;
 use crate::app::AppState;
 
-/// Start the live-transcript preview loop (GET-160) for a just-started
-/// capture, if local Whisper is configured and its model is downloaded.
-/// No-op otherwise (OpenAI transcriber, or model missing) — the preview
-/// is local-only and degrades silently to "no live caption". Stores the
-/// stop flag on `AppState` so stop/pause can end the loop.
 fn maybe_start_live_transcript(app: &tauri::AppHandle, state: &AppState, session_dir: PathBuf) {
     use attune_core::transcription::{WhisperModel, WhisperModelStore};
 
@@ -31,8 +23,7 @@ fn maybe_start_live_transcript(app: &tauri::AppHandle, state: &AppState, session
             s.transcription_language.clone(),
         )
     };
-    // Beta opt-in: skip the live preview unless the user enabled it in
-    // Settings. When off, transcription happens only on Stop.
+
     if !enabled {
         return;
     }
@@ -50,22 +41,18 @@ fn maybe_start_live_transcript(app: &tauri::AppHandle, state: &AppState, session
 
     let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     *state.live_transcript_stop.lock() = Some(stop.clone());
-    // GET-178: store the JoinHandle so we can join it on exit rather than
-    // detaching and letting it run past the recording stop.
+
     let handle =
         crate::app::live_transcript::spawn(app.clone(), session_dir, status.path, hint, stop);
     *state.live_transcript_thread.lock() = Some(handle);
 }
 
-/// Snapshot of the current recording session for the UI. Pure
-/// in-memory read so this stays sync.
 #[tauri::command]
 pub fn recording_status(state: State<'_, AppState>) -> RecordingStatus {
     debug!("recording_status");
     state.recording_status()
 }
 
-/// Build the capture config from the current settings.
 fn capture_config(state: &AppState) -> CaptureConfig {
     let settings = state.settings.lock().clone();
     CaptureConfig {
@@ -78,10 +65,6 @@ fn capture_config(state: &AppState) -> CaptureConfig {
     }
 }
 
-/// Create an empty note (GET-155): a timestamped session directory the
-/// user can write notes into before — or without — recording. Writes a
-/// `live_notes.json` marker so the note shows up in the library and
-/// opens in the editor even with no audio. Returns its summary.
 #[tauri::command]
 pub async fn create_note(state: State<'_, AppState>) -> Result<RecordingSummary, String> {
     let output_dir = state.settings.lock().output_dir.clone();
@@ -91,8 +74,7 @@ pub async fn create_note(state: State<'_, AppState>) -> Result<RecordingSummary,
         std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
         attune_core::storage::atomic_write::atomic_write(&dir.join("live_notes.json"), b"[]")
             .map_err(|e| e.to_string())?;
-        // Give the unnamed note a "Draft N" placeholder so the UI never
-        // shows the raw timestamp label; autoname/user title supersede it.
+
         let draft_name = attune_core::storage::session::allocate_draft_name(&output_dir);
         attune_core::storage::atomic_write::atomic_write(
             &dir.join("draft.txt"),
@@ -123,9 +105,6 @@ pub async fn create_note(state: State<'_, AppState>) -> Result<RecordingSummary,
     .map_err(|e| format!("create_note task panicked: {e}"))?
 }
 
-/// Set (or clear) a note's user title (GET-163). Writes `title.txt`
-/// into the session dir; an empty/whitespace title removes the file so
-/// the UI falls back to the autoname suggestion or the label.
 #[tauri::command]
 pub async fn rename_note(
     state: State<'_, AppState>,
@@ -133,8 +112,7 @@ pub async fn rename_note(
     title: String,
 ) -> Result<(), String> {
     let output_dir = state.settings.lock().output_dir.clone();
-    // Untrusted IPC path (GET-173): reject anything outside the recordings
-    // root before writing title.txt.
+
     let dir =
         attune_core::paths::canonicalize_under(&output_dir, std::path::Path::new(&session_dir))
             .map_err(|e| format!("invalid session directory: {e}"))?;
@@ -156,10 +134,6 @@ pub async fn rename_note(
     .map_err(|e| format!("rename_note task panicked: {e}"))?
 }
 
-/// Read which enhanced-notes summary the user has "kept" / owned
-/// (GET-191). Returns the `finished_at` marker of the accepted run, or
-/// `None`. The editor renders the AI summary muted until this marker
-/// matches the live summary run.
 #[tauri::command]
 pub async fn get_enhanced_notes_accepted(session_dir: String) -> Result<Option<String>, String> {
     let dir = PathBuf::from(&session_dir);
@@ -173,11 +147,6 @@ pub async fn get_enhanced_notes_accepted(session_dir: String) -> Result<Option<S
     .map_err(|e| format!("get_enhanced_notes_accepted task panicked: {e}"))
 }
 
-/// Keep (own) the current enhanced-notes summary, or clear that
-/// (GET-191). `marker` is the live run's `finished_at`; an empty marker
-/// removes the file so the summary reverts to muted "AI-generated". A
-/// regenerate produces a new `finished_at`, so a stale marker no longer
-/// matches and the new summary is muted again until kept.
 #[tauri::command]
 pub async fn set_enhanced_notes_accepted(
     session_dir: String,
@@ -205,14 +174,6 @@ pub async fn set_enhanced_notes_accepted(
     .map_err(|e| format!("set_enhanced_notes_accepted task panicked: {e}"))?
 }
 
-/// Start a new capture session. Building the cpal stream and the
-/// ScreenCaptureKit pipeline takes real OS calls; we run that work on
-/// a blocking task so the Tauri command runtime is free to dispatch
-/// other commands in the meantime.
-///
-/// When `session_dir` is given (GET-155, note-first recording) the
-/// capture writes into that existing note's directory instead of a
-/// fresh timestamped one, so recording attaches to the open note.
 #[tauri::command]
 pub async fn start_recording(
     app: tauri::AppHandle,
@@ -222,13 +183,10 @@ pub async fn start_recording(
     if state.session.lock().is_some() {
         return Err("already recording".into());
     }
-    // A fresh recording abandons any paused note from a prior session.
+
     *state.active_note.lock() = None;
     let config = capture_config(&state);
 
-    // GET-155 attach-to-existing-note: the session dir comes from IPC, so
-    // reject anything outside the recordings root before we write capture
-    // WAVs into it (GET-173). A fresh recording (None) makes its own dir.
     let session_dir = match session_dir {
         Some(dir) => Some(
             attune_core::paths::canonicalize_under(&config.output_dir, std::path::Path::new(&dir))
@@ -265,19 +223,13 @@ pub async fn start_recording(
     *state.session.lock() = Some(session);
     *state.recording_started.lock() = Some(Instant::now());
 
-    // Live-transcript preview (GET-160) — local Whisper only, best-effort.
     maybe_start_live_transcript(&app, &state, live_dir);
 
     Ok(state.recording_status())
 }
 
-/// Pause the in-progress recording (GET-149). Finalizes the current
-/// segment's WAVs and keeps the note open so a Resume continues into the
-/// same note. The first pause promotes the recording into a multi-part
-/// note rooted at its session dir.
 #[tauri::command]
 pub async fn pause_recording(state: State<'_, AppState>) -> Result<RecordingStatus, String> {
-    // End the live-transcript preview for this segment (GET-160).
     state.stop_live_transcript();
     let session = state
         .session
@@ -324,9 +276,6 @@ pub async fn pause_recording(state: State<'_, AppState>) -> Result<RecordingStat
     Ok(state.recording_status())
 }
 
-/// Resume a paused note (GET-149). Starts a new capture segment that
-/// records into `dir/parts/NNN/`; the final stop merges every segment
-/// into one continuous file.
 #[tauri::command]
 pub async fn resume_recording(
     app: tauri::AppHandle,
@@ -365,13 +314,8 @@ pub async fn resume_recording(
     Ok(state.recording_status())
 }
 
-/// Stop the current capture session, finalize the WAVs, and return
-/// the artifacts. For a multi-part note (the user paused at least once),
-/// the segments are merged into one continuous `mic.wav` / `system.wav`
-/// before returning.
-/// Tauri event emitted when WAV segment stitching starts (multi-part notes).
 pub const STITCHING_STARTED_EVENT: &str = "recording:stitching-started";
-/// Tauri event emitted when WAV segment stitching finishes.
+
 pub const STITCHING_DONE_EVENT: &str = "recording:stitching-done";
 
 #[tauri::command]
@@ -379,8 +323,6 @@ pub async fn stop_recording(
     app: tauri::AppHandle,
     state: State<'_, AppState>,
 ) -> Result<RecordingResult, String> {
-    // End the live-transcript preview (GET-160); the final on-stop
-    // transcript below is the source of truth.
     state.stop_live_transcript();
     let session = state
         .session
@@ -394,10 +336,6 @@ pub async fn stop_recording(
         .map_err(|e| format!("stop_recording task panicked: {e}"))?
         .map_err(|e| e.to_string())?;
 
-    // Multi-part note: merge every segment into the note dir. Single-shot
-    // recordings (note is None) return the artifacts untouched.
-    // Emits events so the frontend can show a "Stitching segments…" pill
-    // only when real work is happening.
     let note = state.active_note.lock().take();
     let artifacts = if let Some(note) = note {
         let _ = app.emit(STITCHING_STARTED_EVENT, ());
@@ -420,8 +358,6 @@ pub async fn stop_recording(
     Ok(RecordingResult { artifacts, label })
 }
 
-/// Append the final segment to the note's parts and concatenate them
-/// into one continuous `mic.wav` / `system.wav` in the note dir.
 async fn merge_note_segments(
     note: PausedNote,
     final_segment: CaptureArtifacts,

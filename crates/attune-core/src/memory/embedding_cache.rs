@@ -1,17 +1,3 @@
-//! Embedding cache + shard policy. v2 finding 041 / GET-62.
-//!
-//! Two problems this module solves:
-//!
-//!   1. **Reindex re-charges OpenAI.** Today the reindex command
-//!      walks every memory page and re-embeds them. Each pass spends
-//!      a few cents per thousand pages. The cache is a single
-//!      `embeddings_cache` table keyed by sha256(model_id || content)
-//!      → vector blob. Reindex looks up first, embeds only on miss.
-//!   2. **Vector index gets slow past 50k rows.** Shard the SQLite
-//!      vec index by `kind` so each shard stays under the FLAT-vs-
-//!      HNSW threshold. The shard policy lives here so the index
-//!      module and the migration both read from the same source.
-
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
@@ -20,9 +6,6 @@ use crate::memory::types::MemoryKind;
 pub const HNSW_THRESHOLD_ROWS: usize = 50_000;
 pub const EMBEDDING_CACHE_TABLE: &str = "embeddings_cache";
 
-/// Compute the cache key for a `(model_id, content)` pair. Stable
-/// across processes — sha256 of the concatenation with a separator
-/// so "abc" + "def" and "ab" + "cdef" hash to different keys.
 pub fn cache_key(model_id: &str, content: &str) -> String {
     let mut hasher = Sha256::new();
     hasher.update(model_id.as_bytes());
@@ -52,12 +35,10 @@ pub struct CacheRow {
     pub key: String,
     pub model_id: String,
     pub dimensions: usize,
-    /// Length of the embedding in bytes (4 × dimensions for f32 vectors).
+
     pub bytes: usize,
 }
 
-/// SQL the migration runs on a fresh memory database. Idempotent —
-/// `IF NOT EXISTS` everywhere.
 pub const CREATE_TABLE_SQL: &str = "CREATE TABLE IF NOT EXISTS embeddings_cache (\n    \
     key TEXT PRIMARY KEY,\n    \
     model_id TEXT NOT NULL,\n    \
@@ -66,15 +47,10 @@ pub const CREATE_TABLE_SQL: &str = "CREATE TABLE IF NOT EXISTS embeddings_cache 
     created_at TEXT NOT NULL DEFAULT (datetime('now'))\n\
 );";
 
-/// Index sharding policy. Past `HNSW_THRESHOLD_ROWS` total memories
-/// of a kind, the index module switches that shard to an HNSW
-/// table; below it stays FLAT for cheaper build cost.
 pub fn shard_should_hnsw(rows_in_kind: usize) -> bool {
     rows_in_kind > HNSW_THRESHOLD_ROWS
 }
 
-/// Each memory kind gets its own vec table named `memory_vec_<kind>`.
-/// Returns the canonical table name the index + the migration speak.
 pub fn shard_table_name(kind: MemoryKind) -> String {
     match kind {
         MemoryKind::Claim => "memory_vec_claim".into(),

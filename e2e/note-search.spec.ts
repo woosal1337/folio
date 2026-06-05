@@ -1,9 +1,3 @@
-/**
- * Full-text search across note content (GET-165). A phrase that appears
- * only in a note's transcript (not its title) surfaces the note — with a
- * snippet — in both My Notes search and the Cmd-K palette.
- */
-
 import { expect, test } from "@playwright/test";
 
 import { setupScenario } from "./fixtures/scenario";
@@ -20,7 +14,7 @@ const RECORDING = {
   has_transcript: true,
   suggested_title: "Budget meeting",
   suggested_tags: [],
-  // The unique phrase lives only in the transcript body.
+
   transcript_text: "we approved the flamingo procurement for Q3",
 };
 
@@ -34,7 +28,6 @@ test("My Notes search finds a phrase that only appears in the transcript", async
   const search = page.getByRole("textbox", { name: /search recordings/i });
   await search.fill("flamingo");
 
-  // The note stays visible and shows the matched snippet.
   await expect(page.getByText("Budget meeting").first()).toBeVisible();
   await expect(page.getByText(/flamingo procurement/i).first()).toBeVisible();
 });
@@ -57,7 +50,6 @@ test("Cmd-K surfaces a transcript-only phrase with a snippet", async ({ page }) 
   await expect(input).toBeVisible();
   await input.fill("flamingo");
 
-  // The note appears as a palette option with the snippet as its subtitle.
   await expect(
     page.getByRole("option").filter({ hasText: "Budget meeting" })
   ).toBeVisible();

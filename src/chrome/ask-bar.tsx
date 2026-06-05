@@ -2,14 +2,6 @@ import * as React from "react";
 import { useNavigate } from "react-router-dom";
 import { ListTodo, Sparkles } from "lucide-react";
 
-/**
- * GET-156 — the omnipresent "Ask anything" bar.
- *
- * A slim bottom bar (used on Home) that opens the full cross-library
- * Chat seeded with the typed question. Replaces the Chat sidebar tab as
- * the primary way into Ask. Inside a note, the note's own dock carries a
- * scoped Ask instead.
- */
 export function AskBar() {
   const navigate = useNavigate();
   const [value, setValue] = React.useState("");

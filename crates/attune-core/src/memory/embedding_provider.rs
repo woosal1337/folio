@@ -1,22 +1,6 @@
-//! Pluggable embedding-provider abstraction. v2 finding 050 / GET-67.
-//!
-//! Memory retrieval today uses OpenAI's text-embedding-3-large
-//! (3072 dims). When the user opts into Privacy Mode (#048), that
-//! path is closed; the fallback is a small local ONNX model run
-//! via `fastembed-rs` — bge-small-en-v1.5 (384 dims) or
-//! nomic-embed-text-v1.5 (768 dims). Lower retrieval fidelity is
-//! fine for the "I can still grep my own memory" promise.
-//!
-//! This module ships the trait + the model-id enum + the
-//! provider-id-to-dimension lookup that the SQLite index uses to
-//! pick the right vector column. Wiring fastembed-rs lives behind
-//! a cargo feature (off by default to keep cold build time low)
-//! and arrives in the follow-up.
-
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-/// Identifier the index column writes when persisting a row.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../src/shared/types/")]
 #[serde(rename_all = "kebab-case")]
@@ -55,9 +39,6 @@ impl EmbeddingModel {
         }
     }
 
-    /// `true` for models that run on-device (no network egress).
-    /// Memory retrieval honours Privacy Mode by only picking from
-    /// the is_local() set when the toggle is on.
     pub fn is_local(self) -> bool {
         matches!(
             self,
@@ -66,10 +47,6 @@ impl EmbeddingModel {
     }
 }
 
-/// Trait the index calls to embed a chunk of text. The OpenAI
-/// implementation already exists in
-/// `attune-core::memory::embed::EmbeddingClient`; the local
-/// implementation arrives behind a cargo feature in the follow-up.
 pub trait EmbeddingProvider: Send + Sync {
     fn model(&self) -> EmbeddingModel;
     fn embed(&self, text: &str) -> std::result::Result<Vec<f32>, String>;

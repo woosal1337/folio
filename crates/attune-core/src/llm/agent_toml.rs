@@ -1,31 +1,3 @@
-//! User-editable agent definitions as TOML files under
-//! `<vault>/.attune/agents/<slug>.toml`. v2 finding 022 / GET-35.
-//!
-//! Shipped agents become defaults the user can fork: a missing TOML
-//! falls back to the baked-in agent of the same slug; a present TOML
-//! overrides every field. Unlocks #023 (meeting templates), #034
-//! (skillification), and #086 (template marketplace).
-//!
-//! Schema (all keys optional except `name` and `system_prompt`):
-//!
-//! ```toml
-//! slug = "extract-tasks"
-//! name = "Extract Tasks"
-//! description = "Pull explicit action items from a transcript."
-//! model = "gpt-4o-mini"
-//! system_prompt = """
-//! You are a task-extraction agent ...
-//! """
-//! tools = ["create_task"]
-//! trigger = "post-transcribe"
-//! output_format = "tool-calls"
-//! ```
-//!
-//! Round-trip safety: writing back what we parsed produces the same
-//! string the user typed, modulo `toml::ser`'s key ordering. Tests
-//! cover load, save, missing-optional-field tolerance, and
-//! directory enumeration.
-
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -52,14 +24,10 @@ pub struct AgentDefinition {
     pub output_format: Option<String>,
 }
 
-/// Path to the agents directory inside a vault root. Does not create
-/// the directory; callers wanting create-on-write semantics call
-/// [`ensure_dir`] before writing.
 pub fn agents_dir(vault_root: &Path) -> PathBuf {
     vault_root.join(AGENT_DIR)
 }
 
-/// Create the agents directory if it does not already exist.
 pub fn ensure_dir(vault_root: &Path) -> Result<PathBuf> {
     let dir = agents_dir(vault_root);
     fs::create_dir_all(&dir).map_err(|e| {
@@ -71,20 +39,16 @@ pub fn ensure_dir(vault_root: &Path) -> Result<PathBuf> {
     Ok(dir)
 }
 
-/// Parse an agent definition from a TOML string.
 pub fn parse(input: &str) -> Result<AgentDefinition> {
     toml::from_str::<AgentDefinition>(input)
         .map_err(|e| AttuneError::Storage(format!("invalid agent TOML: {e}")))
 }
 
-/// Serialise an agent definition as a TOML string.
 pub fn render(agent: &AgentDefinition) -> Result<String> {
     toml::to_string_pretty(agent)
         .map_err(|e| AttuneError::Storage(format!("could not serialise agent: {e}")))
 }
 
-/// Read a single agent file by slug. Returns Ok(None) when the file
-/// does not exist so the caller can fall back to the baked-in default.
 pub fn load(vault_root: &Path, slug: &str) -> Result<Option<AgentDefinition>> {
     let path = agents_dir(vault_root).join(format!("{slug}.toml"));
     if !path.exists() {
@@ -95,8 +59,6 @@ pub fn load(vault_root: &Path, slug: &str) -> Result<Option<AgentDefinition>> {
     parse(&raw).map(Some)
 }
 
-/// Write an agent file atomically (temp + rename). Creates the
-/// agents directory if it does not already exist.
 pub fn save(vault_root: &Path, agent: &AgentDefinition) -> Result<PathBuf> {
     let dir = ensure_dir(vault_root)?;
     let final_path = dir.join(format!("{}.toml", agent.slug));
@@ -111,8 +73,6 @@ pub fn save(vault_root: &Path, agent: &AgentDefinition) -> Result<PathBuf> {
     Ok(final_path)
 }
 
-/// Enumerate every agent definition under `<vault>/.attune/agents/`.
-/// Returns an empty list when the directory does not exist.
 pub fn list_all(vault_root: &Path) -> Result<Vec<AgentDefinition>> {
     let dir = agents_dir(vault_root);
     if !dir.is_dir() {

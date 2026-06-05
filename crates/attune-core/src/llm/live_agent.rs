@@ -1,18 +1,3 @@
-//! Live in-meeting co-pilot. v2 finding 032 / GET-58.
-//!
-//! Opt-in side rail that runs alongside the recording. Every N
-//! seconds the rolling tail of the transcript (last M segments) is
-//! handed to a small LLM that emits a short list of nudges:
-//!
-//!   * "ask: what's the budget cap?"  — question worth surfacing now
-//!   * "verify: Q4 launched in October" — fact worth confirming live
-//!   * "action: Alice owns the press release" — likely action item
-//!
-//! Default off — the user opts in from Settings → AI. The actual
-//! model call lives in the runner; this module owns the rolling tail
-//! buffer + the de-dup / cooldown logic that keeps the side rail
-//! quiet enough to ignore when nothing changes.
-
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 
@@ -36,10 +21,6 @@ pub const DEFAULT_TAIL_SECONDS: f64 = 90.0;
 pub const DEFAULT_TICK_SECONDS: f64 = 20.0;
 pub const DEFAULT_COOLDOWN_SECONDS: u64 = 30;
 
-/// Rolling tail of transcript text + recent nudges. The orchestrator
-/// pushes each closed segment, ticks the buffer every
-/// DEFAULT_TICK_SECONDS, and asks the model when `should_tick()`
-/// returns true.
 pub struct LiveAgentBuffer {
     segments: VecDeque<(f64, String)>,
     tail_seconds: f64,
@@ -61,9 +42,6 @@ impl LiveAgentBuffer {
         }
     }
 
-    /// Push a closed transcript segment. The caller passes the
-    /// segment's end timestamp (seconds from recording start) so the
-    /// tail window can be trimmed correctly.
     pub fn push_segment(&mut self, end_seconds: f64, text: String) {
         if !text.trim().is_empty() {
             self.segments.push_back((end_seconds, text));
@@ -84,9 +62,6 @@ impl LiveAgentBuffer {
         }
     }
 
-    /// True when enough wall-clock time has passed since the last
-    /// tick that the orchestrator should call the model again. The
-    /// first tick fires immediately.
     pub fn should_tick(&self, now: Instant) -> bool {
         match self.last_tick {
             None => true,
@@ -94,15 +69,10 @@ impl LiveAgentBuffer {
         }
     }
 
-    /// Mark the tick as completed at `now` so `should_tick` waits
-    /// the full interval before the next.
     pub fn mark_ticked(&mut self, now: Instant) {
         self.last_tick = Some(now);
     }
 
-    /// Concatenated rolling-tail text the orchestrator hands to the
-    /// model. Newlines between segments so the model sees the
-    /// timing breaks.
     pub fn rolling_text(&self) -> String {
         let mut out = String::new();
         for (_, text) in &self.segments {
@@ -114,10 +84,6 @@ impl LiveAgentBuffer {
         out
     }
 
-    /// Filter a freshly-emitted nudge list against the recent-nudges
-    /// queue. A nudge whose text matches one issued inside the
-    /// cooldown window is dropped. Returns the survivors in input
-    /// order.
     pub fn dedup(&mut self, now: Instant, nudges: Vec<Nudge>) -> Vec<Nudge> {
         self.prune_recent(now);
         let mut survivors = Vec::with_capacity(nudges.len());

@@ -1,15 +1,3 @@
-//! Speaker-diarization runtime, backed by sherpa-onnx.
-//!
-//! Wraps sherpa-onnx's `OfflineSpeakerDiarization` (pyannote
-//! segmentation, WeSpeaker embedding, fast clustering) into a small,
-//! attune-shaped API: feed a recording's audio, get back time segments
-//! each labelled with a speaker index. The number of speakers can be
-//! fixed or auto-estimated (clustering threshold).
-//!
-//! Models are the two ONNX files the [`super::models::DiarizationModelStore`]
-//! manages. They can also be pointed at explicitly via [`DiarizationRuntime::open`]
-//! (used by the `attune-cli diarize` harness).
-
 use std::path::Path;
 
 use hound::{SampleFormat, WavReader};
@@ -23,7 +11,6 @@ use thiserror::Error;
 use crate::audio::resampler::StreamingResampler;
 use crate::diarization::models::DiarizationModelStore;
 
-/// Errors specific to the diarization runtime.
 #[derive(Debug, Error)]
 pub enum DiarizationError {
     #[error(
@@ -38,11 +25,6 @@ pub enum DiarizationError {
     Resample(String),
 }
 
-/// One diarized segment: a `[start, end]` time range (seconds) attributed
-/// to a speaker index (`0, 1, 2, ...`, assigned by clustering in order of
-/// appearance). These are the first-pass `Speaker N` labels; the LLM
-/// rename pass + the [`crate::speaker_memory`] registry resolve them to
-/// real names later.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct DiarizedSegment {
     pub start_secs: f32,
@@ -50,18 +32,14 @@ pub struct DiarizedSegment {
     pub speaker: i32,
 }
 
-/// Tunables for a diarization run.
 #[derive(Debug, Clone)]
 pub struct DiarizationOptions {
-    /// Fixed speaker count. `<= 0` auto-estimates via the clustering
-    /// `threshold`.
     pub num_speakers: i32,
-    /// Cosine-distance merge threshold used when `num_speakers <= 0`.
-    /// Higher = fewer speakers. sherpa-onnx's default is ~0.5.
+
     pub threshold: f32,
-    /// ONNX Runtime intra-op threads.
+
     pub num_threads: i32,
-    /// Minimum on/off speech durations (seconds) — filters transients.
+
     pub min_duration_on: f32,
     pub min_duration_off: f32,
 }
@@ -78,8 +56,6 @@ impl Default for DiarizationOptions {
     }
 }
 
-/// Loaded diarization pipeline. Holds the sherpa-onnx handle, which owns
-/// the loaded ONNX models.
 pub struct DiarizationRuntime {
     sd: OfflineSpeakerDiarization,
 }
@@ -93,9 +69,6 @@ impl std::fmt::Debug for DiarizationRuntime {
 }
 
 impl DiarizationRuntime {
-    /// Build a runtime from explicit segmentation + embedding model
-    /// paths. Errors if sherpa-onnx can't construct the pipeline (bad /
-    /// missing / incompatible model files).
     pub fn open(
         segmentation_model: &Path,
         embedding_model: &Path,
@@ -133,9 +106,6 @@ impl DiarizationRuntime {
         Ok(Self { sd })
     }
 
-    /// Build a runtime from the model store. Errors with
-    /// [`DiarizationError::ModelsNotDownloaded`] when either model is
-    /// missing — the caller drives the download flow first.
     pub fn from_store(
         store: &DiarizationModelStore,
         opts: &DiarizationOptions,
@@ -151,13 +121,10 @@ impl DiarizationRuntime {
         )
     }
 
-    /// Sample rate the segmentation model expects (16 kHz for pyannote).
     pub fn sample_rate(&self) -> u32 {
         self.sd.sample_rate().max(0) as u32
     }
 
-    /// Diarize a mono waveform already at [`Self::sample_rate`]. Returns
-    /// segments sorted by start time.
     pub fn diarize_samples(
         &self,
         samples: &[f32],
@@ -177,19 +144,12 @@ impl DiarizationRuntime {
             .collect())
     }
 
-    /// Diarize a WAV file: read it, downmix to mono, resample to the
-    /// model rate, and run the pipeline.
     pub fn diarize_wav(&self, path: &Path) -> Result<Vec<DiarizedSegment>, DiarizationError> {
         let samples = read_wav_as_mono(path, self.sample_rate())?;
         self.diarize_samples(&samples)
     }
 }
 
-/// Assign a speaker index to each `[start, end]` span (seconds) by
-/// maximum temporal overlap with the diarized segments. A span with no
-/// overlap (it fell in a gap between turns) is attributed to the nearest
-/// diarized segment by midpoint, so every transcribed line still gets a
-/// speaker. Returns `None` for a span only when `diarized` is empty.
 pub fn assign_speakers_by_overlap(
     spans: &[(f64, f64)],
     diarized: &[DiarizedSegment],
@@ -208,7 +168,7 @@ pub fn assign_speakers_by_overlap(
             if let Some((spk, _)) = best {
                 return Some(spk);
             }
-            // No overlap — attribute to the nearest segment by midpoint.
+
             let mid = (start + end) / 2.0;
             diarized
                 .iter()
@@ -222,10 +182,6 @@ pub fn assign_speakers_by_overlap(
         .collect()
 }
 
-/// Read `path`, downmix to mono, and resample to `target_rate`. Exposed
-/// to the crate so the embedding pass (`diarization::embedding`) can read
-/// the same 16 kHz mono samples the diarizer saw, keeping segment time →
-/// sample-index alignment exact.
 pub(crate) fn read_wav_as_mono(
     path: &Path,
     target_rate: u32,
@@ -304,13 +260,6 @@ mod tests {
             .expect_err("missing models should fail");
         assert!(matches!(err, DiarizationError::ModelsNotDownloaded));
     }
-
-    // NOTE: we deliberately do NOT unit-test `open` against bogus model
-    // bytes. sherpa-onnx's underlying ONNX Runtime calls `abort()` on an
-    // invalid model file rather than returning an error, which would crash
-    // the test process (and the app). The mitigation is upstream: the
-    // `DiarizationModelStore` sha256-verifies each model before it is ever
-    // handed to `open`, so a corrupt download never reaches the runtime.
 
     #[test]
     fn default_options_auto_estimate_speakers() {

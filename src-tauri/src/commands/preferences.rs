@@ -1,11 +1,3 @@
-//! Real Preferences NSWindow (replaces the in-app modal).
-//! v2 finding 020 / GET-86. Subsumes R10 / GET-116.
-//!
-//! Opens a separate 640×520 native window pointed at the React route
-//! `/preferences-window`. macOS chrome handles the window controls
-//! (close / minimize / zoom) so the Cmd-, surface feels like System
-//! Settings rather than a Tauri modal.
-
 use tauri::{LogicalSize, Manager, WebviewUrl, WebviewWindowBuilder};
 
 const PREFERENCES_WINDOW_LABEL: &str = "preferences";

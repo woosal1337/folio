@@ -1,16 +1,3 @@
-/**
- * Modal that asks the user before Attune uploads a recording's WAV to
- * OpenAI Whisper. Rendered once at App root; the recording-store
- * triggers it via `useCloudCostConfirmStore.getState().confirm(...)`.
- *
- * Only fires when the upload exceeds the bandwidth or cost threshold
- * (see cost-estimate.ts). Includes a tip for switching to Local
- * Whisper as the way to avoid future prompts on big meetings.
- *
- * v2 roadmap finding 055. Reference layout for `<MetaList>` adopted
- * across the rest of the app in batch 3.
- */
-
 import { CloudUpload, Cpu, DollarSign, HardDrive, Clock } from "lucide-react";
 
 import {

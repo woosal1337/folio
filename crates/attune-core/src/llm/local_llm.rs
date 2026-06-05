@@ -1,16 +1,3 @@
-//! Local LLM catalogue + selection. v2 finding 049 / GET-43.
-//!
-//! Bundles a `llama-cpp-rs` runtime with a model picker that mirrors
-//! the Local Whisper UX (#040). Defaults to a quantized 7B/8B with
-//! native tool calling so the user can opt fully offline (#048
-//! Privacy Mode) and still get task / memory extraction.
-//!
-//! This module owns the catalogue, the recommendation policy, and
-//! the model-file path layout. The actual `llama-cpp-rs` runtime +
-//! Metal kernel build live behind a `local_llm` cargo feature in the
-//! follow-up (gated to keep the cold build time low for users who
-//! never opt in).
-
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
@@ -47,9 +34,6 @@ impl LocalLlmModel {
         }
     }
 
-    /// Approximate quantised on-disk size in megabytes for the
-    /// shipped Q4_K_M quantisation. Used by the disk-budget check
-    /// before downloading.
     pub fn disk_mb(self) -> u64 {
         match self {
             LocalLlmModel::Qwen25_7BInstruct => 4_700,
@@ -59,8 +43,6 @@ impl LocalLlmModel {
         }
     }
 
-    /// True when the model has trained-in tool-calling that the
-    /// agent runner can drive (`create_task`, `remember`, ...).
     pub fn supports_tool_calling(self) -> bool {
         matches!(
             self,
@@ -79,9 +61,6 @@ impl LocalLlmModel {
     }
 }
 
-/// Recommend a sensible default given the user's machine size. >= 16
-/// GB RAM gets a 7B/8B with tool calling. Below that we fall back
-/// to Phi-3.5 Mini, which still handles summarise / autoname well.
 pub fn recommend_default(ram_gb: u64) -> LocalLlmModel {
     if ram_gb >= MIN_RAM_GB_FOR_8B {
         LocalLlmModel::Qwen25_7BInstruct
@@ -90,7 +69,6 @@ pub fn recommend_default(ram_gb: u64) -> LocalLlmModel {
     }
 }
 
-/// Catalogue the picker UI iterates over.
 pub fn catalogue() -> &'static [LocalLlmModel] {
     &[
         LocalLlmModel::Qwen25_7BInstruct,

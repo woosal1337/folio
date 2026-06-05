@@ -1,12 +1,3 @@
-/**
- * Shared right-click menu for a note row, used by both My Notes and Home
- * so the actions stay identical. Returns a handler you attach to a row's
- * `onContextMenu`; it builds the items (Open, Move to folder ▸,
- * Re-transcribe, Reveal in Finder, Delete) and opens the context menu at
- * the cursor. `onChanged` is called after a move/delete so the caller can
- * refresh its list.
- */
-
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -42,7 +33,6 @@ export function useNoteContextMenu(onChanged?: () => void) {
   const assign = useFolders((s) => s.assign);
   const transcribe = useRecording((s) => s.transcribe);
 
-  // Folders power the "Move to folder" submenu; load them once.
   React.useEffect(() => void loadFolders(), [loadFolders]);
 
   return React.useCallback(

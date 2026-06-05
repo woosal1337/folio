@@ -1,35 +1,14 @@
-/**
- * GET-213 — Meeting dot-plot: a local per-day cadence heatmap.
- *
- * A GitHub-style contribution graph over the user's meeting history:
- * 52 columns (weeks) × 7 rows (days), each cell shaded by how many
- * meetings were captured that day. Click a cell to jump to that day's
- * notes. Stats panel shows meetings/week, total hours, busiest days.
- *
- * Entirely local — reads from `listRecordings()`, no telemetry, no
- * cloud calls. Respects the no-analytics red-line: this is YOUR data
- * about YOUR time, rendered on YOUR device.
- */
-
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
 
 import { listRecordings } from "@/shared/lib/ipc";
 import type { RecordingSummary } from "@/shared/types/RecordingSummary";
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
 interface DayCell {
   date: string; // "YYYY-MM-DD"
   count: number;
   recordings: RecordingSummary[];
 }
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
 
 function toYMD(dateStr: string | null): string | null {
   if (!dateStr) return null;
@@ -38,7 +17,6 @@ function toYMD(dateStr: string | null): string | null {
   return d.toISOString().slice(0, 10);
 }
 
-/** Build a 52-week grid ending today. */
 function buildGrid(recordings: RecordingSummary[]): DayCell[][] {
   const byDay = new Map<string, RecordingSummary[]>();
   for (const r of recordings) {
@@ -52,11 +30,9 @@ function buildGrid(recordings: RecordingSummary[]): DayCell[][] {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  // Find the Sunday on or before 51 weeks ago.
   const start = new Date(today);
   start.setDate(start.getDate() - 7 * 51 - today.getDay());
 
-  // Build 52 columns (weeks), each a 7-element array (Sun→Sat).
   const cols: DayCell[][] = [];
   const cursor = new Date(start);
   for (let w = 0; w < 52; w++) {
@@ -102,10 +78,6 @@ const MONTH_LABELS = [
 ];
 const DAY_LABELS = ["S", "M", "T", "W", "T", "F", "S"];
 
-// ---------------------------------------------------------------------------
-// Stats computation
-// ---------------------------------------------------------------------------
-
 interface StatsResult {
   total: number;
   avgPerWeek: string;
@@ -123,7 +95,6 @@ function computeStats(recordings: RecordingSummary[]): StatsResult {
   }
   const total = recordings.length;
 
-  // Average over last 12 weeks.
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const twelveWeeksAgo = new Date(today);
@@ -135,7 +106,6 @@ function computeStats(recordings: RecordingSummary[]): StatsResult {
   }
   const avgPerWeek = (recentCount / 12).toFixed(1);
 
-  // Busiest day.
   let busiestDay: string | null = null;
   let busiestDayCount = 0;
   for (const [ymd, count] of byDay.entries()) {
@@ -145,7 +115,6 @@ function computeStats(recordings: RecordingSummary[]): StatsResult {
     }
   }
 
-  // Current streak (consecutive days with at least 1 meeting, ending today).
   let longestStreak = 0;
   let streak = 0;
   const d = new Date(today);
@@ -163,10 +132,6 @@ function computeStats(recordings: RecordingSummary[]): StatsResult {
 
   return { total, avgPerWeek, busiestDay, busiestDayCount, longestStreak };
 }
-
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
 
 export default function StatsRoute() {
   const navigate = useNavigate();
@@ -192,7 +157,6 @@ export default function StatsRoute() {
   );
   const stats = React.useMemo(() => computeStats(recordings), [recordings]);
 
-  // Month label positions: find the first column whose first day is in a new month.
   const monthLabels = React.useMemo(() => {
     const labels: { col: number; label: string }[] = [];
     let lastMonth = -1;
@@ -216,7 +180,6 @@ export default function StatsRoute() {
       if (!r) return;
       navigate(`/editor/${encodeURIComponent(r.label)}`, { state: { recording: r } });
     } else {
-      // Multiple meetings that day — navigate to library with date filter hint.
       navigate(`/library`, { state: { dateFilter: cell.date } });
     }
   };
@@ -234,7 +197,6 @@ export default function StatsRoute() {
         </div>
       </header>
 
-      {/* Stats row */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
           { label: "Total meetings", value: String(stats.total) },
@@ -262,7 +224,6 @@ export default function StatsRoute() {
         ))}
       </div>
 
-      {/* Dot-plot */}
       <section className="space-y-2">
         <div className="overflow-x-auto">
           {loading ? (
@@ -271,7 +232,6 @@ export default function StatsRoute() {
             </div>
           ) : (
             <div className="relative inline-block">
-              {/* Month labels */}
               <div className="mb-1 flex gap-[3px] pl-5">
                 {grid.map((_, w) => {
                   const label = monthLabels.find((ml) => ml.col === w);
@@ -284,7 +244,6 @@ export default function StatsRoute() {
               </div>
 
               <div className="flex gap-[3px]">
-                {/* Day-of-week labels */}
                 <div className="mr-1 flex flex-col gap-[3px]">
                   {DAY_LABELS.map((d, i) => (
                     <div
@@ -296,7 +255,6 @@ export default function StatsRoute() {
                   ))}
                 </div>
 
-                {/* Grid columns */}
                 {grid.map((week, w) => (
                   <div key={w} className="flex flex-col gap-[3px]">
                     {week.map((cell) => (
@@ -319,7 +277,6 @@ export default function StatsRoute() {
                 ))}
               </div>
 
-              {/* Legend */}
               <div className="mt-2 flex items-center gap-1.5 text-2xs text-muted-foreground">
                 <span>Less</span>
                 {[0, 0.2, 0.5, 0.75, 1].map((r) => (
@@ -335,7 +292,6 @@ export default function StatsRoute() {
         </div>
       </section>
 
-      {/* Floating tooltip */}
       {tooltip ? (
         <div
           className="pointer-events-none fixed z-50 rounded-md border border-border bg-popover px-2.5 py-1.5 text-2xs shadow-md"
