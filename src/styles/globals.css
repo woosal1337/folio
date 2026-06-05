@@ -7,10 +7,6 @@
 @import "@fontsource/spectral/400-italic.css";
 @import "@fontsource/spectral/500.css";
 
-/* Bundled reading fonts for the Settings → Appearance → Reading
-   controls (v2 finding 100 / GET-113). One weight each to keep the
-   bundle small — these only get applied when the user opts in via the
-   data-reading-font attribute. */
 @import "@fontsource/fraunces/400.css";
 @import "@fontsource/fraunces/500.css";
 @import "@fontsource/atkinson-hyperlegible/400.css";
@@ -22,16 +18,9 @@
 @tailwind components;
 @tailwind utilities;
 
-/* -----------------------------------------------------------------------------
-   Design tokens. Light is default. Dark applied via [data-theme="dark"] on
-   <html>. Every shadcn primitive reads these variables, so screens and
-   custom components inherit the theme without any per-component branching.
-   ---------------------------------------------------------------------------*/
-
 @layer base {
   :root {
-    /* Surfaces */
-    --background: 38 33% 94%; /* #F5F2EC warm cream */
+    --background: 38 33% 94%;
     --foreground: 0 0% 10%;
     --card: 0 0% 100%;
     --card-foreground: 0 0% 10%;
@@ -40,41 +29,27 @@
     --sidebar: 38 27% 91%;
     --sidebar-foreground: 0 0% 10%;
 
-    /* Primary = sage accent */
-    --primary: 165 42% 30%; /* #2D6E5E */
+    --primary: 165 42% 30%;
     --primary-foreground: 0 0% 100%;
 
-    /* Secondary = soft neutral */
     --secondary: 38 27% 91%;
     --secondary-foreground: 0 0% 12%;
 
-    /* Muted */
     --muted: 38 24% 89%;
     --muted-foreground: 0 0% 42%;
 
-    /* Accent (lighter sage tint) */
     --accent: 159 28% 90%;
     --accent-foreground: 165 42% 24%;
 
-    /* Destructive */
     --destructive: 4 60% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    /* Borders + inputs */
     --border: 36 23% 88%;
     --input: 36 23% 88%;
     --ring: 165 42% 30%;
 
-    /* Radius scale */
     --radius: 0.75rem;
 
-    /* Motion grammar (v2 finding 018 / GET-52). Codifies durations
-       and curves so layout-sweeping blanket transitions stop appearing
-       in new components (motion-allow: documentation reference).
-       Use ms-* variables for durations and ease-* variables for curves.
-       iOS-style spring overshoot for popovers,
-       cinema-grade curve for modals, no-motion fallback below the
-       block honours prefers-reduced-motion. */
     --motion-ms-fast: 120ms;
     --motion-ms-snap: 200ms;
     --motion-ms-modal: 350ms;
@@ -128,28 +103,17 @@
 
   body {
     @apply bg-background font-sans text-foreground;
-    /* Inter alts + SF Pro stylistic-set / character-variant features.
-       cv02/cv03/cv04 + ss01 are Inter knobs (single-storey a, alt g, etc.)
-       that quietly degrade on SF Pro. cv11 picks SF Pro's "compact 0" glyph
-       in tabular contexts. Adding the SF Pro tabular numeral knobs at the
-       top makes inline numbers in prose feel right without forcing the
-       global into tabular spacing. */
+
     font-feature-settings: "ss01", "cv02", "cv03", "cv04", "cv11";
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
-  /* Tabular-numeral contexts: timer, kanban counts, durations, sizes,
-     dates. Tailwind ships a `tabular-nums` utility that components opt
-     into per element; this rule reinforces the contract on every
-     `font-mono` site so JetBrains Mono numbers line up vertically by
-     default. */
   .font-mono {
     font-variant-numeric: tabular-nums;
   }
 
-  /* Scrollbar — subtle, themed */
   ::-webkit-scrollbar {
     width: 10px;
     height: 10px;
@@ -171,8 +135,6 @@
 }
 
 @layer components {
-  /* Drag region so the user can move the borderless window from anywhere
-     marked with this class. Used in the sidebar header and topbar. */
   .drag {
     -webkit-app-region: drag;
   }
@@ -180,11 +142,6 @@
     -webkit-app-region: no-drag;
   }
 
-  /* Markdown notes editor (TipTap). The app doesn't ship the
-     @tailwindcss/typography plugin, so style the editor's rendered
-     markdown elements here, mirroring the read-only Markdown renderer
-     (src/shared/ui/markdown.tsx) so typed notes and enhanced notes look
-     consistent. Scoped to .md-notes-editor so nothing else is affected. */
   .md-notes-editor .ProseMirror p {
     @apply mb-3 last:mb-0;
   }
@@ -224,29 +181,13 @@
   .md-notes-editor .ProseMirror a {
     @apply text-primary underline underline-offset-2;
   }
-  /* Placeholder (TipTap Placeholder extension) on the empty first line. */
+
   .md-notes-editor .ProseMirror p.is-editor-empty:first-child::before {
     content: attr(data-placeholder);
     @apply pointer-events-none float-left h-0 text-muted-foreground;
   }
 }
 
-/* v2 roadmap finding 101: honor prefers-reduced-motion globally.
-   Tailwind v4 ships motion-safe:/motion-reduce: variants for opt-in
-   per-element control, but most of our motion comes from Tailwind's
-   built-in transition/animation utility classes that don't gate on
-   user preference. This blanket rule collapses every transition,
-   animation, and scroll-behaviour to a near-instant no-op when the
-   user has set Reduce Motion in macOS / iOS / Windows accessibility
-   preferences. Static cross-fades survive at 1ms — they don't trigger
-   vestibular symptoms but keep tooltips / popovers from popping in
-   abruptly. */
-/* Reading controls (v2 finding 100 / GET-113). The three data
-   attributes on <html> are set by `useReadingControls`; the rules
-   below translate them to font-family / font-size / letter-spacing
-   on the root. Scaling the root font-size lets every Tailwind rem
-   size (text-sm, text-base, text-lg, …) ride the same multiplier
-   without having to override every utility. */
 html[data-reading-font="fraunces"] body {
   font-family: "Fraunces", "Spectral", Georgia, ui-serif, serif;
 }
@@ -257,18 +198,6 @@ html[data-reading-font="opendyslexic"] body {
   font-family: "OpenDyslexic", "Atkinson Hyperlegible", "Inter", system-ui, sans-serif;
 }
 
-/* Tailwind's `font-serif` utility hardcodes Spectral/Georgia at higher
- * specificity than the body rule above, so by default page headers
- * stayed serif even when the user picked Atkinson Hyperlegible or
- * OpenDyslexic. Re-bind .font-serif per reading-font so the whole UI
- * (titles + body) follows the user's choice. `system` keeps the
- * Tailwind default Spectral so the SF Pro body + Spectral headings
- * pairing the original design ships with is preserved. */
-/* Only the brand wordmark (`.font-wordmark`, sidebar "attune") uses a
- * display serif. Every other heading follows the configured system font:
- * neutralise Tailwind's `.font-serif` (which hardcodes Spectral above the
- * body rule) so the ~40 headings using it inherit the body font — which
- * the reading-font rules above already rebind. */
 .font-serif {
   font-family: inherit;
 }
