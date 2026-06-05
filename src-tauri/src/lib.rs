@@ -1,6 +1,3 @@
-//! Attune Tauri 2 app entry. Sets up the window, registers plugins, and
-//! exposes Rust functions to the React frontend as Tauri commands.
-
 mod app;
 mod commands;
 
@@ -10,14 +7,6 @@ use std::sync::{Arc, Mutex};
 use tauri::Manager;
 use tracing_subscriber::EnvFilter;
 
-// ---------------------------------------------------------------------------
-// Background-thread lifecycle handles (GET-178)
-//
-// The meeting-watcher and live-transcript threads need to be cleanly stopped
-// on RunEvent::ExitRequested so they don't run past app exit. Process globals
-// are the simplest option here: `setup` writes them once, the RunEvent
-// closure reads them.
-// ---------------------------------------------------------------------------
 static WATCHER_STOP: std::sync::OnceLock<Arc<AtomicBool>> = std::sync::OnceLock::new();
 static WATCHER_HANDLE: Mutex<Option<std::thread::JoinHandle<()>>> = Mutex::new(None);
 
@@ -31,26 +20,12 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
-        // v2 finding 081 / GET-103: registers the `attune://` URL
-        // scheme + the .wav/.m4a/.mp3 file associations declared in
-        // tauri.conf.json. The frontend subscribes via
-        // `@tauri-apps/plugin-deep-link` and the plugin emits a
-        // `deep-link://new-url` event for every received URL or file
-        // path the OS forwards to the running app.
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(AppState::new_default())
         .setup(|app| {
-            // Dev builds launch as raw binaries without a .app bundle, so
-            // macOS would otherwise show a blank Dock icon. Set it here.
             app::dock_icon::set_dock_icon();
 
-            // On Linux/Windows we also need to register the URL scheme
-            // at runtime so the OS knows to forward `attune://...` URLs
-            // back to this process. macOS reads the bundle's Info.plist
-            // and does not need the runtime call. Failure to register
-            // is non-fatal — deep-link receive still works inside the
-            // same instance — so we log and continue.
             #[cfg(any(target_os = "linux", target_os = "windows"))]
             {
                 use tauri_plugin_deep_link::DeepLinkExt;
@@ -58,11 +33,7 @@ pub fn run() {
                     tracing::warn!(error = %e, "deep-link register_all failed");
                 }
             }
-            // Mirror the persisted privacy_mode setting into the
-            // process-global CloudGuard so the very first network call
-            // after launch already honours it. v2 finding 048 / GET-42.
-            // Also load the graduated egress policy from
-            // .attune/egress-policy.toml (GET-196).
+
             {
                 let state: tauri::State<'_, app::AppState> = app.state();
                 let settings = state.settings.lock().clone();
@@ -77,23 +48,16 @@ pub fn run() {
                 attune_core::cloud_guard::set_egress_policy(policy);
                 tracing::info!(privacy_mode = on, "cloud guard initialised");
             }
-            // Menu bar (system tray) icon + menu. v2 finding 006 /
-            // GET-25. Cited by 8 lenses — recording must be ambient.
+
             if let Err(e) = app::tray::install(app.handle()) {
                 tracing::warn!(error = %e, "tray install failed");
             }
-            // NSVisualEffectView vibrancy on the main window. v2
-            // finding 011 / GET-45.
+
             for window in app.webview_windows().values() {
                 app::vibrancy::install_window_vibrancy(window);
             }
-            // Meeting auto-detection watcher. GET-143. Polls
-            // NSWorkspace for conferencing apps and surfaces the HUD.
-            // GET-178: store the JoinHandle + stop signal so the
-            // RunEvent::ExitRequested handler can shut the thread down
-            // cleanly instead of letting it run past app exit.
-            let (watcher_handle, watcher_stop) =
-                app::meeting_watcher::spawn(app.handle().clone());
+
+            let (watcher_handle, watcher_stop) = app::meeting_watcher::spawn(app.handle().clone());
             let _ = WATCHER_STOP.set(watcher_stop);
             if let Ok(mut slot) = WATCHER_HANDLE.lock() {
                 *slot = Some(watcher_handle);
@@ -226,10 +190,7 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error building tauri application")
         .run(|app, event| {
-            // GET-178: on exit, signal background threads to stop and join
-            // them so they don't run past the process boundary.
             if let tauri::RunEvent::ExitRequested { .. } = event {
-                // Signal + join the meeting watcher.
                 if let Some(stop) = WATCHER_STOP.get() {
                     stop.store(true, Ordering::Relaxed);
                 }
@@ -241,7 +202,7 @@ pub fn run() {
                         }
                     }
                 }
-                // Signal + join the live-transcript thread (if running).
+
                 if let Some(state) = app.try_state::<app::AppState>() {
                     state.stop_live_transcript();
                     state.join_live_transcript();

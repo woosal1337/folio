@@ -1,10 +1,3 @@
-//! `diarize-transcript` — apply speaker diarization to an EXISTING
-//! recording's transcript (GET-189), without re-running Whisper.
-//!
-//! Loads `<session>/transcript.json(.zst)`, diarizes `system.wav`, tags
-//! each system-channel segment with a speaker index, and rewrites the
-//! transcript. Re-open the note in the app to see "Speaker 1/2/3…".
-
 use std::collections::BTreeSet;
 use std::path::Path;
 
@@ -34,9 +27,6 @@ pub fn run(args: DiarizeTranscriptArgs) -> Result<()> {
         ..Default::default()
     };
 
-    // Explicit model paths bypass the app model store (handy for testing
-    // against a known-good pair); otherwise use the store via the shared
-    // label helper.
     let outcome = match (&args.segmentation, &args.embedding) {
         (Some(seg), Some(emb)) => label_with_models(dir, &mut transcript, seg, emb, &opts)?,
         _ => {
@@ -57,8 +47,6 @@ pub fn run(args: DiarizeTranscriptArgs) -> Result<()> {
     Ok(())
 }
 
-/// Diarize with explicit model paths (store-bypass) and align the
-/// system-channel segments in place.
 fn label_with_models(
     dir: &Path,
     transcript: &mut SessionTranscript,

@@ -6,7 +6,10 @@
   "icon": "icon.png",
   "author": "attune",
   "license": "MIT",
-  "categories": ["Productivity", "Developer Tools"],
+  "categories": [
+    "Productivity",
+    "Developer Tools"
+  ],
   "commands": [
     {
       "name": "search-memory",

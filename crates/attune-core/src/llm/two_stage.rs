@@ -1,39 +1,9 @@
-//! Two-stage agent pipeline (GET-207).
-//!
-//! For long transcripts (> [`THRESHOLD_CHARS`] characters), running the
-//! summarize / extract-tasks / extract-memories / find-decisions agents
-//! directly on the full transcript is expensive — both in tokens and in
-//! quality (the model skims large inputs). The two-stage pipeline solves
-//! this:
-//!
-//! **Stage 1 — evidence extraction** (cheap model, full transcript):
-//! Extract every factual claim, decision, and action item as bullet
-//! points with verbatim transcript quotes. Output is concise (≤50
-//! bullets, ~2-3 k chars).
-//!
-//! **Stage 2 — synthesis** (same or stronger model, condensed evidence):
-//! Run the agent's normal prompt on the evidence summary rather than
-//! the raw transcript. The model gets grounded, citable input and a
-//! context budget 5-10× smaller, which both reduces cost and improves
-//! precision.
-//!
-//! The split matches the behavioral-evidence contract (GET-199): stage 1
-//! produces the quotable spans stage 2 must cite.
-//!
-//! Activation is automatic when the transcript exceeds
-//! [`THRESHOLD_CHARS`] and the agent is in [`TWO_STAGE_AGENTS`].
-
 use crate::error::Result;
 use crate::llm::provider::LlmProvider;
 use crate::llm::{ChatMessage, ChatRequest, ChatRole, OpenAiProvider};
 
-/// Transcript character threshold above which two-stage processing kicks in.
-/// ≈ 20 k chars ≈ 30-40 min of average meeting at ~8 words/sec dense speech.
 pub const THRESHOLD_CHARS: usize = 20_000;
 
-/// Agent IDs for which two-stage processing is applied when the transcript
-/// exceeds [`THRESHOLD_CHARS`]. These are the agents that read the full
-/// transcript and produce structured output from it.
 pub const TWO_STAGE_AGENTS: &[&str] = &[
     "summarize",
     "extract-tasks",
@@ -57,17 +27,10 @@ Rules:\n\
 - Maximum 50 bullets.\n\
 - Output ONLY the bullets. No preamble, no summary, no headings.";
 
-/// Returns `true` when the two-stage pipeline should be used for this
-/// agent + transcript combination.
 pub fn should_apply(agent_id: &str, transcript: &str) -> bool {
     TWO_STAGE_AGENTS.contains(&agent_id) && transcript.len() > THRESHOLD_CHARS
 }
 
-/// Stage 1: extract grounded evidence spans from the raw transcript.
-///
-/// Returns the condensed evidence as a multi-line bullet string.
-/// On error (API failure, empty result) returns the original transcript
-/// unchanged so the caller can fall through to the single-stage path.
 pub async fn extract_evidence(transcript: &str, api_key: &str, model: &str) -> Result<String> {
     let provider = OpenAiProvider::new(api_key.to_string());
     let resp = provider
@@ -88,15 +51,11 @@ pub async fn extract_evidence(transcript: &str, api_key: &str, model: &str) -> R
 
     let evidence = resp.text.trim().to_string();
     if evidence.is_empty() {
-        // Fallback: return the original so the caller uses it directly.
         return Ok(transcript.to_string());
     }
     Ok(evidence)
 }
 
-/// Wrap the stage-1 evidence in a user-message preamble so stage-2
-/// agents understand they are reading a condensed evidence summary,
-/// not the raw transcript.
 pub fn evidence_user_message(evidence: &str) -> String {
     format!(
         "The following is a condensed evidence summary extracted from the meeting \

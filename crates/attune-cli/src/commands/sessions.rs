@@ -1,11 +1,3 @@
-//! `attune-cli sessions` — list recording sessions under a directory.
-//!
-//! JSON-by-default newline-delimited output so the result pipes
-//! cleanly into jq, Hammerspoon, Alfred, or any other shell-level
-//! consumer. `--table` switches to a one-line-per-session human view.
-//!
-//! v2 roadmap finding 072 / GET-74.
-
 use anyhow::Result;
 use attune_core::storage::scan_recordings;
 

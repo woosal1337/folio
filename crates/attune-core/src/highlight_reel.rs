@@ -1,19 +1,3 @@
-//! Highlight-reel selection. v2 finding 084 / GET-104.
-//!
-//! Stitches the most decision-dense 60-90 seconds of a meeting into
-//! a short MP4 the user can post to Slack / LinkedIn. The MP4 muxing
-//! itself uses ffmpeg under the hood and lives in a follow-up; this
-//! module owns the pure selection logic:
-//!
-//!   1. Score every transcript segment by how decision-dense it is
-//!      (heuristic: presence of decision-marker keywords + density of
-//!      domain nouns + speaker-handoff bonuses).
-//!   2. Greedily pack the top-scoring segments into a 60-90 second
-//!      window, respecting min-gap-between-clips so the reel doesn't
-//!      look stitched.
-//!   3. Emit a `ReelPlan` of (start_seconds, end_seconds, subtitle)
-//!      cuts the muxer turns into ffmpeg commands.
-
 use serde::{Deserialize, Serialize};
 
 use crate::transcription::SessionTranscript;
@@ -36,10 +20,6 @@ pub struct ReelPlan {
     pub cuts: Vec<ReelCut>,
 }
 
-/// Decision-marker keywords. Lowercased substring match — the scorer
-/// runs over normalised text. Tweakable: the list is intentionally
-/// short to bias toward precision over recall (false positives waste
-/// reel seconds).
 const DECISION_MARKERS: &[&str] = &[
     "decided",
     "we agreed",
@@ -54,10 +34,6 @@ const DECISION_MARKERS: &[&str] = &[
     "action item",
 ];
 
-/// Score a single segment. Higher = more decision-dense. Returns 0
-/// when no decision marker is present — a segment must contain at
-/// least one marker to be reel-worthy, so we don't pad the reel with
-/// generic small-talk that happens to be wordy.
 pub fn score_segment(text: &str) -> u32 {
     let lc = text.to_lowercase();
     let marker_hits = DECISION_MARKERS.iter().filter(|m| lc.contains(*m)).count() as u32;
@@ -68,9 +44,6 @@ pub fn score_segment(text: &str) -> u32 {
     marker_hits * 50 + word_count.min(40)
 }
 
-/// Build a 60-90s highlight reel from a session transcript. Returns
-/// None when no candidate segment scores above zero (the transcript
-/// is too thin or pure small-talk).
 pub fn plan(transcript: &SessionTranscript) -> Option<ReelPlan> {
     let mut scored: Vec<(u32, ReelCut)> = Vec::new();
     for channel in &transcript.channels {

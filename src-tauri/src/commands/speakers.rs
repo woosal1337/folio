@@ -1,8 +1,3 @@
-//! Per-session speaker labels (GET-189): list the diarized speakers of a
-//! recording and rename them. A rename updates the recording's sidecar AND
-//! teaches the cross-recording registry the voice → name link, so future
-//! recordings can auto-detect the same speaker.
-
 use std::path::Path;
 
 use attune_core::diarization::{
@@ -11,8 +6,6 @@ use attune_core::diarization::{
 use attune_core::speaker_memory::{self, NameTarget, SpeakerRegistry};
 use uuid::Uuid;
 
-/// List the speakers identified for a recording: cluster id, current name
-/// (if any), and provenance. Empty when the recording was never diarized.
 #[tauri::command]
 pub async fn list_session_speakers(session_dir: String) -> Result<Vec<SpeakerLabel>, String> {
     tauri::async_runtime::spawn_blocking(move || {
@@ -26,10 +19,6 @@ pub async fn list_session_speakers(session_dir: String) -> Result<Vec<SpeakerLab
     .map_err(|e| format!("list_session_speakers task panicked: {e}"))?
 }
 
-/// Rename a diarized speaker. Updates this recording's sidecar and — when
-/// the cluster carries a voice embedding — teaches the registry the
-/// voice → name link so future recordings auto-detect this speaker.
-/// Returns the updated label set.
 #[tauri::command]
 pub async fn rename_session_speaker(
     session_dir: String,
@@ -51,8 +40,6 @@ pub async fn rename_session_speaker(
             .get_mut(cluster)
             .ok_or_else(|| format!("no speaker with cluster id {cluster}"))?;
 
-        // Teach the registry whenever we have a voice embedding to learn
-        // from (a cluster with too little audio carries none).
         if !speaker.embedding.is_empty() {
             let mut registry = speaker_memory::load_default().map_err(|e| e.to_string())?;
             let target = resolve_target(&registry, &trimmed);
@@ -71,8 +58,8 @@ pub async fn rename_session_speaker(
         }
 
         speaker.name = Some(trimmed);
-        speaker.auto_named = false; // an explicit user rename, not a guess
-        clear_suggestion(speaker); // a name supersedes any pending suggestion
+        speaker.auto_named = false;
+        clear_suggestion(speaker);
         speakers.write(dir).map_err(|e| e.to_string())?;
         Ok(speakers.labels())
     })
@@ -80,11 +67,6 @@ pub async fn rename_session_speaker(
     .map_err(|e| format!("rename_session_speaker task panicked: {e}"))?
 }
 
-/// Confirm a medium-confidence speaker suggestion ("yes, this is <name>",
-/// GET-189). Adds this recording's voice as an exemplar of the suggested
-/// identity — moving it toward the ≥3-exemplar auto-name bar so future
-/// recordings recognise it on sight — names the cluster, and clears the
-/// suggestion. Returns the updated label set.
 #[tauri::command]
 pub async fn confirm_session_speaker(
     session_dir: String,
@@ -128,10 +110,6 @@ pub async fn confirm_session_speaker(
     .map_err(|e| format!("confirm_session_speaker task panicked: {e}"))?
 }
 
-/// Reject a medium-confidence speaker suggestion ("no, not <name>",
-/// GET-189). Records a negative exemplar so the suggested identity stops
-/// matching this voice, and clears the suggestion — the cluster stays
-/// "Speaker N" for the user to name. Returns the updated label set.
 #[tauri::command]
 pub async fn reject_session_speaker(
     session_dir: String,
@@ -153,8 +131,7 @@ pub async fn reject_session_speaker(
         {
             if !speaker.embedding.is_empty() {
                 let mut registry = speaker_memory::load_default().map_err(|e| e.to_string())?;
-                // Best-effort: a forgotten/missing identity just means there
-                // is nothing left to vote against.
+
                 if registry.record(id).is_some() {
                     registry
                         .add_negative_exemplar(id, &speaker.embedding, now_ms())
@@ -172,19 +149,12 @@ pub async fn reject_session_speaker(
     .map_err(|e| format!("reject_session_speaker task panicked: {e}"))?
 }
 
-/// Clear a cluster's pending Confirm-tier suggestion.
 fn clear_suggestion(speaker: &mut attune_core::diarization::SessionSpeaker) {
     speaker.suggested_name = None;
     speaker.suggested_registry_id = None;
     speaker.suggested_score = None;
 }
 
-/// Where the exemplar attaches: merge into an existing identity that
-/// already carries this exact display name (so naming "Speaker 2" → "Alice"
-/// across two recordings builds one Alice, and re-confirming an auto-name
-/// reinforces it), otherwise create a brand-new identity. A correction
-/// (typing a different name than the auto-guess) therefore starts a fresh
-/// identity rather than poisoning the wrongly-guessed one.
 fn resolve_target(registry: &SpeakerRegistry, name: &str) -> NameTarget {
     if let Some(r) = registry
         .records

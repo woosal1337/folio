@@ -1,9 +1,3 @@
-/**
- * Omnipresent Ask bar (GET-156). The Home bottom bar opens the full
- * cross-library Chat seeded with the question, which auto-asks via
- * `ask_library`. Chat has no sidebar tab anymore.
- */
-
 import { expect, test } from "@playwright/test";
 
 import { ipcCalls, setupScenario } from "./fixtures/scenario";

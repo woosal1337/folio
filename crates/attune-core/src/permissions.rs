@@ -1,9 +1,3 @@
-//! TCC permission walkthrough types. v2 finding 003 / GET-31.
-//!
-//! Type-only module: lives in attune-core so `ts-rs` can emit the
-//! TypeScript bindings on `cargo test`. The Tauri command surface +
-//! the per-API FFI checks live in `attune-app::commands::permissions`.
-
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 

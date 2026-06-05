@@ -1,12 +1,3 @@
-/**
- * Settings → AI providers + agents IPC integration.
- *
- * AI keys are managed in Settings → AI; the section reads providers
- * via `list_providers`, gates the agents section by their
- * configured-state, and writes via `set_provider_key`. This spec
- * verifies the IPC contract.
- */
-
 import { expect, test } from "@playwright/test";
 
 import { ipcCalls, setupScenario } from "./fixtures/scenario";

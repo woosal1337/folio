@@ -15,10 +15,7 @@ export default [
       "node_modules/**",
       "scripts/**/*.mjs",
       "src/shared/types/**",
-      // Root-level config files. Authored in TS/JS but not part of the
-      // app surface; eslint's flat config only enables rules under
-      // `src/**`, so linting them surfaces "no matching configuration"
-      // warnings that fail under --max-warnings 0.
+
       "*.config.ts",
       "*.config.js",
       "*.config.mjs",
@@ -108,6 +105,7 @@ export default [
       "jsx-a11y/media-has-caption": "off",
 
       "no-console": ["error", { allow: ["warn", "error", "info"] }],
+      "no-empty": ["error", { allowEmptyCatch: true }],
       eqeqeq: ["error", "always"],
       "prefer-const": "error",
       "no-var": "error",

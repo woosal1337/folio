@@ -1,10 +1,3 @@
-/**
- * Serialise a note (recording + its summary / tasks / memories agent
- * runs) to plain text for the clipboard — the Slack/Notion paste target.
- * Extracted from the retired BriefingCard (GET-158) since the flat note
- * view is the only consumer now.
- */
-
 import type { AgentRun } from "@/shared/types/AgentRun";
 import type { RecordingSummary } from "@/shared/types/RecordingSummary";
 

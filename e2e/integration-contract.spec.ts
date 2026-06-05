@@ -1,12 +1,3 @@
-/**
- * IPC contract regression net.
- *
- * Pin every command name + payload shape the React code currently
- * uses. If a refactor drops or renames an IPC call, this spec
- * fails — fast — instead of letting the regression hide behind a
- * mocked test. The list is sourced from `src/shared/lib/ipc.ts`.
- */
-
 import { expect, test } from "@playwright/test";
 
 import { ipcLog, setupScenario } from "./fixtures/scenario";
@@ -60,9 +51,7 @@ test("save_settings is the canonical persist call (not settings_sync_push)", asy
   const log = await ipcLog(page);
   const save = log.filter((e) => e.cmd === "save_settings");
   expect(save.length).toBeGreaterThanOrEqual(1);
-  // settings_sync_push is the future cloud-sync path; today the UI
-  // only writes locally. Catch any accidental wire-up before it
-  // ships.
+
   const cloudPush = log.filter((e) => e.cmd === "settings_sync_push");
   expect(cloudPush.length).toBe(0);
 });

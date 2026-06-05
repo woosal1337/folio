@@ -36,7 +36,6 @@ const mockedShowBar = vi.mocked(showRecordingBar);
 const mockedHideBar = vi.mocked(hideRecordingBar);
 
 beforeEach(() => {
-  // Reset the store between tests.
   useRecording.setState({
     recording: false,
     paused: false,
@@ -151,7 +150,7 @@ describe("recording-store: syncFromBackend", () => {
   });
 });
 
-describe("recording-store: pause/resume (GET-149)", () => {
+describe("recording-store: pause/resume", () => {
   it("pause freezes the timer and marks the note paused", async () => {
     mockedPause.mockResolvedValueOnce({
       recording: false,
@@ -186,8 +185,7 @@ describe("recording-store: pause/resume (GET-149)", () => {
       channels: ["mic", "system"],
       session_dir: "/tmp/attune/note",
     });
-    // Resume only acts on a paused note (matches the real precondition —
-    // and the store guard that ignores a stray resume otherwise).
+
     useRecording.setState({ recording: false, paused: true, elapsed: 30 });
     const { result } = renderHook(() => useRecording());
     await act(async () => {
@@ -239,8 +237,6 @@ describe("recording-store: pause/resume/stop guards (re-entrancy + state)", () =
     });
     const { result } = renderHook(() => useRecording());
     await act(async () => {
-      // Fire two pauses without awaiting the first — the busy guard must
-      // drop the second so the backend pause runs exactly once.
       await Promise.all([result.current.pause(), result.current.pause()]);
     });
     expect(mockedPause).toHaveBeenCalledTimes(1);
@@ -296,13 +292,12 @@ describe("recording-store: floating bar lifecycle", () => {
           resolveStop = res as (v: unknown) => void;
         }) as never
     );
-    // Kick off stop but don't await — the optimistic teardown is
-    // synchronous and must have already run while ipcStop is still pending.
+
     const stopPromise = useRecording.getState().stop();
     expect(useRecording.getState().recording).toBe(false);
     expect(useRecording.getState().paused).toBe(false);
     expect(mockedHideBar).toHaveBeenCalledTimes(1);
-    // Now let the (slow) finalize complete and confirm the saved dir lands.
+
     await act(async () => {
       resolveStop({ artifacts: { session_dir: "/tmp/attune/note" } });
       await stopPromise;

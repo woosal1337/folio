@@ -1,25 +1,3 @@
-//! Apple EventKit calendar awareness. v2 finding 068 / GET-29.
-//!
-//! The "no-OAuth" calendar story: read the user's Calendar database
-//! directly via EventKit, no Google OAuth, no Microsoft Graph, no
-//! account creation. Apple's Calendar app already syncs to whatever
-//! providers the user has set up (Google, iCloud, Exchange, ...),
-//! and EventKit is the canonical local-read API.
-//!
-//! Surface:
-//!   * The menu bar shows "Next: <title> at <HH:MM> — start recording?"
-//!     based on `next_event(now, window)`.
-//!   * The Record page pre-fills the title, attendees, and Zoom link
-//!     from the matched event.
-//!   * The post-meeting summary back-fills the event's notes via
-//!     EventKit write (a follow-up; this PR ships the read path).
-//!
-//! Architecture: the pure helpers here are data-only. The actual
-//! EventKit FFI binding (Objective-C runtime calls) lands in a
-//! macOS-gated `event_kit_ffi.rs` module in the follow-up. This file
-//! defines the type the FFI returns and the selection helpers the
-//! menu bar consumes.
-
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
@@ -41,15 +19,8 @@ pub struct CalendarEvent {
     pub notes: Option<String>,
 }
 
-/// Window the menu bar polls: the next event whose start time falls
-/// within `now + lookahead`. Defaults to 30 minutes so the surface
-/// catches a meeting that's about to start without showing
-/// tomorrow's calendar.
 pub const DEFAULT_LOOKAHEAD: Duration = Duration::minutes(30);
 
-/// Return the event whose `starts_at` is the next one >= `now` and
-/// <= `now + window`. Ignores all-day events (24h+ duration) so the
-/// menu bar surface is meeting-only. Returns None when nothing fits.
 pub fn next_event(
     events: &[CalendarEvent],
     now: DateTime<Utc>,
@@ -64,9 +35,6 @@ pub fn next_event(
         .cloned()
 }
 
-/// True when the event is happening right now: `starts_at <= now < ends_at`.
-/// Used by the Record page to surface "you're in <event> — start
-/// recording?" the instant the user opens the app.
 pub fn current_event(events: &[CalendarEvent], now: DateTime<Utc>) -> Option<CalendarEvent> {
     events
         .iter()
@@ -74,10 +42,6 @@ pub fn current_event(events: &[CalendarEvent], now: DateTime<Utc>) -> Option<Cal
         .cloned()
 }
 
-/// Best-effort extraction of a conference URL from an event's
-/// `location` or `notes`. Walks a small list of providers and picks
-/// the first match. Provider detection is intentionally tolerant —
-/// users paste these URLs in inconsistent shapes.
 pub fn detect_conference_url(text: &str) -> Option<ConferenceLink> {
     for provider in CONFERENCE_PROVIDERS {
         for prefix in provider.url_prefixes {
@@ -102,38 +66,16 @@ pub struct ConferenceLink {
     pub url: String,
 }
 
-/// GET-132 — a single teammate suggestion derived from recent
-/// calendar events. Returned by `derive_attendee_suggestions` and
-/// surfaced by the onboarding invite-teammates screen.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
 #[ts(export, export_to = "../../../src/shared/types/")]
 pub struct AttendeeSuggestion {
-    /// Email address as it appeared in the calendar attendee list.
-    /// Always lowercased.
     pub email: String,
-    /// Display name when EventKit knew one. Empty string when the
-    /// attendee entry only carried an email (the UI falls back to
-    /// the local part of the email in that case).
+
     pub display_name: String,
-    /// Number of distinct events in the input window where this
-    /// attendee appeared. Drives the "N meetings together" caption.
+
     pub meeting_count: u32,
 }
 
-/// Derive teammate suggestions from a window of calendar events.
-///
-/// Pure on-device computation — the input slice already lives on
-/// the user's Mac, the output is sorted suggestions. Filters apply
-/// in order:
-///   1. Drop events whose attendees vector is empty.
-///   2. Drop the user's own email (case-insensitive) from each event.
-///   3. Optionally filter to attendees whose domain matches
-///      `user_domain` (case-insensitive). Passing `None` keeps all
-///      domains.
-///   4. Group remaining emails across events, count distinct event
-///      occurrences, and keep only those meeting `min_count`.
-///   5. Sort by meeting count (desc), then email (asc) for stable
-///      output.
 pub fn derive_attendee_suggestions(
     events: &[CalendarEvent],
     user_email: &str,
@@ -145,8 +87,6 @@ pub fn derive_attendee_suggestions(
 
     let mut counts: std::collections::HashMap<String, u32> = std::collections::HashMap::new();
     for event in events {
-        // Each attendee within one event counts at most once toward
-        // the meeting tally for that event (dedupe within event).
         let mut seen_in_event: std::collections::HashSet<String> = std::collections::HashSet::new();
         for raw in &event.attendees {
             let email = raw.trim().to_ascii_lowercase();
@@ -322,8 +262,7 @@ mod tests {
             ev_with("3", &["me@acme.com", "bob@acme.com"]),
         ];
         let out = derive_attendee_suggestions(&events, "me@acme.com", None, 1);
-        // Alice in 2 events, Bob in 2 events. Both meet min_count=1.
-        // Sort: equal counts → alphabetical by email.
+
         assert_eq!(out.len(), 2);
         assert_eq!(out[0].email, "alice@acme.com");
         assert_eq!(out[0].meeting_count, 2);

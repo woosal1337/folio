@@ -1,11 +1,3 @@
-//! Agent tool definitions + synchronous dispatch (GET-184).
-//!
-//! Pure data-in/data-out logic moved out of the Tauri binary: the JSON
-//! schemas the model sees ([`tools_for_agent`]) and the handlers that apply
-//! a tool call to the task / memory stores ([`dispatch_tool_call`]). The
-//! command layer owns the run loop and supplies the stores; the tool
-//! behaviour itself is testable here.
-
 use std::path::Path;
 use std::sync::Arc;
 
@@ -17,26 +9,16 @@ use crate::memory::{MemoryKind, MemoryStore, NewMemory};
 use crate::storage::{NewTask, TaskStore};
 use crate::transcription::{locate, SessionTranscript};
 
-/// Tag applied to a memory whose evidence appears in only one transcript
-/// segment — a single passing remark the speaker may have forgotten making
-/// (GET-209). The run-card surfaces it so the user is never ambushed.
 pub const MENTIONED_ONCE_TAG: &str = "mentioned-once";
 
-/// Agents that receive the `create_task` tool.
 const TASK_TOOL_AGENTS: &[&str] = &["extract-tasks"];
 
-/// Agents that receive the `remember` tool.
 const MEMORY_WRITE_TOOL_AGENTS: &[&str] = &["extract-memories"];
 
-/// Whether every agent gets the `search_memory` tool. We give it to all: a
-/// summary or Q&A turn benefits from pulling prior context, and the
-/// extract-* agents benefit from deduping against what's already remembered.
 fn memory_search_for_all() -> bool {
     true
 }
 
-/// Build the tool definitions an agent gets. Order is stable so the model
-/// sees `search_memory` first (it's the read tool) and writes after.
 pub fn tools_for_agent(agent_id: &str) -> Option<Vec<ToolDef>> {
     let mut tools = Vec::new();
     if memory_search_for_all() {
@@ -148,8 +130,6 @@ or avoid re-asking something the user has stated previously. Returns up to `limi
     }
 }
 
-/// The result of dispatching one tool call — serialized back into the chat
-/// as the tool message, and inspected by the run loop (`success` / `id`).
 #[derive(serde::Serialize, Default)]
 pub struct ToolResult {
     pub success: bool,
@@ -199,9 +179,6 @@ struct SearchMemoryArgs {
     limit: Option<usize>,
 }
 
-/// Apply a tool call synchronously against the task / memory stores.
-/// `transcript`, when provided, lets `remember` flag single-utterance
-/// claims (GET-209).
 pub fn dispatch_tool_call(
     call: &ToolCall,
     tasks_path: &Path,
@@ -291,11 +268,6 @@ fn dispatch_remember(
     };
     let evidence = args.evidence.filter(|s| !s.trim().is_empty());
 
-    // GET-209: a memory whose evidence appears in exactly one transcript
-    // segment rests on a single passing remark — tag it so the run-card can
-    // warn the user, rather than presenting a forgotten aside as a settled
-    // fact. >1 (corroborated) or 0 (too short to judge / no transcript) → no
-    // tag.
     let mut tags = args.tags;
     if let (Some(t), Some(ev)) = (transcript, evidence.as_deref()) {
         if locate::support_count(t, ev) == 1 && !tags.iter().any(|x| x == MENTIONED_ONCE_TAG) {
@@ -347,13 +319,9 @@ fn dispatch_search_memory(call: &ToolCall, store: Arc<MemoryStore>) -> ToolResul
         .filter_map(|s| MemoryKind::parse(s))
         .collect();
     let limit = args.limit.unwrap_or(5);
-    // Embedding-free path inside the dispatcher to keep tool calls
-    // synchronous; FTS5 BM25 alone is enough signal for the kinds of
-    // lookups agents do mid-reasoning.
+
     match store.search(&args.query, None, &kinds, limit) {
         Ok(memories) => {
-            // Project to a tiny shape so the model isn't drowning in
-            // timestamps and ids.
             let projected: Vec<serde_json::Value> = memories
                 .into_iter()
                 .map(|m| {

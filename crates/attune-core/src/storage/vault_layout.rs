@@ -1,30 +1,5 @@
-//! Vault-native .attune/ layout. v2 roadmap finding 056 / GET-91.
-//!
-//! When the user has a vault (an Obsidian / git directory they
-//! already manage), Attune can stay entirely within `<vault>/.attune/`
-//! so a single `git push` snapshots the whole brain.
-//!
-//! ```text
-//! <vault>/
-//!   .attune/
-//!     recordings/     # session_dirs (mic.wav, system.wav, transcript.json.zst, …)
-//!     memory/         # canonical memory markdown files
-//!     tasks/tasks.json
-//!     digests/        # weekly markdown digests
-//!     inbox/, outbox/ # filesystem IPC (#073 / GET-75)
-//!     showcase.md     # Linktree-style portfolio (#087 / GET-107)
-//!     webhooks.json   # subscriptions (#079 / GET-101)
-//!     _index/         # derived SQLite + FTS5 + vec indexes (gitignored)
-//! ```
-//!
-//! This module is the single resolver: given a vault root, returns
-//! every path the app reads/writes. Callers that don't have a
-//! vault keep using the legacy split (output_dir, memory_dir,
-//! tasks_path, …) per Settings; the layout migration is opt-in.
-
 use std::path::{Path, PathBuf};
 
-/// Computed paths beneath `<vault>/.attune/`.
 #[derive(Debug, Clone)]
 pub struct VaultLayout {
     pub root: PathBuf,
@@ -52,16 +27,10 @@ impl VaultLayout {
         }
     }
 
-    /// Suggested `.gitignore` contents for the layout. Only the
-    /// `_index/` directory is gitignored — everything else is the
-    /// user's source of truth they want versioned.
     pub fn suggested_gitignore() -> &'static str {
-        "# Attune vault gitignore (v2 #056 / GET-91)\n_index/\n"
+        "# Attune vault gitignore\n_index/\n"
     }
 
-    /// `true` iff every Attune-managed path inside the vault root
-    /// already exists. The Settings UI uses this to decide whether
-    /// to surface a 'Run migration' prompt.
     pub fn looks_initialised(&self) -> bool {
         self.recordings.is_dir()
             && self.memory.is_dir()

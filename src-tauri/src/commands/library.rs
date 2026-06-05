@@ -1,5 +1,3 @@
-//! Library: enumerate, reveal, and delete saved recording sessions.
-
 use std::path::PathBuf;
 
 use attune_core::storage::search::{search_notes, NoteSearchHit};
@@ -11,18 +9,6 @@ use tracing::{debug, info};
 
 use crate::app::AppState;
 
-/// Scan the user's recordings directory and return a summary per session.
-///
-/// File-system scan + WAV header reads can take a measurable amount of
-/// time once there are many recordings, so this runs on a blocking task.
-///
-/// Filters out the currently-active recording session. The capture
-/// pipeline creates the session dir and the mic.wav / system.wav files
-/// up-front, but the WAV headers are not finalized until
-/// [`CaptureSession::stop`] runs — so if we surface that directory in
-/// the list while a recording is in progress, the `<audio>` element on
-/// the frontend hits MediaError 4 ("source not supported"). Hiding it
-/// until stop keeps the library honest about what is actually playable.
 #[tauri::command]
 pub async fn list_recordings(state: State<'_, AppState>) -> Result<Vec<RecordingSummary>, String> {
     debug!("list_recordings");
@@ -44,10 +30,6 @@ pub async fn list_recordings(state: State<'_, AppState>) -> Result<Vec<Recording
     .map_err(|e| format!("list_recordings task panicked: {e}"))
 }
 
-/// Full-text search across note content (GET-165): user title, the
-/// enhanced-notes summary, live notes, and the transcript. Returns one
-/// hit per matching note with a snippet around the first match. Runs on
-/// a blocking task because it reads + decompresses transcripts.
 #[tauri::command]
 pub async fn search_note_content(
     state: State<'_, AppState>,
@@ -60,11 +42,6 @@ pub async fn search_note_content(
         .map_err(|e| format!("search_note_content task panicked: {e}"))
 }
 
-/// Export a note as a clean, self-contained Markdown file (GET-166) and
-/// return its path. Local-first: assembles title + enhanced notes + live
-/// notes + transcript and writes `<session_dir>/<label>.md`. Nothing
-/// leaves the machine, so it's safe under `privacy_mode`. The frontend
-/// then reveals it or hands it to the OS share sheet.
 #[tauri::command]
 pub async fn export_note_markdown(
     state: State<'_, AppState>,
@@ -84,13 +61,6 @@ pub async fn export_note_markdown(
     .inspect(|path| info!(path = %path, "note exported to markdown"))
 }
 
-/// Delete a recording session directory.
-///
-/// Refuses to delete unless the path lies under the user's configured
-/// recordings folder — defence in depth so a bug in the frontend can't
-/// trigger an `rm -rf /` situation. The recursive remove runs on a
-/// blocking task because removing a session with hundreds of MB of
-/// WAVs is not instantaneous.
 #[tauri::command]
 pub async fn delete_recording(
     state: State<'_, AppState>,
@@ -132,10 +102,6 @@ pub async fn delete_recording(
     })
 }
 
-/// Look up a single recording by its label (the session directory's
-/// timestamp name). Used by the Editor route when the user lands on a
-/// `/editor/:label` URL directly and does not have the `RecordingSummary`
-/// in router state.
 #[tauri::command]
 pub async fn get_recording(
     state: State<'_, AppState>,
@@ -157,9 +123,6 @@ pub async fn get_recording(
     .map_err(|e| format!("get_recording task panicked: {e}"))
 }
 
-/// Reveal `path` in the platform file browser. Subprocess spawn is
-/// quick but we run it on a blocking task for consistency with the
-/// other library commands.
 #[tauri::command]
 pub async fn reveal_in_finder(state: State<'_, AppState>, path: PathBuf) -> Result<(), String> {
     let output_dir = state.settings.lock().output_dir.clone();
@@ -185,10 +148,6 @@ pub async fn reveal_in_finder(state: State<'_, AppState>, path: PathBuf) -> Resu
     .map_err(|e| format!("reveal_in_finder task panicked: {e}"))?
 }
 
-/// Present the macOS native share sheet (`NSSharingServicePicker`)
-/// anchored to the current key window for one or more files. v2
-/// finding 010 / GET-34 — AirDrop, Messages, Mail, Notes, third-party
-/// share extensions for free, with zero per-target plumbing.
 #[tauri::command]
 pub async fn share_paths(state: State<'_, AppState>, paths: Vec<PathBuf>) -> Result<(), String> {
     info!("share_paths: {} item(s)", paths.len());

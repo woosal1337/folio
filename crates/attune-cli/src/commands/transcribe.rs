@@ -1,8 +1,3 @@
-//! `attune-cli transcribe` — feed a WAV file through whisper.cpp and
-//! print both the raw segments and the hallucination filter's drops.
-//! Mirrors the library path closely enough to investigate empty or
-//! short transcripts coming out of the Tauri app.
-
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::SystemTime;
@@ -248,10 +243,6 @@ fn default_threads() -> i32 {
         .unwrap_or(4)
 }
 
-/// Re-encode any input WAV to mono 16 kHz PCM via ffmpeg, then read
-/// the result as `f32` samples for direct feeding to whisper.cpp.
-/// Whisper requires 16 kHz mono Float32; this is the standard
-/// preprocessing step.
 fn decode_wav_to_16k_mono(path: &Path) -> Result<Vec<f32>> {
     let nanos = SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)

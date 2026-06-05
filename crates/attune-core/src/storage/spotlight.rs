@@ -1,20 +1,3 @@
-//! macOS Spotlight indexing via plain-text sidecars.
-//!
-//! Spotlight indexes the user's home directory automatically. Rather
-//! than bind to NSCoreSpotlight + objc, we write a tiny `index.txt`
-//! sidecar inside each recording session_dir with a flattened,
-//! greppable view of the transcript + metadata. Spotlight picks it
-//! up for free and Cmd-Space "whisper decision" surfaces the
-//! matching session.
-//!
-//! Same approach for memories: the canonical markdown files already
-//! sit in a Spotlight-indexed directory, so the only thing we add
-//! is the recording sidecar.
-//!
-//! v2 roadmap finding 075 / GET-77. The full NSCoreSpotlight bridge
-//! (which lets us populate result previews with audio thumbnails +
-//! attune:// deep-links) stays as the follow-up.
-
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -23,9 +6,6 @@ use crate::transcription::Transcript;
 
 const SIDECAR_FILENAME: &str = "index.txt";
 
-/// Write the Spotlight-friendly sidecar for a recording. Includes the
-/// label, transcript text (flattened across channels), and any
-/// suggested title/tags from the autoname agent.
 pub fn write_recording_sidecar(
     session_dir: &Path,
     label: &str,

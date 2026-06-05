@@ -23,21 +23,6 @@ const KIND_META: Record<JobKind, { icon: LucideIcon; tone: string }> = {
   download: { icon: Bot, tone: "text-primary" },
 };
 
-/**
- * Thin status strip under the DragStrip. Renders one pill per active
- * job in the cross-cutting jobs store. Hidden when nothing is running
- * so it never takes up vertical space without earning it.
- *
- * Each pill is a Link to the recording's editor route when a
- * `sessionDir` / `recordingLabel` is attached to the job. Click a pill
- * → land on the recording in context.
- *
- * The subscription is to the raw `jobs` record (stable reference; only
- * changes when push/pop mutate the map), and the sorted array is
- * derived inside the component with useMemo. A `useStore(s => sortedArr)`
- * selector would return a new array on every state-read tick and
- * trigger React's "Maximum update depth exceeded" guard.
- */
 export function JobStrip() {
   const jobsMap = useJobsStore((s) => s.jobs);
   const jobs = React.useMemo(

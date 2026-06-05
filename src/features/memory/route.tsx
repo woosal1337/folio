@@ -1,15 +1,3 @@
-/**
- * /memory — the user-facing surface for the local memory layer.
- *
- * Cards grouped by kind (All / Identity / Preferences / People /
- * Observations) with a search bar at the top, an archived toggle in
- * the header, and per-card edit / pin / archive controls. New memories
- * appear automatically after each recording when the auto-extract
- * toggle is on; the user can also add their own from the inline
- * composer (which always uses the Observe kind — for keyed memories,
- * the user clicks "Add memory" and picks the kind in the edit modal).
- */
-
 import * as React from "react";
 import {
   ArrowUpRight,
@@ -153,11 +141,7 @@ export default function MemoryRoute() {
               ? "No memories yet"
               : `${current.length} ${current.length === 1 ? "memory" : "memories"}`}
           </span>
-          {/* Visible 'Reindex' button removed by v2 finding R04 /
-              GET-121 — the index self-heals from the markdown files
-              automatically. The action is still reachable via a long-
-              press on the count for power users who want to force a
-              rebuild after editing files outside Attune. */}
+
           <button
             type="button"
             onPointerDown={(e) => {
@@ -185,7 +169,6 @@ export default function MemoryRoute() {
         </div>
       </header>
 
-      {/* Filter row */}
       <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
@@ -260,7 +243,6 @@ export default function MemoryRoute() {
         </section>
       ) : null}
 
-      {/* Inline composer for free-form Observe */}
       <InlineComposer
         onCreate={(content) => create(blankNewMemory("observe", content))}
       />
@@ -393,9 +375,6 @@ function MemoryCard({
       {memory.tags.length > 0 && (
         <div className="flex flex-wrap gap-1">
           {memory.tags.map((t) =>
-            // GET-209: surface the single-utterance flag as a privacy
-            // warning, not a generic tag, so a forgotten throwaway line is
-            // never presented as a settled fact.
             t === "mentioned-once" ? (
               <Badge
                 key={t}

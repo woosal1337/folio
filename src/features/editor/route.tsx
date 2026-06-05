@@ -89,14 +89,9 @@ export default function Editor() {
 
   const transcribingDir = useRecording((s) => s.transcribingDir);
   const lastTranscriptPath = useRecording((s) => s.lastTranscriptPath);
-  // Recording-store state for the in-note record dock (GET-155).
+
   const recState = useRecording();
 
-  // Live-transcript preview (GET-160): the latest rolling-window caption
-  // for THIS note while it's the active capture. Cleared when capture
-  // stops; the final on-stop transcript is the source of truth. Gated
-  // behind the Beta opt-in — when off, the backend never emits previews,
-  // so the dock should not advertise a live caption either.
   const liveTranscriptEnabled = useSettingsStore(
     (s) => s.settings?.live_transcript_enabled ?? false
   );
@@ -119,7 +114,6 @@ export default function Editor() {
     return () => unlisten?.();
   }, [isCapturingThis, recording?.session_dir]);
 
-  // Fetch the RecordingSummary when not provided via router state.
   React.useEffect(() => {
     if (recording) return;
     if (!label) {
@@ -169,7 +163,6 @@ export default function Editor() {
     }
   }, [recording, loadTranscript, lastTranscriptPath]);
 
-  // Refresh the recording metadata once a transcription completes.
   React.useEffect(() => {
     if (!label || !lastTranscriptPath) return;
     let cancelled = false;
@@ -203,12 +196,6 @@ export default function Editor() {
     void refreshRuns();
   }, [refreshRuns, lastTranscriptPath]);
 
-  // Live-refresh as background work for THIS note finishes. The auto-fire
-  // chain (transcribe → summarize → tasks/memories) runs after the page is
-  // already open, and each step pushes/pops a job in the jobs store. When a
-  // job for this session disappears (completed), re-fetch the agent runs so
-  // the enhanced notes appear the moment they're ready — no need to leave
-  // the page and come back.
   const jobs = useJobsStore((s) => s.jobs);
   const prevJobIds = React.useRef<Set<string>>(new Set());
   React.useEffect(() => {
@@ -229,10 +216,6 @@ export default function Editor() {
 
   const summaryRun = agentRuns.find((r) => r.agent_id === "summarize") ?? null;
 
-  // GET-191: enhanced notes are AI-generated, so render them muted until the
-  // user "keeps" (owns) them — the Granola gray→black provenance cue.
-  // Acceptance is keyed to the run's finished_at, so a Regenerate (new run)
-  // reverts to muted until kept again.
   const [acceptedMarker, setAcceptedMarker] = React.useState<string | null>(null);
   React.useEffect(() => {
     const dir = recording?.session_dir;
@@ -266,10 +249,6 @@ export default function Editor() {
     }
   }, [recording?.session_dir, summaryRun]);
 
-  // Is the summary being generated right now (auto-fire after transcribe,
-  // or the manual Regenerate)? Used to show a loading state in place of the
-  // empty "no enhanced notes yet" prompt, and to keep the note locked until
-  // the pipeline settles.
   const summarizing = React.useMemo(
     () =>
       !!recording?.session_dir &&
@@ -322,10 +301,6 @@ export default function Editor() {
     }
   };
 
-  // GET-166: export the note as a self-contained Markdown file and hand
-  // it to the OS share sheet (AirDrop / Mail / Messages / Notes). If the
-  // share sheet isn't available, reveal the file in Finder instead. All
-  // local — no cloud egress, so it's safe under privacy_mode.
   const handleShare = async () => {
     if (!recording) return;
     try {
@@ -342,9 +317,6 @@ export default function Editor() {
     }
   };
 
-  // GET-163: persist an edited title to `title.txt`. An empty value clears
-  // it (falls back to the autoname/label). Optimistically updates local
-  // state so the header reflects the change without a re-fetch.
   const handleRename = React.useCallback(
     async (next: string) => {
       if (!recording) return;
@@ -417,8 +389,6 @@ export default function Editor() {
     }
   };
 
-  // ---- Render guards ---------------------------------------------------
-
   if (notFound) {
     return (
       <CenteredPage>
@@ -444,8 +414,6 @@ export default function Editor() {
     );
   }
 
-  // ---- Main render -----------------------------------------------------
-
   const totalBytes =
     Number(recording.mic_bytes ?? 0n) + Number(recording.system_bytes ?? 0n);
   const micPath = recording.mic_bytes ? `${recording.session_dir}/mic.wav` : null;
@@ -453,19 +421,14 @@ export default function Editor() {
     ? `${recording.session_dir}/system.wav`
     : null;
   const isCurrentlyTranscribing = transcribingDir === recording.session_dir;
-  // While the note is being processed — transcribing locally/in the cloud,
-  // or folding the markdown notes into the AI summary — lock the notes
-  // editor and the record dock (greyed) so the user can see those fields
-  // are in-flight and can't race the pipeline that consumes them.
+
   const isProcessing = isCurrentlyTranscribing || regenerating || summarizing;
-  // GET-163: a user-set title wins; else the autoname suggestion; else the
-  // timestamp label. The placeholder shown in the editable field is the
-  // non-user fallback so clearing the field reveals what it'll fall back to.
+
   const fallbackTitle =
     recording.suggested_title?.trim() || recording.draft_name || recording.label;
   const title = recording.title?.trim() || fallbackTitle;
   const hasAudio = recording.mic_bytes !== null || recording.system_bytes !== null;
-  // Record-dock state (GET-155): is THIS note the active capture?
+
   const isThisActive = recState.liveSessionDir === recording.session_dir;
   const isRecordingThis = recState.recording && isThisActive;
   const isPausedThis = recState.paused && isThisActive;
@@ -474,7 +437,6 @@ export default function Editor() {
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-8 py-8 pb-28">
-      {/* Header: back + ⋯ */}
       <div data-drag="" className="flex select-none items-center justify-between">
         <Link
           to="/library"
@@ -520,7 +482,6 @@ export default function Editor() {
         </div>
       </div>
 
-      {/* Title + chips */}
       <div className="space-y-3">
         <EditableTitle
           value={title}
@@ -553,7 +514,6 @@ export default function Editor() {
         </div>
       </div>
 
-      {/* Transcribing / transcribe-now (only when there's audio) */}
       {isCurrentlyTranscribing ? (
         <div
           className="flex items-center gap-2 text-sm text-muted-foreground"
@@ -577,8 +537,6 @@ export default function Editor() {
         </div>
       ) : null}
 
-      {/* Your notes — a live markdown editor; autosaves to the note dir
-          (GET-145/155). Feeds the on-stop summary (GET-147). */}
       <section className="space-y-2">
         <SectionLabel>Your notes</SectionLabel>
         <MarkdownNotesEditor
@@ -588,9 +546,6 @@ export default function Editor() {
         />
       </section>
 
-      {/* Enhanced notes (the structured summary). GET-191: rendered muted
-          until the user "keeps" it, so AI text reads as a draft to review
-          rather than something they wrote. */}
       {summaryRun ? (
         <section className="space-y-2">
           <div className="flex items-center justify-between gap-2">
@@ -619,8 +574,8 @@ export default function Editor() {
           />
           {!enhancedNotesKept && (
             <p className="text-2xs text-muted-foreground/80">
-              AI-generated from your transcript. Click any line to see the
-              moment behind it. Review and keep to make it yours.
+              AI-generated from your transcript. Click any line to see the moment behind
+              it. Review and keep to make it yours.
             </p>
           )}
         </section>
@@ -652,7 +607,6 @@ export default function Editor() {
         </p>
       ) : null}
 
-      {/* Transcript dock — collapsible */}
       {recording.has_transcript ? (
         <Disclosure
           open={transcriptOpen}
@@ -692,7 +646,6 @@ export default function Editor() {
         </Disclosure>
       ) : null}
 
-      {/* Docked record panel (GET-155) — sticky to the bottom of the note */}
       <RecordDock
         recordingThis={isRecordingThis}
         pausedThis={isPausedThis}
@@ -719,10 +672,6 @@ export default function Editor() {
   );
 }
 
-/** Sticky bottom record control for a note (GET-155). While capturing,
- *  a live rolling-window transcript preview (GET-160) streams in above
- *  the controls; the final on-stop transcript remains the source of
- *  truth and lands in the "Transcript & audio" disclosure after Stop. */
 function RecordDock({
   recordingThis,
   pausedThis,
@@ -742,11 +691,9 @@ function RecordDock({
   recordingThis: boolean;
   pausedThis: boolean;
   otherActive: boolean;
-  /** Note is being processed (transcribe / summarize) — grey out and
-   *  block the record controls until it settles. */
+
   locked: boolean;
-  /** Live-transcript Beta opt-in. When off, the dock shows no live
-   *  caption preview (the backend emits none either). */
+
   liveTranscript: boolean;
   elapsedLabel: string;
   livePreview: string;
@@ -758,9 +705,6 @@ function RecordDock({
   onPause: () => void;
   onResume: () => void;
 }) {
-  // When locked, the only thing the dock shows is a quiet "processing"
-  // pill — no record/pause/stop, no Ask — so it's unmistakable the note
-  // is busy. (Recording can't be in flight while transcribing anyway.)
   if (locked) {
     return (
       <div className="pointer-events-none sticky bottom-4 z-10 mt-2 flex flex-col items-center gap-2">
@@ -878,12 +822,6 @@ function formatElapsed(secs: number): string {
   return `${m}:${r.toString().padStart(2, "0")}`;
 }
 
-// ---- Small building blocks ---------------------------------------------
-
-/** Inline-editable note title (GET-163). Renders as an unstyled input that
- *  looks like the heading; commits on blur or Enter, reverts on Escape.
- *  `value` is the resolved title (user title or fallback); `placeholder`
- *  is the non-user fallback shown when the field is emptied. */
 function EditableTitle({
   value,
   placeholder,
@@ -896,18 +834,13 @@ function EditableTitle({
   const [draft, setDraft] = React.useState(value);
   const [editing, setEditing] = React.useState(false);
 
-  // Keep the field in sync with upstream changes (e.g. autoname landing)
-  // while the user isn't actively editing.
   React.useEffect(() => {
     if (!editing) setDraft(value);
   }, [value, editing]);
 
   const commit = () => {
     setEditing(false);
-    // Only persist a real edit. Without this, focusing+blurring a note
-    // whose displayed title is a fallback (a "Draft N" placeholder or an
-    // autoname suggestion) would save that fallback as a user title and
-    // freeze it — defeating the auto-rename once agents run.
+
     if (draft !== value) onCommit(draft);
   };
 
@@ -1027,7 +960,6 @@ function NoteMenu({
       </Button>
       {open ? (
         <>
-          {/* click-away */}
           <button
             type="button"
             aria-hidden="true"

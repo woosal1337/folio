@@ -1,14 +1,3 @@
-/**
- * Deep-link allowlist. `docs/CODE_STYLE.md` §8.6 says:
- *
- *   "The `attune://` deep-link handler parses each URL against an
- *    explicit allowlist of routes and parameters before navigating.
- *    Anything outside the allowlist is logged and dropped."
- *
- * This module owns the routing table + the classify() helper the
- * chrome handler calls. Keep it pure so it's trivially unit-testable.
- */
-
 export type DeepLinkVerdict =
   | { kind: "allowed-attune-route"; route: string; params: Record<string, string> }
   | { kind: "allowed-audio-file"; path: string }
@@ -17,11 +6,6 @@ export type DeepLinkVerdict =
 const ATTUNE_SCHEME = "attune://";
 const ALLOWED_AUDIO_EXTENSIONS = [".wav", ".m4a", ".mp3"] as const;
 
-/**
- * Routes the `attune://` handler will navigate to. Anything not on
- * this list is rejected and logged so a typo or a malicious shortcut
- * cannot drive the app into arbitrary state.
- */
 const ALLOWED_ATTUNE_ROUTES: ReadonlySet<string> = new Set([
   "library",
   "tasks",
@@ -30,12 +14,6 @@ const ALLOWED_ATTUNE_ROUTES: ReadonlySet<string> = new Set([
   "preferences",
 ]);
 
-/**
- * Query-string parameter names the handler will preserve for any
- * route. Anything outside this list is dropped — keeping the surface
- * small means a future feature that adds a new param has to extend
- * the allowlist explicitly.
- */
 const ALLOWED_PARAMS: ReadonlySet<string> = new Set([
   "autoStart",
   "label",
@@ -45,11 +23,6 @@ const ALLOWED_PARAMS: ReadonlySet<string> = new Set([
   "span",
 ]);
 
-/**
- * Classify a raw deep-link URL. The handler iterates and forwards
- * each verdict — `allowed-*` to its consumer, `rejected` to a logger.
- * Pure, no IO; tests cover the table exhaustively.
- */
 export function classifyDeepLink(url: string): DeepLinkVerdict {
   if (looksLikeAudio(url)) {
     return { kind: "allowed-audio-file", path: stripFileScheme(url) };

@@ -1,27 +1,3 @@
-//! System audio capture — process tap (macOS 14.4+) with ScreenCaptureKit
-//! fallback (GET-170).
-//!
-//! ## Backend selection
-//!
-//! On **macOS 14.4+**: [`process_tap::ProcessTapCapture`] is tried first.
-//! It uses `AudioHardwareCreateProcessTap` which only requires the
-//! **System Audio Recording** permission — Attune then appears under
-//! "System Audio Recording Only" in System Settings → Privacy, not
-//! "Screen & System Audio Recording". Fails gracefully and falls through to
-//! the SCK backend if the tap cannot be created (e.g. permission not granted
-//! yet on first launch; the OS will prompt on the next attempt).
-//!
-//! On **macOS < 14.4** or when the tap fails: falls back to the existing
-//! **ScreenCaptureKit** backend which requires the Screen Recording
-//! permission.
-//!
-//! ## SCK backend (fallback)
-//!
-//! Wraps `screencapturekit::SCStream` configured with `captures_audio = true`
-//! and `excludes_current_process_audio = true`. The first display on the
-//! system is used as the content source. No video frames are requested or
-//! processed — we only care about the audio output.
-
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -41,22 +17,11 @@ pub use macos_impl::SystemCapture;
 #[cfg(not(target_os = "macos"))]
 pub use stub_impl::SystemCapture;
 
-/// Source sample rate requested from ScreenCaptureKit. The framework will
-/// downmix / convert as needed. 48 kHz is the macOS hardware native rate
-/// and avoids unnecessary OS-side resampling.
 const SCK_SAMPLE_RATE: u32 = 48_000;
 const SCK_CHANNEL_COUNT: u8 = 1;
 
-/// RMS threshold below which we treat a buffer as silent. Matches the
-/// value used by the whisper pre-filter (`transcription/local.rs`).
-/// 0.002 ≈ -54 dBFS, well below normal speech (~-30 dBFS) and well
-/// above true digital silence (~-90 dBFS).
 const SILENCE_RMS_THRESHOLD: f32 = 0.002;
 
-/// How long the system channel must stay silent before we stop writing
-/// samples to the WAV. Set to 30 seconds per v2 finding 047 (GET-90)
-/// — short enough that idle periods don't bloat the recording, long
-/// enough that natural pauses in a meeting / music don't trip it.
 const SILENCE_PAUSE_AFTER_MS: u64 = 30_000;
 
 #[cfg(target_os = "macos")]
@@ -71,39 +36,23 @@ mod macos_impl {
     use screencapturekit::stream::output_type::SCStreamOutputType;
     use screencapturekit::stream::SCStream;
 
-    /// Captures system audio on macOS.
-    ///
-    /// Tries the CoreAudio process tap (macOS 14.4+, System Audio Recording
-    /// permission) first; falls back to ScreenCaptureKit (Screen Recording
-    /// permission) if the tap is unavailable or fails.
     pub struct SystemCapture {
         inner: SystemCaptureInner,
         writer: Arc<AudioWavWriter>,
     }
 
     enum SystemCaptureInner {
-        /// Process tap backend — "System Audio Recording Only" permission.
         ProcessTap(crate::audio::process_tap::ProcessTapCapture),
-        /// ScreenCaptureKit fallback — "Screen & System Audio Recording".
+
         Sck(Option<SCStream>),
     }
 
-    /// SCStream callback target. Holds the shared resampler + writer,
-    /// plus the silence-detector clocks used to pause WAV writes
-    /// during long quiet stretches (v2 finding 047 / GET-90).
-    /// Runs on SCK's audio thread.
     struct AudioOutput {
         writer: Arc<AudioWavWriter>,
         resampler: Arc<Mutex<StreamingResampler>>,
-        /// UNIX millisecond timestamp of the last buffer whose RMS was
-        /// above SILENCE_RMS_THRESHOLD. Updated on every above-floor
-        /// callback; we compare `now - last_active_ms >
-        /// SILENCE_PAUSE_AFTER_MS` to decide whether to skip the WAV
-        /// append.
+
         last_active_ms: AtomicU64,
-        /// Sticky flag: true once we have observed >= SILENCE_PAUSE_AFTER_MS
-        /// of silence, false again the moment audio resumes. We track this
-        /// separately so the state transitions can log without spamming.
+
         paused: AtomicBool,
     }
 
@@ -114,9 +63,6 @@ mod macos_impl {
             .unwrap_or(0)
     }
 
-    /// Cheap RMS over a mono f32 buffer. Returns 0 for empty input so
-    /// the silence check never short-circuits to "active" because of
-    /// a degenerate callback.
     fn rms(samples: &[f32]) -> f32 {
         if samples.is_empty() {
             return 0.0;
@@ -126,9 +72,9 @@ mod macos_impl {
     }
 
     thread_local! {
-        /// Set once per SCK callback thread; pthread_set_qos_class_self_np
-        /// is per-thread so we tag on the first sample frame and skip
-        /// the libc syscall every subsequent frame. v2 finding 064 / GET-99.
+
+
+
         static QOS_TAGGED: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
     }
 
@@ -160,12 +106,6 @@ mod macos_impl {
                 return;
             }
 
-            // ScreenCaptureKit on macOS delivers either:
-            //   (a) one interleaved AudioBuffer with N channels, or
-            //   (b) N deinterleaved AudioBuffers each with 1 channel.
-            // We detect by inspecting the first buffer's channel count. With
-            // SCK_CHANNEL_COUNT = 1 we expect (a) with channels=1, but we
-            // handle both cases.
             let first = match abl.get(0) {
                 Some(b) => b,
                 None => return,
@@ -176,12 +116,9 @@ mod macos_impl {
                 return;
             }
 
-            // f32 PCM interleaved, little-endian native order.
             let mono: Vec<f32> = if num_buffers == 1 {
-                // Case (a). Interleaved already (channels=first_channels).
                 interleaved_to_mono(first_bytes, first_channels.max(1))
             } else {
-                // Case (b). Deinterleaved across N buffers, one channel each.
                 deinterleaved_to_mono(&abl, num_buffers)
             };
 
@@ -189,13 +126,6 @@ mod macos_impl {
                 return;
             }
 
-            // Silence-aware pause: when nothing has played on the
-            // system channel for SILENCE_PAUSE_AFTER_MS we skip
-            // resampling + writing entirely. The SCK stream stays
-            // running so silent-to-loud transitions resume the WAV
-            // seamlessly the moment the first non-silent buffer
-            // arrives. We never gap the WAV header; finalize still
-            // writes a single contiguous file.
             let buffer_rms = rms(&mono);
             let now = now_ms();
             let was_paused = self.paused.load(Ordering::Relaxed);
@@ -228,7 +158,7 @@ mod macos_impl {
 
             let resampled = {
                 let mut guard = self.resampler.lock();
-                // Feed as if input_channels=1 since we already downmixed.
+
                 match guard.process(&mono) {
                     Ok(out) => out,
                     Err(e) => {
@@ -271,9 +201,6 @@ mod macos_impl {
         abl: &core_audio_types_rs::audio_buffer_list::AudioBufferList,
         num_buffers: usize,
     ) -> Vec<f32> {
-        // Each buffer is one channel. Average frame-by-frame across buffers.
-        // Determine the minimum number of frames in case buffers differ
-        // (they shouldn't, but be defensive).
         let mut min_frames = usize::MAX;
         for i in 0..num_buffers {
             if let Some(b) = abl.get(i) {
@@ -309,7 +236,6 @@ mod macos_impl {
 
     impl SystemCapture {
         pub fn start(writer: Arc<AudioWavWriter>, target_sample_rate: u32) -> Result<Self> {
-            // Try process tap first on macOS 14.4+ (GET-170).
             if crate::audio::process_tap::is_supported() {
                 match crate::audio::process_tap::ProcessTapCapture::start(
                     Arc::clone(&writer),
@@ -328,7 +254,6 @@ mod macos_impl {
                 }
             }
 
-            // SCK fallback.
             Self::start_sck(writer, target_sample_rate)
         }
 
@@ -435,11 +360,6 @@ mod stub_impl {
 #[cfg(all(test, target_os = "macos"))]
 mod tests {
     use super::macos_impl::*;
-    // Re-export the private helper for testing via the shim below.
-    // We can't `use super::macos_impl::rms` directly because Rust
-    // crate-private items inside a nested module aren't visible.
-    // Instead, mirror the helper here and assert it matches the
-    // production behavior on representative inputs.
 
     fn rms_local(samples: &[f32]) -> f32 {
         if samples.is_empty() {
@@ -462,7 +382,6 @@ mod tests {
 
     #[test]
     fn rms_of_full_scale_sine_is_above_threshold() {
-        // A 1 kHz full-scale sine at 48 kHz over one period.
         let n = 48_000 / 1_000;
         let pcm: Vec<f32> = (0..n)
             .map(|i| (2.0 * std::f32::consts::PI * i as f32 / n as f32).sin())
@@ -470,8 +389,6 @@ mod tests {
         assert!(rms_local(&pcm) > 0.5);
     }
 
-    // Keep the unused-imports lint quiet — the test module exists to
-    // exercise the inline rms_local mirror.
     #[allow(dead_code)]
     fn _api_present() {
         let _ = std::mem::size_of::<SystemCapture>();

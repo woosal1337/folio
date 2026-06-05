@@ -1,10 +1,3 @@
-//! Capture orchestrator.
-//!
-//! Starts mic + system capture, manages the WAV writers, and exposes a single
-//! [`CaptureSession::start`] / [`CaptureSession::stop`] interface to callers.
-//! v0 week 1 wires mic via cpal; system capture is stubbed (see
-//! `system.rs`). Mic-only capture continues if system capture is unavailable.
-
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::SystemTime;
@@ -23,9 +16,6 @@ use crate::audio::wav_writer::AudioWavWriter;
 use crate::audio::{CaptureConfig, Channel};
 use crate::error::Result;
 
-/// Discriminated mic-capture handle. Either a cpal stream or a VPIO
-/// AudioUnit, both providing the same start/stop lifecycle. Held by
-/// [`CaptureSession`] so it stays alive for the recording's duration.
 enum MicHandle {
     Cpal(MicCapture),
     #[cfg(target_os = "macos")]
@@ -41,9 +31,6 @@ impl MicHandle {
         }
     }
 
-    /// True when this is a VPIO handle that has been running for
-    /// ≥5 s without delivering any audio (GET-171 silence guard).
-    /// Always false for cpal handles.
     fn is_vpio_silent(&self) -> bool {
         #[cfg(target_os = "macos")]
         if let MicHandle::VoiceProcessing(v) = self {
@@ -63,10 +50,6 @@ impl std::fmt::Debug for MicHandle {
     }
 }
 
-/// Try VPIO first on macOS when the setting is on; fall back to
-/// cpal on failure (or on non-macOS, or when the setting is off).
-/// Returns `None` only when both paths fail; the caller deletes the
-/// pre-created WAV file in that case.
 fn start_mic_with_fallback(
     config: &CaptureConfig,
     writer: Arc<AudioWavWriter>,
@@ -93,9 +76,6 @@ fn start_mic_with_fallback(
     }
 }
 
-/// ScreenCaptureKit always delivers at 48 kHz on macOS. Treat this as the
-/// "native" rate for system audio when CaptureConfig.target_sample_rate is
-/// None.
 const SYSTEM_NATIVE_RATE: u32 = 48_000;
 
 pub struct CaptureSession {
@@ -107,12 +87,6 @@ pub struct CaptureSession {
     system_started: bool,
 }
 
-// SAFETY: CaptureSession is intended to be held under a Mutex when used
-// from Tauri command handlers, which may run on different worker threads
-// across the start/stop boundary. The underlying cpal::Stream (CoreAudio
-// AudioUnit) and ScreenCaptureKit SCStream do not auto-derive Send, but
-// both APIs explicitly support cross-thread ownership transfer as long as
-// they are not used concurrently. The Mutex guarantees that.
 unsafe impl Send for CaptureSession {}
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
@@ -125,38 +99,24 @@ pub struct CaptureArtifacts {
     pub stopped_at: DateTime<Utc>,
 }
 
-/// Snapshot of the current capture session, reported to the UI.
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../src/shared/types/")]
 pub struct RecordingStatus {
     pub recording: bool,
     pub elapsed_secs: u64,
     pub channels: Vec<String>,
-    /// Absolute path of the in-progress session directory, so the live
-    /// notes editor (GET-145) can autosave into it mid-recording. None
-    /// when idle.
+
     pub session_dir: Option<String>,
-    /// True when a note is open but capture is paused (GET-149): no
-    /// active session, but a Resume will continue into the same note.
+
     pub paused: bool,
-    /// True when Voice Processing IO started successfully but has not
-    /// delivered any audio after 5 seconds — the "silent VPIO" bug
-    /// (GET-171). The UI surfaces a warning so the user can disable
-    /// Voice Processing in Settings → Audio. Always false when not
-    /// recording or when using the cpal mic path.
+
     #[serde(default)]
     pub vpio_silent: bool,
-    /// True when the active segment has been running long enough to
-    /// warrant an automatic pause+resume roll-over (GET-211). The
-    /// recording store acts on this flag and resets it after the roll.
-    /// Always false when `auto_segment_secs` is `None` in Settings.
+
     #[serde(default)]
     pub needs_segment: bool,
 }
 
-/// Result of [`CaptureSession::stop`] in a form ready to hand to the UI:
-/// the raw [`CaptureArtifacts`] plus a human-friendly label derived from
-/// the session directory name.
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../src/shared/types/")]
 pub struct RecordingResult {
@@ -165,8 +125,6 @@ pub struct RecordingResult {
 }
 
 impl CaptureSession {
-    /// Start a new capture session. Creates the timestamped output directory,
-    /// opens WAV writers, and begins streaming audio from the enabled sources.
     pub fn start(config: CaptureConfig) -> Result<Self> {
         let started_at_dt: DateTime<Utc> = SystemTime::now().into();
         let session_dir = config
@@ -175,10 +133,6 @@ impl CaptureSession {
         Self::start_in(config, session_dir)
     }
 
-    /// Start a capture session writing `mic.wav` / `system.wav` into an
-    /// explicit directory rather than a fresh timestamped one. Used by
-    /// the pause/resume flow (GET-149) to capture a continuation part
-    /// into a per-part subdirectory of the same note.
     pub fn start_in(config: CaptureConfig, session_dir: PathBuf) -> Result<Self> {
         let started_at_dt: DateTime<Utc> = SystemTime::now().into();
         std::fs::create_dir_all(&session_dir).map_err(|e| {
@@ -190,8 +144,6 @@ impl CaptureSession {
         info!(dir = %session_dir.display(), "capture session started");
 
         let mic = if config.mic_enabled {
-            // Resolve the mic's target rate. `None` means native — use whatever
-            // the device reports. Falls back to 48 kHz if the query fails.
             let mic_rate = match config.target_sample_rate {
                 Some(rate) => rate,
                 None => default_input_sample_rate(config.mic_device_name.as_deref())
@@ -220,9 +172,6 @@ impl CaptureSession {
 
         let mut system_started = false;
         let system = if config.system_enabled {
-            // System audio uses ScreenCaptureKit which delivers at 48 kHz.
-            // When a target rate is set explicitly, the system module
-            // resamples internally; when None, we save the native 48 kHz.
             let sys_rate = config.target_sample_rate.unwrap_or(SYSTEM_NATIVE_RATE);
             let path = session_dir.join("system.wav");
             let writer = Arc::new(AudioWavWriter::create(&path, sys_rate)?);
@@ -260,8 +209,6 @@ impl CaptureSession {
         self.started_at
     }
 
-    /// True when the active mic handle is VPIO and has been silent for
-    /// ≥5 s (GET-171). Always false for cpal handles or when not recording.
     pub fn is_vpio_silent(&self) -> bool {
         self.mic
             .as_ref()
@@ -280,8 +227,6 @@ impl CaptureSession {
         v
     }
 
-    /// Stop both capture sources, finalize WAVs, return paths to the produced
-    /// files.
     pub fn stop(self) -> Result<CaptureArtifacts> {
         if let Some(mic) = self.mic {
             MicHandle::stop(mic)?;

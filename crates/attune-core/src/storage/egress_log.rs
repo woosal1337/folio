@@ -1,16 +1,3 @@
-//! Append-only audit log of cloud egress.
-//!
-//! Every outbound network call that carries user content writes one
-//! line to `.attune/_audit/egress.jsonl`. Lines are hash-chained:
-//! each entry includes the SHA-256 of the previous line, so tearing
-//! one event out of the middle is detectable from the chain
-//! continuity check.
-//!
-//! v2 finding 053 / GET-70. Renders in Settings → Privacy via the
-//! Tauri list_egress command (follow-up); for now the writer +
-//! verifier ships so every egress call site can start emitting
-//! events.
-
 use std::fs::{self, OpenOptions};
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
@@ -34,12 +21,10 @@ pub struct EgressEntry {
     pub endpoint: String,
     pub provider: String,
     pub bytes: u64,
-    /// Recording id this egress is associated with — empty when the
-    /// call doesn't belong to one (model download, key test).
+
     pub recording_id: String,
     pub cost_usd: f64,
-    /// SHA-256 of the previous line in the chain; empty string for
-    /// the first entry.
+
     pub prev_sha256: String,
 }
 
@@ -75,9 +60,6 @@ fn last_line_sha(path: &Path) -> Result<String> {
     Ok(format!("{:x}", hasher.finalize()))
 }
 
-/// Append one entry to the egress log. Returns the line's id +
-/// SHA-256 of the line itself (the value the *next* entry will
-/// reference). v2 finding 053 / GET-70.
 #[allow(clippy::too_many_arguments)]
 pub fn append(
     memory_dir: &Path,
@@ -115,8 +97,6 @@ pub fn append(
     Ok(entry)
 }
 
-/// Read every entry; useful for Settings → Privacy and the
-/// follow-up render.
 pub fn read_all(memory_dir: &Path) -> Vec<EgressEntry> {
     let path = path_for(memory_dir);
     let f = match fs::File::open(&path) {
@@ -132,9 +112,6 @@ pub fn read_all(memory_dir: &Path) -> Vec<EgressEntry> {
     out
 }
 
-/// Verify that every entry's prev_sha256 matches the SHA-256 of
-/// the line that came before it. Returns the 1-based line number
-/// of the first bad entry, or None when the chain is intact.
 pub fn verify_chain(memory_dir: &Path) -> Option<usize> {
     let path = path_for(memory_dir);
     let f = fs::File::open(&path).ok()?;
@@ -195,7 +172,7 @@ mod tests {
             .lines()
             .map(String::from)
             .collect();
-        // Drop the middle entry.
+
         let damaged = format!("{}\n{}\n", lines[0], lines[2]);
         fs::write(&path, damaged).unwrap();
         let bad = verify_chain(dir.path()).expect("chain should be broken");

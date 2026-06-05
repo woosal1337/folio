@@ -20,12 +20,6 @@ interface Task {
   updated_at: string;
 }
 
-/**
- * Append a Raycast-created task to the user's tasks.json. The CLI does
- * not yet expose a `task create` verb, so we write the JSON file
- * directly — same schema as `attune_core::storage::tasks::Task` to
- * keep round-tripping safe.
- */
 export default function AddTask() {
   const [submitting, setSubmitting] = useState(false);
 
@@ -36,9 +30,17 @@ export default function AddTask() {
         <ActionPanel>
           <Action.SubmitForm
             title="Add Task"
-            onSubmit={async (values: { title: string; owner?: string; due?: string; notes?: string }) => {
+            onSubmit={async (values: {
+              title: string;
+              owner?: string;
+              due?: string;
+              notes?: string;
+            }) => {
               if (!values.title?.trim()) {
-                await showToast({ style: Toast.Style.Failure, title: "Title is required" });
+                await showToast({
+                  style: Toast.Style.Failure,
+                  title: "Title is required",
+                });
                 return;
               }
               setSubmitting(true);
@@ -64,10 +66,18 @@ export default function AddTask() {
                 };
                 existing.push(task);
                 await writeFile(tasksPath, JSON.stringify(existing, null, 2));
-                await showToast({ style: Toast.Style.Success, title: "Task added", message: task.title });
+                await showToast({
+                  style: Toast.Style.Success,
+                  title: "Task added",
+                  message: task.title,
+                });
                 await popToRoot();
               } catch (e) {
-                await showToast({ style: Toast.Style.Failure, title: "Could not add task", message: String(e) });
+                await showToast({
+                  style: Toast.Style.Failure,
+                  title: "Could not add task",
+                  message: String(e),
+                });
               } finally {
                 setSubmitting(false);
               }
@@ -76,9 +86,18 @@ export default function AddTask() {
         </ActionPanel>
       }
     >
-      <Form.TextField id="title" title="Title" placeholder="Reply to design review" autoFocus />
+      <Form.TextField
+        id="title"
+        title="Title"
+        placeholder="Reply to design review"
+        autoFocus
+      />
       <Form.TextField id="owner" title="Owner" placeholder="ege" />
-      <Form.TextField id="due" title="Due" placeholder="Friday, 2026-06-01, next sprint…" />
+      <Form.TextField
+        id="due"
+        title="Due"
+        placeholder="Friday, 2026-06-01, next sprint…"
+      />
       <Form.TextArea id="notes" title="Notes" placeholder="Optional context" />
     </Form>
   );

@@ -1,10 +1,3 @@
-/**
- * Settings cache backed by the Rust `SettingsStore`. The frontend writes
- * via `saveSettings`, which atomically persists to disk on the Rust
- * side; this store keeps an in-memory mirror so consumers don't re-fetch
- * on every render.
- */
-
 import { create } from "zustand";
 
 import {
@@ -18,9 +11,8 @@ interface SettingsState {
   loading: boolean;
   error: string | null;
 
-  /** Load settings from the backend into the cache. */
   load: () => Promise<void>;
-  /** Persist settings to disk and update the cache on success. */
+
   save: (next: Settings) => Promise<void>;
 }
 

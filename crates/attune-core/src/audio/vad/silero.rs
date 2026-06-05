@@ -1,75 +1,23 @@
-//! Silero V5 VAD wrapper. Ported from cobanov/autocut's `vad.rs`.
-//!
-//! Takes 16 kHz mono f32 PCM, returns `SpeechSegment`s in seconds
-//! relative to the input buffer. Mirrors silero's reference
-//! `get_speech_timestamps` shape:
-//!
-//!   1. Score each 512-sample chunk (32 ms at 16 kHz) — the Silero V5
-//!      mandatory window size.
-//!   2. Apply hysteresis: enter "in-speech" when probability ≥
-//!      `threshold`, leave when probability < `threshold − 0.15`. The
-//!      hysteresis is the critical bit — without it, marginal frames
-//!      in the middle of an utterance flicker on/off and produce
-//!      false silences. See
-//!      `obsidian.md/wiki/voice-activity-detection.md` §7.
-//!   3. Group consecutive in-speech chunks into raw regions.
-//!   4. Merge regions separated by silence shorter than
-//!      `min_silence_ms` so a natural breath in the middle of a
-//!      sentence doesn't split it into two.
-//!   5. Drop regions shorter than `min_speech_ms` — mic clicks,
-//!      throat-clears, plosive bursts that exceed threshold for one
-//!      frame but aren't real speech.
-//!
-//! Padding (`speech_pad_ms`) is intentionally NOT applied here. The
-//! caller in `vad_filter` widens the surviving ranges by a fixed
-//! `PAD_MS` before writing the speech-only WAV. Keeping pad out of
-//! the detector means the user can tune the slider without paying
-//! for re-running ONNX inference.
-//!
-//! Reference: <https://github.com/cobanov/autocut/blob/main/src-tauri/src/vad.rs>
-//! Migration plan: `obsidian.md/projects/attune/plan/silero-vad-migration.md`
-
 use voice_activity_detector::VoiceActivityDetector;
 
 use crate::error::{AttuneError, Result};
 
-/// Sample rate Silero V5 expects. The chunk size below is fixed to
-/// 512 samples (32 ms at 16 kHz) — Silero V5 will refuse to load with
-/// any other combination.
 pub const SILERO_SAMPLE_RATE: u32 = 16_000;
 
-/// Mandatory window size for Silero V5 at 16 kHz. Do not change.
 const CHUNK_SIZE: usize = 512;
 
-/// Seconds per chunk — used to convert chunk indices back to seconds.
 const CHUNK_SECONDS: f64 = CHUNK_SIZE as f64 / SILERO_SAMPLE_RATE as f64;
 
-/// Hysteresis offset below `threshold` for the speech-end transition.
-/// Matches silero's reference implementation. 0.15 was tuned by the
-/// upstream Silero authors against their evaluation set; deviating
-/// from it tends to either bring back the flicker (lower offset) or
-/// stretch utterances past their natural end (higher offset).
 const HYSTERESIS_OFFSET: f32 = 0.15;
 
-/// Lower bound on the post-hysteresis threshold so a user-set
-/// `threshold` close to 0 doesn't produce a negative `neg_threshold`.
 const MIN_NEG_THRESHOLD: f32 = 0.05;
 
 #[derive(Debug, Clone, Copy)]
 pub struct SileroParams {
-    /// Speech-entry probability. 0.0-1.0. Default 0.5. Tuned for
-    /// recall (false-negative-averse) over precision — fits meeting
-    /// audio where missing 200 ms of a word is more expensive than
-    /// keeping 200 ms of breath.
     pub threshold: f32,
-    /// Silence gaps shorter than this between two adjacent speech
-    /// runs are bridged. Default 100 ms. Set higher to keep more
-    /// short breaths inside a single segment; lower to cut more
-    /// aggressively.
+
     pub min_silence_ms: u32,
-    /// Speech runs shorter than this are discarded as noise. Default
-    /// 150 ms. Lower to keep more very-short interjections ("Yeah."
-    /// "Right.") at the cost of letting clicks and plosives through.
+
     pub min_speech_ms: u32,
 }
 
@@ -83,26 +31,12 @@ impl Default for SileroParams {
     }
 }
 
-/// A detected speech segment in seconds, relative to the start of the
-/// input buffer passed to `detect`.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct SpeechSegment {
     pub start_seconds: f64,
     pub end_seconds: f64,
 }
 
-/// Detect speech segments in `samples_16k_mono`.
-///
-/// Returns segments in source order. Returns `Ok(vec![])` (not an
-/// error) when no speech is detected — callers treat zero segments
-/// the same way as "no audio".
-///
-/// Construction cost (loading the embedded ONNX model + initialising
-/// the silero session) is amortised inside this call. For batch usage
-/// over many recordings, hoist `VoiceActivityDetector::builder()` out
-/// to a long-lived struct; for the single-WAV-at-a-time pre-
-/// transcription path that the `vad_filter` module drives, the
-/// per-call cost is negligible (~ms) compared to the inference itself.
 pub fn detect(samples_16k_mono: &[f32], params: SileroParams) -> Result<Vec<SpeechSegment>> {
     if samples_16k_mono.is_empty() {
         return Ok(Vec::new());
@@ -116,7 +50,6 @@ pub fn detect(samples_16k_mono: &[f32], params: SileroParams) -> Result<Vec<Spee
             AttuneError::Transcription(format!("silero: failed to initialise detector: {e}"))
         })?;
 
-    // Step 1+2: per-chunk inference with hysteresis.
     let neg_threshold = (params.threshold - HYSTERESIS_OFFSET).max(MIN_NEG_THRESHOLD);
     let mut in_speech = false;
     let mut chunk_is_speech: Vec<bool> =
@@ -131,11 +64,10 @@ pub fn detect(samples_16k_mono: &[f32], params: SileroParams) -> Result<Vec<Spee
         chunk_is_speech.push(in_speech);
     }
 
-    // Step 3: contiguous true-runs become (start_chunk, end_chunk) pairs.
     let raw = group_runs(&chunk_is_speech);
-    // Step 4: bridge close ranges.
+
     let merged = merge_close(raw, ms_to_chunks(params.min_silence_ms));
-    // Step 5: drop ranges shorter than the speech minimum.
+
     let filtered = drop_short(merged, ms_to_chunks(params.min_speech_ms));
 
     Ok(filtered
@@ -216,14 +148,12 @@ mod tests {
 
     #[test]
     fn merge_close_combines_short_gap() {
-        // gap of 1 chunk, min_gap = 2 → merge
         let r = merge_close(vec![(0, 5), (6, 10)], 2);
         assert_eq!(r, vec![(0, 10)]);
     }
 
     #[test]
     fn merge_close_keeps_long_gap() {
-        // gap of 5 chunks, min_gap = 2 → keep separate
         let r = merge_close(vec![(0, 5), (10, 15)], 2);
         assert_eq!(r, vec![(0, 5), (10, 15)]);
     }
@@ -236,7 +166,6 @@ mod tests {
 
     #[test]
     fn ms_to_chunks_rounds_up() {
-        // 32 ms = exactly 1 chunk; 33 ms → 2 (ceil).
         assert_eq!(ms_to_chunks(32), 1);
         assert_eq!(ms_to_chunks(33), 2);
         assert_eq!(ms_to_chunks(0), 0);
@@ -250,7 +179,6 @@ mod tests {
 
     #[test]
     fn pure_silence_returns_no_segments() {
-        // 5 s of digital silence at 16 kHz.
         let silence = vec![0.0_f32; SILERO_SAMPLE_RATE as usize * 5];
         let segments = detect(&silence, SileroParams::default()).unwrap();
         assert!(
@@ -261,10 +189,6 @@ mod tests {
 
     #[test]
     fn loud_sine_is_not_speech_so_returns_no_segments() {
-        // A 440 Hz sine wave is loud but isn't speech — Silero should
-        // reject it. This is the property that distinguishes a real
-        // VAD from our previous RMS gate, which would falsely keep
-        // music + tones as "speech".
         let tone = loud_sine(SILERO_SAMPLE_RATE as usize * 3, 440, SILERO_SAMPLE_RATE);
         let segments = detect(&tone, SileroParams::default()).unwrap();
         assert!(
@@ -275,9 +199,6 @@ mod tests {
 
     #[test]
     fn default_params_match_autocut_reference() {
-        // We inherited autocut's defaults exactly; this test pins
-        // them so a "let me try 0.6 for a sec" tweak can't silently
-        // ship without a code review.
         let p = SileroParams::default();
         assert_eq!(p.threshold, 0.5);
         assert_eq!(p.min_silence_ms, 100);

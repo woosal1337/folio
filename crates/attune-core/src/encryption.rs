@@ -1,23 +1,3 @@
-//! Per-recording encryption at rest. v2 finding 051 / GET-68.
-//!
-//! AES-256-GCM with a 32-byte data key derived from a user
-//! passphrase via Argon2id. The passphrase lives in the macOS
-//! Keychain (the existing `keystore` module owns the storage); this
-//! module turns it into bytes the WAV writer can XOR against.
-//!
-//! On-disk envelope (little-endian):
-//!
-//! ```text
-//! magic "ATTN1"  (5 bytes)
-//! salt          (16 bytes)
-//! nonce         (12 bytes)
-//! ciphertext    (N bytes, ends with AES-GCM 16-byte tag)
-//! ```
-//!
-//! Memories extracted from an encrypted recording carry an
-//! `encrypted_source = true` flag and never inline transcript
-//! quotes — the memory layer enforces that policy at the call site.
-
 use aes_gcm::aead::{Aead, KeyInit, OsRng};
 use aes_gcm::{AeadCore, Aes256Gcm, Key, Nonce};
 use argon2::{Algorithm, Argon2, Params, Version};
@@ -30,10 +10,6 @@ pub const NONCE_LEN: usize = 12;
 pub const KEY_LEN: usize = 32;
 pub const HEADER_LEN: usize = MAGIC.len() + SALT_LEN + NONCE_LEN;
 
-/// Derive a 32-byte AES-256 key from `passphrase` and `salt` using
-/// Argon2id with sensible defaults (memory 64 MiB, time cost 3, one
-/// lane). Salt MUST be uniformly random per-recording so the same
-/// passphrase yields a different key per recording.
 pub fn derive_key(passphrase: &[u8], salt: &[u8]) -> Result<[u8; KEY_LEN]> {
     let params = Params::new(64 * 1024, 3, 1, Some(KEY_LEN))
         .map_err(|e| AttuneError::Storage(format!("argon2 params: {e}")))?;
@@ -45,9 +21,6 @@ pub fn derive_key(passphrase: &[u8], salt: &[u8]) -> Result<[u8; KEY_LEN]> {
     Ok(out)
 }
 
-/// Encrypt `plaintext` and prepend the magic + salt + nonce header.
-/// Generates a fresh salt + nonce on every call so two ciphertexts of
-/// the same plaintext under the same passphrase still differ.
 pub fn seal(passphrase: &[u8], plaintext: &[u8]) -> Result<Vec<u8>> {
     let salt = random_bytes(SALT_LEN);
     let key_bytes = derive_key(passphrase, &salt)?;
@@ -66,10 +39,6 @@ pub fn seal(passphrase: &[u8], plaintext: &[u8]) -> Result<Vec<u8>> {
     Ok(out)
 }
 
-/// Decrypt a previously-sealed envelope. Verifies the magic header,
-/// re-derives the key from the embedded salt, and returns the
-/// plaintext. Fails with a clear error when the magic does not match
-/// or the AES-GCM authentication tag rejects the input.
 pub fn open(passphrase: &[u8], envelope: &[u8]) -> Result<Vec<u8>> {
     if envelope.len() < HEADER_LEN {
         return Err(AttuneError::Storage(format!(

@@ -1,5 +1,3 @@
-//! Audio device enumeration, mic level check, and mic monitor loopback.
-
 use attune_core::audio::devices::{
     list_input_devices as core_list_input_devices, sample_mic_level, DeviceInfo, MicLevelResult,
 };
@@ -9,7 +7,6 @@ use tracing::{debug, info};
 
 use crate::app::AppState;
 
-/// Enumerate input audio devices visible to the system.
 #[tauri::command]
 pub async fn list_input_devices() -> Result<Vec<DeviceInfo>, String> {
     debug!("list_input_devices");
@@ -19,8 +16,6 @@ pub async fn list_input_devices() -> Result<Vec<DeviceInfo>, String> {
         .map_err(|e| e.to_string())
 }
 
-/// Sample the default (or named) mic input for ~500 ms and return the
-/// RMS + peak level in dBFS with a qualitative status.
 #[tauri::command]
 pub async fn check_mic_level(device_name: Option<String>) -> Result<MicLevelResult, String> {
     debug!("check_mic_level");
@@ -30,9 +25,6 @@ pub async fn check_mic_level(device_name: Option<String>) -> Result<MicLevelResu
         .map_err(|e| e.to_string())
 }
 
-/// Start the mic monitor — routes mic input to the default audio output
-/// so the user can hear themselves in Settings. Any previous monitor is
-/// stopped first. Runs until `stop_mic_monitor` is called or the app exits.
 #[tauri::command]
 pub fn start_mic_monitor(
     state: State<'_, AppState>,
@@ -41,7 +33,7 @@ pub fn start_mic_monitor(
     info!("start_mic_monitor");
     let monitor = MicMonitor::start(device_name.as_deref()).map_err(|e| e.to_string())?;
     let mut slot = state.mic_monitor.lock();
-    // Stop any previous monitor before replacing.
+
     if let Some(prev) = slot.take() {
         prev.stop();
     }
@@ -49,7 +41,6 @@ pub fn start_mic_monitor(
     Ok(())
 }
 
-/// Stop the active mic monitor, if any.
 #[tauri::command]
 pub fn stop_mic_monitor(state: State<'_, AppState>) {
     info!("stop_mic_monitor");

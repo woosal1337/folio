@@ -260,10 +260,6 @@ export function SectionWebhooks() {
   );
 }
 
-/** Generate a 32-byte random secret as hex. crypto.randomUUID is
- *  unavailable in some Tauri webviews, so we fall back to Math.random
- *  in that case — the secret is only used for HMAC over localhost,
- *  not for cryptographic confidentiality. */
 function cryptoRandomSecret(): string {
   const bytes = new Uint8Array(16);
   if (typeof crypto !== "undefined" && crypto.getRandomValues) {

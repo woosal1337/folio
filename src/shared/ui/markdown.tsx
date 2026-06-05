@@ -5,21 +5,6 @@ import remarkGfm from "remark-gfm";
 
 import { cn } from "@/shared/lib/utils";
 
-/**
- * Strict sanitiser schema for LLM-generated markdown. Tightens
- * `defaultSchema` so:
- *
- *   - `<script>` and `<style>` are stripped (the default already
- *     does this; we keep it explicit for §8.6 audit-grep).
- *   - Every `href` / `src` must be `http(s):`, `mailto:`, `data:`
- *     (for embedded images), or one of our own deep-link schemes.
- *     `javascript:` and `data:text/html` are rejected.
- *   - `target` is forced to `_blank` and `rel="noopener noreferrer"`
- *     so a clickjacked LLM link cannot script the rendering page.
- *
- * `docs/CODE_STYLE.md` §8.6: "LLM markdown/HTML output runs through
- * a sanitiser before render." This is that sanitiser.
- */
 const SANITIZE_SCHEMA = {
   ...defaultSchema,
   protocols: {
@@ -42,20 +27,6 @@ interface Props {
   className?: string;
 }
 
-/**
- * Renders LLM-produced markdown with consistent in-app styling.
- *
- * We keep this small and intentional rather than reaching for
- * @tailwindcss/typography — the prose plugin's defaults clash with
- * Attune's compact dark/light palette in a few places (headings too
- * big for an inline panel, code blocks with their own background).
- * The element overrides below give the agent output enough structure
- * to read well (paragraph spacing, bullets, bold, inline code,
- * headings, links, simple tables) without a global typography reset.
- *
- * GitHub-flavored markdown is enabled via remark-gfm so the LLMs'
- * common output (task lists, tables, strikethrough) renders correctly.
- */
 export function Markdown({ children, className }: Props) {
   return (
     <div className={cn("text-sm leading-relaxed text-foreground", className)}>
@@ -116,11 +87,6 @@ const COMPONENTS: Components = {
   ),
   hr: () => <hr className="my-4 border-border" />,
   code: ({ className: codeClassName, children, ...props }) => {
-    // react-markdown 10 hands the language hint via className (e.g.
-    // "language-rust"). Block code arrives wrapped in <pre><code>;
-    // inline code is just <code>. The `inline` prop was removed in
-    // v10 — detection now goes by presence of a class (block) vs not
-    // (inline). We treat anything with a language- prefix as block.
     const isBlock =
       typeof codeClassName === "string" && codeClassName.startsWith("language-");
     if (isBlock) {

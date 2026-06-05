@@ -39,15 +39,6 @@ const INITIAL_ROW_STATE: ProviderRowState = {
   testError: null,
 };
 
-/**
- * Phase 1 of the AI chat feature. Lets the user paste an API key for
- * each supported provider, store it in the macOS Keychain, and run a
- * lightweight Test call to confirm the key works. Chat UI lands in
- * later phases.
- *
- * The vault plan is at:
- *   ~/Documents/GitHub/obsidian.md/projects/attune/plan/ai-chat-multi-provider.md
- */
 export function SectionAi({ settings, onChange }: SectionAiProps) {
   const [providers, setProviders] = React.useState<ProviderStatus[] | null>(null);
   const [rows, setRows] = React.useState<Record<string, ProviderRowState>>({});
@@ -174,13 +165,6 @@ export function SectionAi({ settings, onChange }: SectionAiProps) {
   );
 }
 
-/**
- * One card for "after a recording, run AI on it" with a master toggle
- * and a collapsible per-agent disclosure. The master is on when ANY of
- * the three per-agent flags is on; toggling it cascades. The
- * disclosure exposes per-agent overrides for users who want, e.g.,
- * summaries but not auto-task-extraction. v2 roadmap finding R02.
- */
 function AutoAgentsCard({
   settings,
   onChange,
@@ -274,12 +258,6 @@ function AutoAgentsCard({
   );
 }
 
-/** Languages the briefing-language dropdown offers. The first entry
- *  ("auto") preserves the legacy behaviour where every agent mirrors
- *  the meeting language; the rest force agent output into the chosen
- *  language regardless of what the transcript is in. Kept in sync
- *  with the LANGUAGES array in section-transcription.tsx plus the
- *  `language_name` helper in commands/agents.rs. */
 const BRIEFING_LANGUAGES: { value: string; label: string }[] = [
   { value: "auto", label: "Auto (match meeting)" },
   { value: "en", label: "English" },
@@ -317,8 +295,8 @@ function BriefingLanguageCard({
         </Label>
         <p className="max-w-md text-xs text-muted-foreground">
           Summaries, extracted tasks, memories, and auto-names are written in this
-          language regardless of the meeting's language. Quoted evidence snippets stay
-          in the transcript's original language.
+          language regardless of the meeting&apos;s language. Quoted evidence snippets
+          stay in the transcript&apos;s original language.
         </p>
       </div>
       <select

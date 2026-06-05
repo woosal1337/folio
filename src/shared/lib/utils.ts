@@ -1,12 +1,10 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
-/** Tailwind-aware class merger. Used pervasively by shadcn components. */
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-/** Format a duration in seconds to `m:ss` / `h:mm:ss`. */
 export function formatDuration(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds < 0) return "0:00";
   const total = Math.floor(seconds);
@@ -18,7 +16,6 @@ export function formatDuration(seconds: number): string {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
-/** Human-readable bytes (KB/MB/GB). */
 export function formatBytes(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
   const units = ["B", "kB", "MB", "GB", "TB"] as const;

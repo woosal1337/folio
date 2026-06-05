@@ -1,24 +1,10 @@
-//! TCC permission walkthrough commands. v2 finding 003 / GET-31.
-//!
-//! Empty or blocked permissions are the silent killer of first-
-//! recording. This module exposes the rows the walkthrough screen
-//! renders — Microphone, Screen Recording, Calendar, Notifications —
-//! with a rationale per bucket and an Open-System-Settings deep link.
-//!
-//! Detecting the live TCC status per bucket requires per-API FFI
-//! calls (AVCaptureDevice authorizationStatusForMediaType,
-//! CGPreflightScreenCaptureAccess, EKEventStore, UNUserNotificationCenter).
-//! Those land in a macOS-gated follow-up. For now every status
-//! comes back `Unknown`; the UI still renders the rows with their
-//! rationale and working Open-Settings buttons.
-
 use attune_core::permissions::{Permission, PermissionRow, PermissionStatus};
 
 const MIC_URL: &str = "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone";
-// Screen Recording URL — fallback for macOS < 14.4.
+
 const SCREEN_URL: &str =
     "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture";
-// System Audio Recording URL — macOS 14.4+ process tap (GET-170).
+
 const SYSTEM_AUDIO_URL: &str =
     "x-apple.systempreferences:com.apple.preference.security?Privacy_SystemAudioRecording";
 const CALENDAR_URL: &str =
@@ -27,10 +13,10 @@ const NOTIFICATIONS_URL: &str = "x-apple.systempreferences:com.apple.preference.
 
 const MIC_RATIONALE: &str =
     "We record what you say. Without microphone access, your half of every meeting is silent.";
-// Rationale for the legacy Screen Recording permission (SCK fallback, < 14.4).
+
 const SCREEN_RATIONALE: &str =
     "We record what the other side says by capturing system audio. Screen Recording is the macOS API that allows it.";
-// Rationale for the narrower System Audio Recording permission (process tap, ≥ 14.4).
+
 const SYSTEM_AUDIO_RATIONALE: &str =
     "We capture what the other side says using the system audio API. \
      This only grants audio access — not screen recording — so Attune appears under \
@@ -42,8 +28,6 @@ const NOTIFICATIONS_RATIONALE: &str =
 
 #[tauri::command]
 pub fn list_permissions() -> Vec<PermissionRow> {
-    // On macOS 14.4+ the process tap only needs System Audio Recording (GET-170),
-    // not Screen Recording. Adjust the permission entry accordingly.
     #[cfg(target_os = "macos")]
     let (audio_rationale, audio_url) = if attune_core::audio::process_tap::is_supported() {
         (SYSTEM_AUDIO_RATIONALE, SYSTEM_AUDIO_URL)
@@ -89,7 +73,6 @@ pub fn open_permission_settings(
     let url = match permission {
         Permission::Microphone => MIC_URL,
         Permission::ScreenRecording => {
-            // Use the narrower System Audio Recording URL on macOS 14.4+.
             #[cfg(target_os = "macos")]
             if attune_core::audio::process_tap::is_supported() {
                 SYSTEM_AUDIO_URL
@@ -105,14 +88,6 @@ pub fn open_permission_settings(
     open_url(&app, url)
 }
 
-/// GET-128 stub. Trigger the EKEventStore TCC prompt by deep-linking
-/// into System Settings → Privacy & Security → Calendar. A true
-/// `EKEventStore.requestFullAccessToEvents` FFI call needs the
-/// objc2-event-kit binding to land in attune-core; until then this
-/// is the user-equivalent path. Returns `Ok(())` so the UI can flip
-/// into "granting" state regardless of whether the user actually
-/// toggles Attune on — Settings → Calendar will report the
-/// authoritative status next time the user opens it.
 #[tauri::command]
 pub fn request_calendar_access(app: tauri::AppHandle) -> Result<(), String> {
     open_url(&app, CALENDAR_URL)

@@ -35,7 +35,9 @@ describe("parseAutoname", () => {
   });
 
   it("strips non-string tags defensively", () => {
-    const parsed = parseAutoname('{"title":"T","tags":["ok",42,null,""],"subtitle":""}');
+    const parsed = parseAutoname(
+      '{"title":"T","tags":["ok",42,null,""],"subtitle":""}'
+    );
     expect(parsed?.tags).toEqual(["ok"]);
   });
 

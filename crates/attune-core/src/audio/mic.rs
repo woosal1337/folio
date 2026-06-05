@@ -1,13 +1,3 @@
-//! Microphone capture via cpal.
-//!
-//! cpal wraps the platform's native input API (CoreAudio AudioUnit on macOS).
-//! We use the default input device with its default config, then resample to
-//! 16 kHz mono and write to a WAV file via [`AudioWavWriter`].
-//!
-//! The cpal callback runs on a real-time-priority audio thread. Allocation in
-//! the callback is avoided — the resampler reuses its internal buffers, and
-//! the WAV writer mutex is uncontested in the common case.
-
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
@@ -22,9 +12,9 @@ use crate::error::{AttuneError, Result};
 use crate::qos::{set_thread_qos, QosClass};
 
 thread_local! {
-    /// Set once per cpal callback thread; `pthread_set_qos_class_self_np`
-    /// is per-thread, so we only need to tag the thread the first time
-    /// it serves a sample frame. v2 finding 064 / GET-99.
+
+
+
     static QOS_TAGGED: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 }
 
@@ -46,11 +36,6 @@ pub struct MicCapture {
 }
 
 impl MicCapture {
-    /// Build and start mic capture. Returns once the stream is running. Audio
-    /// samples flow into `writer` until [`Self::stop`] is called.
-    ///
-    /// `device_name` selects a specific input device by name. `None` uses the
-    /// system default input device.
     pub fn start(
         writer: Arc<AudioWavWriter>,
         target_sample_rate: u32,
@@ -124,8 +109,6 @@ impl MicCapture {
         self.input_channels
     }
 
-    /// Stop the stream, drain any remaining buffered samples, finalize the WAV
-    /// file.
     pub fn stop(mut self) -> Result<()> {
         self.stopped.store(true, Ordering::SeqCst);
         if let Some(stream) = self.stream.take() {

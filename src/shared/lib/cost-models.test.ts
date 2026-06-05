@@ -14,7 +14,6 @@ describe("estimateChatCompletionCost", () => {
   });
 
   it("prices a typical gpt-4o-mini run", () => {
-    // 1_000 input + 250 output → 1000*0.15/1M + 250*0.6/1M = 0.00015 + 0.00015 = 0.0003
     const usd = estimateChatCompletionCost({
       model: "gpt-4o-mini",
       promptTokens: 1_000,
@@ -43,7 +42,7 @@ describe("estimateChatCompletionCost", () => {
       promptTokens: 1_000_000,
       completionTokens: 0,
     });
-    // Fallback input rate is $1 / M tokens → $1.00 for 1M input.
+
     expect(usd).toBeCloseTo(1.0, 4);
   });
 });

@@ -1,5 +1,3 @@
-//! Health checks used during scaffolding to verify the IPC bridge.
-
 use tracing::debug;
 
 #[tauri::command]

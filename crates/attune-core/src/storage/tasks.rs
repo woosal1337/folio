@@ -1,18 +1,3 @@
-//! Persisted to-do list backing the Tasks kanban + the
-//! `create_task` tool exposed to LLM agents.
-//!
-//! Tasks live in a single JSON array file at `settings.tasks_path`
-//! (default `~/Documents/Attune/Tasks/tasks.json`). One file keeps
-//! the format simple, makes "show me everything" cheap, and avoids
-//! the directory-of-files pattern's pathological behaviour on
-//! mid-write crashes. We pay for it on writes: every mutation
-//! re-serialises the whole list. With realistic task counts (low
-//! thousands at most), that's well under a millisecond.
-//!
-//! The store is intentionally not a singleton — `TaskStore::new` is
-//! cheap and the Tauri command layer instantiates one per call. That
-//! keeps the API and the test surface tiny.
-
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -24,17 +9,15 @@ use uuid::Uuid;
 
 use crate::error::{AttuneError, Result};
 
-/// Kanban column / lifecycle state of a task.
 #[non_exhaustive]
 #[derive(Copy, Clone, Debug, Serialize, Deserialize, TS, PartialEq, Eq)]
 #[ts(export, export_to = "../../../src/shared/types/")]
 #[serde(rename_all = "snake_case")]
 pub enum TaskStatus {
-    /// Task is queued but not yet started.
     Todo,
-    /// Task is actively being worked on.
+
     Doing,
-    /// Task has been completed.
+
     Done,
 }
 
@@ -44,56 +27,32 @@ impl Default for TaskStatus {
     }
 }
 
-/// A single to-do item. Always has an id + title + status; everything
-/// else is optional metadata so the model can fill in what it knows
-/// without us rejecting a tool call for a missing owner.
 #[derive(Clone, Debug, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../src/shared/types/")]
 pub struct Task {
-    /// UUID v4 string. Generated server-side so the frontend can't
-    /// collide.
     pub id: String,
-    /// Short imperative phrase describing what needs to be done.
+
     pub title: String,
-    /// Current kanban column this task lives in.
+
     pub status: TaskStatus,
-    /// Free-form owner ("Ege", "design team", "@alice"). The schema
-    /// does not enforce a particular handle format because meeting
-    /// transcripts use whatever conventions the speakers prefer.
+
     pub owner: Option<String>,
-    /// Free-form due date string. We don't parse this server-side —
-    /// the model produces "Friday", "next sprint", "2026-06-01" and
-    /// users type whatever they want. The kanban renders it as-is.
+
     pub due: Option<String>,
-    /// Optional extra context: "see point 3 in the deck", "blocked
-    /// on legal review", etc.
+
     pub notes: Option<String>,
-    /// Session directory of the recording this task was extracted
-    /// from. Lets the UI deep-link back to the editor and surface a
-    /// "see source" button. None for manually-created tasks.
+
     pub source_session_dir: Option<String>,
-    /// Human-readable label of the source recording (the trailing
-    /// component of session_dir) so we don't have to re-derive it in
-    /// every renderer.
+
     pub source_session_label: Option<String>,
-    /// True when an agent created this task via `create_task`. Lets
-    /// the UI mark agent-origin cards with a sparkle so the user can
-    /// scan the board and tell at a glance what came from a meeting.
+
     pub agent_origin: bool,
-    /// UTC timestamp when this task was first created.
+
     pub created_at: DateTime<Utc>,
-    /// UTC timestamp of the most recent mutation (create or patch).
+
     pub updated_at: DateTime<Utc>,
 }
 
-/// Partial update sent through `update_task`. Each field is
-/// `Option<Option<T>>` so the wire format can distinguish
-/// "not present in the patch" (None) from "explicitly clear this
-/// nullable field" (Some(None)) for nullable fields. For now we keep
-/// it simple — `None` means "leave alone", `Some(value)` means set.
-/// Setting a nullable field to None via update is uncommon enough
-/// that we don't model "clear" separately; users delete the task
-/// instead.
 #[derive(Clone, Debug, Default, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../src/shared/types/")]
 pub struct TaskUpdate {
@@ -104,26 +63,19 @@ pub struct TaskUpdate {
     pub notes: Option<String>,
 }
 
-/// File-backed CRUD store for [`Task`]s.
 pub struct TaskStore {
     path: PathBuf,
 }
 
 impl TaskStore {
-    /// Construct a store backed by the JSON file at `path` (the file need not exist yet).
     pub fn new(path: impl Into<PathBuf>) -> Self {
         Self { path: path.into() }
     }
 
-    /// Return the path to the backing JSON file.
     pub fn path(&self) -> &Path {
         &self.path
     }
 
-    /// Load all tasks. Missing file → empty list; malformed file →
-    /// warn + empty list (so a corrupt tasks.json never blocks the
-    /// app from starting). Callers that need to surface a load error
-    /// to the user should re-read the file directly.
     pub fn list(&self) -> Vec<Task> {
         match fs::read_to_string(&self.path) {
             Ok(contents) if contents.trim().is_empty() => {
@@ -159,17 +111,10 @@ impl TaskStore {
         }
     }
 
-    /// Fetch a single task by id. None if missing.
     pub fn get(&self, id: &str) -> Option<Task> {
         self.list().into_iter().find(|t| t.id == id)
     }
 
-    /// Append a new task. The store generates the id + timestamps so
-    /// the caller can't accidentally collide ids.
-    ///
-    /// # Errors
-    ///
-    /// Returns `Err` if the task list cannot be serialized or written to disk.
     pub fn create(&self, new_task: NewTask) -> Result<Task> {
         let now = Utc::now();
         let task = Task {
@@ -192,12 +137,6 @@ impl TaskStore {
         Ok(task)
     }
 
-    /// Apply a patch to a task. Returns the updated task or an error
-    /// when the id is unknown.
-    ///
-    /// # Errors
-    ///
-    /// Returns `Err` if `id` is not found, or if the updated list cannot be written to disk.
     pub fn update(&self, id: &str, patch: TaskUpdate) -> Result<Task> {
         let mut tasks = self.list();
         let Some(task) = tasks.iter_mut().find(|t| t.id == id) else {
@@ -209,9 +148,7 @@ impl TaskStore {
         if let Some(status) = patch.status {
             task.status = status;
         }
-        // Patch semantics for nullable fields: a Some(value) sets it,
-        // None leaves it alone. To clear, send an empty string — the
-        // UI's edit form treats "" as "clear".
+
         if let Some(owner) = patch.owner {
             task.owner = if owner.is_empty() { None } else { Some(owner) };
         }
@@ -228,12 +165,6 @@ impl TaskStore {
         Ok(updated)
     }
 
-    /// Delete a task by id. Idempotent — deleting an unknown id is a
-    /// no-op + success, matching how UI delete buttons should feel.
-    ///
-    /// # Errors
-    ///
-    /// Returns `Err` if the updated list cannot be written to disk.
     pub fn delete(&self, id: &str) -> Result<()> {
         let mut tasks = self.list();
         let before = tasks.len();
@@ -247,11 +178,6 @@ impl TaskStore {
         Ok(())
     }
 
-    /// Convenience wrapper used by the kanban's drag-and-drop.
-    ///
-    /// # Errors
-    ///
-    /// Returns `Err` if `id` is not found or the updated list cannot be written to disk.
     pub fn set_status(&self, id: &str, status: TaskStatus) -> Result<Task> {
         self.update(
             id,
@@ -262,10 +188,6 @@ impl TaskStore {
         )
     }
 
-    /// Atomic write of the full task list. Creates the parent dir if
-    /// missing, then writes via [`crate::storage::atomic_write`] —
-    /// temp file + fsync + rename — so neither a crash nor a power
-    /// loss mid-write can corrupt or truncate the on-disk file.
     fn save(&self, tasks: &[Task]) -> Result<()> {
         if let Some(parent) = self.path.parent() {
             fs::create_dir_all(parent).map_err(|e| {
@@ -282,10 +204,6 @@ impl TaskStore {
     }
 }
 
-/// Constructor payload for [`TaskStore::create`]. Everything except
-/// the title is optional so the kanban's inline composer can create
-/// a task with just a title and the `create_task` tool can omit any
-/// field the model didn't pick up.
 #[derive(Clone, Debug, Default, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../src/shared/types/")]
 pub struct NewTask {
@@ -343,7 +261,7 @@ mod tests {
                 ..NewTask::default()
             })
             .unwrap();
-        // tiny sleep so updated_at moves
+
         std::thread::sleep(std::time::Duration::from_millis(2));
         let updated = store
             .update(
@@ -395,7 +313,7 @@ mod tests {
             })
             .unwrap();
         store.delete(&t.id).unwrap();
-        // Second delete must succeed without error.
+
         store.delete(&t.id).unwrap();
         assert!(store.list().is_empty());
     }

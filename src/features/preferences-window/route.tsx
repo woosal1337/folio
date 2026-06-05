@@ -51,18 +51,6 @@ const TABS: TabSpec[] = [
   { id: "webhooks", label: "Webhooks", icon: Plug },
 ];
 
-/**
- * Top-level route for the dedicated Preferences NSWindow. v2 finding
- * 020 / GET-86. Mounted at `/preferences-window`; the Rust side opens
- * a 640×520 native window pointed here, so macOS handles the chrome
- * (close / minimize / zoom) and the user gets a System-Settings-style
- * surface instead of an in-app modal.
- *
- * Re-uses the existing section components from the legacy
- * SettingsModal so the actual content stays in one place. The
- * sidebar + content-pane shell is duplicated here only to drop the
- * Dialog wrapper.
- */
 export default function PreferencesWindow() {
   const settings = useSettingsStore((s) => s.settings);
   const load = useSettingsStore((s) => s.load);

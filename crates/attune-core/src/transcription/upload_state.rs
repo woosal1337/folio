@@ -1,20 +1,3 @@
-//! Resumable upload state. v2 finding 044 / GET-65.
-//!
-//! Persists per-chunk upload progress so hotel-wifi-at-73%-complete
-//! does not become a full retry. Lives next to the recording as
-//! `<session>/upload-state.json`.
-//!
-//! The Whisper API is one-shot per file, so 'resume' here means:
-//!
-//!   1. Read upload-state.json on start; skip chunks marked
-//!      `succeeded`.
-//!   2. POST each remaining chunk, with exponential backoff per
-//!      chunk on retriable errors.
-//!   3. Update upload-state.json after each successful chunk.
-//!   4. On terminal failure for a chunk, leave its entry as
-//!      `failed { attempts, last_error }` so the user can re-run
-//!      without losing the chunks that already landed.
-
 use std::fs;
 use std::path::Path;
 
@@ -60,7 +43,6 @@ impl UploadState {
         }
     }
 
-    /// Chunks not yet `succeeded`, in original order.
     pub fn remaining(&self) -> Vec<&ChunkRecord> {
         self.chunks
             .iter()
@@ -68,16 +50,12 @@ impl UploadState {
             .collect()
     }
 
-    /// True when every chunk has succeeded.
     pub fn is_complete(&self) -> bool {
         self.chunks
             .iter()
             .all(|c| matches!(c.status, ChunkStatus::Succeeded { .. }))
     }
 
-    /// Concatenate the per-chunk transcripts in order. Returns None
-    /// when any chunk has not succeeded — callers should check
-    /// `is_complete` before stitching.
     pub fn stitched_transcript(&self) -> Option<String> {
         let mut out = String::new();
         for chunk in &self.chunks {
@@ -94,18 +72,12 @@ impl UploadState {
         Some(out)
     }
 
-    /// Mark `index` as succeeded with `transcript_text`. No-op when
-    /// the index is out of bounds (defensive: the caller should
-    /// never get here).
     pub fn mark_succeeded(&mut self, index: usize, transcript_text: String) {
         if let Some(chunk) = self.chunks.get_mut(index) {
             chunk.status = ChunkStatus::Succeeded { transcript_text };
         }
     }
 
-    /// Bump the attempt counter for `index` and record `error` as
-    /// the failure reason. The caller decides whether to retry or
-    /// give up.
     pub fn mark_failed(&mut self, index: usize, error: String) {
         if let Some(chunk) = self.chunks.get_mut(index) {
             let attempts = match &chunk.status {
@@ -125,8 +97,6 @@ pub fn state_path(session_dir: &Path) -> std::path::PathBuf {
     session_dir.join(STATE_FILE)
 }
 
-/// Read the persisted upload state. Returns `Ok(None)` when no state
-/// file exists — first attempt.
 pub fn load(session_dir: &Path) -> Result<Option<UploadState>> {
     let path = state_path(session_dir);
     if !path.exists() {
@@ -140,8 +110,6 @@ pub fn load(session_dir: &Path) -> Result<Option<UploadState>> {
     Ok(Some(state))
 }
 
-/// Atomic save (temp + rename) so a crash mid-write can't leave a
-/// half-written state file.
 pub fn save(session_dir: &Path, state: &UploadState) -> Result<()> {
     let final_path = state_path(session_dir);
     let tmp_path = final_path.with_extension("json.tmp");
@@ -156,9 +124,6 @@ pub fn save(session_dir: &Path, state: &UploadState) -> Result<()> {
     Ok(())
 }
 
-/// Compute the exponential-backoff delay (in seconds) for the
-/// `attempts`-th retry. Capped at 60s, jittered ±20% deterministically
-/// from the attempt index so concurrent uploads do not thunder.
 pub fn backoff_delay_secs(attempts: u32) -> f64 {
     let base = 2.0_f64.powi(attempts.min(6) as i32);
     let jitter = ((attempts as f64 * 0.37).fract() - 0.5) * 0.4 * base;

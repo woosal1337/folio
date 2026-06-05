@@ -1,7 +1,3 @@
-//! `attune-cli tasks` — read the kanban store as newline-delimited
-//! JSON (or as a table when `--table` is set). Optionally filter by
-//! status. v2 roadmap finding 072 / GET-74.
-
 use anyhow::Result;
 use attune_core::storage::TaskStore;
 
@@ -11,8 +7,6 @@ pub fn run(args: TasksArgs) -> Result<()> {
     let store = TaskStore::new(args.path.clone());
     let tasks = store.list();
 
-    // Compare via serde-serialised JSON name ("todo" / "doing" /
-    // "done") so the user can filter the way they see it in the UI.
     let normalised = args.status.as_deref().map(str::trim).map(str::to_lowercase);
     let filtered: Vec<_> = tasks
         .into_iter()

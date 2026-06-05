@@ -1,8 +1,3 @@
-//! `attune-cli memory-search` — case-insensitive substring search
-//! over the on-disk memory markdown files. Avoids opening the SQLite
-//! index so the command stays cheap to run from cron / Hammerspoon /
-//! RTK pipelines. v2 finding 072 / GET-74.
-
 use anyhow::Result;
 use attune_core::memory::page::read_dir_pages;
 use attune_core::memory::types::MemoryKind;
@@ -35,8 +30,6 @@ pub fn run(args: MemorySearchArgs) -> Result<()> {
         })
         .collect();
 
-    // Newest first so cron pipelines summarising 'today' get sensible
-    // ordering without an extra sort | head step.
     matches.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
     if args.limit > 0 && matches.len() > args.limit {
         matches.truncate(args.limit);

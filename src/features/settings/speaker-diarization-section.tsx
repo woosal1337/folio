@@ -21,17 +21,8 @@ interface Props {
   onChange: <K extends keyof Settings>(key: K, value: Settings[K]) => void;
 }
 
-/**
- * Speaker-detection (diarization) settings. Owns the on/off toggle plus
- * the two on-device ONNX models the pipeline needs (pyannote segmentation
- * + WeSpeaker embedding) — their download status, a one-tap download for
- * whichever are missing, and the live progress feed. Mirrors the local-
- * Whisper download affordance so the two feel like one family.
- */
 export function SpeakerDiarizationSection({ settings, onChange }: Props) {
-  const [statuses, setStatuses] = React.useState<DiarizationModelStatus[] | null>(
-    null
-  );
+  const [statuses, setStatuses] = React.useState<DiarizationModelStatus[] | null>(null);
   const [statusLoading, setStatusLoading] = React.useState(true);
   const [downloading, setDownloading] = React.useState(false);
   const [progress, setProgress] = React.useState<DiarizationDownloadProgress | null>(
@@ -57,7 +48,6 @@ export function SpeakerDiarizationSection({ settings, onChange }: Props) {
     refreshStatus();
   }, [refreshStatus]);
 
-  // Subscribe to live download progress while this section is mounted.
   React.useEffect(() => {
     let unlistenFn: (() => void) | null = null;
     let cancelled = false;
@@ -101,9 +91,8 @@ export function SpeakerDiarizationSection({ settings, onChange }: Props) {
     }
   };
 
-  // Which model is mid-download, and its progress, derived from the event.
   const active = progress
-    ? statuses?.find((s) => s.id === progress.model_id) ?? null
+    ? (statuses?.find((s) => s.id === progress.model_id) ?? null)
     : null;
   const activeLabel = active?.label ?? progress?.model_id ?? null;
   const totalBytes =
@@ -115,8 +104,6 @@ export function SpeakerDiarizationSection({ settings, onChange }: Props) {
 
   return (
     <section className="space-y-3">
-      {/* On/off toggle. When off, transcripts keep a single "Others" track
-          instead of per-speaker labels. */}
       <div className="flex items-start justify-between gap-6 rounded-lg border border-border bg-card p-4">
         <div className="space-y-1">
           <Label
@@ -130,10 +117,9 @@ export function SpeakerDiarizationSection({ settings, onChange }: Props) {
             </span>
           </Label>
           <p className="max-w-md text-xs text-muted-foreground">
-            After transcribing, Attune tells apart who spoke on the system-audio
-            track and labels each turn Speaker 1, 2, 3… Your own microphone is
-            always labelled “You”. Runs fully on-device and needs the two models
-            below.
+            After transcribing, Attune tells apart who spoke on the system-audio track
+            and labels each turn Speaker 1, 2, 3… Your own microphone is always labelled
+            “You”. Runs fully on-device and needs the two models below.
           </p>
         </div>
         <Switch
@@ -145,7 +131,6 @@ export function SpeakerDiarizationSection({ settings, onChange }: Props) {
       </div>
 
       <div className="flex flex-col gap-3 rounded-md border border-border bg-card p-3">
-        {/* Top row: overall status + actions. */}
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-2">
             <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
@@ -196,13 +181,9 @@ export function SpeakerDiarizationSection({ settings, onChange }: Props) {
           </div>
         </div>
 
-        {/* Per-model rows: each model's presence + size. */}
         <ul className="flex flex-col gap-1.5">
           {(statuses ?? []).map((m) => (
-            <li
-              key={m.id}
-              className="flex items-center justify-between gap-3 text-xs"
-            >
+            <li key={m.id} className="flex items-center justify-between gap-3 text-xs">
               <span className="flex min-w-0 items-center gap-2">
                 {m.present ? (
                   <Check className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
@@ -220,7 +201,6 @@ export function SpeakerDiarizationSection({ settings, onChange }: Props) {
           ))}
         </ul>
 
-        {/* Live progress while downloading. */}
         {downloading && progress ? (
           <div className="flex flex-col gap-1" role="status" aria-live="polite">
             <span className="font-mono text-2xs text-muted-foreground">
@@ -230,8 +210,6 @@ export function SpeakerDiarizationSection({ settings, onChange }: Props) {
               {percent !== null ? ` · ${percent}%` : ""}
             </span>
             <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
-              {/* scaleX, not width — transform stays on the compositor
-                  instead of thrashing layout every frame (GET-200). */}
               <div
                 className="h-full w-full origin-left bg-primary transition-transform"
                 style={{ transform: `scaleX(${(percent ?? 0) / 100})` }}
@@ -243,8 +221,8 @@ export function SpeakerDiarizationSection({ settings, onChange }: Props) {
 
       <p className="text-xs text-muted-foreground">
         Fetched once from huggingface.co (pyannote-segmentation-3.0) and
-        github.com/k2-fsa/sherpa-onnx (WeSpeaker), ~32 MB total, cached locally.
-        Each file is checksum-verified on download.
+        github.com/k2-fsa/sherpa-onnx (WeSpeaker), ~32 MB total, cached locally. Each
+        file is checksum-verified on download.
       </p>
     </section>
   );

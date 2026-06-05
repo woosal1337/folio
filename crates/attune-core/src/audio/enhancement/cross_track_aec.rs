@@ -1,35 +1,3 @@
-//! Cross-track acoustic echo cancellation (GET-202).
-//!
-//! When a user is on speakers (not headphones), the mic re-records the
-//! far-end audio from the system track, polluting the "me" channel and
-//! degrading both diarization and transcription. This module removes
-//! that echo using the system WAV as a reference signal.
-//!
-//! ## Algorithm
-//!
-//! **Normalized Least-Mean-Squares (NLMS) adaptive filtering.** The
-//! system track is the reference; the mic track is the desired signal
-//! mixed with the reference echo. NLMS iteratively identifies and
-//! subtracts the echo component:
-//!
-//! ```text
-//! y[n]    = Σ w[k] · ref[n-k]          (filter output ≈ echo estimate)
-//! error[n] = mic[n] - y[n]              (residual ≈ clean mic)
-//! w[k]    += μ · error · ref[n-k]       (update taps, NLMS-normalized)
-//!             / (ε + ‖ref‖²)
-//! ```
-//!
-//! Default filter length: 512 taps at 48 kHz ≈ 10.7 ms. This covers
-//! the typical echo delay from the sound card output to the mic, which
-//! on macOS varies between 2 and ~30 ms depending on the driver.
-//!
-//! ## Usage
-//!
-//! Called as an offline pass after `stop_recording`, analogous to the
-//! existing RNNoise pass. Reads `mic.wav` + `system.wav`, writes
-//! `mic.aec.wav`. The originals are left untouched; callers can swap the
-//! enhanced file in place if the quality improvement is confirmed.
-
 use std::path::Path;
 use std::time::Instant;
 
@@ -38,14 +6,13 @@ use tracing::{debug, info};
 
 use crate::error::{AttuneError, Result};
 
-/// Number of NLMS filter taps. 512 taps × (1 / 48 000 Hz) ≈ 10.7 ms.
 const FILTER_TAPS: usize = 512;
-/// NLMS step size. Smaller = slower convergence, more stable.
+
 const MU: f32 = 0.05;
-/// NLMS regularization term — prevents division by zero on silence.
+
 const EPSILON: f32 = 1e-6;
-/// Cross-correlation window (samples) for delay estimation.
-const XCORR_WINDOW: usize = 2_400; // 50 ms at 48 kHz
+
+const XCORR_WINDOW: usize = 2_400;
 
 pub struct AecStats {
     pub input_mic_samples: u64,
@@ -64,13 +31,6 @@ impl AecStats {
     }
 }
 
-/// Apply cross-track AEC to `mic_path` using `system_path` as the
-/// reference signal. Writes the cleaned mic to `output_path`.
-///
-/// # Errors
-///
-/// Returns `Err` when either WAV cannot be read or the output cannot
-/// be written.
 pub fn apply_aec(mic_path: &Path, system_path: &Path, output_path: &Path) -> Result<AecStats> {
     let t0 = Instant::now();
 
@@ -81,8 +41,6 @@ pub fn apply_aec(mic_path: &Path, system_path: &Path, output_path: &Path) -> Res
         return Err(AttuneError::Storage("AEC: empty input track".into()));
     }
 
-    // Align rates: both should be 48 kHz from the capture pipeline; warn
-    // if they differ but continue (the filter degrades gracefully).
     if mic_rate != ref_rate {
         tracing::warn!(
             mic_rate,
@@ -91,21 +49,17 @@ pub fn apply_aec(mic_path: &Path, system_path: &Path, output_path: &Path) -> Res
         );
     }
 
-    // Estimate echo delay via cross-correlation over the opening window.
     let echo_delay = estimate_delay(&mic_samples, &ref_samples, XCORR_WINDOW);
     debug!(echo_delay_samples = echo_delay, "AEC echo delay estimated");
 
-    // Shift reference by the estimated delay.
     let ref_delayed: Vec<f32> = std::iter::repeat_n(0.0_f32, echo_delay)
         .chain(ref_samples.iter().copied())
         .take(mic_samples.len())
         .collect();
 
-    // NLMS adaptive filter.
     let cleaned = nlms_filter(&mic_samples, &ref_delayed, FILTER_TAPS, MU, EPSILON);
     let audio_secs = mic_samples.len() as f64 / mic_rate as f64;
 
-    // Write output.
     let spec = WavSpec {
         channels: 1,
         sample_rate: mic_rate,
@@ -140,8 +94,6 @@ pub fn apply_aec(mic_path: &Path, system_path: &Path, output_path: &Path) -> Res
     })
 }
 
-/// Read a WAV file to a mono f32 sample vector. Multi-channel files
-/// are downmixed to mono by averaging channels.
 fn read_wav_mono(path: &Path) -> Result<(Vec<f32>, u32)> {
     let mut reader = WavReader::open(path)
         .map_err(|e| AttuneError::Storage(format!("AEC read {}: {e}", path.display())))?;
@@ -172,12 +124,6 @@ fn read_wav_mono(path: &Path) -> Result<(Vec<f32>, u32)> {
     Ok((mono, rate))
 }
 
-/// Estimate the echo delay (in samples): how many samples behind `mic`
-/// does `reference` trail? In the AEC context this is the time it takes
-/// for the system-audio output to physically travel to the microphone.
-///
-/// Computes corr(lag) = Σ mic[i] · reference[i - lag] for lag ≥ 0,
-/// then returns the lag at which the correlation is maximised.
 fn estimate_delay(mic: &[f32], reference: &[f32], window: usize) -> usize {
     let len = window.min(mic.len()).min(reference.len());
     let max_lag = (len / 4).max(1);
@@ -186,8 +132,6 @@ fn estimate_delay(mic: &[f32], reference: &[f32], window: usize) -> usize {
     let mut best_corr = f32::NEG_INFINITY;
 
     for lag in 0..max_lag {
-        // Σ mic[i + lag] · reference[i]  — positive lag means reference
-        // leads mic (system output reaches mic after `lag` samples).
         let mut corr = 0.0_f32;
         for i in 0..len.saturating_sub(lag) {
             corr += mic[i + lag] * reference[i];
@@ -200,21 +144,17 @@ fn estimate_delay(mic: &[f32], reference: &[f32], window: usize) -> usize {
     best_lag
 }
 
-/// NLMS adaptive filter with a circular delay-line for the reference.
-/// Returns the error signal (clean mic estimate).
 fn nlms_filter(mic: &[f32], reference: &[f32], taps: usize, mu: f32, epsilon: f32) -> Vec<f32> {
     let n = mic.len().min(reference.len());
     let mut weights = vec![0.0_f32; taps];
-    // Delay line: ring buffer holding the last `taps` reference samples.
+
     let mut delay_line = vec![0.0_f32; taps];
     let mut delay_pos = 0usize;
     let mut output = vec![0.0_f32; n];
 
     for i in 0..n {
-        // Insert current reference sample into delay line.
         delay_line[delay_pos] = reference[i];
 
-        // Compute filter output: y = w · x (x = delay line in causal order).
         let mut y = 0.0_f32;
         let mut ref_power = 0.0_f32;
         for (k, &w) in weights.iter().enumerate().take(taps) {
@@ -226,7 +166,6 @@ fn nlms_filter(mic: &[f32], reference: &[f32], taps: usize, mu: f32, epsilon: f3
         let error = mic[i] - y;
         output[i] = error;
 
-        // NLMS weight update.
         let norm = mu / (epsilon + ref_power);
         for (k, w) in weights.iter_mut().enumerate().take(taps) {
             let idx = (delay_pos + taps - k) % taps;
@@ -256,20 +195,17 @@ mod tests {
 
     #[test]
     fn estimate_delay_finds_positive_lag() {
-        // Use a non-periodic pulse train for a clear correlation peak.
-        // In AEC: `reference` (system) arrives first; `mic` picks up
-        // the echo `lag_true` samples later.
         let n = 1000;
         let mut reference = vec![0.0_f32; n];
         reference[50] = 1.0;
         reference[200] = 0.8;
         reference[400] = 0.6;
         let lag_true = 10;
-        // mic = reference delayed by lag_true (echo arrives later).
+
         let mic: Vec<f32> = std::iter::repeat_n(0.0_f32, lag_true)
             .chain(reference[..n - lag_true].iter().copied())
             .collect();
-        // estimate_delay(mic, reference, ..) should return lag_true.
+
         let lag = estimate_delay(&mic, &reference, 500);
         assert!(
             lag >= lag_true - 2 && lag <= lag_true + 2,
@@ -279,12 +215,9 @@ mod tests {
 
     #[test]
     fn nlms_filter_suppresses_echo_on_clean_reference() {
-        // mic = speech + echo; reference = echo source.
-        // Speech and echo use DIFFERENT frequencies so the linear filter
-        // can distinguish them (same-frequency mixing is inseparable).
         let n = 4000;
-        let speech_freq = 0.07_f32; // ~500 Hz at 48 kHz
-        let echo_freq = 0.13_f32; // ~900 Hz at 48 kHz — far-end voice
+        let speech_freq = 0.07_f32;
+        let echo_freq = 0.13_f32;
         let echo_scale = 0.4_f32;
 
         let speech: Vec<f32> = (0..n)
@@ -297,10 +230,8 @@ mod tests {
             .map(|(s, r)| s + r * echo_scale)
             .collect();
 
-        // Use shorter filter + smaller μ for stable convergence in test.
         let cleaned = nlms_filter(&mic, &reference, 16, 0.01, EPSILON);
 
-        // Evaluate over the second half after convergence.
         let half = n / 2;
         let mic_err: f32 = mic[half..]
             .iter()

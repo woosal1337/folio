@@ -1,18 +1,3 @@
-//! Outbound webhook event stream.
-//!
-//! Attune fans recording / task / memory lifecycle events out to a
-//! user-configured list of localhost endpoints. Each POST carries a
-//! JSON body and an `X-Attune-Signature` header containing
-//! `sha256=<hex(hmac_sha256(secret, body))>` so the subscriber can
-//! verify the request without trusting plain transport.
-//!
-//! The store is a single JSON file at
-//! `~/Library/Application Support/Attune/webhooks.json` (macOS) /
-//! `~/.config/attune/webhooks.json` elsewhere. Same atomic write
-//! pattern as `SettingsStore`.
-//!
-//! v2 roadmap finding 079 / GET-101.
-
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -27,7 +12,6 @@ use crate::error::{AttuneError, Result};
 
 type HmacSha256 = Hmac<Sha256>;
 
-/// Lifecycle events Attune knows how to emit.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../src/shared/types/")]
 #[serde(rename_all = "snake_case")]
@@ -49,25 +33,20 @@ impl WebhookEvent {
     }
 }
 
-/// A single user-configured webhook subscription.
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../src/shared/types/")]
 pub struct WebhookSubscription {
     pub id: String,
-    /// Human label shown in Settings (e.g. "Notion sync").
+
     pub label: String,
-    /// Target URL. Must be http(s); the store will reject anything
-    /// else at save time.
+
     pub url: String,
-    /// HMAC secret. Stored in cleartext alongside the URL since the
-    /// whole point is a single-user local sync; if the user wanted
-    /// to encrypt secrets, the Keychain path is open as a follow-up.
+
     pub secret: String,
-    /// Events this subscription wants to receive. Empty means all.
+
     #[serde(default)]
     pub events: Vec<WebhookEvent>,
-    /// User-visible toggle. False subscriptions are saved but
-    /// skipped at fan-out time.
+
     #[serde(default = "default_true")]
     pub enabled: bool,
 }
@@ -76,9 +55,6 @@ fn default_true() -> bool {
     true
 }
 
-/// Payload posted to the subscriber. We re-use the same envelope for
-/// every topic so downstream code can switch on `topic` without
-/// having to recognise the shape of the inner `data`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WebhookPayload {
     pub topic: String,
@@ -86,7 +62,6 @@ pub struct WebhookPayload {
     pub data: serde_json::Value,
 }
 
-/// In-memory + on-disk store of subscriptions.
 #[derive(Debug)]
 pub struct WebhookStore {
     path: PathBuf,
@@ -113,9 +88,6 @@ impl WebhookStore {
         serde_json::from_str(&raw).unwrap_or_default()
     }
 
-    /// # Errors
-    ///
-    /// Returns `Err` if the HTTP request fails or the server returns a non-2xx status.
     pub fn save(&self, subs: &[WebhookSubscription]) -> Result<()> {
         for sub in subs {
             validate(sub)?;
@@ -178,18 +150,10 @@ fn default_webhooks_path() -> PathBuf {
     }
 }
 
-/// Generate a fresh subscription id. Convenience wrapper so call
-/// sites don't depend on uuid directly.
 pub fn new_subscription_id() -> String {
     Uuid::now_v7().to_string()
 }
 
-/// Sign a JSON body with HMAC-SHA256 and return the
-/// `X-Attune-Signature` header value (`sha256=<hex>`).
-///
-/// # Panics
-///
-/// Panics if the HMAC key or signature bytes are malformed (should not occur in practice).
 pub fn sign(secret: &str, body: &[u8]) -> String {
     let mut mac =
         HmacSha256::new_from_slice(secret.as_bytes()).expect("HMAC-SHA256 accepts any key length");
@@ -198,7 +162,6 @@ pub fn sign(secret: &str, body: &[u8]) -> String {
     format!("sha256={}", hex::encode(bytes))
 }
 
-/// Build a payload for a topic with arbitrary JSON data attached.
 pub fn build_payload(event: WebhookEvent, data: serde_json::Value) -> WebhookPayload {
     WebhookPayload {
         topic: event.as_topic().to_string(),
@@ -224,10 +187,6 @@ mod tests {
 
     #[test]
     fn sign_matches_known_vector() {
-        // HMAC-SHA256("top-secret", "hello"). Verify with:
-        //   python -c "import hmac,hashlib;
-        //   print(hmac.new(b'top-secret', b'hello',
-        //   hashlib.sha256).hexdigest())"
         let sig = sign("top-secret", b"hello");
         assert_eq!(
             sig,

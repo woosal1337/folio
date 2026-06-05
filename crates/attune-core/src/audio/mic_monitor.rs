@@ -1,25 +1,3 @@
-//! Microphone monitor — real-time loopback for mic testing in Settings.
-//!
-//! Routes mic input directly to the default audio output so the user
-//! can hear themselves and judge whether gain, placement, and noise
-//! floor are acceptable, without starting a recording session.
-//!
-//! Similar to Discord's "Let me hear my microphone" test in Settings →
-//! Voice & Video. The monitor runs until `stop()` is called or the
-//! handle is dropped.
-//!
-//! ## Implementation
-//!
-//! Opens two cpal streams (input → output) connected through a
-//! `crossbeam_channel` ring buffer. The input callback enqueues f32
-//! frames; the output callback dequeues them. Both streams run on
-//! cpal's platform audio threads and never block each other.
-//!
-//! No resampling: both streams negotiate the same sample rate (the
-//! input device's native rate) so there is no quality loss. If the
-//! output device only supports a different rate the OS automatically
-//! handles the conversion.
-
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
@@ -29,30 +7,20 @@ use tracing::{debug, info, warn};
 
 use crate::error::{AttuneError, Result};
 
-const RING_FRAMES: usize = 4096; // ~85 ms at 48 kHz — comfortable margin
+const RING_FRAMES: usize = 4096;
 
-/// A running mic-monitor session. Drop to stop.
 pub struct MicMonitor {
     _input: cpal::Stream,
     _output: cpal::Stream,
     stopped: Arc<AtomicBool>,
 }
 
-// SAFETY: cpal streams are Send on all platforms Attune targets (macOS).
 unsafe impl Send for MicMonitor {}
 
 impl MicMonitor {
-    /// Start routing `device_name` (or the default input device) to the
-    /// default output. Returns a handle; drop the handle to stop.
-    ///
-    /// # Errors
-    ///
-    /// Returns `Err` when the input or output device cannot be opened or
-    /// the streams fail to start.
     pub fn start(device_name: Option<&str>) -> Result<Self> {
         let host = cpal::default_host();
 
-        // Input device.
         let input_dev = if let Some(name) = device_name {
             host.input_devices()
                 .map_err(|e| AttuneError::AudioDevice(format!("input_devices: {e}")))?
@@ -63,7 +31,6 @@ impl MicMonitor {
         }
         .ok_or(AttuneError::NoInputDevice)?;
 
-        // Output device.
         let output_dev = host
             .default_output_device()
             .ok_or_else(|| AttuneError::AudioDevice("no default output device".into()))?;
@@ -78,14 +45,12 @@ impl MicMonitor {
         let in_channels = in_cfg.channels() as usize;
         let out_channels = out_cfg.channels() as usize;
 
-        // Shared ring buffer: f32 mono samples.
         let (tx, rx): (Sender<f32>, Receiver<f32>) = bounded(RING_FRAMES);
         let tx2 = tx.clone();
         let stopped = Arc::new(AtomicBool::new(false));
         let stopped_for_in = Arc::clone(&stopped);
         let stopped_for_out = Arc::clone(&stopped);
 
-        // Input stream: downmix to mono, send to ring.
         let input_stream = input_dev
             .build_input_stream(
                 &in_cfg.into(),
@@ -95,7 +60,7 @@ impl MicMonitor {
                     }
                     for frame in data.chunks(in_channels.max(1)) {
                         let mono = frame.iter().sum::<f32>() / in_channels as f32;
-                        // Non-blocking send — drop frames if output is slow.
+
                         let _ = tx.try_send(mono);
                     }
                 },
@@ -104,7 +69,6 @@ impl MicMonitor {
             )
             .map_err(|e| AttuneError::AudioDevice(format!("build input stream: {e}")))?;
 
-        // Output stream: read mono, expand to output channel count.
         let output_stream = output_dev
             .build_output_stream(
                 &out_cfg.into(),
@@ -134,7 +98,7 @@ impl MicMonitor {
             .map_err(|e| AttuneError::AudioDevice(format!("output stream play: {e}")))?;
 
         info!("mic monitor started");
-        let _ = tx2; // keep alive
+        let _ = tx2;
 
         Ok(Self {
             _input: input_stream,
@@ -143,7 +107,6 @@ impl MicMonitor {
         })
     }
 
-    /// Stop the loopback immediately. The handle can be dropped after this.
     pub fn stop(&self) {
         self.stopped.store(true, Ordering::Relaxed);
         debug!("mic monitor stopped");

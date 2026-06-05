@@ -1,18 +1,3 @@
-/**
- * Tasks — kanban board over the persisted task list.
- *
- * Three columns (To-do / Doing / Done), drag-and-drop between them
- * via @dnd-kit, inline "+ Add task" composer per column, click-to-edit
- * dialog with the full schema (title, owner, due, notes), trash icon
- * to delete. Tasks created by the extract-tasks agent show a sparkle
- * and a deep-link back to the source recording.
- *
- * Source of truth: useTasksStore (mirrors the Rust TaskStore). The
- * store is refreshed on first mount; mutations go through the store
- * so the agent panel's auto-extract-tasks runs show up here without
- * extra plumbing.
- */
-
 import * as React from "react";
 import {
   DndContext,
@@ -62,9 +47,6 @@ import type { Task } from "@/shared/types/Task";
 import type { TaskStatus } from "@/shared/types/TaskStatus";
 import type { TaskUpdate } from "@/shared/types/TaskUpdate";
 
-// ts-rs generates Option<T> as `T | null` with all fields required, so
-// build a New/Update with explicit nulls rather than relying on TS
-// optional-property elision.
 const blankNewTask = (
   title: string,
   status: TaskStatus | null,
@@ -115,9 +97,6 @@ export default function Tasks() {
     refresh();
   }, [refresh]);
 
-  // Bucket tasks by status. We sort within each column by created_at
-  // ascending so the user's mental order ("first task I added is at
-  // the top") matches what they see.
   const byStatus = React.useMemo(() => {
     const buckets: Record<TaskStatus, Task[]> = { todo: [], doing: [], done: [] };
     for (const t of tasks) buckets[t.status].push(t);
@@ -128,8 +107,6 @@ export default function Tasks() {
   }, [tasks]);
 
   const sensors = useSensors(
-    // 6px activation distance so a click doesn't accidentally start a
-    // drag when the user just wants to open the edit dialog.
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor)
   );
@@ -145,8 +122,7 @@ export default function Tasks() {
     const id = String(event.active.id);
     const overId = event.over?.id ? String(event.over.id) : null;
     if (!overId) return;
-    // Droppables are either a column id ("todo"/"doing"/"done") or a
-    // task id (when hovering another card). Normalise to a column id.
+
     let targetStatus: TaskStatus | null = null;
     if ((["todo", "doing", "done"] as TaskStatus[]).includes(overId as TaskStatus)) {
       targetStatus = overId as TaskStatus;
@@ -200,8 +176,6 @@ export default function Tasks() {
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
         accessibility={{
-          // VoiceOver announcement strings for drag lifecycle.
-          // v2 finding 098 / GET-111.
           announcements: {
             onDragStart: ({ active }) => {
               const t = tasks.find((x) => x.id === String(active.id));
@@ -264,7 +238,6 @@ export default function Tasks() {
           setEditing(null);
         }}
       />
-      {/* end main */}
     </div>
   );
 }
@@ -341,8 +314,6 @@ function TaskCard({ task, onOpen, onDelete, dragging }: TaskCardProps) {
         <button
           type="button"
           onClick={(e) => {
-            // Don't open while the user is dragging; @dnd-kit's pointer
-            // activation distance keeps this honest.
             e.stopPropagation();
             onOpen();
           }}
@@ -430,7 +401,6 @@ function InlineComposer({ onCreate }: InlineComposerProps) {
     }
     onCreate(trimmed);
     setValue("");
-    // Stay open so the user can add several in a row.
   };
 
   if (!open) {
@@ -491,8 +461,6 @@ interface EditTaskDialogProps {
 }
 
 function EditTaskDialog({ task, onClose, onSave }: EditTaskDialogProps) {
-  // Local state shadowed off the task so editing doesn't mutate the
-  // store until the user hits Save.
   const [title, setTitle] = React.useState("");
   const [status, setStatus] = React.useState<TaskStatus>("todo");
   const [owner, setOwner] = React.useState("");

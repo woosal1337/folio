@@ -70,10 +70,6 @@ interface NavGroup {
   items: NavItem[];
 }
 
-// Personal-only sidebar — Attune ships as a fully local, single-user
-// app, so there is no account, workspace, or team grouping. "Personal"
-// holds activity, "Recording" holds capture config, "Integrations"
-// holds local usage + the connector/automation surfaces.
 const NAV_GROUPS: NavGroup[] = [
   {
     label: "Personal",
@@ -107,9 +103,6 @@ const NAV_GROUPS: NavGroup[] = [
 ];
 
 export function SettingsModal({ open, onOpenChange }: Props) {
-  // Section is owned by the global UI store so external deep-links
-  // (agent-panel "configure in Settings → AI" etc.) can jump straight
-  // to a target tab via `useSettingsUiStore.getState().openAt("ai")`.
   const section = useSettingsUiStore((s) => s.section);
   const setSection = useSettingsUiStore((s) => s.setSection);
   const [settings, setSettings] = React.useState<Settings | null>(null);
@@ -117,7 +110,6 @@ export function SettingsModal({ open, onOpenChange }: Props) {
   const [saving, setSaving] = React.useState(false);
   const { setTheme } = useTheme();
 
-  // Load settings + devices once the modal opens.
   React.useEffect(() => {
     if (!open) return;
     let cancelled = false;
@@ -150,9 +142,6 @@ export function SettingsModal({ open, onOpenChange }: Props) {
     if (!settings) return;
     setSaving(true);
     try {
-      // Persist via the store so the in-memory cache (read by the
-      // recording-store when deciding whether to auto-transcribe) stays
-      // in sync with disk.
       await saveToStore(settings);
       toast.success("Settings saved");
       onOpenChange(false);
@@ -206,17 +195,6 @@ export function SettingsModal({ open, onOpenChange }: Props) {
           ))}
         </nav>
 
-        {/*
-          min-h-0 is load-bearing: this column is a grid item, and grid
-          items default to `min-height: auto`, which lets the content
-          push past the container's fixed height and prevents the inner
-          ScrollArea from ever constraining its viewport. Without this,
-          the modal silently overflows and tall sections (e.g. the
-          Local Whisper model picker) get clipped off the bottom.
-          overflow-hidden + shrink-0 on the footer below guarantee the
-          Save / Cancel row is always rendered, no matter how tall the
-          scrolling content grows.
-        */}
         <div className="flex h-full min-h-0 flex-col overflow-hidden">
           <ScrollArea className="min-h-0 flex-1">
             <div className="px-8 py-7">

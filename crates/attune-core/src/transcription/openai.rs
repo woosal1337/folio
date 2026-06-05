@@ -1,11 +1,3 @@
-//! OpenAI Whisper transcription backend.
-//!
-//! Uploads the captured WAV to `/v1/audio/transcriptions` and converts
-//! the verbose-JSON response into our [`Transcript`] shape. Uses the
-//! blocking reqwest client because Tauri's command handlers are
-//! themselves synchronous; we live with a parked worker thread for the
-//! duration of the upload.
-
 use std::path::Path;
 use std::time::Duration;
 
@@ -17,9 +9,7 @@ use crate::transcription::{Transcriber, Transcript, TranscriptSegment};
 
 const DEFAULT_MODEL: &str = "whisper-1";
 const DEFAULT_ENDPOINT: &str = "https://api.openai.com/v1/audio/transcriptions";
-/// Whisper jobs of a meeting-length recording can take ~30 s. Give the
-/// request a generous ceiling so a long meeting does not time out, but
-/// still bound it so a hung connection cannot wedge the app.
+
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(600);
 
 pub struct OpenAiTranscriber {
@@ -80,16 +70,12 @@ impl Transcriber for OpenAiTranscriber {
 
         let mut form = reqwest::blocking::multipart::Form::new()
             .text("model", self.model.clone())
-            // `verbose_json` returns per-segment timestamps; the default
-            // `json` response only returns the concatenated text.
             .text("response_format", "verbose_json")
             .part(
                 "file",
                 reqwest::blocking::multipart::Part::bytes(file_bytes).file_name(filename),
             );
 
-        // OpenAI uses ISO-639-1 codes ("en", "tr"). We pass anything that
-        // is not the synthetic "auto" sentinel.
         if let Some(lang) = language_hint {
             if !lang.is_empty() && lang != "auto" {
                 form = form.text("language", lang.to_string());
@@ -150,10 +136,6 @@ struct WhisperSegment {
 
 impl WhisperResponse {
     fn into_transcript(self) -> Transcript {
-        // The OpenAI path does not do per-segment language ID (the API
-        // returns one language for the whole response), so every segment
-        // inherits the response language. Local transcription tags each
-        // segment with its own per-window detection (GET-190).
         let lang = self.language.clone();
         let segments = match self.segments {
             Some(segs) => segs
@@ -166,23 +148,18 @@ impl WhisperResponse {
                     language: lang.clone(),
                 })
                 .collect(),
-            None => {
-                // Some endpoints (or model variants) skip the segment
-                // list and only return `text`. Fall back to a single
-                // segment spanning the whole audio so callers still get
-                // something useful.
-                self.text
-                    .map(|t| {
-                        vec![TranscriptSegment {
-                            start_seconds: 0.0,
-                            end_seconds: 0.0,
-                            text: t.trim().to_string(),
-                            speaker: None,
-                            language: lang.clone(),
-                        }]
-                    })
-                    .unwrap_or_default()
-            }
+            None => self
+                .text
+                .map(|t| {
+                    vec![TranscriptSegment {
+                        start_seconds: 0.0,
+                        end_seconds: 0.0,
+                        text: t.trim().to_string(),
+                        speaker: None,
+                        language: lang.clone(),
+                    }]
+                })
+                .unwrap_or_default(),
         };
         Transcript {
             language: self.language,

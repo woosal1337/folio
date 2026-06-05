@@ -1,22 +1,3 @@
-//! Avid Brain pattern — every memory write is a tiny git commit
-//! against the memory directory. v2 finding 039 / GET-60.
-//!
-//! Each `MemoryStore::create/update/delete` produces a markdown change
-//! on disk; this module records the change with `git -C <dir> commit
-//! -m "attune-memory: <verb> <slug>"`. Once that habit is in place:
-//!
-//!   * `git log` shows which meeting changed which belief and when.
-//!   * Conflict resolution between local edits and a sync pull
-//!     becomes plain-old `git revert <sha>`.
-//!   * `git blame` on any memory file points at the meeting that
-//!     introduced the claim.
-//!
-//! Commits are debounced 30s in the wire-up layer (the store calls
-//! `enqueue(path, verb, slug)` and a background ticker flushes a
-//! coalesced commit). The pure helpers here build the commit message,
-//! decide whether the directory is a git repo, and shell out to git.
-//! Everything is std::process::Command — no libgit2.
-
 use std::path::Path;
 use std::process::Command;
 
@@ -42,16 +23,10 @@ impl MemoryVerb {
     }
 }
 
-/// Build the conventional commit message used everywhere.
-/// `attune-memory: UPDATE user.company` is what `git log` shows.
 pub fn message(verb: MemoryVerb, slug: &str) -> String {
     format!("{COMMIT_PREFIX}: {} {}", verb.as_str(), slug)
 }
 
-/// `true` iff `dir` (or one of its parents) is the root of a git
-/// repository. Shells out to `git rev-parse --is-inside-work-tree`
-/// which is cheap and gives us the answer the user expects (a vault
-/// inside a larger monorepo counts).
 pub fn is_git_repo(dir: &Path) -> bool {
     Command::new("git")
         .arg("-C")
@@ -62,13 +37,6 @@ pub fn is_git_repo(dir: &Path) -> bool {
         .unwrap_or(false)
 }
 
-/// Stage + commit the given path. Returns the commit SHA on success.
-/// No-ops (nothing-to-commit) are NOT errors — they return `Ok("")`.
-///
-/// # Errors
-///
-/// Returns `Err` when any git subprocess fails to spawn or returns a
-/// non-zero exit code.
 pub fn commit_path(
     dir: &Path,
     path: &Path,
@@ -78,7 +46,7 @@ pub fn commit_path(
     if !is_git_repo(dir) {
         return Ok(String::new());
     }
-    // git add <path>
+
     let add = Command::new("git")
         .arg("-C")
         .arg(dir)
@@ -92,7 +60,7 @@ pub fn commit_path(
             String::from_utf8_lossy(&add.stderr)
         )));
     }
-    // git diff --cached --quiet: exit 0 = nothing staged. Skip in that case.
+
     let diff = Command::new("git")
         .arg("-C")
         .arg(dir)
@@ -102,7 +70,7 @@ pub fn commit_path(
     if diff.status.success() {
         return Ok(String::new());
     }
-    // git commit -m "..."
+
     let msg = message(verb, slug);
     let commit = Command::new("git")
         .arg("-C")
@@ -116,8 +84,7 @@ pub fn commit_path(
             String::from_utf8_lossy(&commit.stderr)
         )));
     }
-    // git rev-parse HEAD — return the new SHA so callers can log /
-    // surface it in the UI ("committed abc1234").
+
     let head = Command::new("git")
         .arg("-C")
         .arg(dir)
@@ -169,7 +136,7 @@ mod tests {
     #[test]
     fn commit_path_writes_real_commit_in_a_real_repo() {
         let dir = tempfile::tempdir().unwrap();
-        // Init repo + minimal identity so commit doesn't refuse.
+
         for args in [
             &["init", "-q", "-b", "main"][..],
             &["config", "user.email", "test@attune.local"][..],
@@ -190,7 +157,6 @@ mod tests {
         let sha = commit_path(dir.path(), &file, MemoryVerb::Create, "user.company").unwrap();
         assert_eq!(sha.len(), 40, "expected 40-char SHA, got {sha:?}");
 
-        // Second commit with no change → noop, empty SHA.
         let again = commit_path(dir.path(), &file, MemoryVerb::Update, "user.company").unwrap();
         assert_eq!(again, "");
     }

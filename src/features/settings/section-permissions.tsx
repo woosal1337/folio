@@ -22,11 +22,6 @@ const LABELS: Record<Permission, string> = {
   notifications: "Notifications",
 };
 
-/**
- * Settings → Permissions walkthrough. Lists every TCC bucket Attune
- * touches with its current status, a one-sentence rationale, and an
- * Open-in-System-Settings deep link. v2 finding 003 / GET-31.
- */
 export function SectionPermissions() {
   const [rows, setRows] = React.useState<PermissionRow[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -57,9 +52,9 @@ export function SectionPermissions() {
       <div>
         <h2 className="font-serif text-2xl font-medium">Permissions</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Empty or blocked permissions are the silent killer of first-recording.
-          Tap Open Settings to grant access in macOS System Settings; the change
-          shows up here next time you open this pane.
+          Empty or blocked permissions are the silent killer of first-recording. Tap
+          Open Settings to grant access in macOS System Settings; the change shows up
+          here next time you open this pane.
         </p>
       </div>
 

@@ -1,17 +1,3 @@
-//! Out-of-band memory consolidation. v2 finding 030 / GET-56.
-//!
-//! Nightly-while-charging job that:
-//!   1. Clusters near-duplicate memories by cosine similarity.
-//!   2. Merges each cluster into a single canonical memory.
-//!   3. Flags pairs that contradict across sessions.
-//!   4. Writes timeline-shaped synthesis pages.
-//!
-//! Inspired by OpenClaw and the Anthropic "Dreaming" pattern. This
-//! module owns the pure pieces: cosine similarity, clustering, the
-//! contradiction detector, and the schedule policy. The actual job
-//! is driven by a tokio task that hooks into the power state event
-//! stream (only runs while plugged in + screen-locked).
-
 use serde::{Deserialize, Serialize};
 
 pub const DEFAULT_DUP_THRESHOLD: f32 = 0.92;
@@ -37,8 +23,6 @@ pub struct ContradictionPair {
     pub similarity: f32,
 }
 
-/// Cosine similarity in [-1.0, 1.0]. Returns 0.0 when either vector
-/// is empty or zero-norm.
 pub fn cosine(a: &[f32], b: &[f32]) -> f32 {
     if a.len() != b.len() || a.is_empty() {
         return 0.0;
@@ -52,9 +36,6 @@ pub fn cosine(a: &[f32], b: &[f32]) -> f32 {
     dot / (na * nb)
 }
 
-/// Greedy single-link clustering: every pair with similarity >=
-/// `threshold` joins the same cluster. Returns clusters of size 2+;
-/// singletons are dropped because they need no consolidation.
 pub fn cluster_near_duplicates(items: &[ConsolidationItem], threshold: f32) -> Vec<Cluster> {
     let n = items.len();
     let mut parent: Vec<usize> = (0..n).collect();
@@ -81,10 +62,6 @@ pub fn cluster_near_duplicates(items: &[ConsolidationItem], threshold: f32) -> V
         .collect()
 }
 
-/// Detect contradiction candidates: pairs that are similar enough
-/// to plausibly be about the same fact but not similar enough to
-/// be the same statement. Threshold is the "interesting middle":
-/// CONTRA_THRESHOLD <= similarity < DUP_THRESHOLD.
 pub fn detect_contradictions(
     items: &[ConsolidationItem],
     contra_threshold: f32,
@@ -106,8 +83,6 @@ pub fn detect_contradictions(
     out
 }
 
-/// True when the consolidation job is allowed to run: plugged in,
-/// battery high enough, and the screen has been idle long enough.
 pub fn should_run(plugged_in: bool, battery_pct: u32, screen_idle_minutes: u32) -> bool {
     plugged_in && battery_pct >= DEFAULT_MIN_BATTERY_PCT && screen_idle_minutes >= 10
 }

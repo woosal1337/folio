@@ -1,12 +1,3 @@
-//! Persisted chat threads + "Recents" (GET-167).
-//!
-//! Both the cross-library Ask surface and the per-note chat were
-//! ephemeral — history lived only in React state. This persists each
-//! conversation as a JSON file under `<output_dir>/.attune/chats/<id>.json`
-//! so the user can reopen it later. A thread carries its scope
-//! ("library" or "note") and, for note chats, the `session_dir` it
-//! belongs to, so each surface can list just its own Recents.
-
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
@@ -17,18 +8,13 @@ use crate::storage::atomic_write::atomic_write;
 
 const CHATS_DIR: &str = ".attune/chats";
 
-/// One message in a persisted conversation.
 #[derive(Clone, Debug, Serialize, Deserialize, TS, PartialEq, Eq)]
 #[ts(export, export_to = "../../../src/shared/types/")]
 pub struct ChatMessageRec {
-    /// "user" or "assistant".
     pub role: String,
     pub content: String,
 }
 
-/// A persisted conversation. `id` is client-generated so saves are
-/// idempotent upserts. `scope` is "library" or "note"; note threads also
-/// carry the `session_dir` they belong to.
 #[derive(Clone, Debug, Serialize, Deserialize, TS, PartialEq, Eq)]
 #[ts(export, export_to = "../../../src/shared/types/")]
 pub struct ChatThread {
@@ -47,8 +33,6 @@ fn chats_dir(output_dir: &Path) -> PathBuf {
 }
 
 fn thread_path(output_dir: &Path, id: &str) -> PathBuf {
-    // Guard against path traversal: ids are client-generated, so keep
-    // only the file stem and force the .json extension.
     let safe: String = id
         .chars()
         .filter(|c| c.is_ascii_alphanumeric() || *c == '-' || *c == '_')
@@ -56,9 +40,6 @@ fn thread_path(output_dir: &Path, id: &str) -> PathBuf {
     chats_dir(output_dir).join(format!("{safe}.json"))
 }
 
-/// List every persisted thread, newest-updated first. `scope` and
-/// `session_dir` filters narrow the list to one surface's Recents.
-/// Unreadable / unparsable files are skipped.
 pub fn list_threads(
     output_dir: &Path,
     scope: Option<&str>,
@@ -96,14 +77,12 @@ pub fn list_threads(
     out
 }
 
-/// Save (upsert) a thread.
 pub fn save_thread(output_dir: &Path, thread: &ChatThread) -> Result<()> {
     let bytes = serde_json::to_vec_pretty(thread)
         .map_err(|e| AttuneError::Storage(format!("serialize chat thread: {e}")))?;
     atomic_write(&thread_path(output_dir, &thread.id), &bytes)
 }
 
-/// Delete a thread by id. Idempotent — a missing file is success.
 pub fn delete_thread(output_dir: &Path, id: &str) -> Result<()> {
     let path = thread_path(output_dir, id);
     match std::fs::remove_file(&path) {
@@ -208,7 +187,7 @@ mod tests {
         .unwrap();
         delete_thread(tmp.path(), "gone").unwrap();
         assert!(list_threads(tmp.path(), None, None).is_empty());
-        // Idempotent.
+
         delete_thread(tmp.path(), "gone").unwrap();
     }
 
@@ -218,7 +197,7 @@ mod tests {
         let mut t = thread("../escape", "library", "2026-05-29T01:00:00Z");
         t.id = "../escape".to_string();
         save_thread(tmp.path(), &t).unwrap();
-        // Written inside the chats dir, not the parent.
+
         assert!(chats_dir(tmp.path()).join("escape.json").exists());
     }
 }

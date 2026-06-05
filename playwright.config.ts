@@ -1,20 +1,3 @@
-/**
- * Playwright config — drives the React UI Tauri ships, in a real
- * Chromium against the Vite dev URL.
- *
- * We don't run inside the Tauri shell because `tauri-driver` isn't
- * supported on macOS yet (Tauri 2 open issue). Instead the test
- * harness injects a stub for `window.__TAURI_INTERNALS__.invoke`
- * via `page.addInitScript`, so every `@tauri-apps/api/core::invoke`
- * call lands on our fake instead of the real Rust runtime. This
- * covers the exact React render tree the user sees, including the
- * auth gate + conductor + Settings — what the Vitest unit tests
- * miss because they don't render in a real browser.
- *
- * Pair with `bun run e2e` (one shot) or `bun run e2e:headed` (watch
- * the run).
- */
-
 import { defineConfig, devices } from "@playwright/test";
 
 const PORT = Number(process.env.E2E_PORT ?? 5173);
@@ -54,8 +37,7 @@ export default defineConfig({
       name: "chromium",
       use: {
         ...devices["Desktop Chrome"],
-        // Keep colour-scheme deterministic so visual regressions
-        // don't trip on macOS appearance changes.
+
         colorScheme: "dark",
       },
     },

@@ -1,18 +1,3 @@
-//! End-to-end speaker identification for a recorded session (GET-189).
-//!
-//! Ties the diarizer, the embedding extractor, and the cross-recording
-//! [`crate::speaker_memory`] registry together:
-//!
-//! 1. diarize `<session>/system.wav` and label the transcript in place;
-//! 2. compute one representative embedding per diarized cluster;
-//! 3. match each embedding against the registry, resolving a display name
-//!    for clusters the user has named before.
-//!
-//! The result is a [`SessionSpeakers`] sidecar (embeddings + resolved
-//! names) the caller persists. Naming a speaker (writing back to the
-//! registry) is a separate, user-driven step in the command layer — this
-//! function only *reads* the registry, never mutates it.
-
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -27,21 +12,13 @@ use crate::diarization::{DiarizationOptions, DiarizationOutcome};
 use crate::speaker_memory::{MatchOutcome, SpeakerRegistry};
 use crate::transcription::SessionTranscript;
 
-/// What an identify pass produced.
 #[derive(Debug, Clone, Default)]
 pub struct SpeakerIdentification {
-    /// Labelling stats (speakers found, segments labelled).
     pub outcome: DiarizationOutcome,
-    /// Per-cluster embeddings + resolved names, ready to persist.
+
     pub speakers: SessionSpeakers,
 }
 
-/// Diarize the session, label `transcript` in place, embed each speaker,
-/// and resolve names against `registry`.
-///
-/// Returns an empty result (no speakers) for a mic-only recording with no
-/// `system.wav`. Errors only on diarizer/embedder failure or missing
-/// models; a registry miss is normal and yields an unnamed speaker.
 pub fn identify_session_speakers(
     session_dir: &Path,
     transcript: &mut SessionTranscript,
@@ -56,16 +33,12 @@ pub fn identify_session_speakers(
         return Ok(SpeakerIdentification::default());
     }
 
-    // Read the system audio once as mono at the model rate (16 kHz) and
-    // reuse it for both diarization and embedding so segment times map to
-    // sample indices exactly.
     let rate = runtime.sample_rate();
     let samples = read_wav_as_mono(&system_wav, rate)?;
     let diarized = runtime.diarize_samples(&samples)?;
 
     let outcome = assign_to_transcript(transcript, &diarized);
 
-    // Embed each cluster, then resolve a name from the registry.
     let embedder = SpeakerEmbedder::from_store(&store, opts.num_threads)?;
     let embeddings = embed_speakers(&embedder, &samples, &diarized);
 
@@ -84,8 +57,6 @@ pub fn identify_session_speakers(
         });
     }
 
-    // Include clusters that were labelled but too short to embed, so the
-    // UI and rename flow still see every speaker (just not yet teachable).
     for cluster in diarized.iter().map(|d| d.speaker) {
         if !speakers.iter().any(|s| s.cluster == cluster) {
             speakers.push(SessionSpeaker {
@@ -112,14 +83,6 @@ pub fn identify_session_speakers(
     })
 }
 
-/// Best-effort: anchor the user's "You" voice into `registry` from the
-/// session's mic track (VAD-filtered `mic.speech.wav` when present, else
-/// `mic.wav`). This is what lets future recordings suppress mic bleed on
-/// the system stream and tell the user apart from other speakers.
-///
-/// Returns `Ok(true)` when an anchor exemplar was added (caller should
-/// persist the registry), `Ok(false)` when there was no usable mic audio.
-/// Does not save — the caller owns persistence.
 pub fn anchor_self_from_session(
     registry: &mut SpeakerRegistry,
     session_dir: &Path,
@@ -152,8 +115,6 @@ pub fn anchor_self_from_session(
     Ok(true)
 }
 
-/// A deterministic UUID from a seed (sha256 → first 16 bytes). Avoids the
-/// uuid `v5` feature while still giving stable, collision-resistant ids.
 fn stable_uuid(seed: &[u8]) -> Uuid {
     use sha2::{Digest, Sha256};
     let digest = Sha256::digest(seed);
@@ -162,8 +123,6 @@ fn stable_uuid(seed: &[u8]) -> Uuid {
     Uuid::from_bytes(bytes)
 }
 
-/// Stable per-recording UUID derived from the session directory name, so
-/// re-running identify on the same recording doesn't multiply provenance.
 pub fn recording_uuid(session_dir: &Path) -> Uuid {
     let name = session_dir
         .file_name()
@@ -172,14 +131,11 @@ pub fn recording_uuid(session_dir: &Path) -> Uuid {
     stable_uuid(format!("attune-recording:{name}").as_bytes())
 }
 
-/// Stable per-install device UUID. Cross-device sync (P4) will replace this
-/// with a real device identity; for now provenance only needs determinism.
 pub fn local_device_uuid() -> Uuid {
     let home = std::env::var("HOME").unwrap_or_else(|_| "attune-local-device".to_string());
     stable_uuid(format!("attune-device:{home}").as_bytes())
 }
 
-/// Current Unix epoch milliseconds.
 pub fn now_ms() -> i64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -187,7 +143,6 @@ pub fn now_ms() -> i64 {
         .unwrap_or(0)
 }
 
-/// How a registry match resolves into a session speaker.
 #[derive(Default)]
 struct ResolvedSpeaker {
     name: Option<String>,
@@ -198,11 +153,6 @@ struct ResolvedSpeaker {
     suggested_score: Option<f32>,
 }
 
-/// Turn a registry match into a resolved speaker. Only a high-confidence
-/// `AutoName` (or a `SelfUser` hit) applies a name automatically; a
-/// medium-confidence `Confirm` becomes a *suggestion* ("Is this <name>?")
-/// the user accepts or rejects, so a borderline match never silently
-/// mislabels a stranger; `New` stays blank.
 fn resolve_name(registry: &SpeakerRegistry, embedding: &[f32]) -> ResolvedSpeaker {
     match registry.match_embedding(embedding) {
         MatchOutcome::SelfUser { .. } => ResolvedSpeaker {
@@ -233,8 +183,6 @@ mod tests {
 
     #[test]
     fn confirm_tier_match_becomes_a_suggestion_not_a_name() {
-        // One exemplar of "Alice": a re-match scores 1.0 but can't AutoName
-        // under the ≥3-exemplar guard, so it lands in the Confirm tier.
         let mut reg = SpeakerRegistry::new();
         let emb = vec![0.3_f32; EMBED_DIM];
         let id = reg
@@ -251,10 +199,10 @@ mod tests {
             .unwrap();
 
         let resolved = resolve_name(&reg, &emb);
-        // Not silently named…
+
         assert_eq!(resolved.name, None);
         assert!(!resolved.auto_named);
-        // …but surfaced as a confirmable suggestion pointing at Alice.
+
         assert_eq!(resolved.suggested_name.as_deref(), Some("Alice"));
         assert_eq!(
             resolved.suggested_registry_id.as_deref(),

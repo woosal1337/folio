@@ -1,27 +1,5 @@
 import * as React from "react";
 
-/**
- * Persistent reading-appearance preferences. The settings live in
- * localStorage so the application of the font-family / size / letter-
- * spacing happens entirely in the renderer — no Rust IPC churn for a
- * pure UI concern, the same pattern `use-theme` follows.
- *
- * Three knobs, all bundled locally so the app works offline:
- *  - `font`: System (SF Pro / Inter fallbacks), Fraunces, OpenDyslexic,
- *    Atkinson Hyperlegible.
- *  - `size`: S / M / L / XL, applied as a CSS variable that scales the
- *    base font-size from 14px → 18px.
- *  - `spacing`: Tight / Normal / Wide / Wider, applied as a CSS
- *    variable used as letter-spacing on the root.
- *
- * State is applied to `<html>` via three data attributes; the CSS in
- * globals.css selects on them and applies the actual font-family /
- * font-size / letter-spacing rules. Centralising the application path
- * keeps the runtime cost to a single React effect per setting change.
- *
- * v2 roadmap finding 100 (GET-113).
- */
-
 export const READING_FONTS = [
   "system",
   "fraunces",
@@ -92,11 +70,6 @@ export function useReadingControls() {
   };
 }
 
-/**
- * Apply the saved reading preferences to `<html>` on first paint,
- * before React mounts. Matches the pattern `applyInitialTheme` uses
- * so the app doesn't flash a wrong font / size on cold start.
- */
 export function applyInitialReadingControls() {
   applyToRoot(
     readStored(STORAGE_FONT, READING_FONTS, DEFAULTS.font),

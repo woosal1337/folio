@@ -54,9 +54,6 @@ export function SectionTranscription({ settings, onChange }: Props) {
     <div className="flex flex-col gap-7">
       <h2 className="font-serif text-2xl font-medium">Transcription</h2>
 
-      {/* Auto-transcribe toggle. When on, the recording-store fires
-          ipcTranscribe as soon as a recording stops, using whichever
-          provider is selected below. */}
       <div className="flex items-start justify-between gap-6 rounded-lg border border-border bg-card p-4">
         <div className="space-y-1">
           <Label
@@ -84,10 +81,6 @@ export function SectionTranscription({ settings, onChange }: Props) {
         />
       </div>
 
-      {/* VAD pre-pass toggle. When on, recording-store queues a VAD
-          job before transcription kicks off — strips silence from the
-          mic + system tracks so Whisper never sees pure silence (the
-          decoder hallucinates loops on it). */}
       <div className="flex items-start justify-between gap-6 rounded-lg border border-border bg-card p-4">
         <div className="space-y-1">
           <Label
@@ -115,9 +108,6 @@ export function SectionTranscription({ settings, onChange }: Props) {
         />
       </div>
 
-      {/* Live transcription (Beta). When on, a rolling local-Whisper
-          preview streams into the record dock while capturing. When off,
-          transcription happens only once on Stop. */}
       <div className="flex items-start justify-between gap-6 rounded-lg border border-border bg-card p-4">
         <div className="space-y-1">
           <Label
@@ -213,11 +203,6 @@ export function SectionTranscription({ settings, onChange }: Props) {
   );
 }
 
-/**
- * OpenAI API key entry. Reads + writes the key via the Keychain
- * (`set_provider_key` / `list_providers`) instead of the on-disk
- * Settings file. Phase-3 audit B9 phase 2.
- */
 function OpenAiKeySection() {
   const [status, setStatus] = React.useState<ProviderStatus | null>(null);
   const [draft, setDraft] = React.useState("");

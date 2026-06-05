@@ -1,8 +1,3 @@
-//! `attune-cli vpio-smoke` — macOS-only standalone test for Apple
-//! Voice Processing IO. Records the default mic through VPIO for N
-//! seconds and writes the result to a WAV so the operator can listen
-//! to it and compare against a non-VPIO recording.
-
 use std::io::Write;
 use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
@@ -27,7 +22,6 @@ pub fn run(args: VpioSmokeArgs) -> Result<()> {
     let mut capture = VoiceProcessingCapture::new()?;
     capture.start()?;
 
-    // Display a 1 Hz countdown so the user knows recording is live.
     for remaining in (1..=args.seconds).rev() {
         print!("\r  recording… {remaining:>3}s ");
         std::io::stdout().flush().ok();
@@ -35,11 +29,6 @@ pub fn run(args: VpioSmokeArgs) -> Result<()> {
     }
     println!("\r  recording… done   ");
 
-    // Use the ACTUAL negotiated rate, not the constant. VPIO may pick
-    // the bound device's native rate (often 44.1 kHz on built-in mics)
-    // over our requested rate (16 kHz). If we wrote the WAV with our
-    // requested rate but the samples were at the device's rate, the
-    // file would play back at the wrong pitch.
     let actual_rate = capture.sample_rate() as u32;
     let samples = capture.stop()?;
     let duration_s = samples.len() as f64 / actual_rate as f64;
@@ -74,8 +63,6 @@ fn write_wav(path: &std::path::Path, samples: &[f32], sample_rate: u32) -> Resul
     let mut writer = hound::WavWriter::create(path, spec)
         .map_err(|e| anyhow!("could not create WAV at {}: {e}", path.display()))?;
     for s in samples {
-        // f32 [-1, 1] → i16 [-32768, 32767], clipping at the bounds
-        // so a runaway gain spike from AGC can't blow the encoder.
         let clamped = s.clamp(-1.0, 1.0);
         let sample = (clamped * i16::MAX as f32) as i16;
         writer

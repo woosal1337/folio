@@ -1,20 +1,5 @@
-/**
- * GET-214 — Unit tests for the navigate bridge.
- *
- * Verifies that:
- *   1. Calls that arrive before `registerNavigateFn` are queued and
- *      replayed in order once the function is registered.
- *   2. Calls that arrive after registration are forwarded immediately.
- *   3. `assertInternalPath` accepts valid in-app paths and rejects
- *      external URLs.
- *   4. Re-registering with a new `navigate` function forwards subsequent
- *      calls to the new one.
- */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// Import the module under test. Since the bridge has module-level state,
-// we re-import from a fresh module in each test by using dynamic require
-// with vi.resetModules().
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let mod: any;
 

@@ -1,24 +1,6 @@
-//! macOS Dock icon helper.
-//!
-//! When the Tauri app is launched from a `.app` bundle, macOS reads the
-//! Dock icon from the bundle's `Info.plist`. In dev mode (`tauri dev` /
-//! `cargo run`) we run a raw Mach-O binary with no bundle, and macOS
-//! hands out a blank Dock icon.
-//!
-//! This module loads our PNG icon at compile time and assigns it to
-//! `NSApplication.applicationIconImage` so the Dock shows the real icon
-//! in development too.
-
-// Embed the 1024 master so macOS has plenty of pixel data to downscale
-// at any Dock size. Smaller derived rasters can become stale or be
-// downscaled poorly by NSImage's interpolation.
 #[cfg(target_os = "macos")]
 const ICON_PNG: &[u8] = include_bytes!("../../icons/logo-source.png");
 
-// The `cocoa` crate is in maintenance mode and marks most of its surface
-// as deprecated in favor of `objc2`. Migrating to objc2 is tracked as a
-// follow-up; for now we silence the warnings here since the runtime
-// behavior is correct and unchanged.
 #[cfg(target_os = "macos")]
 #[allow(deprecated)]
 pub fn set_dock_icon() {
@@ -27,9 +9,6 @@ pub fn set_dock_icon() {
     use cocoa::foundation::NSUInteger;
     use objc::{class, msg_send, sel, sel_impl};
 
-    // Hash + size logging so the running binary can prove which bytes
-    // it's about to assign — invaluable when the Dock is caching old
-    // versions and you want to confirm the new one really shipped.
     let len = ICON_PNG.len();
     let prefix = ICON_PNG
         .iter()
@@ -41,12 +20,6 @@ pub fn set_dock_icon() {
         "set_dock_icon: loading icon"
     );
 
-    // SAFETY: every Objective-C call below routes through the objc/cocoa
-    // runtime. The arguments (ICON_PNG byte slice + size, NSImage init,
-    // NSApplication.setApplicationIconImage:) match Apple's documented
-    // signatures; we check each return for `nil` and bail before
-    // dereferencing. ICON_PNG is `&'static [u8]` so the pointer outlives
-    // the NSData allocation.
     unsafe {
         let ns_data: id = msg_send![
             class!(NSData),
@@ -58,7 +31,6 @@ pub fn set_dock_icon() {
             return;
         }
 
-        // NSImage *img = [[NSImage alloc] initWithData:data];
         let alloc_img: id = msg_send![class!(NSImage), alloc];
         let ns_image: id = msg_send![alloc_img, initWithData: ns_data];
         if ns_image == nil {
@@ -66,7 +38,6 @@ pub fn set_dock_icon() {
             return;
         }
 
-        // [[NSApplication sharedApplication] setApplicationIconImage:img];
         let app: id = NSApp();
         let _: () = msg_send![app, setApplicationIconImage: ns_image];
         tracing::debug!("dock icon set");

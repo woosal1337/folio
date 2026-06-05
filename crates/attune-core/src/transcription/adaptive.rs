@@ -1,22 +1,7 @@
-//! Adaptive Whisper model tier selection. v2 finding 059 / GET-94.
-//!
-//! Pick a sensible default per machine — large-v3 on a 32 GB Apple
-//! Silicon, medium on 16 GB, small on 8 GB, base on the rare Intel
-//! Mac with 4 GB free — and down-shift one tier when the laptop is
-//! unplugged and below the low-battery threshold so a meeting on a
-//! flight doesn't drain the battery to zero.
-
 use super::models::WhisperModel;
 
 const LOW_BATTERY_PCT: u32 = 40;
 
-/// Pick the default model the user gets on first launch given the
-/// machine's RAM (in GB) + whether the chip has Metal acceleration.
-///
-/// Apple Silicon (`metal = true`) gets one tier higher than Intel
-/// for the same RAM because the Metal path is ~5-10x faster than
-/// the CPU path, so the larger model is a usability win even on
-/// modest memory.
 pub fn recommend_default_model(memsize_gb: u64, metal: bool) -> WhisperModel {
     match (metal, memsize_gb) {
         (true, m) if m >= 32 => WhisperModel::LargeV3,
@@ -30,10 +15,6 @@ pub fn recommend_default_model(memsize_gb: u64, metal: bool) -> WhisperModel {
     }
 }
 
-/// Battery-aware downgrade. When the laptop is unplugged AND below
-/// LOW_BATTERY_PCT, return the next-smaller model so a meeting on a
-/// flight doesn't burn the remaining juice. None means 'no battery
-/// info' — keep the configured model.
 pub fn downgrade_for_power(
     configured: WhisperModel,
     on_battery: Option<bool>,
@@ -54,9 +35,6 @@ pub fn downgrade_for_power(
     }
 }
 
-/// Read `sysctl hw.memsize` and convert to GB. Returns None on
-/// non-macOS or when the syscall fails (we never crash the app on
-/// a probe failure — caller falls back to a conservative default).
 pub fn detect_memsize_gb() -> Option<u64> {
     #[cfg(target_os = "macos")]
     {
@@ -74,10 +52,6 @@ pub fn detect_memsize_gb() -> Option<u64> {
     }
 }
 
-/// `true` when the running machine has Metal — Apple Silicon or
-/// a recent Intel Mac with a discrete GPU. We treat the macOS
-/// boolean as a proxy because whisper-rs's Metal backend is gated
-/// the same way.
 pub fn detect_metal() -> bool {
     cfg!(target_os = "macos")
 }

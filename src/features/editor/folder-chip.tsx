@@ -4,12 +4,6 @@ import { Check, Folder, FolderPlus, Plus, X } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 import { useFolders } from "@/shared/stores/folders-store";
 
-/**
- * Note-header "Add to folder" chip (GET-162). Replaces the old no-op
- * stub: opens a popover to assign the note to an existing folder,
- * create a new one inline, or clear the assignment. Reads/writes the
- * shared folders store so the sidebar Spaces list stays in sync.
- */
 export function FolderChip({
   sessionDir,
   folder,

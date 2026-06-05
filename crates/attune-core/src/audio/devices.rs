@@ -1,6 +1,3 @@
-//! Audio device enumeration. Used by the GUI and CLI to let the user pick
-//! a mic. Falls back to the default device when no name is specified.
-
 use cpal::traits::{DeviceTrait, HostTrait};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
@@ -12,15 +9,12 @@ use crate::error::{AttuneError, Result};
 pub struct DeviceInfo {
     pub name: String,
     pub is_default: bool,
-    /// Default input sample rate reported by the device. May be `None` if
-    /// the device cannot be queried (rare).
+
     pub default_sample_rate: Option<u32>,
-    /// Default input channel count reported by the device.
+
     pub default_channels: Option<u16>,
 }
 
-/// Query the native default sample rate of a specific input device, or the
-/// system default if `name` is `None`. Returned in Hz.
 pub fn default_input_sample_rate(name: Option<&str>) -> Result<u32> {
     let host = cpal::default_host();
     let device = match name {
@@ -39,8 +33,6 @@ pub fn default_input_sample_rate(name: Option<&str>) -> Result<u32> {
     Ok(cfg.sample_rate().0)
 }
 
-/// List all input devices visible to the default audio host. The default
-/// device, if any, is marked with `is_default = true`.
 pub fn list_input_devices() -> Result<Vec<DeviceInfo>> {
     let host = cpal::default_host();
     let default_name = host.default_input_device().and_then(|d| d.name().ok());
@@ -65,7 +57,7 @@ pub fn list_input_devices() -> Result<Vec<DeviceInfo>> {
             default_channels: ch,
         });
     }
-    // Default first, then alphabetical.
+
     out.sort_by(|a, b| match (a.is_default, b.is_default) {
         (true, false) => std::cmp::Ordering::Less,
         (false, true) => std::cmp::Ordering::Greater,
@@ -74,42 +66,27 @@ pub fn list_input_devices() -> Result<Vec<DeviceInfo>> {
     Ok(out)
 }
 
-// ---------------------------------------------------------------------------
-// Pre-flight mic level check (GET-212)
-// ---------------------------------------------------------------------------
-
-/// Mic level status derived from a brief RMS measurement.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum MicStatus {
-    /// RMS is in the usable range (>= −48 dBFS, < −3 dBFS peak).
     Ok,
-    /// RMS is below −48 dBFS — mic gain is likely too low.
+
     TooQuiet,
-    /// Peak is >= −3 dBFS — input is at risk of clipping.
+
     Clipping,
 }
 
-/// Result of a brief mic input-level sample.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MicLevelResult {
-    /// RMS level in dBFS (negative; 0 = full scale).
     pub rms_db: f32,
-    /// Peak level in dBFS.
+
     pub peak_db: f32,
-    /// Qualitative status.
+
     pub status: MicStatus,
-    /// Deep-link the user can open to raise mic gain in System Settings.
+
     pub settings_url: String,
 }
 
-/// Sample the input device for `duration_ms` milliseconds and return
-/// the peak + RMS level in dBFS.
-///
-/// # Errors
-///
-/// Returns `Err` if the input device cannot be opened or the stream
-/// fails to start.
 pub fn sample_mic_level(device_name: Option<&str>, duration_ms: u64) -> Result<MicLevelResult> {
     use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
     use std::sync::{Arc, Mutex};
@@ -199,8 +176,6 @@ pub fn sample_mic_level(device_name: Option<&str>, duration_ms: u64) -> Result<M
 mod tests {
     use super::*;
 
-    /// Smoke test. CI Mac runners may not have an input device; skip when
-    /// none is present.
     #[test]
     fn list_input_devices_runs() {
         let result = list_input_devices();

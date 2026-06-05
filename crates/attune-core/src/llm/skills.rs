@@ -1,26 +1,3 @@
-//! Skillification: corrections become reusable skills.
-//! v2 finding 034 / GET-59.
-//!
-//! When the user edits the same agent output the same way twice in a
-//! row (e.g. corrects 'Acme corp' to 'ACME Corporation' on two
-//! separate meetings), Attune offers to turn the correction into a
-//! reusable skill: a tiny TOML file under `<vault>/.attune/skills/`
-//! that ships as a few-shot example with future agent prompts.
-//!
-//! On-disk format:
-//!
-//! ```toml
-//! slug = "acme-canonicalisation"
-//! agent_id = "extract-tasks"
-//! description = "Always render Acme as 'ACME Corporation' in tasks."
-//! version = 1
-//! created_at = "2026-05-26T10:00:00Z"
-//!
-//! [[examples]]
-//! before = "send the deck to Acme corp"
-//! after  = "send the deck to ACME Corporation"
-//! ```
-
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -53,9 +30,6 @@ fn default_version() -> u32 {
     1
 }
 
-/// Track the user's recent corrections in-memory. When the same
-/// (agent_id, before, after) triple is seen for the second time, we
-/// suggest a skill. Pure data — the React side keeps the instance.
 #[derive(Debug, Default, Clone)]
 pub struct CorrectionTracker {
     seen: HashMap<(String, String, String), u32>,
@@ -74,9 +48,6 @@ impl CorrectionTracker {
         Self::default()
     }
 
-    /// Record a correction. Returns Some(SkillSuggestion) the second
-    /// (and subsequent) times the same triple is seen — the caller
-    /// renders the 'turn into a skill?' prompt on Some.
     pub fn record(&mut self, agent_id: &str, before: &str, after: &str) -> Option<SkillSuggestion> {
         let key = (agent_id.to_string(), before.to_string(), after.to_string());
         let entry = self.seen.entry(key).or_insert(0);
@@ -133,8 +104,6 @@ pub fn save(vault_root: &Path, skill: &Skill) -> Result<PathBuf> {
     Ok(final_path)
 }
 
-/// Enumerate every skill TOML under the vault. Returns an empty list
-/// when the directory does not exist.
 pub fn list_all(vault_root: &Path) -> Result<Vec<Skill>> {
     let dir = skills_dir(vault_root);
     if !dir.is_dir() {
@@ -157,9 +126,6 @@ pub fn list_all(vault_root: &Path) -> Result<Vec<Skill>> {
     Ok(out)
 }
 
-/// Filter the catalogue to the skills relevant for `agent_id`. The
-/// agent runner injects these as few-shot examples in the system
-/// prompt.
 pub fn for_agent(skills: &[Skill], agent_id: &str) -> Vec<Skill> {
     skills
         .iter()

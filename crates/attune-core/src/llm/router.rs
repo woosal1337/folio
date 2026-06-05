@@ -1,50 +1,17 @@
-//! Agent router — decide which extraction agents to fire from the
-//! transcript's shape. v2 finding 029 / GET-55.
-//!
-//! Today the post-transcription pipeline fans out to every enabled
-//! agent (summarize, extract-tasks, extract-memories, autoname). For a
-//! 90-second voice memo, half of those are noise — there are no tasks,
-//! no decisions, no participants worth memorising. This router takes
-//! a small set of cheap signals from the transcript and decides which
-//! agents are worth running. Saves money on the BYO-key audience and
-//! cuts UI clutter for everyone.
-//!
-//! All signals come from transcript metadata that's already in
-//! memory after `read_transcript`:
-//!
-//!   * Duration in seconds.
-//!   * Word count (joined transcript text length, whitespace-split).
-//!   * Participant count = number of channels with at least one
-//!     non-empty segment (today: mic + system, so 1 or 2).
-//!   * Mic-vs-system token ratio (rough "monologue vs conversation").
-//!
-//! The rules deliberately err on the side of "run the agent" — we'd
-//! rather waste a few cents than silently drop a real task. A 0-arg
-//! `RouterPolicy::default()` returns the production thresholds; tests
-//! tweak them.
-
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use super::super::transcription::SessionTranscript;
 
-/// Cloud model quality tier (GET-204).
-///
-/// `Standard` maps to a fast, cheap model (gpt-4o-mini); `Premium` maps
-/// to a capable reasoning model (gpt-4o or equivalent). The router picks
-/// the tier automatically based on transcript complexity; the user can
-/// override per-run or in Settings.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../src/shared/types/")]
 pub enum ModelTier {
-    /// Fast, cheap model — adequate for short/simple recordings.
     Standard,
-    /// More capable model — recommended for long or multi-speaker meetings.
+
     Premium,
 }
 
 impl ModelTier {
-    /// The OpenAI model ID for this tier.
     pub fn openai_model_id(self) -> &'static str {
         match self {
             ModelTier::Standard => "gpt-4o-mini",
@@ -56,22 +23,14 @@ impl ModelTier {
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../src/shared/types/")]
 pub struct RouterPolicy {
-    /// Below this many seconds the recording is a voice memo. Skip
-    /// task / decision extraction; keep summarise + autoname.
     pub voice_memo_max_secs: f64,
-    /// Below this many words we don't bother summarising — the user
-    /// can read the transcript in under 10s.
+
     pub summarise_min_words: usize,
-    /// Below this many words the memory pass is unlikely to find a
-    /// claim worth keeping (small-talk threshold).
+
     pub memories_min_words: usize,
-    /// Recordings with only one participating channel are monologues;
-    /// the decision-finder is built for back-and-forth. Skip on
-    /// monologues.
+
     pub decisions_min_participants: usize,
-    /// Word count at which the router escalates from Standard to
-    /// Premium model tier (GET-204). Longer/denser meetings get the
-    /// stronger model; shorter ones use the cheaper one.
+
     pub premium_tier_min_words: usize,
 }
 
@@ -82,14 +41,12 @@ impl Default for RouterPolicy {
             summarise_min_words: 30,
             memories_min_words: 50,
             decisions_min_participants: 2,
-            // ~5 000 words ≈ 30-40 min of meeting — complex enough to
-            // benefit from a stronger model.
+
             premium_tier_min_words: 5_000,
         }
     }
 }
 
-/// Signals extracted from the transcript that the rules act on.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../src/shared/types/")]
 pub struct TranscriptSignals {
@@ -98,8 +55,6 @@ pub struct TranscriptSignals {
     pub participants: usize,
 }
 
-/// Which extraction agents the router recommends running. The caller
-/// AND-combines this with the user's own auto-run toggles.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../src/shared/types/")]
 pub struct RouterDecision {
@@ -108,12 +63,10 @@ pub struct RouterDecision {
     pub run_extract_memories: bool,
     pub run_find_decisions: bool,
     pub run_autoname: bool,
-    /// Recommended cloud model tier for this recording (GET-204).
-    /// The caller may override with a user preference.
+
     pub model_tier: ModelTier,
 }
 
-/// Compute the transcript signals from a SessionTranscript.
 pub fn signals_from(transcript: &SessionTranscript) -> TranscriptSignals {
     let mut max_end = 0.0_f64;
     let mut word_count = 0usize;
@@ -141,16 +94,12 @@ pub fn signals_from(transcript: &SessionTranscript) -> TranscriptSignals {
     }
 }
 
-/// Decide which agents to fire from the signals + policy. Pure
-/// function, no IO.
 pub fn decide(signals: TranscriptSignals, policy: RouterPolicy) -> RouterDecision {
     let is_voice_memo = signals.duration_secs <= policy.voice_memo_max_secs;
     let too_short_to_summarise = signals.word_count < policy.summarise_min_words;
     let too_short_for_memories = signals.word_count < policy.memories_min_words;
     let solo_speaker = signals.participants < policy.decisions_min_participants;
 
-    // Escalate to Premium when the word count crosses the threshold
-    // (GET-204). Longer / denser meetings get the stronger model.
     let model_tier = if signals.word_count >= policy.premium_tier_min_words {
         ModelTier::Premium
     } else {
@@ -159,14 +108,12 @@ pub fn decide(signals: TranscriptSignals, policy: RouterPolicy) -> RouterDecisio
 
     RouterDecision {
         run_summarise: !too_short_to_summarise,
-        // Voice memos and monologues rarely carry committed action
-        // items; the user is talking to themselves. Skip.
+
         run_extract_tasks: !is_voice_memo,
         run_extract_memories: !too_short_for_memories,
-        // Decisions require at least two participants by definition.
+
         run_find_decisions: !solo_speaker && !is_voice_memo,
-        // Autoname is dirt cheap and the library row needs a label;
-        // always run.
+
         run_autoname: true,
         model_tier,
     }

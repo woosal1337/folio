@@ -1,13 +1,3 @@
-//! Tauri commands for the webhook subscription store.
-//!
-//! The store lives at the platform's standard config location and is
-//! read on every command — webhooks are infrequently edited and the
-//! file is tiny, so we don't bother caching in AppState. Posting to
-//! subscribers on lifecycle events is handled out-of-band by the
-//! existing transcribe + agent pipelines via `dispatch_webhook`.
-//!
-//! v2 finding 079 / GET-101.
-
 use attune_core::webhooks::{
     build_payload, new_subscription_id, sign, WebhookEvent, WebhookStore, WebhookSubscription,
 };
@@ -60,10 +50,6 @@ pub async fn delete_webhook(id: String) -> Result<(), String> {
     .map_err(|e| format!("delete_webhook task panicked: {e}"))?
 }
 
-/// One-off test POST to a subscription with a fixed payload so the
-/// user can verify the endpoint + secret without waiting for a real
-/// recording lifecycle event. Returns the HTTP status string the
-/// remote returned, or an error if the request failed.
 #[tauri::command]
 pub async fn test_webhook(id: String) -> Result<String, String> {
     let sub = spawn_blocking(move || -> Option<WebhookSubscription> {
@@ -85,15 +71,6 @@ pub async fn test_webhook(id: String) -> Result<String, String> {
         .map_err(|e| format!("test webhook failed: {e}"))
 }
 
-/// Best-effort fanout to every enabled subscription that has opted
-/// into the given event. Failures are logged at WARN and otherwise
-/// silent — webhook delivery is a sync convenience, never the source
-/// of truth.
-///
-/// Currently exported for use by the follow-up PR that wires it into
-/// the transcribe / agent / memory post-success paths. Marked
-/// `allow(dead_code)` so the receiving side can ship today without a
-/// downstream call site.
 #[allow(dead_code)]
 pub async fn dispatch(event: WebhookEvent, data: JsonValue) {
     let subs = match spawn_blocking(|| store().load()).await {
@@ -131,9 +108,6 @@ async fn deliver(
     sub: &WebhookSubscription,
     payload: &attune_core::webhooks::WebhookPayload,
 ) -> Result<String, String> {
-    // Privacy-mode gate (GET-174): never POST meeting data to a user-
-    // supplied webhook host under airgap / Privacy Mode (localhost stays
-    // allowed). Mirrors the LLM + transcription egress gating.
     let host = attune_core::cloud_guard::host_of(&sub.url).unwrap_or_default();
     attune_core::cloud_guard::ensure_allowed(host).map_err(|e| e.to_string())?;
 
@@ -152,11 +126,6 @@ async fn deliver(
     Ok(resp.status().to_string())
 }
 
-/// `reqwest::Error::Display` can include the full URL — which, for
-/// webhook endpoints, may carry a user-info segment, a query token, or
-/// any other secret the user pasted into the URL. Strip the URL out of
-/// the error text and replace it with the safe host before crossing
-/// the IPC boundary. v2 finding R13 / Phase-3 audit B10.
 fn redact_reqwest_error(error: &reqwest::Error, full_url: &str) -> String {
     let host = url::Url::parse(full_url)
         .ok()

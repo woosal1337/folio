@@ -20,11 +20,6 @@ function formatDuration(secs: number): string {
   return `${s}s`;
 }
 
-/**
- * List the user's most recent Attune recordings via `attune-cli
- * sessions`. Each item lets the user reveal the session in Finder or
- * open the Attune app deep-linked to its editor view.
- */
 export default function RecentMeetings() {
   const [items, setItems] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,7 +33,11 @@ export default function RecentMeetings() {
       })
       .catch((e) => {
         if (!cancelled) {
-          showToast({ style: Toast.Style.Failure, title: "Could not list sessions", message: String(e) });
+          showToast({
+            style: Toast.Style.Failure,
+            title: "Could not list sessions",
+            message: String(e),
+          });
         }
       })
       .finally(() => {
@@ -66,7 +65,10 @@ export default function RecentMeetings() {
                 onAction={() => open(`attune://editor/${encodeURIComponent(s.label)}`)}
               />
               <Action.ShowInFinder path={s.session_dir} />
-              <Action.CopyToClipboard title="Copy Session Path" content={s.session_dir} />
+              <Action.CopyToClipboard
+                title="Copy Session Path"
+                content={s.session_dir}
+              />
             </ActionPanel>
           }
         />

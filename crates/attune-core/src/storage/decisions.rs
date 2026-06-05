@@ -1,17 +1,3 @@
-//! Decisions wall as a first-class object. v2 finding 025 / GET-38.
-//!
-//! Promotes `find-decisions` from an on-demand agent button to an
-//! automatic post-meeting pass, with persistent storage at
-//! `<vault>/.attune/decisions/<id>.json`. The forthcoming `/decisions`
-//! route renders these chronologically with "reversed by" links —
-//! when a later meeting overturns an earlier decision, the
-//! superseded record carries a `reversed_by_id` pointing at the
-//! superseder.
-//!
-//! Schema is intentionally minimal: a decision is a sentence the
-//! participants resolved on, anchored to its source recording and
-//! evidence span, with optional rationale.
-
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -93,9 +79,6 @@ pub fn get(vault_root: &Path, id: &str) -> Result<Option<Decision>> {
     Ok(Some(parsed))
 }
 
-/// List every decision under the vault. Returns newest-first by
-/// `decided_at`. Returns an empty list when the directory does not
-/// exist (the user has not recorded any meetings yet).
 pub fn list_all(vault_root: &Path) -> Result<Vec<Decision>> {
     let dir = decisions_dir(vault_root);
     if !dir.is_dir() {
@@ -121,9 +104,6 @@ pub fn list_all(vault_root: &Path) -> Result<Vec<Decision>> {
     Ok(out)
 }
 
-/// Mark `prior_id` as reversed by `new_id`. The "reversed by" link
-/// the wall renders ("this decision was overturned in <later meeting>")
-/// reads this field directly.
 pub fn mark_reversed_by(vault_root: &Path, prior_id: &str, new_id: &str) -> Result<Decision> {
     let dir = decisions_dir(vault_root);
     let mut prior = get(vault_root, prior_id)?

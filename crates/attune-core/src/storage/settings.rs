@@ -1,9 +1,3 @@
-//! User-facing settings: persisted, loaded, and saved as JSON.
-//!
-//! The shape of [`Settings`] is the contract the React frontend reads via
-//! IPC. New fields must have a serde default so that loading an older
-//! settings file doesn't fail.
-
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -13,7 +7,6 @@ use ts_rs::TS;
 
 use crate::error::{AttuneError, Result};
 
-/// Persisted user settings.
 #[derive(Clone, Debug, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../src/shared/types/")]
 pub struct Settings {
@@ -29,348 +22,148 @@ pub struct Settings {
     pub transcriber: String,
     #[serde(default = "default_language")]
     pub transcription_language: String,
-    /// Language the LLM agents (summarise, extract-tasks, extract-memories,
-    /// find-decisions, autoname, Q&A) must reply in regardless of the
-    /// transcript's language. BCP-47 tag — `"auto"` keeps the legacy
-    /// behaviour (mirror the meeting language); `"en"` etc. forces every
-    /// agent output (and tool-call free-text like task titles + memory
-    /// content) into that language. Default `"en"` because most users
-    /// search + skim their library in English even when meetings are
-    /// multilingual.
+
     #[serde(default = "default_briefing_language")]
     pub briefing_language: String,
     #[serde(default)]
     pub dictionary_terms: Vec<String>,
-    /// Identifier of the local Whisper model the user has chosen (e.g.
-    /// "large-v3", "small"). Used only when `transcriber == "local_whisper"`.
+
     #[serde(default = "default_local_whisper_model")]
     pub local_whisper_model: String,
-    /// macOS only. When true, mic capture goes through Apple's Voice
-    /// Processing IO AudioUnit (AEC + noise suppression + AGC) so the
-    /// mic stops picking up speaker bleed when the user is not
-    /// wearing headphones. Falls back to the plain cpal path on
-    /// VPIO *init* failure — but if VPIO initialises yet yields silence
-    /// there is no fallback, which surfaced as a fully-silent mic.
-    /// Defaults OFF so the reliable cpal path is used; voice processing
-    /// is opt-in until the VPIO path is verified end-to-end.
-    /// Ignored on non-macOS targets.
+
     #[serde(default = "default_voice_processing_enabled")]
     pub voice_processing_enabled: bool,
-    /// When true, the app starts transcribing automatically as soon as
-    /// a recording is stopped. Honours the currently-selected
-    /// `transcriber` provider (OpenAI Whisper API requires a Keychain-
-    /// stored key via `KeyStore::set`; Local Whisper needs no key).
-    /// When false the user transcribes manually from the Library row.
+
     #[serde(default = "default_auto_transcribe_enabled")]
     pub auto_transcribe_enabled: bool,
-    /// When true, the VAD pre-pass runs as its own job before
-    /// transcription. Strips silence from both the mic and system
-    /// tracks so the ASR only ever sees speech-bearing audio.
-    /// Default ON because the silence-hallucination failure mode is
-    /// expensive (the 2026-05-26-11-47-54 mic.wav incident) and the
-    /// pre-pass is cheap. Set to false to send the raw recordings
-    /// straight to the ASR.
+
     #[serde(default = "default_auto_vad_enabled")]
     pub auto_vad_enabled: bool,
-    /// GET-188. Local speech enhancement (RNNoise) on the system-audio
-    /// stream, applied before the VAD + transcription + diarization
-    /// steps. Cleans noisy remote participants / music bleed / far-end
-    /// keyboard clatter that the raw ScreenCaptureKit stream carries (the
-    /// mic stream already gets AEC/NS/AGC from Voice Processing IO).
-    /// Default OFF and A/B-gated, since aggressive enhancement can
-    /// *raise* Whisper WER (arXiv 2512.17562) — `atten_lim_db` caps the
-    /// suppression depth conservatively.
+
     #[serde(default)]
     pub system_audio_enhancement: SystemAudioEnhancement,
-    /// GET-189. After transcription, run speaker diarization on the
-    /// system channel so the transcript splits "Others" into per-speaker
-    /// labels ("Speaker 1/2/3…"). Runs on every transcribe / re-transcribe.
-    /// Default ON; no-ops gracefully (leaving the v0 "Others" label) when
-    /// the diarization models aren't downloaded yet.
+
     #[serde(default = "default_true")]
     pub diarization_enabled: bool,
-    /// Beta: stream a live transcript preview into the record dock while
-    /// capturing (local Whisper over a rolling window). Off by default —
-    /// when off, transcription happens only once on Stop. macOS-only,
-    /// requires a downloaded local Whisper model.
+
     #[serde(default = "default_live_transcript_enabled")]
     pub live_transcript_enabled: bool,
-    /// Root directory for the local memory layer. Defaults to a
-    /// subtree of the user's Obsidian vault per the
-    /// `ai-chat-multi-provider.md` plan; falls back to
-    /// `~/Documents/Attune/Memory/` when the vault parent does not
-    /// exist. The `MemoryStore` creates this directory on first
-    /// write — callers should not assume it exists.
+
     #[serde(default = "default_memory_dir")]
     pub memory_dir: PathBuf,
-    /// When true, runs the `extract-memories` agent automatically
-    /// after every transcription. Mirrors `auto_summarize_enabled`
-    /// and `auto_extract_tasks_enabled`. Skipped silently if no AI
-    /// key is set.
+
     #[serde(default = "default_auto_extract_memories_enabled")]
     pub auto_extract_memories_enabled: bool,
-    /// When true, the app plays short synthesised tones on the
-    /// recording lifecycle (start, stop, agent success, error).
-    /// Default off — users opt in via Settings. v2 finding 019.
+
     #[serde(default = "default_feedback_sounds_enabled")]
     pub feedback_sounds_enabled: bool,
-    /// When true and an AI provider key is configured, the app
-    /// automatically runs the `summarize` agent immediately after a
-    /// transcription completes. Lets the user stop a meeting and walk
-    /// away knowing the summary will be on the recording's page when
-    /// they come back. Falls back to a no-op when no AI key is set.
+
     #[serde(default = "default_auto_summarize_enabled")]
     pub auto_summarize_enabled: bool,
-    /// When true and an AI provider key is configured, the app
-    /// automatically runs the `extract-tasks` agent after a
-    /// transcription completes. The agent uses the `create_task`
-    /// tool to populate the kanban directly, so the user can stop a
-    /// meeting and come back to a populated to-do board. Skipped
-    /// silently if no AI key is set.
+
     #[serde(default = "default_auto_extract_tasks_enabled")]
     pub auto_extract_tasks_enabled: bool,
-    /// When true and an AI provider key is configured, fires the
-    /// `autoname` agent right after transcription completes so the
-    /// library row shows a suggested human-readable title + tags +
-    /// subtitle. The result is stored as a normal AgentRun under
-    /// `<session_dir>/agent_runs/autoname.json`; the library scan
-    /// surfaces the title in RecordingSummary so the UI can render
-    /// it without any extra IPC roundtrips. v2 finding 024 / GET-37.
+
     #[serde(default = "default_auto_name_enabled")]
     pub auto_name_enabled: bool,
-    /// Optional retention policy for the source WAV files inside each
-    /// session directory. None / 0 leaves WAVs in place forever; a
-    /// positive value N tells `purge_old_wavs` to delete mic.wav +
-    /// system.wav once a transcript exists AND the session's most
-    /// recent modification is older than N days. Audio recordings
-    /// grow fast (~87GB/yr for a daily-meeting user); this setting
-    /// plus the manual 'Purge now' button in Settings → Storage
-    /// lets the user keep transcripts but drop the source audio.
-    /// v2 finding 063 / GET-98.
+
     #[serde(default)]
     pub wav_retention_days: Option<u32>,
-    /// Opt-in toggle for the public-aggregate stats counter. v2
-    /// finding 095 / GET-110. When true, the app uploads three
-    /// numbers (minutes-transcribed-locally, USD-saved-aggregate,
-    /// active-install ping) to the public counter; no content, no
-    /// identifiers ever cross the wire. Default OFF — the user opts
-    /// in from Settings → Privacy. The upload path itself lands in
-    /// the follow-up PR; this setting ships the consent surface so
-    /// adding the upload later is a zero-UI change.
+
     #[serde(default)]
     pub share_aggregate_stats: bool,
-    /// Attune Pro license key (v2 finding 092 / GET-108). Empty
-    /// string = Free tier. Non-empty = Pro — gates auto-record,
-    /// multi-window, marketplace install, and other paid features
-    /// downstream PRs will wire. The actual signature-verification
-    /// of the key is a follow-up; for now the presence of a
-    /// non-empty value flips the tier.
+
     #[serde(default)]
     pub pro_license_key: String,
-    /// RFC-3339 timestamp the user started the 14-day Pro trial.
-    /// Empty string = trial never started. The UI computes
-    /// remaining days client-side and locks Pro features when more
-    /// than 14 days have elapsed without a license_key. v2 finding
-    /// 094 / GET-109.
+
     #[serde(default)]
     pub pro_trial_started_at: String,
-    /// Apple Reminders two-way sync — when enabled, kanban tasks
-    /// publish to the named Reminders list and #attune-tagged
-    /// reminders pull into the kanban inbox column. Default OFF;
-    /// requires the user to grant Reminders permission on first
-    /// run. v2 finding 076 / GET-78.
+
     #[serde(default)]
     pub reminders_sync_enabled: bool,
-    /// Reminders list name to mirror to/from. Defaults to "Attune"
-    /// (we create the list on first sync if it doesn't exist).
+
     #[serde(default = "default_reminders_list")]
     pub reminders_list_name: String,
-    /// Privacy Mode / Airgap (v2 finding 048 / GET-42). When true the
-    /// CloudGuard blocks every outbound HTTP request except to
-    /// localhost. Cloud LLM providers, embedding APIs, model
-    /// downloads, and webhook delivery all short-circuit with a clear
-    /// "blocked by Privacy Mode" error. The titlebar shows an AIRGAP
-    /// badge while this is on. Defaults to false.
+
     #[serde(default)]
     pub privacy_mode: bool,
-    /// Voice-debrief on Stop (v2 finding 027 / GET-53). When true, the
-    /// app pops a small sheet right after the user hits Stop that asks
-    /// 'anything to capture before this fades?' and records up to 20s
-    /// of mic. The clip lands next to the meeting as `debrief.webm`
-    /// and the existing extract-tasks / extract-memories agents fire
-    /// against its transcript. Default OFF — opt in from Settings.
+
     #[serde(default)]
     pub voice_debrief_enabled: bool,
-    /// One-screen first-run conductor completion flag. v2 finding 001
-    /// / GET-24. True after the user has either finished the
-    /// onboarding screen or explicitly dismissed it. The Record route
-    /// renders the conductor while this is false.
+
     #[serde(default)]
     pub onboarding_completed: bool,
 
-    // ============================================================
-    // Sprint 1 onboarding rebuild (GET-133 / GET-134 / GET-135).
-    // ============================================================
-    /// GET-133 General. When true, a thin floating indicator pulses
-    /// on the right edge of the screen while Attune is transcribing.
-    /// The eventual home of the consensus #11 Acoustic Confidence
-    /// Strip surface; defaults ON because Tony's Calm Computing
-    /// principle says recording state must always be visible.
     #[serde(default = "default_live_meeting_indicator")]
     pub live_meeting_indicator: bool,
-    /// GET-133 General. macOS Login Items API binding. When true,
-    /// Attune launches on user login via the SMAppService
-    /// background-task entitlement. Default OFF — opt in from
-    /// Settings.
+
     #[serde(default)]
     pub open_at_login: bool,
-    /// GET-133 General. When a meeting starts (detected via
-    /// EventKit or auto-detect), Attune repositions itself out of
-    /// the way so the user can keep typing notes alongside their
-    /// conferencing app. Default OFF until the implicit-brief
-    /// surface lands.
+
     #[serde(default)]
     pub move_aside_in_meetings: bool,
-    /// GET-133 Privacy. Default visibility for shared-meeting links.
-    /// `"workspace_only"` (default, stricter than Granola),
-    /// `"anyone_with_link"`, or `"disabled"`.
+
     #[serde(default = "default_link_sharing")]
     pub default_link_sharing: String,
-    /// GET-133 Privacy. When the user clicks a shared-meeting link
-    /// in their browser, deep-link into the desktop app instead of
-    /// the web view. Default ON.
+
     #[serde(default = "default_always_open_shared_links")]
     pub always_open_shared_links: bool,
-    /// GET-133 Privacy. Roundtable consensus #5 — show a coloured
-    /// left border on every artefact indicating where it lives
-    /// (green = on-device only, amber = Apple PCC / encrypted cloud,
-    /// red = third-party cloud). Default ON.
+
     #[serde(default = "default_privacy_tier_band_enabled")]
     pub privacy_tier_band_enabled: bool,
-    /// GET-133 Privacy. Number of days after which transcripts auto-
-    /// delete. GDPR Art. 5(1)(c) data minimisation default = 90
-    /// days; Granola defaults to Off, which is an Art. 5 violation
-    /// in the EU. Range UI: Off / 7 / 30 / 90 / 365.
+
     #[serde(default = "default_auto_delete_period_days")]
     pub auto_delete_period_days: Option<u32>,
 
-    /// GET-134 Calendar. Show next-meeting + countdown in the macOS
-    /// menu bar. Default ON — feeds the consensus #9 Quiet Mode dot.
     #[serde(default = "default_show_upcoming_meetings_in_menubar")]
     pub show_upcoming_meetings_in_menubar: bool,
-    /// GET-134 Calendar. Power-user knob hidden behind an Advanced
-    /// disclosure. When true, the "Coming up" section includes
-    /// events without attendees / video links (e.g. focus blocks).
-    /// Default OFF.
+
     #[serde(default)]
     pub show_events_without_participants: bool,
 
-    /// GET-135 Notifications. Fire a notification 1 minute before
-    /// a calendared meeting starts. Default ON.
     #[serde(default = "default_notify_scheduled_meetings")]
     pub notify_scheduled_meetings: bool,
-    /// GET-135 Notifications. Detect via NSRunningApplication that
-    /// a known conferencing app started a call, then ask the user
-    /// to capture. Default ON.
+
     #[serde(default = "default_notify_auto_detected_meetings")]
     pub notify_auto_detected_meetings: bool,
-    /// GET-135 Notifications. Bundle identifiers the user does NOT
-    /// want auto-detect notifications for. Per-app mute escape
-    /// hatch — Granola pattern.
+
     #[serde(default)]
     pub notification_muted_apps: Vec<String>,
-    /// GET-135 Notifications. Where to surface "a teammate shared a
-    /// note with you" events. `"activity_and_email"` (default),
-    /// `"activity_only"`, `"email_only"`, or `"none"`.
+
     #[serde(default = "default_note_shared_notification")]
     pub note_shared_notification: String,
 
-    // ============================================================
-    // Sprint 2 onboarding (GET-127 / GET-128 / GET-129 / GET-131).
-    // ============================================================
-    /// GET-127 Signup. Which sign-in path the user chose during
-    /// onboarding. `""` = not chosen yet, `"offline"` = local-only
-    /// workspace (no cloud identity), `"google"` / `"microsoft"` /
-    /// `"sso"` = the corresponding OAuth provider. Tracks the
-    /// chosen path so the Settings → Profile section can display it
-    /// and so we can re-prompt for sign-in when the user later
-    /// tries to enable Pro / Clinical / MCP features.
     #[serde(default)]
     pub signin_mode: String,
 
-    /// GET-131 Workspace. Human name of the user's primary
-    /// workspace, e.g. "Clinora". Auto-populated from the email
-    /// domain during onboarding; user-editable in Settings →
-    /// Workspace → General once that section ships (GET-138).
-    /// Local-only mode allows any name; cloud mode uses the
-    /// backend-validated workspace slug.
     #[serde(default)]
     pub workspace_name: String,
 
-    /// GET-129 Workspace. The user's chosen workspace bucket from
-    /// the 2×2 onboarding card grid. Enum stored as string:
-    /// `"founder"`, `"clinical"`, `"sales"`, or `"education"`.
-    /// Empty string before onboarding. Drives downstream defaults:
-    /// VAD threshold priors, summary template selector, default
-    /// retention policy (Clinical forces 0-day WAV retention), and
-    /// the BAA-free Clinical wedge gating in
-    /// `commands::clinical::verify_license` once GET-130 ships.
     #[serde(default)]
     pub workspace_bucket: String,
 
-    /// GET-128 EventKit. True when the user explicitly skipped the
-    /// pre-EventKit rationale screen during onboarding. The Library
-    /// and Invite-teammates surfaces consult this to decide whether
-    /// to show a "Grant calendar access" affordance, vs assume the
-    /// user will re-prompt themselves. Reset to false on any re-grant
-    /// from Settings.
     #[serde(default)]
     pub onboarding_calendar_deferred: bool,
 
-    /// GET-138 Workspace. Whether the workspace appears in the
-    /// domain-match discovery feed for other users with matching
-    /// work emails. Defaults to true for Founder/Sales/Education
-    /// buckets; the workspace-bucket selection in onboarding flips
-    /// this to false when the user picks Clinical (Sasha — therapist
-    /// workspaces don't accept walk-ins).
     #[serde(default = "default_true")]
     pub workspace_discoverable: bool,
 
-    /// GET-138 Workspace. Whether teammates can join the workspace
-    /// automatically (no admin approval) once they sign in with a
-    /// matching work email. Same bucket-aware defaults as
-    /// `workspace_discoverable`.
     #[serde(default = "default_true")]
     pub workspace_auto_join: bool,
 
-    /// GET-138 Workspace. Local file path to the workspace logo PNG
-    /// or SVG, max 256x256 / 500KB. Empty means "no logo set" — the
-    /// UI falls back to a generated monogram. v1 stores the path
-    /// only; the backend favicon-fetch path lands with GET-123.
     #[serde(default)]
     pub workspace_logo_path: String,
 
-    /// Marathon segmentation (GET-211). When set, the recording store
-    /// automatically pauses + resumes at this many seconds to bound each
-    /// WAV segment. The existing stop → concat-wavs stitches them back
-    /// into one note. `None` = disabled (default). 3600 = hourly.
     #[serde(default)]
     pub auto_segment_secs: Option<u64>,
 }
 
-/// GET-188. System-audio speech-enhancement settings. Nested so the two
-/// knobs travel together and a future per-recording override has an
-/// obvious home.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../src/shared/types/")]
 pub struct SystemAudioEnhancement {
-    /// Master toggle. Default `false` — experimental, A/B-gated.
     #[serde(default)]
     pub enabled: bool,
-    /// Maximum attenuation the enhancer may apply, in dB (negative; more
-    /// negative = more aggressive). Default `-20.0`, a conservative cap
-    /// that trims obvious noise without flattening the spectral detail
-    /// Whisper and the speaker-embedding model depend on.
+
     #[serde(default = "default_enhancement_atten_lim_db")]
     pub atten_lim_db: f32,
 }
@@ -408,17 +201,12 @@ fn default_local_whisper_model() -> String {
     "large-v3".into()
 }
 fn default_voice_processing_enabled() -> bool {
-    // OFF by default: the VPIO mic path can initialise yet capture
-    // silence on some macOS/hardware combos, which left the mic fully
-    // silent. The plain cpal path is the reliable default; users can
-    // opt into voice processing (AEC/noise suppression) in Settings.
     false
 }
 fn default_auto_vad_enabled() -> bool {
     true
 }
 fn default_live_transcript_enabled() -> bool {
-    // Beta, off by default: opt in via Settings → Transcription.
     false
 }
 fn default_auto_transcribe_enabled() -> bool {
@@ -455,9 +243,6 @@ fn default_privacy_tier_band_enabled() -> bool {
     true
 }
 fn default_auto_delete_period_days() -> Option<u32> {
-    // GDPR Art. 5(1)(c) data minimisation — keep transcripts no
-    // longer than the user needs them. 90 days is the consensus
-    // default among privacy-aware tools (Signal, ProtonMail).
     Some(90)
 }
 fn default_show_upcoming_meetings_in_menubar() -> bool {
@@ -472,15 +257,7 @@ fn default_notify_auto_detected_meetings() -> bool {
 fn default_note_shared_notification() -> String {
     "activity_and_email".into()
 }
-/// Resolve the default memory directory.
-///
-/// We try the Obsidian-vault subtree first (the canonical SSOT per the
-/// vault's `ai-chat-multi-provider.md` plan): everything Attune
-/// produces — recordings, tasks, memories — should be `git push`-able
-/// together. If the vault's parent (`me/`) does not exist, the user
-/// either has not cloned the vault or runs Attune standalone; fall
-/// back to a vault-free path under their home directory so the app
-/// still works.
+
 fn default_memory_dir() -> PathBuf {
     let home = std::env::var_os("HOME")
         .map(PathBuf::from)
@@ -566,25 +343,15 @@ fn default_home_dir() -> PathBuf {
     home.join("Documents").join("Attune")
 }
 
-/// Loads and saves [`Settings`] to a JSON file on disk.
-///
-/// The store owns the path so callers do not have to thread it around.
-/// A missing file is treated as "use defaults"; a malformed file falls
-/// back to defaults with a warning rather than failing the app launch.
 pub struct SettingsStore {
     path: PathBuf,
 }
 
 impl SettingsStore {
-    /// Construct a store backed by `path`. The file does not need to exist
-    /// yet; [`SettingsStore::load`] returns [`Settings::default`] in that
-    /// case.
     pub fn new(path: impl Into<PathBuf>) -> Self {
         Self { path: path.into() }
     }
 
-    /// Default store rooted at the platform's standard config directory.
-    /// On macOS this is `~/Library/Application Support/Attune/settings.json`.
     pub fn default_location() -> Self {
         Self::new(default_settings_path())
     }
@@ -593,8 +360,6 @@ impl SettingsStore {
         &self.path
     }
 
-    /// Load settings from disk. Missing files yield defaults; malformed
-    /// files log a warning and yield defaults rather than aborting.
     pub fn load(&self) -> Settings {
         match fs::read_to_string(&self.path) {
             Ok(contents) => match serde_json::from_str::<Settings>(&contents) {
@@ -626,9 +391,6 @@ impl SettingsStore {
         }
     }
 
-    /// Atomically write settings to disk. Creates the parent directory if
-    /// it does not yet exist. Writes to a sibling temp file then renames,
-    /// so a crash mid-write cannot corrupt the on-disk file.
     pub fn save(&self, settings: &Settings) -> Result<()> {
         if let Some(parent) = self.path.parent() {
             fs::create_dir_all(parent).map_err(|e| {

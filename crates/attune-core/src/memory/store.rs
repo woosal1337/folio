@@ -1,17 +1,3 @@
-//! High-level memory store: combines file pages + SQLite index.
-//!
-//! The store is the layer the rest of the app talks to. It owns the
-//! two-phase write semantics: every mutation writes the markdown page
-//! first (source of truth), then updates the SQLite index
-//! (best-effort, rebuildable). If the index drifts from the files,
-//! `rebuild_index` heals it in seconds.
-//!
-//! Conflict resolution lives here (Mem0 ADD/UPDATE/NOOP pattern).
-//! `create` for a keyed memory looks up the current entry for the same
-//! `kind+key` and supersedes it (sets `valid_until = now()` on the old
-//! one, links the new one via `supersedes_id`). Hard delete is reserved
-//! for tests / explicit purges — user-facing delete is soft.
-
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -25,22 +11,15 @@ use crate::memory::index::MemoryIndex;
 use crate::memory::page::{delete_page, read_dir_pages, write_page};
 use crate::memory::types::{Memory, MemoryKind, MemoryQuery, MemoryUpdate, NewMemory};
 
-/// Outcome of a `create` that may have superseded a prior memory.
-/// The frontend uses this to surface "1 memory updated, 0 new" toasts.
-/// The `Updated` variant boxes its payload because [`Memory`] is
-/// large and the enum is moved frequently.
 #[derive(Debug, Clone)]
 pub enum CreateOutcome {
-    /// A brand-new memory; no prior matched.
     Added(Memory),
-    /// A prior memory was superseded by the new one.
+
     Updated(Box<UpdatedMemory>),
-    /// The candidate exactly matched the current memory; nothing
-    /// changed on disk.
+
     NoOp(Memory),
 }
 
-/// Payload for [`CreateOutcome::Updated`].
 #[derive(Debug, Clone)]
 pub struct UpdatedMemory {
     pub previous: Memory,
@@ -57,16 +36,12 @@ impl CreateOutcome {
     }
 }
 
-/// File + SQLite store.
 pub struct MemoryStore {
     dir: PathBuf,
     index: Arc<Mutex<MemoryIndex>>,
 }
 
 impl MemoryStore {
-    /// Open a store at `dir`. Creates the directory + opens (and
-    /// schema-creates) the on-disk index. Cheap; safe to construct
-    /// per-command.
     pub fn open(dir: impl Into<PathBuf>) -> Result<Self> {
         let dir = dir.into();
         let index = MemoryIndex::open(&dir)?;
@@ -80,8 +55,6 @@ impl MemoryStore {
         &self.dir
     }
 
-    /// List with the given query. Embedding-free path; the agent
-    /// retrieval surface uses `search` instead.
     pub fn list(&self, query: &MemoryQuery) -> Result<Vec<Memory>> {
         let index = self.index.lock();
         let mut rows = if let Some(q) = query.query.as_deref().filter(|s| !s.trim().is_empty()) {
@@ -109,8 +82,6 @@ impl MemoryStore {
         self.index.lock().get(id)
     }
 
-    /// Hybrid search: BM25 on FTS5 + optional cosine on sqlite-vec,
-    /// reciprocal-rank-fused. Used by the `search_memory` agent tool.
     pub fn search(
         &self,
         query: &str,
@@ -123,13 +94,6 @@ impl MemoryStore {
             .search(query, embedding, kinds, limit, false)
     }
 
-    /// Return the always-inject memory set: pinned memories first,
-    /// then a small slice of identity-shape facts (Claim with key
-    /// starting `user.`, top-N Pref by recency, Claim with key
-    /// starting `project.` marked as currently-valid).
-    ///
-    /// `max_per_bucket` caps each shape so the prompt doesn't
-    /// balloon. With max=5, the typical block is ~200 tokens.
     pub fn always_inject_set(&self, max_per_bucket: usize) -> Result<Vec<Memory>> {
         let index = self.index.lock();
         let all = index.list_all(false)?;
@@ -174,8 +138,6 @@ impl MemoryStore {
         Ok(out)
     }
 
-    /// Create a memory. Applies the ADD/UPDATE/NOOP protocol when
-    /// the memory has a `(kind, key)` that already exists.
     pub fn create(&self, new: NewMemory) -> Result<CreateOutcome> {
         let now = Utc::now();
         let mut memory = Memory {
@@ -196,15 +158,13 @@ impl MemoryStore {
             updated_at: now,
             extras: std::collections::BTreeMap::new(),
         };
-        // Empty content is a strong signal of model junk; reject so
-        // the agent loop's `tasks_created`-style counter doesn't tick.
+
         if memory.content.is_empty() {
             return Err(crate::error::AttuneError::Storage(
                 "memory content is empty".into(),
             ));
         }
 
-        // Conflict path: only keyed kinds participate.
         if memory.kind.is_keyed() {
             if let Some(key) = memory.key.as_deref() {
                 let existing = {
@@ -216,7 +176,7 @@ impl MemoryStore {
                         debug!(key, "create: noop (identical content)");
                         return Ok(CreateOutcome::NoOp(prev));
                     }
-                    // UPDATE: link, supersede on disk + in index.
+
                     memory.supersedes_id = Some(prev.id.clone());
                     let mut superseded = prev.clone();
                     superseded.valid_until = Some(now);
@@ -232,14 +192,11 @@ impl MemoryStore {
             }
         }
 
-        // ADD path.
         self.write_through(&memory)?;
         info!(id = %memory.id, kind = %memory.kind.as_str(), "memory added");
         Ok(CreateOutcome::Added(memory))
     }
 
-    /// Patch a memory's editable fields. Pin / unpin uses this with
-    /// `pinned: Some(true|false)`.
     pub fn update(&self, id: &str, patch: MemoryUpdate) -> Result<Memory> {
         let mut current = self
             .get(id)?
@@ -269,8 +226,6 @@ impl MemoryStore {
         Ok(current)
     }
 
-    /// Soft delete: marks `valid_until = now()`. Hard delete is
-    /// `purge` (test-only / explicit user action).
     pub fn soft_delete(&self, id: &str) -> Result<Memory> {
         let mut current = self
             .get(id)?
@@ -283,7 +238,6 @@ impl MemoryStore {
         Ok(current)
     }
 
-    /// Hard delete: removes the file + every index row. Idempotent.
     pub fn purge(&self, id: &str) -> Result<()> {
         if let Some(memory) = self.get(id)? {
             delete_page(&self.dir, &memory)?;
@@ -292,9 +246,6 @@ impl MemoryStore {
         Ok(())
     }
 
-    /// Wipe the index and rebuild it from the markdown files on
-    /// disk. Use after schema upgrades or to recover from index
-    /// drift. Embeddings are re-fetched via `embed_for`.
     pub fn rebuild_index(&self, embed_for: impl FnMut(&str) -> Option<Vec<f32>>) -> Result<usize> {
         let memories = read_dir_pages(&self.dir);
         let n = memories.len();
@@ -302,20 +253,12 @@ impl MemoryStore {
         Ok(n)
     }
 
-    /// Two-phase write: file first (truth), then index. If the index
-    /// step fails we surface the error; the file on disk is still
-    /// valid and the next `rebuild_index` will heal the index. We do
-    /// NOT roll back the file because losing a valid memory is worse
-    /// than an index that's one row behind.
     fn write_through(&self, memory: &Memory) -> Result<()> {
         write_page(&self.dir, memory)?;
         self.index.lock().upsert(memory, None)?;
         Ok(())
     }
 
-    /// Like `write_through` but also stamps the embedding into the
-    /// vec index. Used by the extraction pipeline once it has called
-    /// the embeddings API.
     pub fn upsert_with_embedding(&self, memory: &Memory, embedding: &[f32]) -> Result<()> {
         write_page(&self.dir, memory)?;
         self.index.lock().upsert(memory, Some(embedding))?;
@@ -390,7 +333,7 @@ mod tests {
             }
             other => panic!("expected Updated, got {other:?}"),
         }
-        // Only the new one is current.
+
         let current = s
             .list(&MemoryQuery {
                 kinds: vec![MemoryKind::Claim],
@@ -485,7 +428,7 @@ mod tests {
             .unwrap();
         s.create(nm(MemoryKind::Pref, Some("ui.theme"), "dark"))
             .unwrap();
-        // Wipe sqlite, leave .md files in place.
+
         std::fs::remove_file(dir.path().join(".index.sqlite")).unwrap();
         let reopened = MemoryStore::open(dir.path()).unwrap();
         assert!(reopened.list(&MemoryQuery::default()).unwrap().is_empty());

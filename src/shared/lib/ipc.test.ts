@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { IpcError } from "./ipc";
 
-// Mock the Tauri invoke before the IPC module loads.
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(),
 }));

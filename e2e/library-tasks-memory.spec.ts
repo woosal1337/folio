@@ -1,7 +1,3 @@
-/**
- * Library / Tasks / Memory routes — basic CRUD + render assertions.
- */
-
 import { expect, test } from "@playwright/test";
 
 import { ipcCalls, setupScenario } from "./fixtures/scenario";
@@ -12,10 +8,7 @@ test("Library — recording row renders from list_recordings IPC", async ({ page
     recordings: [
       {
         session_dir: "/tmp/Attune/2026-05-28-product-review",
-        // RecordingSummary uses `label` (the folder name), not `title`.
-        // The Library row also surfaces `suggested_title` from the
-        // autoname agent when present — we set both so the row text
-        // is visible regardless of which one the UI prefers.
+
         label: "2026-05-28-product-review",
         duration_seconds: 1800,
         mic_bytes: 1_000_000,
@@ -43,8 +36,6 @@ test("Tasks — empty state, add a task via the UI, see it appear", async ({ pag
   await page.getByRole("link", { name: /tasks/i }).click();
   await expect(page.getByRole("heading", { name: /^tasks$/i })).toBeVisible();
 
-  // Composer is collapsed per column — click the first "Add task"
-  // dashed button to reveal the textarea, then fill + submit.
   await page
     .getByRole("button", { name: /^add task$/i })
     .first()
@@ -53,13 +44,12 @@ test("Tasks — empty state, add a task via the UI, see it appear", async ({ pag
   await input.fill("Confirm the email domain at example.com");
   await input.press("Enter");
 
-  // create_task IPC fires with a NewTask payload.
   await expect
     .poll(async () => (await ipcCalls(page, "create_task")).length)
     .toBeGreaterThanOrEqual(1);
   const calls = await ipcCalls(page, "create_task");
   const payload = calls[0]!.args as { task: { title: string } };
-  expect(payload.task.title).toContain("Resend domain");
+  expect(payload.task.title).toContain("email domain");
 });
 
 test("Memory — seeded entries render in the list", async ({ page }) => {

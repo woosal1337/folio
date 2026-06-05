@@ -13,27 +13,14 @@ import type { SpeakerLabel } from "@/shared/types/SpeakerLabel";
 
 interface Props {
   sessionDir: string;
-  /** Distinct system speakers in the conversation, in "Speaker N" order. */
+
   speakers: ConversationSpeaker[];
-  /** Backend label per cluster — carries `has_embedding` / `auto_named`. */
+
   labelsByCluster: Map<number, SpeakerLabel>;
-  /** Called with the fresh label set after a successful rename. */
+
   onRenamed: (labels: SpeakerLabel[]) => void;
 }
 
-/**
- * Rename strip above the transcript. Each diarized speaker is a chip; click
- * the pencil to give the voice a real name. The name sticks to this
- * recording and — when the cluster carries a voice embedding — teaches the
- * cross-recording registry so the same speaker is auto-detected next time
- * (GET-189). Clusters with too little audio to embed can still be named
- * here, but won't be remembered; the chip says so.
- *
- * A medium-confidence registry match surfaces as an inline "· <name>?"
- * prompt with confirm / reject: confirming adds this voice as another
- * exemplar (moving the identity toward silent auto-naming), rejecting
- * records a "not this person" vote so the suggestion stops recurring.
- */
 export function SpeakerLegend({
   sessionDir,
   speakers,
@@ -115,7 +102,6 @@ export function SpeakerLegend({
         const auto = meta?.auto_named ?? false;
         const suggested = meta?.suggested_name ?? null;
 
-        // Medium-confidence match → "· <name>?" with confirm / reject.
         if (suggested && editing !== s.cluster) {
           const busy = acting === s.cluster;
           return (
@@ -131,9 +117,7 @@ export function SpeakerLegend({
               >
                 {s.label}
               </span>
-              <span className="text-muted-foreground">
-                · {suggested}?
-              </span>
+              <span className="text-muted-foreground">· {suggested}?</span>
               <button
                 type="button"
                 onClick={() => void respond(s.cluster, true)}
@@ -179,8 +163,6 @@ export function SpeakerLegend({
               className="inline-flex items-center gap-1 rounded-full border border-input bg-card px-1.5 py-0.5"
             >
               <input
-                // Focus belongs here: the input only mounts in direct
-                // response to the user clicking "edit" on this chip.
                 // eslint-disable-next-line jsx-a11y/no-autofocus
                 autoFocus
                 value={draft}
@@ -236,9 +218,7 @@ export function SpeakerLegend({
             )}
           >
             {s.label}
-            {auto && (
-              <span className="text-[9px] font-normal opacity-70">auto</span>
-            )}
+            {auto && <span className="text-[9px] font-normal opacity-70">auto</span>}
             <Pencil className="h-2.5 w-2.5 opacity-50 group-hover:opacity-100" />
           </button>
         );

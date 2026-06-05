@@ -1,13 +1,3 @@
-//! Per-note scoped chat — "Chat with this transcript" (GET-150).
-//!
-//! A conversation restricted to a single meeting's corpus: its
-//! transcript, the notes the user typed live (GET-145), and any agent
-//! runs (the summary, decisions, …). Distinct from the cross-library
-//! Ask Attune, which spans everything. Because one meeting fits well
-//! inside the context budget, this skips retrieval entirely and packs
-//! the whole note into the system prompt, with transcript timestamps the
-//! model is told to cite as `[mm:ss]` so the UI can make them seekable.
-
 use std::path::Path;
 
 use attune_core::llm::provider::LlmProvider;
@@ -23,44 +13,34 @@ use crate::app::AppState;
 const DEFAULT_OPENAI_MODEL: &str = "gpt-4o-mini";
 const TRANSCRIPT_CHAR_CAP: usize = 100_000;
 
-/// One prior turn in the per-note conversation.
 #[derive(Debug, Clone, Deserialize)]
 pub struct ChatTurn {
-    /// "user" or "assistant".
     pub role: String,
     pub content: String,
 }
 
-/// The assistant's answer to a scoped question.
 #[derive(Debug, Clone, Serialize)]
 pub struct AskNoteAnswer {
     pub answer: String,
 }
 
-/// Coverage metadata returned alongside the cross-library answer
-/// (GET-193). Lets the frontend render a "what was searched" panel
-/// so the user knows the answer's scope and completeness.
 #[derive(Debug, Clone, Serialize)]
 pub struct CoverageNote {
-    /// Total recordings found in the library.
     pub notes_total: usize,
-    /// Recordings whose summaries were actually read by the LLM.
+
     pub notes_read: usize,
-    /// True when the read count hit LIBRARY_RECENT_NOTES and more
-    /// summarised notes exist — the answer may be incomplete.
+
     pub capped: bool,
-    /// `created_at` of the oldest note that was read. ISO-ish string
-    /// from the session directory name (e.g. "2026-05-01").
+
     pub date_oldest: Option<String>,
-    /// `created_at` of the newest note that was read.
+
     pub date_newest: Option<String>,
-    /// Number of memories injected from the relevant-memory search.
+
     pub memories: usize,
-    /// Number of open tasks included in the context.
+
     pub tasks: usize,
 }
 
-/// The cross-library Ask Attune answer, augmented with coverage metadata.
 #[derive(Debug, Clone, Serialize)]
 pub struct AskLibraryAnswer {
     pub answer: String,
@@ -103,7 +83,6 @@ pub async fn ask_note(
         .map_err(|e| format!("canonicalize task panicked: {e}"))??
     };
 
-    // Assemble the note's corpus on a blocking thread (disk reads).
     let context = {
         let dir = dir.clone();
         tauri::async_runtime::spawn_blocking(move || build_note_context(&dir))
@@ -162,8 +141,6 @@ pub async fn ask_note(
     })
 }
 
-/// Build the scoped context block: timestamped transcript + live notes +
-/// agent-run outputs. Capped to keep within the model's context budget.
 fn build_note_context(dir: &Path) -> String {
     let mut out = String::new();
 
@@ -172,8 +149,6 @@ fn build_note_context(dir: &Path) -> String {
         if !text.is_empty() {
             out.push_str("## Transcript\n");
             if text.len() > TRANSCRIPT_CHAR_CAP {
-                // Char-boundary truncation — a byte slice panics mid-
-                // codepoint on multilingual transcripts (GET-175).
                 out.push_str(attune_core::text::truncate_on_char_boundary(
                     &text,
                     TRANSCRIPT_CHAR_CAP,
@@ -210,11 +185,6 @@ fn build_note_context(dir: &Path) -> String {
     out.trim().to_string()
 }
 
-/// Render the transcript as one chronological, speaker-labelled dialogue
-/// with `[mm:ss]` prefixes so the Q&A model can cite moments. Labels are
-/// "You:" (note-taker) and "Speaker N:" (each diarized participant), or the
-/// real name the user gave that voice (session speaker sidecar). See
-/// `SessionTranscript::to_labeled_dialogue_named` — shared with the agents.
 fn flatten_with_timestamps(session_dir: &Path, transcript: &SessionTranscript) -> String {
     let names = attune_core::diarization::SessionSpeakers::read(session_dir)
         .ok()
@@ -224,12 +194,6 @@ fn flatten_with_timestamps(session_dir: &Path, transcript: &SessionTranscript) -
     transcript.to_labeled_dialogue_named(true, &names)
 }
 
-// ====================================================================
-// Cross-library chat (GET-152)
-// ====================================================================
-
-/// How many recent recordings' summaries to fold into the library
-/// context. Bounded so the context stays inside the model budget.
 const LIBRARY_RECENT_NOTES: usize = 8;
 
 const LIBRARY_SYSTEM_PROMPT: &str = "You are the user's meeting brain. You \
@@ -318,10 +282,6 @@ pub async fn ask_library(
     })
 }
 
-/// Ask a question scoped to a specific folder (GET-205).
-///
-/// Behaves like `ask_library` but only includes notes in `folder_name`.
-/// Returns the same `AskLibraryAnswer` (answer + coverage metadata).
 #[tauri::command]
 pub async fn ask_folder(
     state: State<'_, AppState>,
@@ -402,7 +362,6 @@ pub async fn ask_folder(
     })
 }
 
-/// Build context from only the notes in `folder_name`.
 fn build_folder_context(
     output_dir: &Path,
     tasks_path: &Path,
@@ -412,7 +371,6 @@ fn build_folder_context(
 ) -> (String, CoverageNote) {
     let mut out = String::new();
 
-    // Filter tasks to those from the folder's notes.
     let tasks = TaskStore::new(tasks_path.to_path_buf()).list();
     let open: Vec<_> = tasks
         .iter()
@@ -420,7 +378,6 @@ fn build_folder_context(
         .collect();
     let tasks_count = open.len();
 
-    // Folder-filtered summaries.
     let mut recordings = scan_recordings(output_dir);
     recordings.sort_by(|a, b| b.created_at.cmp(&a.created_at));
     let in_folder: Vec<_> = recordings
@@ -479,9 +436,6 @@ fn build_folder_context(
     (out.trim().to_string(), coverage)
 }
 
-/// Assemble the cross-library context: open tasks, recent meeting
-/// summaries, and the memories most relevant to the question.
-/// Returns the context string and coverage metadata (GET-193).
 fn build_library_context(
     output_dir: &Path,
     tasks_path: &Path,
@@ -490,7 +444,6 @@ fn build_library_context(
 ) -> (String, CoverageNote) {
     let mut out = String::new();
 
-    // Open action items.
     let tasks = TaskStore::new(tasks_path.to_path_buf()).list();
     let open: Vec<_> = tasks
         .iter()
@@ -520,13 +473,6 @@ fn build_library_context(
         out.push('\n');
     }
 
-    // Iterative retrieval (GET-203): relevance-ranked notes-over-transcripts.
-    //
-    // Tier 1 — collect all summaries, score against query tokens, sort by
-    //   combined (relevance × recency) score, take top LIBRARY_RECENT_NOTES.
-    // Tier 2 — for the top TRANSCRIPT_EXCERPT_MAX notes with a high relevance
-    //   score, append a verbatim transcript excerpt so verbatim questions are
-    //   answered with quotable evidence.
     use attune_core::llm::retrieval;
 
     let query_tokens_owned = retrieval::tokenize_query(query);
@@ -536,7 +482,6 @@ fn build_library_context(
     let mut recordings = scan_recordings(output_dir);
     let notes_total = recordings.len();
 
-    // Collect summaries + scores.
     let mut scored: Vec<(f32, &attune_core::storage::RecordingSummary, String)> = recordings
         .iter()
         .filter_map(|r| {
@@ -558,7 +503,6 @@ fn build_library_context(
         })
         .collect();
 
-    // Sort descending by score.
     scored.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
     scored.truncate(LIBRARY_RECENT_NOTES);
 
@@ -574,7 +518,6 @@ fn build_library_context(
         out.push_str(&format!("## Meeting: {title}\n"));
         out.push_str(summary.trim());
 
-        // Tier 2: pull transcript excerpt for high-relevance notes.
         if included < TRANSCRIPT_EXCERPT_MAX
             && *score >= HIGH_RELEVANCE_THRESHOLD
             && !query_tokens.is_empty()
@@ -596,11 +539,9 @@ fn build_library_context(
         included += 1;
     }
 
-    // Re-sort recordings for capped check (we need a stable ordering).
     recordings.sort_by(|a, b| b.created_at.cmp(&a.created_at));
     let capped = included >= LIBRARY_RECENT_NOTES && notes_total > included;
 
-    // Relevant memories.
     let mut memories_count = 0;
     if let Ok(memories) = memory_store.search(query, None, &[], 8) {
         memories_count = memories.len();
@@ -647,8 +588,7 @@ mod tests {
             }],
         };
         let text = flatten_with_timestamps(std::path::Path::new("/nonexistent"), &t);
-        // The mic channel is the note-taker, labelled "You", with an
-        // [m:ss] prefix the Q&A model can cite.
+
         assert!(text.contains("[1:05] You: pricing decision"), "got: {text}");
     }
 }

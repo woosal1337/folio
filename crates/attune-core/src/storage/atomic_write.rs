@@ -1,24 +1,9 @@
-//! Two-phase atomic write helpers + schema-version stamping.
-//!
-//! Every Attune store writes the canonical on-disk file first
-//! (markdown for memory, JSON for tasks / settings / webhooks), then
-//! updates a derived index. If the index is missing / corrupt /
-//! schema-out-of-date, the store rebuilds it from the canonical
-//! files — those are the source of truth.
-//!
-//! This module ships the shared write helper + the schema-version
-//! row helpers so every store routes through the same path. v2
-//! finding 054 / GET-71.
-
 use std::fs;
 use std::io::Write;
 use std::path::Path;
 
 use crate::error::{AttuneError, Result};
 
-/// Write `bytes` to `path` atomically: temp file + fsync + rename.
-/// Survives a power loss mid-write — the target either contains
-/// the previous version or the new one, never a half-write.
 pub fn atomic_write(path: &Path, bytes: &[u8]) -> Result<()> {
     if let Some(parent) = path.parent() {
         if !parent.as_os_str().is_empty() {
@@ -36,9 +21,7 @@ pub fn atomic_write(path: &Path, bytes: &[u8]) -> Result<()> {
             .map_err(|e| AttuneError::Storage(format!("create {}: {e}", tmp.display())))?;
         file.write_all(bytes)
             .map_err(|e| AttuneError::Storage(format!("write {}: {e}", tmp.display())))?;
-        // fsync so the bytes are durable before the rename swaps the
-        // pointer; otherwise a power loss between rename + the OS
-        // flush could leave an empty file on disk.
+
         file.sync_all()
             .map_err(|e| AttuneError::Storage(format!("fsync {}: {e}", tmp.display())))?;
     }
@@ -52,16 +35,12 @@ pub fn atomic_write(path: &Path, bytes: &[u8]) -> Result<()> {
     Ok(())
 }
 
-/// Convenience: serialise + atomic-write a JSON value.
 pub fn atomic_write_json<T: serde::Serialize>(path: &Path, value: &T) -> Result<()> {
     let bytes = serde_json::to_vec_pretty(value)
         .map_err(|e| AttuneError::Storage(format!("serialize json: {e}")))?;
     atomic_write(path, &bytes)
 }
 
-/// Read the schema version stamp from a sibling `<store>.schema`
-/// file. Returns 0 when the file doesn't exist (interpreted by
-/// callers as 'rebuild required').
 pub fn read_schema_version(stamp_path: &Path) -> u32 {
     fs::read_to_string(stamp_path)
         .ok()
@@ -69,7 +48,6 @@ pub fn read_schema_version(stamp_path: &Path) -> u32 {
         .unwrap_or(0)
 }
 
-/// Stamp the schema version after a successful index build.
 pub fn write_schema_version(stamp_path: &Path, version: u32) -> Result<()> {
     atomic_write(stamp_path, version.to_string().as_bytes())
 }
@@ -85,10 +63,10 @@ mod tests {
         let path = dir.path().join("a.json");
         atomic_write(&path, b"hello").unwrap();
         assert_eq!(fs::read(&path).unwrap(), b"hello");
-        // Overwrite.
+
         atomic_write(&path, b"world").unwrap();
         assert_eq!(fs::read(&path).unwrap(), b"world");
-        // Temp file should not linger.
+
         assert!(!path.with_extension("json.tmp").exists());
     }
 

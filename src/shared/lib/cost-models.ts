@@ -1,17 +1,6 @@
-/**
- * Per-million-token pricing for chat-completion models Attune calls.
- * Numbers are USD as of 2026-05; the user can override / adjust by
- * editing this file. Unknown models fall back to a conservative
- * gpt-4o-mini-equivalent rate so the UI never returns NaN — the
- * estimate just runs a touch high.
- *
- * v2 roadmap finding 090 / GET-83.
- */
-
 interface ModelPrice {
-  /** USD per 1 000 000 input tokens. */
   inputPerMTokens: number;
-  /** USD per 1 000 000 output tokens. */
+
   outputPerMTokens: number;
 }
 
@@ -27,16 +16,8 @@ const PRICING: Record<string, ModelPrice> = {
   "o1-mini": { inputPerMTokens: 3.0, outputPerMTokens: 12.0 },
 };
 
-/** Conservative fallback when we don't recognise the model id. */
 const FALLBACK: ModelPrice = { inputPerMTokens: 1.0, outputPerMTokens: 4.0 };
 
-/**
- * Estimate the USD cost of a single chat-completion run given the
- * model id and the prompt + completion token counts the provider
- * reported. Returns 0 when either count is missing (the model could
- * not report usage — common with the Local Whisper path which has
- * no LLM cost anyway).
- */
 export function estimateChatCompletionCost(args: {
   model: string;
   promptTokens: number | null | undefined;
@@ -52,12 +33,9 @@ export function estimateChatCompletionCost(args: {
   );
 }
 
-/** Strip the date/version suffix some providers append (`gpt-4o-2024-08-06`). */
 function normalizeModelId(model: string): string {
   const lower = model.toLowerCase().trim();
-  // Try the exact id first; fall through to a prefix match against
-  // the keys of PRICING (longest first) so date-stamped variants
-  // collapse to their base sku.
+
   if (PRICING[lower]) return lower;
   const keys = Object.keys(PRICING).sort((a, b) => b.length - a.length);
   for (const k of keys) {

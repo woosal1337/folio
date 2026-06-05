@@ -11,7 +11,7 @@ import { dispatchSeekAudio } from "./seek-audio";
 interface Props {
   response: string;
   sessionDir: string;
-  /** GET-191: render muted until the user keeps the notes. */
+
   muted: boolean;
 }
 
@@ -21,13 +21,6 @@ interface Active {
   loading: boolean;
 }
 
-/**
- * The enhanced-notes body (GET-198 "Zoom-In"): the AI summary rendered as
- * markdown, where clicking any line reveals the transcript moment behind it
- * and jumps the audio there. Lines that can't be pinned to a moment show an
- * honest "no clear source" note rather than a wrong jump. Turns "trust the
- * summary" into "verify in one click" — fully local, no new inference.
- */
 export function EnhancedNotesBody({ response, sessionDir, muted }: Props) {
   const containerRef = React.useRef<HTMLDivElement>(null);
   const [active, setActive] = React.useState<Active | null>(null);
@@ -39,7 +32,7 @@ export function EnhancedNotesBody({ response, sessionDir, muted }: Props) {
       );
       if (!block || !containerRef.current?.contains(block)) return;
       const line = (block.textContent ?? "").trim();
-      // Skip headings / tiny fragments — they're structure, not claims.
+
       if (line.length < 8) return;
 
       setActive({ line, hit: null, loading: true });
@@ -65,8 +58,8 @@ export function EnhancedNotesBody({ response, sessionDir, muted }: Props) {
         onClick={(e) => void onClick(e)}
         className={cn(
           "prose prose-sm prose-neutral dark:prose-invert max-w-none transition-opacity",
-          // Make note lines feel verifiable: pointer + subtle hover.
-          "[&_li]:cursor-pointer [&_p]:cursor-pointer [&_li]:rounded [&_p]:rounded",
+
+          "[&_li]:cursor-pointer [&_li]:rounded [&_p]:cursor-pointer [&_p]:rounded",
           "[&_li:hover]:bg-accent/40 [&_p:hover]:bg-accent/40",
           muted ? "opacity-60" : ""
         )}
@@ -74,20 +67,12 @@ export function EnhancedNotesBody({ response, sessionDir, muted }: Props) {
         <Markdown>{response}</Markdown>
       </div>
 
-      {active && (
-        <EvidenceCard active={active} onClose={() => setActive(null)} />
-      )}
+      {active && <EvidenceCard active={active} onClose={() => setActive(null)} />}
     </div>
   );
 }
 
-function EvidenceCard({
-  active,
-  onClose,
-}: {
-  active: Active;
-  onClose: () => void;
-}) {
+function EvidenceCard({ active, onClose }: { active: Active; onClose: () => void }) {
   const { hit, loading } = active;
   return (
     <div className="rounded-md border border-border bg-card/60 p-3 text-xs">
@@ -133,8 +118,8 @@ function EvidenceCard({
         </button>
       ) : (
         <p className="mt-1 text-muted-foreground">
-          This line paraphrases the meeting but doesn&apos;t map to one
-          specific moment — likely synthesized across the discussion.
+          This line paraphrases the meeting but doesn&apos;t map to one specific moment
+          — likely synthesized across the discussion.
         </p>
       )}
     </div>

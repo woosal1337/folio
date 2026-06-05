@@ -1,10 +1,3 @@
-/**
- * Settings information-architecture coverage after the personal-only
- * restructure (PR #266): the Workspace group and its Team / workspace-
- * General sections are gone, Analytics moved into Personal, and Billing /
- * Usage / Referrals / Connectors / Webhooks live under a new Account group.
- */
-
 import { expect, test } from "@playwright/test";
 
 import { setupScenario } from "./fixtures/scenario";
@@ -28,7 +21,7 @@ test("Analytics lives under the Personal group", async ({ page }) => {
   await expect(nav.getByText("Personal", { exact: true })).toBeVisible();
   await expect(nav.getByRole("button", { name: /^analytics$/i })).toBeVisible();
   await nav.getByRole("button", { name: /^analytics$/i }).click();
-  // The personal-reworded analytics section renders its header.
+
   await expect(page.getByRole("heading", { name: /^analytics$/i })).toBeVisible();
 });
 
@@ -50,7 +43,7 @@ test("Billing is a personal Free/Pro matrix — no Team/Enterprise tiers", async
   await expect(page.getByRole("heading", { name: /^billing$/i })).toBeVisible();
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByText("Enterprise", { exact: true })).toHaveCount(0);
-  // Free + Pro tier labels are present in the matrix.
+
   await expect(dialog.getByText("Free", { exact: true }).first()).toBeVisible();
   await expect(dialog.getByText("Pro", { exact: true }).first()).toBeVisible();
 });

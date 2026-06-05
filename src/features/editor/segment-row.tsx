@@ -10,29 +10,19 @@ import { dispatchSeekAudio } from "./seek-audio";
 interface Props {
   segment: TranscriptSegment;
   index: number;
-  /** Channel id ("mic" / "system") so the timestamp jumps the right player. */
+
   channel: string;
-  /** Current search query; non-empty values highlight in-line. */
+
   query?: string;
-  /** Speaker label for this turn ("You", "Speaker 1/2/3…", "Others"). */
+
   speakerLabel?: string;
-  /** Tailwind classes for the speaker pill (see `buildConversation`). */
+
   pillClass?: string;
-  /** ISO language code for this turn ("en"/"tr"); shown only on code-
-   *  switched recordings to flag which language a line was spoken in. */
+
   language?: string;
   onChange: (next: string) => void;
 }
 
-/**
- * Single transcript segment. The timestamp gutter is a click-to-seek
- * button that fires a window-level event the audio players subscribe
- * to (see `dispatchSeekAudio`). The right column is an auto-growing
- * textarea editable in place; when a search query is active the
- * matching substring is rendered behind the textarea as a yellow
- * highlight so the eye can find it without disturbing the editable
- * surface.
- */
 export function SegmentRow({
   segment,
   index,
@@ -134,11 +124,6 @@ function formatTimestamp(seconds: number): string {
   return formatDuration(seconds);
 }
 
-/**
- * Build the highlight overlay. Returns `null` when the query is empty
- * so the row skips the overlay entirely (cheap no-op for the common
- * unfiltered render).
- */
 function buildHighlightSpans(text: string, query: string): React.ReactNode {
   const needle = query.trim();
   if (needle.length === 0) return null;

@@ -1,15 +1,3 @@
-//! Apply diarization speaker labels to a session transcript (GET-189 P1).
-//!
-//! Runs the diarizer over a session's `system.wav` and tags each
-//! system-channel transcript segment with its speaker index (by max time
-//! overlap). The mic channel is left untouched — it is the user ("You")
-//! by definition. This is what turns the v0 "You / Others" split into
-//! per-speaker labelling in the UI.
-//!
-//! Called from the transcription command (on every transcribe /
-//! re-transcribe) and from `attune-cli diarize-transcript` (to apply it
-//! to an existing recording without re-running Whisper).
-
 use std::collections::BTreeSet;
 use std::path::Path;
 
@@ -20,25 +8,15 @@ use crate::diarization::runtime::{
 };
 use crate::transcription::SessionTranscript;
 
-/// What a labelling pass did.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct DiarizationOutcome {
-    /// Distinct speakers found on the system channel.
     pub num_speakers: usize,
-    /// System-channel segments that received a speaker label.
+
     pub num_labeled: usize,
-    /// Total system-channel segments considered.
+
     pub num_segments: usize,
 }
 
-/// Diarize `<session_dir>/system.wav` and tag the system-channel
-/// segments of `transcript` in place. Uses the default model store; if
-/// the models aren't downloaded, returns
-/// [`DiarizationError::ModelsNotDownloaded`] so the caller can skip
-/// gracefully and leave the transcript unlabelled.
-///
-/// Speaker indices are the diarizer's raw cluster ids (stable within one
-/// recording); the UI relabels them "Speaker 1/2/3…" by first appearance.
 pub fn label_system_channel(
     session_dir: &Path,
     transcript: &mut SessionTranscript,
@@ -49,7 +27,6 @@ pub fn label_system_channel(
 
     let system_wav = session_dir.join("system.wav");
     if !system_wav.is_file() {
-        // No system audio (mic-only recording) — nothing to diarize.
         return Ok(DiarizationOutcome::default());
     }
 
@@ -57,10 +34,6 @@ pub fn label_system_channel(
     Ok(assign_to_transcript(transcript, &diarized))
 }
 
-/// Tag every system-channel segment of `transcript` with its speaker by
-/// maximum time overlap with `diarized`, in place. Shared by
-/// [`label_system_channel`] and the identify pipeline
-/// ([`super::identify`]) so both label the transcript identically.
 pub(crate) fn assign_to_transcript(
     transcript: &mut SessionTranscript,
     diarized: &[DiarizedSegment],
@@ -109,7 +82,6 @@ mod tests {
 
     #[test]
     fn overlap_assignment_labels_each_span() {
-        // Two diarized speakers; three transcript spans.
         let diar = vec![
             DiarizedSegment {
                 start_secs: 0.0,
@@ -161,7 +133,7 @@ mod tests {
                 speaker: 7,
             },
         ];
-        // Apply the alignment directly (no model IO).
+
         for ch in t.channels.iter_mut().filter(|c| c.channel == "system") {
             let spans: Vec<(f64, f64)> = ch
                 .segments
@@ -176,7 +148,7 @@ mod tests {
                 s.speaker = spk;
             }
         }
-        // mic untouched, system labelled.
+
         assert_eq!(t.channels[0].segments[0].speaker, None);
         assert_eq!(t.channels[1].segments[0].speaker, Some(3));
         assert_eq!(t.channels[1].segments[1].speaker, Some(7));

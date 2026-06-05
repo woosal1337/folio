@@ -6,12 +6,6 @@ import { cn } from "@/shared/lib/utils";
 import { useFolders } from "@/shared/stores/folders-store";
 import { confirmDelete } from "@/shared/stores/confirm-delete-store";
 
-/**
- * Sidebar "Spaces" section (GET-162). Lists the user's note folders;
- * clicking one filters My Notes to it via the `?folder=` search param.
- * Supports inline create (＋), double-click rename, and hover-delete.
- * Hidden entirely in the collapsed rail to keep the icon column quiet.
- */
 export function SpacesSection({ collapsed }: { collapsed: boolean }) {
   const folders = useFolders((s) => s.folders);
   const load = useFolders((s) => s.load);

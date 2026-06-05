@@ -12,11 +12,6 @@ interface Memory {
   created_at: string;
 }
 
-/**
- * Free-text search across the local Attune memory store via
- * `attune-cli memory-search`. Results are NDJSON; the wrapper parses
- * each line and renders one List.Item per memory.
- */
 export default function SearchMemory() {
   const [query, setQuery] = useState("");
   const [items, setItems] = useState<Memory[]>([]);
@@ -36,7 +31,11 @@ export default function SearchMemory() {
       })
       .catch((e) => {
         if (!cancelled) {
-          showToast({ style: Toast.Style.Failure, title: "Memory search failed", message: String(e) });
+          showToast({
+            style: Toast.Style.Failure,
+            title: "Memory search failed",
+            message: String(e),
+          });
         }
       })
       .finally(() => {
@@ -60,7 +59,10 @@ export default function SearchMemory() {
           icon={Icon.Brain}
           title={m.content}
           subtitle={m.key ?? undefined}
-          accessories={[{ tag: m.kind }, ...(m.source_session_label ? [{ text: m.source_session_label }] : [])]}
+          accessories={[
+            { tag: m.kind },
+            ...(m.source_session_label ? [{ text: m.source_session_label }] : []),
+          ]}
           actions={
             <ActionPanel>
               <Action.CopyToClipboard title="Copy Memory" content={m.content} />

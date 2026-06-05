@@ -1,23 +1,7 @@
-/**
- * Render test for the local-only first-run conductor.
- *
- * Simulates a fresh user walking the local flow:
- *   permissions (granted) → eventkit (skip) → transcriber → onFinish.
- *
- * Attune is fully local — there is no sign-in, OTP, or workspace setup —
- * so the conductor only primes permissions, offers calendar access, and
- * picks a transcriber before flipping `onboarding_completed`.
- *
- * Mocks `@/shared/lib/ipc` so no real OS calls happen, and mocks the
- * settings store so `save` flips `onboarding_completed` in memory.
- */
-
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type * as IpcModule from "@/shared/lib/ipc";
-
-// ---- IPC mock ------------------------------------------------------
 
 vi.mock("@/shared/lib/ipc", async () => {
   const actual = await vi.importActual<typeof IpcModule>("@/shared/lib/ipc");
@@ -42,8 +26,6 @@ vi.mock("@/shared/lib/ipc", async () => {
     setProviderKey: vi.fn(async () => {}),
   };
 });
-
-// ---- Settings store mock -------------------------------------------
 
 interface MockSettings {
   onboarding_completed: boolean;
@@ -101,8 +83,6 @@ vi.mock("@/shared/stores/settings-store", () => {
   };
 });
 
-// ---- React import after mocks --------------------------------------
-
 import * as React from "react";
 import { FirstRunConductor } from "./first-run";
 import { useSettingsStore } from "@/shared/stores/settings-store";
@@ -115,18 +95,14 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-// ---- Tests ---------------------------------------------------------
-
 describe("FirstRunConductor — local-only setup", () => {
   it("permissions → eventkit (skip) → transcriber → onFinish", async () => {
     const user = userEvent.setup();
     const onFinish = vi.fn();
     render(<FirstRunConductor onFinish={onFinish} />);
 
-    // 1. Permissions — mock reports both granted, so Continue is enabled.
     await user.click(await screen.findByRole("button", { name: /continue/i }));
 
-    // 2. EventKit rationale — defer calendar.
     expect(
       await screen.findByRole("heading", {
         name: /read your mac.s calendar locally/i,
@@ -134,7 +110,6 @@ describe("FirstRunConductor — local-only setup", () => {
     ).toBeTruthy();
     await user.click(screen.getByRole("button", { name: /skip for now/i }));
 
-    // 3. Transcriber — finish.
     expect(
       await screen.findByRole("heading", { name: /welcome to attune/i })
     ).toBeTruthy();
@@ -146,7 +121,7 @@ describe("FirstRunConductor — local-only setup", () => {
   it("does not call onFinish before reaching the transcriber step", async () => {
     const onFinish = vi.fn();
     render(<FirstRunConductor onFinish={onFinish} />);
-    // Still on the permissions screen — nothing finished yet.
+
     expect(onFinish).not.toHaveBeenCalled();
   });
 });

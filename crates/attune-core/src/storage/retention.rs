@@ -1,15 +1,3 @@
-//! WAV-retention policy.
-//!
-//! `purge_old_wavs` walks every session directory under
-//! `recordings_dir` and deletes `mic.wav` + `system.wav` when:
-//!   1. a transcript is present (so the audio is recoverable as text)
-//!   2. AND the older of the two WAV files' mtimes is older than
-//!      `older_than_days` (so the user can listen to a fresh meeting
-//!      for at least a week before the audio drops).
-//!
-//! Returns a summary the UI surfaces via toast. Idempotent; safe to
-//! call repeatedly. v2 finding 063 / GET-98.
-
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
@@ -25,9 +13,7 @@ pub struct PurgeSummary {
     pub sessions_inspected: usize,
     pub wavs_deleted: usize,
     pub bytes_freed: u64,
-    /// Session directories that hit the predicate but failed to
-    /// delete (permission errors etc.). Each entry is the absolute
-    /// session_dir. Empty in the happy path.
+
     pub failed: Vec<PathBuf>,
 }
 
@@ -52,7 +38,6 @@ pub fn purge_old_wavs(recordings_dir: &Path, older_than_days: u32) -> PurgeSumma
         }
         summary.sessions_inspected += 1;
 
-        // Must have a transcript before we throw away the source audio.
         if !path.join(TRANSCRIPT_FILENAME).is_file() && !path.join("transcript.json.zst").is_file()
         {
             continue;
@@ -69,9 +54,6 @@ pub fn purge_old_wavs(recordings_dir: &Path, older_than_days: u32) -> PurgeSumma
             continue;
         }
 
-        // Use the newer of the two mtimes as the session's "freshness"
-        // so a recording that's been edited recently doesn't get
-        // purged on a re-transcription.
         let mut newest = SystemTime::UNIX_EPOCH;
         for wav in &wavs {
             if let Ok(meta) = fs::metadata(wav) {

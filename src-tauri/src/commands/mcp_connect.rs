@@ -1,70 +1,45 @@
-//! MCP client detection + config generator (GET-208).
-//!
-//! Detects installed MCP clients (Claude Desktop, Cursor, Claude Code
-//! CLI) by checking well-known config file locations on macOS, then
-//! produces the exact JSON snippet (or CLI command) the user can paste /
-//! auto-write. Zero egress — all paths are resolved locally.
-
 use std::path::PathBuf;
 
 use serde::Serialize;
 use tauri::AppHandle;
 use tracing::debug;
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-/// Status of a detected MCP client.
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum ClientStatus {
-    /// Config file exists (client is likely installed).
     Detected,
-    /// Could not find the client's config directory.
+
     NotFound,
 }
 
-/// One detected (or absent) MCP client.
 #[derive(Debug, Clone, Serialize)]
 pub struct McpClient {
     pub id: String,
     pub name: String,
     pub status: ClientStatus,
-    /// Absolute path to the client's MCP config file (when detected).
+
     pub config_path: Option<String>,
-    /// The ready-to-paste JSON block for this client's config file.
+
     pub json_snippet: String,
-    /// For CLI clients: the exact command to run.
+
     pub cli_command: Option<String>,
 }
 
-/// Return from [`generate_mcp_config`].
 #[derive(Debug, Clone, Serialize)]
 pub struct McpConnectInfo {
     pub clients: Vec<McpClient>,
-    /// Best-effort path to the `attune-mcp` binary. If not yet available
-    /// (binary not shipped in this build), this is `None` and the snippet
-    /// shows a placeholder the user can fill in.
+
     pub binary_path: Option<String>,
 }
 
-// ---------------------------------------------------------------------------
-// Binary discovery
-// ---------------------------------------------------------------------------
-
-/// Try to locate the `attune-mcp` server binary. Checks:
-/// 1. Next to the main app binary (dev + prod).
-/// 2. `PATH` shim (when installed via Homebrew or similar).
 fn find_binary(app: &AppHandle) -> Option<PathBuf> {
-    // Prefer a binary sitting next to the main executable.
     if let Ok(exe) = std::env::current_exe() {
         let candidate = exe.parent().unwrap_or(exe.as_path()).join("attune-mcp");
         if candidate.exists() {
             return Some(candidate);
         }
     }
-    // Fall back to PATH lookup.
+
     if let Ok(output) = std::process::Command::new("which")
         .arg("attune-mcp")
         .output()
@@ -76,13 +51,9 @@ fn find_binary(app: &AppHandle) -> Option<PathBuf> {
             }
         }
     }
-    let _ = app; // Reserved for future resource-dir lookup.
+    let _ = app;
     None
 }
-
-// ---------------------------------------------------------------------------
-// Config builders
-// ---------------------------------------------------------------------------
 
 fn attune_json_block(binary: &str) -> String {
     format!(
@@ -110,10 +81,6 @@ fn attune_json_block_in_servers(binary: &str) -> String {
     )
 }
 
-// ---------------------------------------------------------------------------
-// Client detection
-// ---------------------------------------------------------------------------
-
 fn home() -> Option<PathBuf> {
     std::env::var("HOME").ok().map(PathBuf::from)
 }
@@ -127,8 +94,6 @@ fn detect_claude_desktop(binary: &str) -> McpClient {
         .map(|_| ClientStatus::Detected)
         .unwrap_or(ClientStatus::NotFound);
 
-    // Claude Desktop merges into the existing JSON; show only the
-    // `mcpServers` block the user needs to add / merge.
     let json_snippet = format!(
         "// Add this to your claude_desktop_config.json → \"mcpServers\" object:\n{}",
         attune_json_block(binary)
@@ -168,8 +133,6 @@ fn detect_cursor(binary: &str) -> McpClient {
 }
 
 fn detect_claude_code(binary: &str) -> McpClient {
-    // Claude Code CLI: `claude mcp add <name> <command> [args...]`
-    // Detect by checking if `claude` is on PATH.
     let has_claude = std::process::Command::new("which")
         .arg("claude")
         .output()
@@ -197,7 +160,6 @@ fn detect_claude_code(binary: &str) -> McpClient {
 }
 
 fn detect_windsurf(binary: &str) -> McpClient {
-    // Windsurf (Codeium): config at ~/Library/Application Support/Windsurf/mcp_config.json
     let config_path =
         home().map(|h| h.join("Library/Application Support/Windsurf/mcp_config.json"));
     let status = config_path
@@ -221,11 +183,6 @@ fn detect_windsurf(binary: &str) -> McpClient {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Command
-// ---------------------------------------------------------------------------
-
-/// Detect installed MCP clients and generate connection configs.
 #[tauri::command]
 pub fn generate_mcp_config(app: AppHandle) -> McpConnectInfo {
     debug!("generate_mcp_config");
@@ -248,20 +205,13 @@ pub fn generate_mcp_config(app: AppHandle) -> McpConnectInfo {
     }
 }
 
-/// The MCP client config directories that `write_mcp_config` is
-/// permitted to touch. Relative to `$HOME`. An empty-string entry is
-/// never matched so there is no accidental bypass when `HOME` is unset.
 const ALLOWED_CONFIG_DIRS: &[&str] = &[
     "Library/Application Support/Claude",
     ".cursor",
     "Library/Application Support/Windsurf",
 ];
 
-/// Returns true iff `path` is inside one of the allowed MCP config
-/// directories (under `$HOME`). Uses canonical paths to prevent
-/// path-traversal bypass via `..` components (security hardening).
 fn is_allowed_config_path(path: &std::path::Path) -> bool {
-    // Reject paths that contain `..` before even canonicalizing.
     if path
         .components()
         .any(|c| c == std::path::Component::ParentDir)
@@ -272,8 +222,7 @@ fn is_allowed_config_path(path: &std::path::Path) -> bool {
         return false;
     };
     let home = std::path::PathBuf::from(home_str);
-    // Canonicalize the parent (the file may not exist yet); reject if
-    // the parent doesn't exist or the leaf contains path separators.
+
     let parent = match path.parent() {
         Some(p) => p,
         None => return false,
@@ -282,22 +231,18 @@ fn is_allowed_config_path(path: &std::path::Path) -> bool {
         Some(n) => n,
         None => return false,
     };
-    // Disallow multi-component leaf names (e.g. "foo/bar").
+
     if std::path::Path::new(leaf).components().count() != 1 {
         return false;
     }
     let canon_parent = match std::fs::canonicalize(parent) {
         Ok(p) => p,
-        // Parent doesn't exist — create_dir_all will make it, but only if
-        // it's inside an allowed dir. Fall back to non-canonical check when
-        // the directory chain above it exists.
+
         Err(_) => {
-            // Walk up until we find an existing ancestor.
             let mut ancestor = parent;
             loop {
                 if let Some(p) = ancestor.parent() {
                     if p.exists() {
-                        // Verify the existing ancestor is inside an allowed dir.
                         if let Ok(canon) = std::fs::canonicalize(p) {
                             return ALLOWED_CONFIG_DIRS.iter().filter(|d| !d.is_empty()).any(
                                 |dir| {
@@ -326,22 +271,12 @@ fn is_allowed_config_path(path: &std::path::Path) -> bool {
         })
 }
 
-/// Write the Attune MCP block into a client's config file.
-///
-/// For Claude Desktop: merges `attune` into the existing
-/// `mcpServers` object (or creates the key if absent).
-/// For Cursor / Windsurf: writes / merges `mcpServers.attune`.
-///
-/// Returns the updated file content as a string so the caller
-/// can show it in a diff view before committing.
 #[tauri::command]
 pub fn write_mcp_config(
     config_path: String,
     binary_path: String,
     client_id: String,
 ) -> Result<String, String> {
-    // Security: only write to the known MCP client config directories.
-    // This prevents a tampered frontend call from writing arbitrary files.
     let path = std::path::PathBuf::from(&config_path);
     if !is_allowed_config_path(&path) {
         return Err(format!(
@@ -349,8 +284,7 @@ pub fn write_mcp_config(
             path.display()
         ));
     }
-    // Validate binary_path: must not be empty and must not contain shell
-    // metacharacters that could turn into code execution in the config.
+
     if binary_path.is_empty()
         || binary_path.contains('\n')
         || binary_path.contains('\r')
@@ -359,7 +293,6 @@ pub fn write_mcp_config(
         return Err("write_mcp_config: binary_path contains invalid characters".to_string());
     }
 
-    // Read existing content or start fresh.
     let existing: serde_json::Value = if path.exists() {
         let raw = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
         serde_json::from_str(&raw).unwrap_or(serde_json::json!({}))
@@ -369,9 +302,7 @@ pub fn write_mcp_config(
 
     let mut cfg = existing;
 
-    // Normalize: Claude Desktop uses top-level `mcpServers`.
-    // Cursor / Windsurf use the same structure.
-    let _ = client_id; // reserved for client-specific transformations
+    let _ = client_id;
     let mcp_servers = cfg
         .as_object_mut()
         .ok_or("config root is not a JSON object")?
@@ -392,11 +323,10 @@ pub fn write_mcp_config(
 
     let updated = serde_json::to_string_pretty(&cfg).map_err(|e| e.to_string())?;
 
-    // Create parent dirs if needed.
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
     }
-    // Atomic write via temp + rename.
+
     let tmp = path.with_extension("tmp");
     std::fs::write(&tmp, &updated).map_err(|e| e.to_string())?;
     std::fs::rename(&tmp, &path).map_err(|e| e.to_string())?;

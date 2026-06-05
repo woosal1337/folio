@@ -1,26 +1,3 @@
-//! Template marketplace client. v2 finding 086 / GET-106.
-//!
-//! Reads template manifests from a GitHub repo (default
-//! `attune-ai/attune-templates`) and installs picked templates into
-//! the user's local `<vault>/.attune/templates/` directory. The
-//! manifest format is intentionally tiny so PR contributions to the
-//! upstream repo stay frictionless.
-//!
-//! On-disk format in the marketplace repo:
-//!
-//!   templates/
-//!     <slug>/
-//!       template.toml
-//!       README.md
-//!     index.toml
-//!
-//! `index.toml` lists every template with a slug + display name +
-//! description; the manifest URL the client fetches is the raw
-//! GitHub blob path. The Tauri command surface fetches the index,
-//! then installs the picked entry by copying its `template.toml`
-//! into the user's templates directory via the existing
-//! `templates::save` helper from GET-36.
-
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -42,18 +19,10 @@ pub struct MarketplaceEntry {
 
 pub const DEFAULT_REPO: &str = "attune-ai/attune-templates";
 
-/// Build the raw GitHub URL for an asset inside the marketplace repo
-/// on the given branch (default `main`).
 pub fn raw_url(repo: &str, branch: &str, path: &str) -> String {
     format!("https://raw.githubusercontent.com/{repo}/{branch}/{path}")
 }
 
-/// Parse the index.toml fetched from the marketplace repo.
-///
-/// # Errors
-///
-/// Returns `Err(AttuneError::Storage(...))` when the input is not
-/// valid TOML or does not match `MarketplaceIndex`.
 pub fn parse_index(input: &str) -> crate::error::Result<MarketplaceIndex> {
     toml::from_str::<MarketplaceIndex>(input).map_err(|e| {
         crate::error::AttuneError::Storage(format!("invalid marketplace index TOML: {e}"))

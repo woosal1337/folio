@@ -1,16 +1,3 @@
-//! Public Share Page payload builder. v2 finding 083 / GET-81.
-//!
-//! Opt-in expiring web page hosted on `attune-web`. The server
-//! renders from an uploaded transcript JSON, never from the source
-//! WAV — the audio file does not leave the user's machine. This
-//! module shapes the payload + applies per-segment redaction +
-//! computes the expiry signature.
-//!
-//! The upload protocol itself (POST to attune.app/share) and the
-//! Next.js renderer that draws the page from the payload live in the
-//! `attune-web` repo. This crate owns the data contract so the
-//! client + server speak the same JSON.
-
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -43,10 +30,6 @@ pub struct SharePageSegment {
     pub redacted: bool,
 }
 
-/// Build the payload from a session transcript + sidecars. The
-/// caller passes a set of segment indices to redact (the user picked
-/// them in the editor); those segments ship with `redacted = true`
-/// and an empty `text` so the renderer shows a "[redacted]" stub.
 pub struct BuildOptions<'a> {
     pub title: String,
     pub summary_markdown: Option<String>,

@@ -19,18 +19,6 @@ import { EventKitRationaleScreen } from "./eventkit-rationale-screen";
 
 type Transcriber = "local_whisper" | "openai";
 
-/**
- * Local-only first-run conductor.
- *
- *   permissions → eventkit (calendar) → transcriber
- *
- * Attune ships as a fully local, single-user app — there is no account,
- * sign-in, or workspace. The conductor only primes the OS permissions
- * recording needs, offers calendar access, and lets the user pick how
- * transcripts happen. Completing it flips `onboarding_completed` on disk,
- * which is the sole gate App.tsx keys on before rendering the main shell.
- */
-
 type Step = "permissions" | "eventkit" | "transcriber";
 
 export function FirstRunConductor({ onFinish }: { onFinish: () => void }) {
@@ -123,7 +111,6 @@ export function FirstRunConductor({ onFinish }: { onFinish: () => void }) {
     );
   }
 
-  // transcriber step (final)
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-8 px-8 py-12">
       <header data-drag="" className="select-none">

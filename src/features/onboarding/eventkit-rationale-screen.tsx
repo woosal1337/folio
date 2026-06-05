@@ -1,24 +1,3 @@
-/**
- * GET-128 — EventKit access rationale (pre-prompt).
- *
- * Granola pops the OS prompt cold. We show a soft pre-prompt
- * explaining EventKit-only first, then the user clicks "Grant"
- * which fires `EKEventStore.requestFullAccessToEvents`. If the user
- * picks Skip we set `onboarding_calendar_deferred = true` and the
- * Settings → Calendar pane displays a banner so they can grant
- * later.
- *
- * Sasha red lines:
- *   - The bullet list explicitly says "Attune does NOT connect to
- *     Google or Microsoft Calendar OAuth — we read whatever you've
- *     added to macOS Calendar locally."
- *   - We never store OAuth tokens for calendar; macOS already holds
- *     the upstream credentials in the user's iCloud / system keychain.
- *
- * Kenji: Skip is a real button at parity weight with Grant, not a
- * micro-link. Both are Tab-reachable; Esc dismisses-as-skip.
- */
-
 import * as React from "react";
 import { Calendar, Lock, Server, Check } from "lucide-react";
 

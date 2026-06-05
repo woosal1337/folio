@@ -16,11 +16,6 @@ interface Props {
   sessionDir: string;
 }
 
-/**
- * Read the transcript for a session and render it as one chronological,
- * speaker-labelled conversation. Loads lazily on mount so the recording
- * row only pays the IO cost when the user actually opens it.
- */
 export function TranscriptView({ sessionDir }: Props) {
   const [transcript, setTranscript] = React.useState<SessionTranscript | null>(null);
   const [speakerLabels, setSpeakerLabels] = React.useState<SpeakerLabel[]>([]);
@@ -41,7 +36,7 @@ export function TranscriptView({ sessionDir }: Props) {
         if (!cancelled) setLoading(false);
       }
     })();
-    // Speaker names are best-effort: show "Speaker N" if they don't load.
+
     void listSessionSpeakers(sessionDir)
       .then((labels) => {
         if (!cancelled) setSpeakerLabels(labels);
@@ -52,7 +47,6 @@ export function TranscriptView({ sessionDir }: Props) {
     };
   }, [sessionDir]);
 
-  // cluster id → real name, applied over the default "Speaker N".
   const speakerNames = React.useMemo(() => {
     const m = new Map<number, string>();
     for (const l of speakerLabels) {
@@ -61,8 +55,6 @@ export function TranscriptView({ sessionDir }: Props) {
     return m;
   }, [speakerLabels]);
 
-  // Merge mic + system into one chronological conversation. Computed
-  // unconditionally (hooks rules) — empty until the transcript loads.
   const rows = React.useMemo(
     () => (transcript ? buildConversation(transcript, speakerNames) : []),
     [transcript, speakerNames]
@@ -107,7 +99,7 @@ export function TranscriptView({ sessionDir }: Props) {
 
 function ConversationList({ rows }: { rows: ConversationRow[] }) {
   const speakers = otherSpeakerLabels(rows);
-  // Per-segment language badges only on code-switched recordings (GET-190).
+
   const multilingual = conversationLanguages(rows).length > 1;
 
   return (

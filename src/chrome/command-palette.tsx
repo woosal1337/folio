@@ -15,13 +15,6 @@ interface Props {
   sources: CommandSource[];
 }
 
-/**
- * Cmd-K command palette overlay. v2 finding 007 / GET-26.
- *
- * Loads every source on open, ranks the joined item list against
- * the query, and renders the top 50. Enter executes the selected
- * action; arrows navigate; Esc closes.
- */
 export function CommandPalette({ open, onClose, sources }: Props) {
   const [items, setItems] = React.useState<CommandItem[]>([]);
   const [dynamicItems, setDynamicItems] = React.useState<CommandItem[]>([]);
@@ -51,8 +44,6 @@ export function CommandPalette({ open, onClose, sources }: Props) {
     };
   }, [open, sources]);
 
-  // Query-aware sources (GET-165): re-run their search as the query
-  // changes, debounced, and fold the results into the ranked list.
   React.useEffect(() => {
     const searchers = sources
       .map((s) => s.search)
@@ -77,7 +68,6 @@ export function CommandPalette({ open, onClose, sources }: Props) {
   }, [open, query, sources]);
 
   const ranked = React.useMemo(() => {
-    // Dedupe by id so a dynamic hit doesn't double a static item.
     const seen = new Set<string>();
     const merged = [...items, ...dynamicItems].filter((i) => {
       if (seen.has(i.id)) return false;

@@ -1,16 +1,3 @@
-//! Full-text search across note content (GET-165).
-//!
-//! My Notes + the Cmd-K palette previously matched only the label and
-//! the autoname suggestion. This scans the *body* of each note —
-//! user-set title, enhanced-notes summary, live notes, and the
-//! transcript — and returns the notes that contain the query with a
-//! short snippet around the first hit.
-//!
-//! It's a linear scan rather than an FTS5 index: a personal library is
-//! small enough that scanning is instant, and it sidesteps having to
-//! keep an index in sync with transcription / regeneration. The
-//! snippet/matching helpers are pure so they're unit-testable.
-
 use std::path::Path;
 
 use serde::{Deserialize, Serialize};
@@ -20,28 +7,22 @@ use crate::llm::agent_run::AgentRunStore;
 use crate::storage::session::scan_recordings;
 use crate::transcription::SessionTranscript;
 
-/// A single note that matched a search, with a snippet for context.
 #[derive(Clone, Debug, Serialize, Deserialize, TS, PartialEq, Eq)]
 #[ts(export, export_to = "../../../src/shared/types/")]
 pub struct NoteSearchHit {
     pub session_dir: String,
     pub label: String,
-    /// Resolved display title (user title or autoname suggestion), if any.
+
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
-    /// A short excerpt around the first match, with ellipses.
+
     pub snippet: String,
-    /// Which part of the note matched: "title", "summary", "notes", or
-    /// "transcript". Lets the UI hint where the hit came from.
+
     pub matched_in: String,
 }
 
-/// How many characters of context to show on each side of a match.
 const SNIPPET_RADIUS: usize = 60;
 
-/// Search every note under `output_dir` for `query`. Case-insensitive,
-/// substring match. Notes are returned newest-first (the `scan_recordings`
-/// order). A blank query returns no hits.
 pub fn search_notes(output_dir: &Path, query: &str) -> Vec<NoteSearchHit> {
     let needle = query.trim().to_lowercase();
     if needle.is_empty() {
@@ -56,8 +37,6 @@ pub fn search_notes(output_dir: &Path, query: &str) -> Vec<NoteSearchHit> {
             .or_else(|| rec.suggested_title.clone())
             .filter(|t| !t.trim().is_empty());
 
-        // Fields in priority order — the first to match decides the
-        // snippet + `matched_in`, so a title hit beats a transcript hit.
         let mut candidates: Vec<(&str, String)> = Vec::new();
         if let Some(t) = &title {
             candidates.push(("title", t.clone()));
@@ -88,7 +67,6 @@ pub fn search_notes(output_dir: &Path, query: &str) -> Vec<NoteSearchHit> {
     hits
 }
 
-/// Read the enhanced-notes summary text for a note, if one exists.
 fn read_summary_text(session_dir: &Path) -> Option<String> {
     let runs = AgentRunStore::list(session_dir).ok()?;
     runs.into_iter()
@@ -96,7 +74,6 @@ fn read_summary_text(session_dir: &Path) -> Option<String> {
         .map(|r| r.response)
 }
 
-/// Read + render the user's live notes for a note, if any.
 fn read_live_notes_text(session_dir: &Path) -> Option<String> {
     let bytes = std::fs::read(session_dir.join("live_notes.json")).ok()?;
     let lines: Vec<crate::live_notes::RawNoteLine> = serde_json::from_slice(&bytes).ok()?;
@@ -107,7 +84,6 @@ fn read_live_notes_text(session_dir: &Path) -> Option<String> {
     Some(crate::live_notes::render_markdown(&notes))
 }
 
-/// Flatten a note's transcript into one searchable string, if present.
 fn read_transcript_text(session_dir: &Path) -> Option<String> {
     let path = session_dir.join("transcript.json");
     let transcript = SessionTranscript::read_json(&path).ok()?;
@@ -125,15 +101,6 @@ fn read_transcript_text(session_dir: &Path) -> Option<String> {
     }
 }
 
-/// Find `needle_lc` (already lowercased) in `haystack` case-insensitively
-/// and return a snippet of ~`radius` chars on each side, with leading /
-/// trailing ellipses when truncated and whitespace collapsed. `None`
-/// when there's no match.
-///
-/// Works on chars (not bytes) so multi-byte UTF-8 never panics. Each
-/// source char maps to a single lowercased char for index alignment —
-/// imperfect for the rare chars that lowercase to multiple, but correct
-/// for the transcripts this serves.
 pub fn find_snippet(haystack: &str, needle_lc: &str, radius: usize) -> Option<String> {
     if needle_lc.is_empty() {
         return None;
@@ -154,7 +121,7 @@ pub fn find_snippet(haystack: &str, needle_lc: &str, radius: usize) -> Option<St
     let start = match_at.saturating_sub(radius);
     let end = (match_at + needle.len() + radius).min(hay_chars.len());
     let core: String = hay_chars[start..end].iter().collect();
-    // Collapse runs of whitespace/newlines so the snippet reads as one line.
+
     let collapsed = core.split_whitespace().collect::<Vec<_>>().join(" ");
 
     let mut snippet = String::new();
@@ -217,7 +184,7 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let dir = tmp.path().join("2026-05-29-meeting");
         std::fs::create_dir_all(&dir).unwrap();
-        // A note marker so scan_recordings includes it even with no audio.
+
         std::fs::write(dir.join("live_notes.json"), b"[]").unwrap();
         let transcript = SessionTranscript {
             channels: vec![ChannelTranscript {

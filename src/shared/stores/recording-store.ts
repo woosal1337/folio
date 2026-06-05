@@ -1,14 +1,3 @@
-/**
- * Cross-route recording session state.
- *
- * Replaces the previous `useRecording` hook so the recording controller
- * survives route changes (the Record page can unmount without losing the
- * timer or the in-flight session). The store mirrors the backend's
- * `RecordingStatus` and adds UI-only state: a high-resolution local
- * timer, busy/error flags, the last saved session directory, and the
- * post-stop transcription lifecycle.
- */
-
 import { toast } from "sonner";
 import { create } from "zustand";
 
@@ -39,61 +28,47 @@ import { useTasksStore } from "@/shared/stores/tasks-store";
 
 interface RecordingState {
   recording: boolean;
-  /** GET-149: a note is open but capture is paused (not recording). */
+
   paused: boolean;
-  /** Wall-clock ms when the current session started, or null if idle. */
+
   startedAt: number | null;
-  /** Whole-seconds elapsed in the current session. */
+
   elapsed: number;
-  /** Channels reported by the backend (e.g. ["mic", "system"]). */
+
   channels: string[];
-  /** Last error message surfaced to the UI, or null. */
+
   error: string | null;
-  /** True while an IPC call is in flight. */
+
   busy: boolean;
-  /** Session directory of the most recently stopped recording. */
+
   lastSavedDir: string | null;
-  /**
-   * Session directory of the in-progress recording, or null when idle.
-   * Sourced from the backend RecordingStatus so the live-notes editor
-   * (GET-145) can autosave into it mid-recording.
-   */
+
   liveSessionDir: string | null;
 
-  /** True while an auto-transcription job is in flight. */
   transcribing: boolean;
-  /**
-   * Session directory of the recording currently being transcribed, or
-   * null if no job is active. Lets the UI show a spinner on a specific
-   * row without conflating it with `lastSavedDir`.
-   */
+
   transcribingDir: string | null;
-  /** Last transcript JSON path written, or null. */
+
   lastTranscriptPath: string | null;
-  /** Last transcription error, or null. */
+
   transcribeError: string | null;
 
-  /** Internal: interval handle for the local ticker. */
   _tickerId: number | null;
 
-  /** First-mount: ask the backend whether a session is already running. */
   syncFromBackend: () => Promise<void>;
-  /** Start a new recording session. With `sessionDir` (GET-155) it
-   *  records into that existing note's directory. */
+
   start: (sessionDir?: string) => Promise<void>;
-  /** Stop the current recording session. Auto-transcribes if configured. */
+
   stop: () => Promise<void>;
-  /** Pause capture, keeping the note open (GET-149). */
+
   pause: () => Promise<void>;
-  /** Resume a paused note, continuing capture (GET-149). */
+
   resume: () => Promise<void>;
-  /** Transcribe an existing session on demand. */
+
   transcribe: (sessionDir: string) => Promise<void>;
 }
 
 export const useRecording = create<RecordingState>((set, get) => {
-  // GET-211: track whether an auto-segment roll is in flight so we
-  // don't trigger multiple simultaneous pause+resumes.
   let segmentRolling = false;
 
   const tick = () => {
@@ -101,18 +76,17 @@ export const useRecording = create<RecordingState>((set, get) => {
     if (!recording || startedAt === null) return;
     const next = Math.floor((Date.now() - startedAt) / 1000);
     set({ elapsed: next });
-    // GET-201: pass paused flag so the tray shows the right icon glyph.
+
     void ipcSetTrayRecording(next, paused);
   };
 
-  /** Roll to a new WAV segment: pause then immediately resume (GET-211). */
   const autoSegment = async () => {
     if (segmentRolling) return;
     segmentRolling = true;
     try {
       console.info("[marathon] auto-segmenting recording");
       await ipcPause();
-      // Brief gap so the WAV writer can finalize.
+
       await new Promise((r) => setTimeout(r, 300));
       await ipcResume();
     } catch (e) {
@@ -138,18 +112,12 @@ export const useRecording = create<RecordingState>((set, get) => {
     void ipcSetTrayRecording(null);
   };
 
-  // Pull the trailing component of a path, cross-platform. Used by the
-  // toast descriptions so we surface "2026-05-23-19-15-22" rather than
-  // the full /Users/…/Recordings/2026-05-23-19-15-22 mouthful.
   const basename = (path: string): string => {
     const trimmed = path.replace(/[\\/]+$/, "");
     const idx = Math.max(trimmed.lastIndexOf("/"), trimmed.lastIndexOf("\\"));
     return idx === -1 ? trimmed : trimmed.slice(idx + 1);
   };
 
-  // Format seconds as "M:SS" for toast descriptions on stop. Mirrors
-  // the formatter used elsewhere in the UI but kept local so the
-  // store has no UI-layer dep.
   const formatDurationSeconds = (s: number): string => {
     const safe = Math.max(0, Math.floor(s));
     const m = Math.floor(safe / 60);
@@ -157,19 +125,11 @@ export const useRecording = create<RecordingState>((set, get) => {
     return `${m}:${sec.toString().padStart(2, "0")}`;
   };
 
-  // Try to auto-run the Summarize agent after a transcription completes.
-  // Silently no-ops when auto-summarize is off or no OpenAI key is set —
-  // we don't want to nag the user with toast errors for opt-out behaviour.
-  // Pushes its own pill into the jobs store so the user sees what's
-  // running.
   const maybeAutoSummarize = async (sessionDir: string) => {
     const settings = useSettingsStore.getState().settings;
     if (!settings) return;
     if (!settings.auto_summarize_enabled) return;
     if (!(await ipcHasOpenAiKey())) {
-      // No AI key configured — the user can still summarize manually
-      // from the editor; the AgentPanel's hint links straight to
-      // Settings → AI for them.
       return;
     }
     const jobId = `agent:summarize:${sessionDir}`;
@@ -185,7 +145,6 @@ export const useRecording = create<RecordingState>((set, get) => {
       await ipcRunAgent(sessionDir, "summarize");
       toast.success("Summary ready", { description: basename(sessionDir) });
     } catch (e) {
-      // Non-fatal — the manual button in the editor still works.
       console.error("auto-summarize failed:", e);
       toast.error("Auto-summary failed", { description: String(e) });
     } finally {
@@ -193,11 +152,6 @@ export const useRecording = create<RecordingState>((set, get) => {
     }
   };
 
-  // Try to auto-run the Extract Memories agent after a transcription
-  // completes. Same gating + job-pill pattern as auto-summarize/tasks.
-  // Memories the agent writes via the `remember` tool land on the
-  // Memory page; on success we refresh the memories store so the UI
-  // updates immediately if the user has /memory open.
   const maybeAutoExtractMemories = async (sessionDir: string) => {
     const settings = useSettingsStore.getState().settings;
     if (!settings) return;
@@ -226,13 +180,6 @@ export const useRecording = create<RecordingState>((set, get) => {
     }
   };
 
-  // Try to auto-run the Auto-name agent after a transcription
-  // completes. Same gating + job-pill pattern as the other auto-fires.
-  // The agent's response is a JSON object with title / tags /
-  // subtitle; we don't surface a toast on success because the
-  // suggestion shows up directly in the Library list — that's the UX
-  // the v2 finding 024 calls for. Errors are still toasted so the
-  // user can see when the auto-fire silently broke.
   const maybeAutoName = async (sessionDir: string) => {
     const settings = useSettingsStore.getState().settings;
     if (!settings) return;
@@ -251,9 +198,6 @@ export const useRecording = create<RecordingState>((set, get) => {
     });
     try {
       await ipcRunAgent(sessionDir, "autoname");
-      // No success toast — the suggestion appears in the Library row
-      // on the next list refresh, which is the UX the v2 finding
-      // explicitly asks for ("apply silently").
     } catch (e) {
       console.error("auto-name failed:", e);
       toast.error("Auto-name failed", { description: String(e) });
@@ -262,11 +206,6 @@ export const useRecording = create<RecordingState>((set, get) => {
     }
   };
 
-  // Try to auto-run the Extract Tasks agent after a transcription
-  // completes. Same gating as auto-summarize: opt-in via settings, no
-  // toast on the skipped path. The agent writes via the `create_task`
-  // tool, so success here means new cards appear on the kanban —
-  // refresh the tasks store so they show up wherever the user is.
   const maybeAutoExtractTasks = async (sessionDir: string) => {
     const settings = useSettingsStore.getState().settings;
     if (!settings) return;
@@ -285,8 +224,7 @@ export const useRecording = create<RecordingState>((set, get) => {
     });
     try {
       await ipcRunAgent(sessionDir, "extract-tasks");
-      // Refresh so the Tasks page picks up the new cards immediately
-      // if the user happens to be looking at it.
+
       void useTasksStore.getState().refresh();
       toast.success("Tasks ready", { description: basename(sessionDir) });
     } catch (e) {
@@ -297,13 +235,7 @@ export const useRecording = create<RecordingState>((set, get) => {
     }
   };
 
-  // Self-contained transcription routine so both `stop` (auto) and an
-  // explicit `transcribe(...)` call route through the same lifecycle.
   const runTranscription = async (sessionDir: string) => {
-    // Before kicking off, ask for confirmation if the OpenAI Whisper
-    // path is about to send a sizeable WAV upstream. Below the
-    // threshold (small / cheap meetings) we don't bother the user.
-    // Local Whisper has no cost, so it bypasses this check.
     const settings = useSettingsStore.getState().settings;
     if (settings?.transcriber === "openai") {
       const label = basename(sessionDir);
@@ -340,21 +272,11 @@ export const useRecording = create<RecordingState>((set, get) => {
       sessionDir,
       recordingLabel: basename(sessionDir),
     });
-    // Inform the user the async job kicked off. Useful when they
-    // navigate away from the row that shows the spinner — the toast
-    // is the only persistent signal that work is happening.
+
     toast.info("Transcribing…", {
       description: basename(sessionDir),
     });
     try {
-      // VAD pre-pass: strip silence from mic.wav + system.wav before
-      // the ASR sees them. Whisper hallucinates on silent inputs (the
-      // 2026-05-26-11-47-54 mic.wav incident looped a sentence 14
-      // times across 60s of silence). Pushed as its own job pill so
-      // the user sees the two-step queue. Opt-out via
-      // Settings.auto_vad_enabled — when disabled or when the IPC
-      // fails we fall through to the ASR with the raw WAVs and log
-      // the reason; this never blocks transcription.
       if (settings?.auto_vad_enabled ?? true) {
         const vadJobId = `vad:${sessionDir}`;
         useJobsStore.getState().push({
@@ -391,11 +313,6 @@ export const useRecording = create<RecordingState>((set, get) => {
         lastTranscriptPath: result.transcript_path,
       });
 
-      // Speaker diarization: now a dedicated step with its own job pill
-      // so the user can see "Identifying speakers…" separately from the
-      // transcription step. Runs after the transcript is saved to disk
-      // so diarize_session can re-read it. Non-blocking — any failure
-      // just leaves the "Others" label intact; agents still work.
       if (settings?.diarization_enabled ?? true) {
         const diarizeJobId = `diarize:${sessionDir}`;
         useJobsStore.getState().push({
@@ -414,7 +331,6 @@ export const useRecording = create<RecordingState>((set, get) => {
           }
         } catch (e) {
           console.error("diarize_session failed:", e);
-          // Non-fatal — transcript is still usable without speaker labels.
         } finally {
           useJobsStore.getState().pop(diarizeJobId);
         }
@@ -425,10 +341,6 @@ export const useRecording = create<RecordingState>((set, get) => {
       );
       const channelCount = result.session_transcript.channels.length;
 
-      // For Local Whisper transcriptions: surface "Local Whisper
-      // saved you $X" so the user feels the dollar value of the
-      // local path. We reuse the same cost estimator the cloud
-      // confirm modal uses (#055). v2 finding 093.
       let savedHint = "";
       if (settings?.transcriber === "local_whisper") {
         const label = basename(sessionDir);
@@ -449,19 +361,7 @@ export const useRecording = create<RecordingState>((set, get) => {
       toast.success("Transcription complete", {
         description: `${segments} segments across ${channelCount} channel${channelCount === 1 ? "" : "s"} saved.${savedHint}`,
       });
-      // Chain into auto-summarize, auto-extract-tasks, and
-      // auto-extract-memories once the transcript has landed. We
-      // don't await — `runTranscription`'s caller doesn't care about
-      // the post-processing outcome; the jobs strip + the editor
-      // page surface progress and results. All three run in
-      // parallel: they hit the same provider, but the requests are
-      // independent and we'd rather they finish sooner.
-      //
-      // v2 finding 065: skip the three when the laptop is on
-      // battery + below the low threshold. Surface a toast with a
-      // Run-anyway action so the user can override per-recording.
-      // The check is best-effort (Web Battery API only); on any
-      // ambiguity we run the work.
+
       if (await shouldDeferOnPower()) {
         const power = await readPower();
         toast.info("Auto-AI deferred", {
@@ -514,8 +414,7 @@ export const useRecording = create<RecordingState>((set, get) => {
     syncFromBackend: async () => {
       try {
         const status = await fetchStatus();
-        // GET-149: adopt a paused note (a note is open but not capturing)
-        // so a window reload mid-pause still shows Resume + the editor.
+
         if (!status.recording) {
           if (status.paused) {
             set({
@@ -538,10 +437,9 @@ export const useRecording = create<RecordingState>((set, get) => {
           liveSessionDir: status.session_dir,
         });
         installTicker();
-        // Re-adopting an in-progress capture after a reload/restart —
-        // bring the floating bar back too.
+
         void ipcShowRecordingBar().catch(() => {});
-        // GET-211: auto-segment if the backend flagged it.
+
         if (status.needs_segment) {
           void autoSegment();
         }
@@ -554,8 +452,7 @@ export const useRecording = create<RecordingState>((set, get) => {
       set({
         busy: true,
         error: null,
-        // Reset transcription state from any prior session so the loader
-        // doesn't bleed across recordings.
+
         transcribeError: null,
         lastTranscriptPath: null,
       });
@@ -571,8 +468,7 @@ export const useRecording = create<RecordingState>((set, get) => {
           liveSessionDir: status.session_dir,
         });
         installTicker();
-        // Pop the floating always-on-top recording bar so the user has a
-        // Stop button + live indicator regardless of focused app.
+
         void ipcShowRecordingBar().catch(() => {});
         const count = status.channels.length;
         playFeedback("start");
@@ -593,19 +489,11 @@ export const useRecording = create<RecordingState>((set, get) => {
     },
 
     stop: async () => {
-      // Re-entrancy + state guard: ignore a stop while another transition
-      // is in flight, or when there's nothing to stop. Makes a duplicate
-      // trigger (e.g. widget + app) a silent no-op instead of an error.
       const s = get();
       if (s.busy || (!s.recording && !s.paused)) return;
-      // Snapshot duration before we reset elapsed, so the toast can
-      // surface "0:42" instead of always saying "0:00".
+
       const elapsedAtStop = s.elapsed;
-      // Optimistic, INSTANT teardown: stop the ticker, drop the bar, and
-      // flip the UI to idle now — the backend `stop` then finalizes/merges
-      // the WAVs (which can take ~1s on a long note). Without this the bar
-      // kept showing "recording" for that whole second after the user hit
-      // Stop. If the backend stop fails we re-sync to recover the truth.
+
       clearTicker();
       void ipcHideRecordingBar().catch(() => {});
       set({
@@ -631,8 +519,7 @@ export const useRecording = create<RecordingState>((set, get) => {
         set({ error: message });
         playFeedback("error");
         toast.error("Could not stop recording", { description: message });
-        // The optimistic teardown assumed success; reconcile with the
-        // backend in case the capture is actually still running.
+
         void get().syncFromBackend();
       } finally {
         set({ busy: false });
@@ -640,12 +527,6 @@ export const useRecording = create<RecordingState>((set, get) => {
 
       if (!sessionDir) return;
 
-      // Decide whether to auto-transcribe. We read settings from the
-      // settings store rather than re-fetching them on every stop —
-      // the store is loaded once on app startup. Honours the
-      // `auto_transcribe_enabled` toggle and falls back to manual
-      // transcription when the selected provider isn't usable
-      // (OpenAI without a key, anything else just runs).
       const settings = useSettingsStore.getState().settings;
       const autoEnabled = settings?.auto_transcribe_enabled ?? true;
       if (!autoEnabled) {
@@ -665,14 +546,9 @@ export const useRecording = create<RecordingState>((set, get) => {
     },
 
     pause: async () => {
-      // Only an actively-recording session can pause; ignore if busy or
-      // already paused/idle so a double-trigger is a no-op, not an error.
       const s = get();
       if (s.busy || !s.recording) return;
-      // Optimistic: stop the ticker and show "paused" immediately so the
-      // dock + bar respond on the click, not after the (off-thread) segment
-      // finalize. The backend then returns the authoritative frozen
-      // elapsed, which we reconcile below.
+
       clearTicker();
       void ipcSetTrayRecording(null);
       set({ busy: true, error: null, recording: false, paused: true, startedAt: null });
@@ -695,17 +571,10 @@ export const useRecording = create<RecordingState>((set, get) => {
     },
 
     resume: async () => {
-      // Only a paused note can resume; ignore if busy or already
-      // recording so a double-trigger (the StrictMode listener race that
-      // caused the stop→start→resume jank, or widget+app both firing) is
-      // a silent no-op instead of an "already recording" error.
       const s = get();
       if (s.busy || !s.paused) return;
       const resumeFrom = s.elapsed;
-      // Optimistic: flip to "recording" + restart the ticker from the
-      // accumulated elapsed right away, so the dock is instant. The bar is
-      // reused (hidden, not closed) so show is a cheap no-op-ish call. The
-      // backend's authoritative elapsed reconciles below.
+
       set({
         busy: true,
         error: null,

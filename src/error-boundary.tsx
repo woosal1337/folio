@@ -1,10 +1,3 @@
-/**
- * Root-level error boundary. Catches uncaught render-time errors so the
- * entire window doesn't disappear into a white screen. Logs to the
- * console (which `tracing` captures in dev) and shows a minimal
- * recovery UI.
- */
-
 import * as React from "react";
 
 interface State {

@@ -13,8 +13,6 @@ import {
 import { messages } from "./messages.en";
 
 beforeEach(() => {
-  // Reset to the canonical English table so tests don't leak state
-  // into each other.
   setMessages(messages as unknown as Record<string, string>);
 });
 
@@ -32,8 +30,6 @@ describe("t", () => {
   });
 
   it("falls back to the key when no message is found", () => {
-    // Cast through unknown so the test can drive a missing-key edge
-    // case without weakening the public type.
     expect(t("errors.nope" as unknown as Parameters<typeof t>[0])).toBe("errors.nope");
   });
 

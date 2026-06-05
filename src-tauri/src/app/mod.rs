@@ -1,6 +1,3 @@
-//! Application-wide concerns: the process-state singleton and platform
-//! glue (macOS Dock icon).
-
 #[cfg(target_os = "macos")]
 pub mod audio_input_watcher;
 pub mod dock_icon;

@@ -1,35 +1,18 @@
-//! Default agents shipped with Attune.
-//!
-//! Phase 1.5 MVP ships four read-only baked-in agents so the user can
-//! actually use the AI feature right after configuring an API key. The
-//! v0.1 work in the vault plan (phases 3 + 6) adds on-disk TOML
-//! definitions so the user can edit prompts and create custom agents;
-//! this module is the source of truth for the *default* prompts that
-//! the editor will "Restore default" back to.
-//!
-//! All four agents are one-shot (single turn over the whole
-//! transcript). Multi-turn chat is phase 5/7.
-
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-/// A read-only agent definition surfaced to the UI.
 #[derive(Clone, Debug, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../src/shared/types/")]
 pub struct Agent {
-    /// Stable kebab-case identifier. Used as the filename for
-    /// persisted runs and as the route key in the UI.
     pub id: String,
-    /// Human-readable display name shown on the agent's button in the UI.
+
     pub name: String,
-    /// One-sentence description shown under the agent's button.
+
     pub description: String,
-    /// The system prompt the model sees. Kept short — long prompts eat
-    /// the context budget and rarely help on transcripts of meetings.
+
     pub system_prompt: String,
 }
 
-/// All default agents, in display order.
 pub fn defaults() -> Vec<Agent> {
     vec![
         summarize(),
@@ -42,8 +25,6 @@ pub fn defaults() -> Vec<Agent> {
     ]
 }
 
-/// Look up a default agent by id. Returns `None` if `id` does not
-/// match any default (custom agents arrive in phase 3).
 pub fn by_id(id: &str) -> Option<Agent> {
     defaults().into_iter().find(|a| a.id == id)
 }
@@ -372,9 +353,9 @@ mod tests {
         ] {
             assert!(p.contains(heading), "missing heading: {heading}");
         }
-        // Honest about thin transcripts.
+
         assert!(p.to_lowercase().contains("brief"));
-        // Folds in the user's live notes.
+
         assert!(p.contains("/action"));
     }
 

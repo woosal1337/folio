@@ -1,10 +1,3 @@
-/**
- * Backend sync — verify the IPC bridge actually fires when the UI
- * saves, signs out, or hits the account / referrals endpoints. This
- * is the safety net for "did the React app stop calling the backend
- * after a refactor?".
- */
-
 import { expect, test } from "@playwright/test";
 
 import { ipcCalls, ipcLog, setupScenario } from "./fixtures/scenario";
@@ -26,7 +19,7 @@ test("save_settings carries the patched payload, not an arbitrary blob", async (
   await page.goto("/");
   await page.getByRole("button", { name: /^settings$/i }).click();
   await page.getByRole("button", { name: /^preferences$/i }).click();
-  // Flip live-meeting-indicator off.
+
   const toggle = page.getByRole("switch", { name: /live meeting indicator/i });
   await toggle.click();
   await page.getByRole("button", { name: /^save$/i }).click();
@@ -66,8 +59,3 @@ test("the IPC trail contains the boot-time probes (auth_status, get_settings)", 
   expect(cmds).toContain("auth_status");
   expect(cmds).toContain("get_settings");
 });
-
-// (Removed) "workspace name saved via Settings" — the Workspace → General
-// section was deleted in the personal-only restructure (PR #266). The
-// workspace_name field is now set only during onboarding, not editable in
-// Settings, so there is no Settings surface left to drive this test.

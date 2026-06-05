@@ -1,20 +1,3 @@
-//! Sealed share bundle (.attune-share).
-//!
-//! Exports a single recording's session directory as a zip with a
-//! manifest at the root carrying a SHA-256 hash of every file inside.
-//! Recipients can verify the bundle wasn't tampered with by recomputing
-//! the hashes; the manifest also records the source path + creation
-//! time so the file is self-describing on disk.
-//!
-//! v2 roadmap finding 052 / GET-69. ed25519 signing is a follow-up —
-//! the SHA-256 manifest shipped here is the tamper-evident
-//! foundation; adding a signature is a one-field manifest extension
-//! once we have a signing-key story.
-//!
-//! The zip is Deflate-compressed; the .wav/.json.zst payloads are
-//! already incompressible so Deflate no-ops on them and the small
-//! files (transcript JSON, manifest) get the saving.
-
 use std::fs;
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Read, Write};
@@ -35,9 +18,7 @@ pub struct ShareBundleSummary {
     pub destination: PathBuf,
     pub files: usize,
     pub bytes: u64,
-    /// SHA-256 of the manifest contents, hex-encoded. The bundle's
-    /// fingerprint the recipient can quote in messages ("I sent you
-    /// share bundle abc123…").
+
     pub manifest_sha256: String,
 }
 
@@ -58,8 +39,6 @@ struct Manifest {
 
 const SCHEMA_VERSION: u32 = 1;
 
-/// Build the bundle at `destination`. The destination is created
-/// (or truncated) by this function; the parent directory must exist.
 pub fn export(session_dir: &Path, destination: &Path) -> Result<ShareBundleSummary> {
     if !session_dir.is_dir() {
         return Err(AttuneError::Storage(format!(

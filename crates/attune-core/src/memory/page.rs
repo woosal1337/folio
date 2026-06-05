@@ -1,21 +1,3 @@
-//! On-disk markdown format for a memory page.
-//!
-//! Each memory is one markdown file with YAML frontmatter at the top
-//! and a "compiled truth + timeline" body (the pattern GBrain uses for
-//! its wiki pages). The frontmatter is the machine-readable contract;
-//! the body is human-readable and git-diffable.
-//!
-//! Parsing goes through `serde_norway` deserializing into the typed
-//! `MemoryFrontmatter` struct below. Unknown keys are caught by a
-//! `#[serde(flatten)]` extras map so a user who hand-edits a page and
-//! adds their own field doesn't see it disappear on the next round-
-//! trip — the writer emits the extras at the end of the frontmatter
-//! block in sorted order. v2 finding 040 / GET-61.
-//!
-//! Rendering uses a small hand-rolled writer rather than
-//! `serde_norway::to_string` so the byte output is stable across
-//! versions and round-trips produce clean git diffs.
-
 use std::collections::BTreeMap;
 use std::fmt::Write as FmtWrite;
 use std::fs;
@@ -27,9 +9,6 @@ use serde::{Deserialize, Serialize};
 use crate::error::{AttuneError, Result};
 use crate::memory::types::{Memory, MemoryKind};
 
-/// Typed mirror of the on-disk frontmatter. Every known field is
-/// reified as a strongly-typed property; everything else is caught by
-/// the `#[serde(flatten)]` extras map so it can be re-emitted on write.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct MemoryFrontmatter {
     id: String,
@@ -55,8 +34,7 @@ struct MemoryFrontmatter {
     pinned: bool,
     created_at: String,
     updated_at: String,
-    /// Catch-all for user-added frontmatter keys. Preserved on
-    /// round-trip.
+
     #[serde(flatten)]
     extras: BTreeMap<String, serde_norway::Value>,
 }
@@ -65,26 +43,15 @@ fn default_confidence() -> f32 {
     1.0
 }
 
-/// Trailing path component of `dir` for a given memory id. Filename
-/// format is `<kind>_<short-uuid>.md` — we don't include the key in
-/// the filename because keys can be renamed and we want a stable file
-/// path across renames. Short uuid is the leading 8 chars of the
-/// UUIDv7 (sortable, almost always unique inside a single user's
-/// store).
 pub fn filename_for(memory: &Memory) -> String {
     let short = memory.id.split('-').next().unwrap_or(&memory.id);
     format!("{}_{}.md", memory.kind.as_str(), short)
 }
 
-/// Absolute path on disk for a memory.
 pub fn path_for(dir: &Path, memory: &Memory) -> PathBuf {
     dir.join(filename_for(memory))
 }
 
-/// Write a memory page to disk via [`crate::storage::atomic_write`] —
-/// temp file + fsync + rename — so neither a crash nor a power loss
-/// mid-write can corrupt or truncate the final file. Creates the
-/// parent directory tree on first write.
 pub fn write_page(dir: &Path, memory: &Memory) -> Result<PathBuf> {
     fs::create_dir_all(dir).map_err(|e| {
         AttuneError::Storage(format!(
@@ -98,7 +65,6 @@ pub fn write_page(dir: &Path, memory: &Memory) -> Result<PathBuf> {
     Ok(path)
 }
 
-/// Delete a memory file. Idempotent — missing file is success.
 pub fn delete_page(dir: &Path, memory: &Memory) -> Result<()> {
     let path = path_for(dir, memory);
     match fs::remove_file(&path) {
@@ -111,9 +77,6 @@ pub fn delete_page(dir: &Path, memory: &Memory) -> Result<()> {
     }
 }
 
-/// Read every memory page in `dir`. Files we can't parse are logged
-/// and skipped rather than failing the load — a hand-edited file
-/// shouldn't bring down the whole index rebuild.
 pub fn read_dir_pages(dir: &Path) -> Vec<Memory> {
     let entries = match fs::read_dir(dir) {
         Ok(e) => e,
@@ -142,10 +105,6 @@ pub fn read_dir_pages(dir: &Path) -> Vec<Memory> {
     out
 }
 
-/// Render a memory as its markdown page (frontmatter + body). The
-/// frontmatter is emitted in a fixed order so git diffs stay clean;
-/// any user-added unknown keys (carried through `Memory::extras`) are
-/// appended at the end in BTree-sorted order.
 pub fn render_page(memory: &Memory) -> String {
     let mut out = String::new();
     out.push_str("---\n");
@@ -180,12 +139,7 @@ pub fn render_page(memory: &Memory) -> String {
     push_str(&mut out, "created_at", &memory.created_at.to_rfc3339());
     push_str(&mut out, "updated_at", &memory.updated_at.to_rfc3339());
 
-    // User-added unknown keys, sorted for stable diffs. Emitted via
-    // serde_norway so nested structures (lists, maps) survive a round-trip.
     for (k, v) in &memory.extras {
-        // Skip any extras that happen to shadow a known field — the
-        // known field takes precedence, and re-emitting the extra would
-        // produce a duplicate key.
         if is_known_key(k) {
             continue;
         }
@@ -199,9 +153,6 @@ pub fn render_page(memory: &Memory) -> String {
 
     out.push_str("---\n\n");
 
-    // Body: heading is the key (or "Observation" for keyless),
-    // followed by the current value and a placeholder timeline that
-    // the renderer leaves for the user / future passes to expand.
     let heading = memory.key.as_deref().unwrap_or("Observation");
     let _ = writeln!(out, "# {heading}\n");
     let _ = writeln!(out, "**Current:** {}", memory.content.trim());
@@ -211,12 +162,6 @@ pub fn render_page(memory: &Memory) -> String {
     out
 }
 
-/// Parse a memory page from raw bytes.
-///
-/// # Errors
-///
-/// Returns `Err(AttuneError::Storage(...))` when the frontmatter is
-/// missing, malformed, or contains an unrecognised `kind` field.
 pub fn parse_page(raw: &str) -> crate::error::Result<Memory> {
     let rest = raw.strip_prefix("---\n").ok_or_else(|| {
         crate::error::AttuneError::Storage("missing leading frontmatter delimiter".into())
@@ -247,8 +192,6 @@ pub fn parse_page(raw: &str) -> crate::error::Result<Memory> {
     let created_at = parse_dt("created_at", &fm.created_at)?;
     let updated_at = parse_dt("updated_at", &fm.updated_at)?;
 
-    // Body: pull the `**Current:**` line as the canonical content so
-    // hand-edited prose around it is ignored.
     let body = rest[end..].trim_start_matches("\n---").trim_start();
     let mut content_line: Option<String> = None;
     for line in body.lines() {
@@ -277,8 +220,6 @@ pub fn parse_page(raw: &str) -> crate::error::Result<Memory> {
         extras: fm.extras,
     })
 }
-
-// ---- frontmatter render helpers ----------------------------------
 
 fn push_str(out: &mut String, k: &str, v: &str) {
     let _ = writeln!(out, "{}: {}", k, quote_if_needed(v));
@@ -310,9 +251,6 @@ fn push_string_list(out: &mut String, k: &str, items: &[String]) {
     let _ = writeln!(out, "{}: [{}]", k, inner.join(", "));
 }
 
-/// Emit a single extra `key: value` line. Scalars round-trip through
-/// `quote_if_needed`; non-scalars defer to `serde_norway`'s default
-/// serializer with the YAML document markers stripped.
 fn render_extra(key: &str, value: &serde_norway::Value) -> crate::error::Result<String> {
     match value {
         serde_norway::Value::Null => Ok(format!("{}: null\n", key)),
@@ -320,9 +258,6 @@ fn render_extra(key: &str, value: &serde_norway::Value) -> crate::error::Result<
         serde_norway::Value::Number(n) => Ok(format!("{}: {}\n", key, n)),
         serde_norway::Value::String(s) => Ok(format!("{}: {}\n", key, quote_if_needed(s))),
         other => {
-            // Sequences and mappings — let serde_norway render them but
-            // strip the document-start `---\n` marker so we don't get
-            // nested document syntax.
             let rendered = serde_norway::to_string(&serde_norway::Value::Mapping({
                 let mut m = serde_norway::Mapping::new();
                 m.insert(serde_norway::Value::String(key.to_string()), other.clone());
@@ -334,8 +269,6 @@ fn render_extra(key: &str, value: &serde_norway::Value) -> crate::error::Result<
     }
 }
 
-/// Known frontmatter keys — used to drop any catch-all that happens to
-/// duplicate a typed field so the rendered page can't grow duplicates.
 fn is_known_key(k: &str) -> bool {
     matches!(
         k,
@@ -355,8 +288,6 @@ fn is_known_key(k: &str) -> bool {
     )
 }
 
-/// Quote strings that contain YAML-special characters. Everything
-/// else round-trips bare for readable frontmatter.
 fn quote_if_needed(s: &str) -> String {
     let needs_quote = s.is_empty()
         || s.chars().any(|c| {
@@ -366,7 +297,6 @@ fn quote_if_needed(s: &str) -> String {
             )
         });
     if needs_quote {
-        // Always-quote uses double quotes + \"-escape for safety.
         format!("\"{}\"", s.replace('\\', "\\\\").replace('"', "\\\""))
     } else {
         s.to_string()
@@ -482,10 +412,6 @@ mod tests {
 
     #[test]
     fn parse_preserves_unknown_extras_in_round_trip() {
-        // Build a page on disk by hand, including an unknown user
-        // field. The first parse-then-render cycle should put the
-        // extra into Memory::extras and re-emit it; the second parse
-        // should see the same extras.
         let raw = "---
 id: 01H9XABCDEFGHIJKLMNOPQRST
 kind: claim

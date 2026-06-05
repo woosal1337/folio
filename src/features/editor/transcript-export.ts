@@ -1,21 +1,3 @@
-/**
- * Pure renderers that turn a SessionTranscript into the three subtitle
- * formats listed in v2 roadmap finding 102:
- *
- * - SRT  (.srt)  — SubRip, the universal exchange format.
- * - VTT  (.vtt)  — Web Video Text Tracks, HTML5 <track> friendly.
- * - TXT  (.txt)  — plain text with a leading [hh:mm:ss.mmm] timestamp
- *                  per line. Useful for paste-into-doc workflows.
- *
- * Segments from every channel are merged + sorted chronologically by
- * start time. When the same speaker is split across multiple
- * consecutive segments we still emit one cue per segment so the
- * captioning track stays aligned with Whisper's natural break points.
- *
- * Everything here is sync and side-effect-free so the unit tests can
- * pin the exact bytes we emit.
- */
-
 import type { SessionTranscript } from "@/shared/types/SessionTranscript";
 import type { TranscriptSegment } from "@/shared/types/TranscriptSegment";
 
@@ -46,23 +28,16 @@ function flatten(transcript: SessionTranscript): Cue[] {
   return cues;
 }
 
-/** Map the on-disk channel id to a human caption-prefix. */
 function speakerFor(channel: string): string {
   if (channel === "mic") return "You";
   if (channel === "system") return "Others";
   return channel;
 }
 
-/** Right-pad / clamp a fractional second to N digits without rounding surprises. */
 function pad(n: number, width: number): string {
   return Math.floor(n).toString().padStart(width, "0");
 }
 
-/**
- * Format an absolute seconds count as SRT timestamp: HH:MM:SS,mmm.
- * The integer milliseconds component uses a comma separator per SRT
- * spec; VTT uses a dot instead — handled in `vttTimestamp`.
- */
 export function srtTimestamp(seconds: number): string {
   const safe = Number.isFinite(seconds) && seconds > 0 ? seconds : 0;
   const total = Math.round(safe * 1000);
@@ -78,7 +53,6 @@ export function vttTimestamp(seconds: number): string {
   return srtTimestamp(seconds).replace(",", ".");
 }
 
-/** Plain-text leading stamp: [hh:mm:ss.mmm]. */
 export function txtTimestamp(seconds: number): string {
   return `[${vttTimestamp(seconds)}]`;
 }
@@ -99,7 +73,7 @@ export function toVtt(transcript: SessionTranscript): string {
   const blocks = cues.map((c) => {
     const speaker = speakerFor(c.channel);
     const range = `${vttTimestamp(c.start)} --> ${vttTimestamp(c.end)}`;
-    // VTT inline cue settings are written `<v Speaker>` per spec.
+
     return `${range}\n<v ${speaker}>${c.text}\n`;
   });
   return `WEBVTT\n\n${blocks.join("\n")}`;
@@ -141,10 +115,6 @@ export function mimeFor(format: ExportFormat): string {
   }
 }
 
-/**
- * Match a query against a segment's text. Returns the lowercase
- * needle and a boolean. Used by the search filter in the editor.
- */
 export function segmentMatches(segment: TranscriptSegment, query: string): boolean {
   if (query.trim().length === 0) return true;
   return segment.text.toLowerCase().includes(query.toLowerCase());

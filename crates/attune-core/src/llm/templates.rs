@@ -1,26 +1,3 @@
-//! Meeting templates under `<vault>/.attune/templates/<slug>.toml`.
-//! v2 finding 023 / GET-36. Builds on the agent TOML loader from #022.
-//!
-//! A template biases prompts, picks which auto-fire agents to invoke,
-//! defines the summary structure, and seeds template-specific
-//! sections in the briefing card. Cheapest way to make output feel
-//! hand-tailored.
-//!
-//! Schema:
-//!
-//! ```toml
-//! slug = "standup"
-//! name = "Daily standup"
-//! description = "Yesterday / today / blockers per attendee."
-//! match_keywords = ["standup", "daily", "scrum"]
-//! agents = ["summarize", "extract-tasks"]
-//! summary_sections = ["yesterday", "today", "blockers"]
-//! prompt_bias = "This is a daily standup. Focus on commitments and blockers."
-//! ```
-//!
-//! The dispatcher looks up a template by exact slug first, then by
-//! `match_keywords` against the meeting label / calendar title.
-
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -117,11 +94,6 @@ pub fn list_all(vault_root: &Path) -> Result<Vec<MeetingTemplate>> {
     Ok(out)
 }
 
-/// Pick the best-matching template for a recording label. First by
-/// exact slug; then by any keyword the label contains (case-
-/// insensitive, whole-word boundary not required because meeting
-/// titles are messy: "Mon Standup" should match "standup").
-/// Returns None when no template matches.
 pub fn pick_for_label(templates: &[MeetingTemplate], label: &str) -> Option<MeetingTemplate> {
     let label_lc = label.to_lowercase();
     if let Some(hit) = templates
@@ -140,9 +112,6 @@ pub fn pick_for_label(templates: &[MeetingTemplate], label: &str) -> Option<Meet
         .cloned()
 }
 
-/// The five baked-in templates we ship as defaults when the user has
-/// no `.attune/templates/` directory yet. The Settings UI offers to
-/// materialise them on first run so the user has a starting fork.
 pub fn baked_in_defaults() -> Vec<MeetingTemplate> {
     vec![
         MeetingTemplate {
