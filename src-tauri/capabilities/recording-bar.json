@@ -1,0 +1,13 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "recording-bar",
+  "description": "Floating recording-control bar. Frameless always-on-top window that shows the live recording indicator + elapsed time and a Stop button. Draggable (start-dragging) and self-closing (allow-close); it only invokes app-defined recording commands and listens for events, both covered by core:default. No fs / opener / dialog grants.",
+  "windows": ["recording-bar"],
+  "permissions": [
+    "core:default",
+    "core:webview:default",
+    "core:app:default",
+    "core:window:allow-start-dragging",
+    "core:window:allow-close"
+  ]
+}

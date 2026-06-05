@@ -1,0 +1,62 @@
+name: Update Homebrew cask
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  cask:
+    if: ${{ !github.event.release.prerelease }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          ref: main
+
+      - name: Compute checksums and rewrite cask
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+            echo "refusing to run on non-semver tag: $TAG"
+            exit 1
+          fi
+          version="${TAG#v}"
+          base="https://github.com/${REPO}/releases/download/${TAG}"
+          arm_sha="$(curl -fsSL "${base}/Folio_${version}_aarch64.dmg" | sha256sum | cut -d' ' -f1)"
+          intel_sha="$(curl -fsSL "${base}/Folio_${version}_x64.dmg" | sha256sum | cut -d' ' -f1)"
+          VERSION="$version" ARM_SHA="$arm_sha" INTEL_SHA="$intel_sha" python3 - <<'PY'
+          import os, re
+          v = os.environ["VERSION"]
+          arm = os.environ["ARM_SHA"]
+          intel = os.environ["INTEL_SHA"]
+          path = "Casks/folio.rb"
+          s = open(path).read()
+          s = re.sub(r'\n  version "[^"]*"', '\n  version "%s"' % v, s, count=1)
+          s = re.sub(
+              r'\n  sha256 (?::no_check|arm:.*?)(?=\n\n)',
+              '\n  sha256 arm:   "%s",\n         intel: "%s"' % (arm, intel),
+              s, count=1, flags=re.DOTALL,
+          )
+          open(path, "w").write(s)
+          PY
+
+      - name: Commit
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Casks/folio.rb
+          if git diff --cached --quiet; then
+            echo "cask already up to date"
+          else
+            git commit -m "homebrew: folio ${TAG#v}"
+            git push
+          fi

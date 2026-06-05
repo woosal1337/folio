@@ -1,0 +1,11 @@
+{
+  "id": "summarize-thin-transcript",
+  "agent_id": "summarize",
+  "transcript": "You: Hey.\nSpeaker 1: Hey.",
+  "expectations": {
+    "must_not_contain": ["I cannot", "I'm sorry"],
+    "must_not_speculate": true,
+    "max_words": 150
+  },
+  "notes": "IncompleteFlagged rubric fixture (GET-199). A two-line transcript gives the summarize agent almost nothing to work with. A passing response either acknowledges the thin input explicitly (IncompleteFlagged — pass) or produces a very short factual note (UsefulIncomplete — pass). Any confident claim about intent or subtext that cannot be grounded in the two lines fails as WrongConfident."
+}

@@ -1,0 +1,81 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Folio",
+  "mainBinaryName": "Folio",
+  "version": "1.0.0",
+  "identifier": "dev.folio.app",
+  "build": {
+    "beforeDevCommand": "bun run dev",
+    "beforeBuildCommand": "bun run build",
+    "devUrl": "http://localhost:1420",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "macOSPrivateApi": true,
+    "windows": [
+      {
+        "title": "Folio",
+        "width": 1200,
+        "height": 780,
+        "minWidth": 880,
+        "minHeight": 600,
+        "resizable": true,
+        "fullscreen": false,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true,
+        "transparent": false
+      }
+    ],
+    "security": {
+      "csp": null,
+      "assetProtocol": {
+        "enable": true,
+        "scope": ["$HOME/Documents/Folio/**", "$APPDATA/Folio/**", "$CACHE/Folio/**"]
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "category": "Productivity",
+    "shortDescription": "Local-first meeting transcription",
+    "longDescription": "Capture system audio and microphone, transcribe locally or via OpenAI Whisper, and keep every meeting searchable.",
+    "fileAssociations": [
+      {
+        "ext": ["wav", "m4a", "mp3"],
+        "name": "Audio Recording",
+        "description": "Audio file Folio can transcribe",
+        "role": "Editor",
+        "rank": "Alternate"
+      }
+    ],
+    "macOS": {
+      "infoPlist": "Info.plist",
+      "entitlements": "Entitlements.plist",
+      "hardenedRuntime": true,
+      "minimumSystemVersion": "13.0"
+    }
+  },
+  "plugins": {
+    "deep-link": {
+      "desktop": {
+        "schemes": ["folio"]
+      }
+    },
+    "updater": {
+      "active": false,
+      "endpoints": [
+        "https://github.com/woosal1337/folio/releases/latest/download/latest.json"
+      ],
+      "dialog": true,
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEYwQkM3OThBMEQwOEUyRUUKUldUdTRnZ05pbm04OEpKQ2F4M1BqQjQ1cGg2Q0o4bkFrVmZ3d1Y5WmIxaVk3em00UCtNYnd4dkYK"
+    }
+  }
+}

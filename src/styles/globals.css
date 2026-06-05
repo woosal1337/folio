@@ -1,0 +1,251 @@
+@import "@fontsource/inter/400.css";
+@import "@fontsource/inter/500.css";
+@import "@fontsource/inter/600.css";
+@import "@fontsource/jetbrains-mono/400.css";
+@import "@fontsource/jetbrains-mono/500.css";
+@import "@fontsource/spectral/400.css";
+@import "@fontsource/spectral/400-italic.css";
+@import "@fontsource/spectral/500.css";
+
+@import "@fontsource/fraunces/400.css";
+@import "@fontsource/fraunces/500.css";
+@import "@fontsource/atkinson-hyperlegible/400.css";
+@import "@fontsource/atkinson-hyperlegible/700.css";
+@import "@fontsource/opendyslexic/400.css";
+@import "@fontsource/opendyslexic/700.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 38 33% 94%;
+    --foreground: 0 0% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 10%;
+    --sidebar: 38 27% 91%;
+    --sidebar-foreground: 0 0% 10%;
+
+    --primary: 165 42% 30%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 38 27% 91%;
+    --secondary-foreground: 0 0% 12%;
+
+    --muted: 38 24% 89%;
+    --muted-foreground: 0 0% 42%;
+
+    --accent: 159 28% 90%;
+    --accent-foreground: 165 42% 24%;
+
+    --destructive: 4 60% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 36 23% 88%;
+    --input: 36 23% 88%;
+    --ring: 165 42% 30%;
+
+    --radius: 0.75rem;
+
+    --motion-ms-fast: 120ms;
+    --motion-ms-snap: 200ms;
+    --motion-ms-modal: 350ms;
+    --motion-ms-deliberate: 480ms;
+    --motion-ease-standard: cubic-bezier(0.32, 0.72, 0, 1);
+    --motion-ease-emphasized: cubic-bezier(0.2, 0, 0, 1);
+    --motion-ease-decelerate: cubic-bezier(0, 0, 0.2, 1);
+    --motion-ease-accelerate: cubic-bezier(0.3, 0, 1, 1);
+    --motion-ease-overshoot: cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  [data-theme="dark"] {
+    --background: 240 7% 6%;
+    --foreground: 0 0% 92%;
+    --card: 240 6% 10%;
+    --card-foreground: 0 0% 92%;
+    --popover: 240 6% 10%;
+    --popover-foreground: 0 0% 92%;
+    --sidebar: 240 7% 8%;
+    --sidebar-foreground: 0 0% 90%;
+
+    --primary: 0 0% 92%;
+    --primary-foreground: 240 7% 8%;
+
+    --secondary: 240 6% 14%;
+    --secondary-foreground: 0 0% 90%;
+
+    --muted: 240 5% 16%;
+    --muted-foreground: 240 5% 65%;
+
+    --accent: 240 5% 18%;
+    --accent-foreground: 0 0% 92%;
+
+    --destructive: 4 65% 55%;
+    --destructive-foreground: 0 0% 95%;
+
+    --border: 240 6% 18%;
+    --input: 240 6% 18%;
+    --ring: 0 0% 60%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-background font-sans text-foreground;
+
+    font-feature-settings: "ss01", "cv02", "cv03", "cv04", "cv11";
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  input,
+  textarea,
+  [contenteditable="true"],
+  [contenteditable="true"] *,
+  .select-text,
+  .select-text * {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+
+  .font-mono {
+    font-variant-numeric: tabular-nums;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.4);
+    background-clip: padding-box;
+    border: 2px solid transparent;
+  }
+}
+
+@layer components {
+  .drag {
+    -webkit-app-region: drag;
+  }
+  .no-drag {
+    -webkit-app-region: no-drag;
+  }
+
+  .md-notes-editor .ProseMirror p {
+    @apply mb-3 last:mb-0;
+  }
+  .md-notes-editor .ProseMirror h1 {
+    @apply mb-3 mt-4 text-base font-semibold first:mt-0;
+  }
+  .md-notes-editor .ProseMirror h2 {
+    @apply mb-2 mt-4 text-sm font-semibold first:mt-0;
+  }
+  .md-notes-editor .ProseMirror h3 {
+    @apply mb-2 mt-3 text-sm font-semibold first:mt-0;
+  }
+  .md-notes-editor .ProseMirror ul {
+    @apply mb-3 ml-5 list-disc space-y-1 marker:text-muted-foreground last:mb-0;
+  }
+  .md-notes-editor .ProseMirror ol {
+    @apply mb-3 ml-5 list-decimal space-y-1 marker:text-muted-foreground last:mb-0;
+  }
+  .md-notes-editor .ProseMirror li {
+    @apply pl-1;
+  }
+  .md-notes-editor .ProseMirror blockquote {
+    @apply my-2 border-l-2 border-border pl-3 italic text-muted-foreground;
+  }
+  .md-notes-editor .ProseMirror code {
+    @apply rounded bg-muted px-1 py-0.5 font-mono text-xs;
+  }
+  .md-notes-editor .ProseMirror pre {
+    @apply my-2 overflow-x-auto rounded-md bg-muted p-3 font-mono text-xs;
+  }
+  .md-notes-editor .ProseMirror pre code {
+    @apply bg-transparent p-0;
+  }
+  .md-notes-editor .ProseMirror strong {
+    @apply font-semibold;
+  }
+  .md-notes-editor .ProseMirror a {
+    @apply text-primary underline underline-offset-2;
+  }
+
+  .md-notes-editor .ProseMirror p.is-editor-empty:first-child::before {
+    content: attr(data-placeholder);
+    @apply pointer-events-none float-left h-0 text-muted-foreground;
+  }
+}
+
+html[data-reading-font="fraunces"] body {
+  font-family: "Fraunces", "Spectral", Georgia, ui-serif, serif;
+}
+html[data-reading-font="atkinson-hyperlegible"] body {
+  font-family: "Atkinson Hyperlegible", "Inter", system-ui, sans-serif;
+}
+html[data-reading-font="opendyslexic"] body {
+  font-family: "OpenDyslexic", "Atkinson Hyperlegible", "Inter", system-ui, sans-serif;
+}
+
+.font-serif {
+  font-family: inherit;
+}
+html[data-reading-size="s"] {
+  font-size: 14px;
+}
+html[data-reading-size="m"] {
+  font-size: 16px;
+}
+html[data-reading-size="l"] {
+  font-size: 17px;
+}
+html[data-reading-size="xl"] {
+  font-size: 18px;
+}
+html[data-reading-spacing="tight"] body {
+  letter-spacing: -0.012em;
+}
+html[data-reading-spacing="normal"] body {
+  letter-spacing: 0;
+}
+html[data-reading-spacing="wide"] body {
+  letter-spacing: 0.02em;
+}
+html[data-reading-spacing="wider"] body {
+  letter-spacing: 0.04em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

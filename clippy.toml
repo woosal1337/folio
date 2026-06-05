@@ -1,0 +1,10 @@
+msrv = "1.88"
+avoid-breaking-exported-api = false
+allow-print-in-tests = true
+allow-dbg-in-tests = true
+allow-expect-in-tests = true
+allow-unwrap-in-tests = true
+
+disallowed-methods = []
+disallowed-types = []
+disallowed-macros = []

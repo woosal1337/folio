@@ -1,0 +1,14 @@
+# Global default
+*                                       @woosal1337
+
+# Rust core
+/crates/folio-core/                    @woosal1337
+/crates/folio-cli/                     @woosal1337
+/src-tauri/                             @woosal1337
+
+# Frontend
+/src/                                   @woosal1337
+
+# Repo hygiene
+/.github/                               @woosal1337
+/docs/                                  @woosal1337
