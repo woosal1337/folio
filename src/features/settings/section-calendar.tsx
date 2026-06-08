@@ -11,7 +11,11 @@ import {
 
 import { Label } from "@/shared/ui/label";
 import { Switch } from "@/shared/ui/switch";
-import { calendarAuthorizationStatus, listCalendarEvents } from "@/shared/lib/ipc";
+import {
+  calendarAuthorizationStatus,
+  listCalendarEvents,
+  requestCalendarAccess,
+} from "@/shared/lib/ipc";
 import { humanizeError } from "@/shared/lib/errors";
 import type { CalendarEvent } from "@/shared/types/CalendarEvent";
 import type { Settings } from "@/shared/types/Settings";
@@ -144,19 +148,22 @@ function CalendarEventsPanel() {
 
   return (
     <div className="space-y-3">
-      <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-        Upcoming events
-      </Label>
+      <div className="flex items-center justify-between">
+        <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+          Upcoming events
+        </Label>
+        {status === "authorized" ? <ConnectedBadge /> : null}
+      </div>
       {loading ? (
         <div className="rounded-lg border border-border bg-card px-4 py-5 text-xs text-muted-foreground">
           Loading your calendar…
         </div>
       ) : status !== "authorized" ? (
-        <CalendarGrantPrompt />
+        <CalendarGrantPrompt status={status} onRefresh={refresh} />
       ) : events.length === 0 ? (
         <div className="rounded-lg border border-border bg-card px-4 py-5 text-xs text-muted-foreground">
-          No events in the next 14 days. Folio reads your macOS Calendar locally;
-          nothing leaves your Mac.
+          Connected, but no events in the next 14 days. Folio reads your macOS Calendar
+          locally; nothing leaves your Mac.
         </div>
       ) : (
         <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card">
@@ -167,6 +174,15 @@ function CalendarEventsPanel() {
       )}
       {error ? <p className="text-2xs text-destructive">{error}</p> : null}
     </div>
+  );
+}
+
+function ConnectedBadge() {
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-2xs font-medium text-emerald-600 dark:text-emerald-400">
+      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+      Connected
+    </span>
   );
 }
 
@@ -215,14 +231,42 @@ function EventRow({ event }: { event: CalendarEvent }) {
   );
 }
 
-function CalendarGrantPrompt() {
+function CalendarGrantPrompt({
+  status,
+  onRefresh,
+}: {
+  status: string | null;
+  onRefresh: () => Promise<void>;
+}) {
+  const [requesting, setRequesting] = React.useState(false);
+  const denied = status === "denied" || status === "restricted";
+
+  const grant = React.useCallback(async () => {
+    setRequesting(true);
+    try {
+      await requestCalendarAccess();
+      if (!denied) {
+        for (let i = 0; i < 20; i += 1) {
+          await new Promise((resolve) => setTimeout(resolve, 800));
+          const next = await calendarAuthorizationStatus();
+          if (next !== "not_determined") break;
+        }
+      }
+      await onRefresh();
+    } finally {
+      setRequesting(false);
+    }
+  }, [denied, onRefresh]);
+
   return (
     <div className="rounded-lg border border-dashed border-border bg-card p-5">
       <div className="flex items-start gap-3">
         <Calendar className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" />
-        <div className="flex-1 space-y-1.5">
+        <div className="flex-1 space-y-2.5">
           <p className="text-sm font-medium">
-            Grant Calendar access in macOS to see your events here
+            {denied
+              ? "Calendar access is turned off"
+              : "Connect your calendar to see your events here"}
           </p>
           <p className="max-w-prose text-xs text-muted-foreground">
             Folio reads your macOS Calendar locally — whatever accounts you&apos;ve
@@ -230,13 +274,30 @@ function CalendarGrantPrompt() {
             does not connect to any cloud calendar itself; your calendar data stays on
             your Mac.
           </p>
-          <a
-            href="x-apple.systempreferences:com.apple.preference.security?Privacy_Calendars"
-            className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-          >
-            Open System Settings → Calendar permissions
-            <ExternalLink className="h-3 w-3" />
-          </a>
+          <div className="flex items-center gap-3 pt-0.5">
+            <button
+              type="button"
+              onClick={() => void grant()}
+              disabled={requesting}
+              className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {requesting
+                ? "Waiting for macOS…"
+                : denied
+                  ? "Open System Settings"
+                  : "Grant Calendar access"}
+              {denied && !requesting ? <ExternalLink className="h-3 w-3" /> : null}
+            </button>
+            {denied ? null : (
+              <a
+                href="x-apple.systempreferences:com.apple.preference.security?Privacy_Calendars"
+                className="inline-flex items-center gap-1 text-2xs text-muted-foreground hover:text-foreground"
+              >
+                Open System Settings
+                <ExternalLink className="h-3 w-3" />
+              </a>
+            )}
+          </div>
         </div>
       </div>
     </div>
