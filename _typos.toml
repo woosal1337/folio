@@ -24,6 +24,11 @@ ege = "ege"
 # `MIS` is a proper-noun acronym in the Whisper glossary
 # (Management Information Systems), not a misspelling of MISS/MIST.
 MIS = "MIS"
+# `qery` is a required four-character AppleScript OSType code in the
+# `.sdef`, not a misspelling of "query".
+qery = "qery"
+# `Sizin` is Turkish ("your") inside a transcription test fixture.
+Sizin = "Sizin"
 
 [files]
 extend-exclude = [
@@ -36,4 +41,9 @@ extend-exclude = [
   "src-tauri/gen/**",
   "src-tauri/icons/**",
   "*.svg",
+  # Localised permission strings — foreign-language words trip the
+  # English spell-checker (e.g. Dutch "legt", German "deines").
+  "src-tauri/locale/**",
+  # ElevenLabs voice IDs are opaque strings (e.g. "...vdvUeBnXmlld").
+  "scripts/generate-voice-fixtures.mjs",
 ]

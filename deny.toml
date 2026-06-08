@@ -1,6 +1,14 @@
 [graph]
 all-features = false
 no-default-features = false
+# cargo-deny-action is a Linux-only container action, so the single
+# Linux CI run must evaluate the macOS dependency tree too (the app's
+# real target). These cover both Apple targets plus the CI host.
+targets = [
+  "aarch64-apple-darwin",
+  "x86_64-apple-darwin",
+  "x86_64-unknown-linux-gnu",
+]
 
 [output]
 feature-depth = 1

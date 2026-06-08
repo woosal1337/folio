@@ -49,25 +49,9 @@ jobs:
           git diff --exit-code src/shared/types/ \
             || (echo "::error::ts-rs regeneration produced a non-zero diff. Run 'cargo test --workspace' locally and commit src/shared/types/." && exit 1)
 
-  rust-audit:
-    name: cargo audit
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      checks: write
-    steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-      - uses: rustsec/audit-check@dd51754d4e59da7395a4cd9b593f0ff2d61a9b95 # v1.4.1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-
   rust-deny:
     name: cargo deny
-    strategy:
-      fail-fast: false
-      matrix:
-        runner: [ubuntu-latest, macos-14]
-    runs-on: ${{ matrix.runner }}
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - uses: EmbarkStudios/cargo-deny-action@bb137d7af7e4fb67e5f82a49c4fce4fad40782fe # v2
