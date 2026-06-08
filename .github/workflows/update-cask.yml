@@ -29,20 +29,14 @@ jobs:
           version="${TAG#v}"
           base="https://github.com/${REPO}/releases/download/${TAG}"
           arm_sha="$(curl -fsSL "${base}/Folio_${version}_aarch64.dmg" | sha256sum | cut -d' ' -f1)"
-          intel_sha="$(curl -fsSL "${base}/Folio_${version}_x64.dmg" | sha256sum | cut -d' ' -f1)"
-          VERSION="$version" ARM_SHA="$arm_sha" INTEL_SHA="$intel_sha" python3 - <<'PY'
+          VERSION="$version" ARM_SHA="$arm_sha" python3 - <<'PY'
           import os, re
           v = os.environ["VERSION"]
           arm = os.environ["ARM_SHA"]
-          intel = os.environ["INTEL_SHA"]
           path = "Casks/folio.rb"
           s = open(path).read()
           s = re.sub(r'\n  version "[^"]*"', '\n  version "%s"' % v, s, count=1)
-          s = re.sub(
-              r'\n  sha256 (?::no_check|arm:.*?)(?=\n\n)',
-              '\n  sha256 arm:   "%s",\n         intel: "%s"' % (arm, intel),
-              s, count=1, flags=re.DOTALL,
-          )
+          s = re.sub(r'\n  sha256 "[^"]*"', '\n  sha256 "%s"' % arm, s, count=1)
           open(path, "w").write(s)
           PY
 

@@ -9,12 +9,10 @@
 # `update-homebrew-cask` job in .github/workflows/release.yml on every tagged
 # release, so `brew upgrade --cask folio` tracks new releases.
 cask "folio" do
-  arch arm: "aarch64", intel: "x64"
-
   version "1.0.0"
-  sha256 :no_check
+  sha256 "86e8c3dc367d20f39e05d7719f1c9f491af6aacbc53f5a81da007613244bef35"
 
-  url "https://github.com/woosal1337/folio/releases/download/v#{version}/Folio_#{version}_#{arch}.dmg",
+  url "https://github.com/woosal1337/folio/releases/download/v#{version}/Folio_#{version}_aarch64.dmg",
       verified: "github.com/woosal1337/folio/"
   name "Folio"
   desc "Local-first meeting transcription for macOS"
@@ -25,6 +23,7 @@ cask "folio" do
     strategy :github_latest
   end
 
+  depends_on arch: :arm64
   depends_on macos: ">= :ventura"
 
   app "Folio.app"

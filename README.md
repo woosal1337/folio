@@ -49,12 +49,11 @@ brew install --cask folio
 
 ### Direct download
 
-Grab the latest `.dmg` from the [Releases page](https://github.com/woosal1337/folio/releases/latest), open it, and drag **Folio** to Applications:
+Grab the latest **Apple Silicon** `.dmg` from the [Releases page](https://github.com/woosal1337/folio/releases/latest), open it, and drag **Folio** to Applications:
 
 - Apple Silicon — `Folio_<version>_aarch64.dmg`
-- Intel — `Folio_<version>_x64.dmg`
 
-CI releases are code-signed and notarized, so they open without a Gatekeeper prompt. If macOS ever blocks an unsigned local build on first launch, right-click the app → **Open**, or run `xattr -dr com.apple.quarantine /Applications/Folio.app`.
+Releases are code-signed with a Developer ID and notarized by Apple, so they open without a Gatekeeper prompt. (Intel builds aren't published yet — build from source on an Intel Mac if you need one.)
 
 ### Build from source
 
