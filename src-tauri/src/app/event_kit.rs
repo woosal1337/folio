@@ -42,9 +42,8 @@ mod imp {
     use std::ffi::CStr;
     use std::os::raw::c_char;
 
-    use block::ConcreteBlock;
     use chrono::{DateTime, Utc};
-    use cocoa::base::{id, nil, BOOL, NO};
+    use cocoa::base::{id, nil};
     use folio_core::calendar::{detect_conference_url, CalendarEvent};
     use objc::{class, msg_send, sel, sel_impl};
 
@@ -75,66 +74,86 @@ mod imp {
     }
 
     unsafe fn main_bundle_has_identifier() -> bool {
-        let bundle: id = msg_send![class!(NSBundle), mainBundle];
-        if bundle == nil {
+        use objc2::runtime::{AnyClass, AnyObject};
+        let Some(cls) = AnyClass::get(c"NSBundle") else {
+            return false;
+        };
+        let bundle: *mut AnyObject = objc2::msg_send![cls, mainBundle];
+        if bundle.is_null() {
             return false;
         }
-        let ident: id = msg_send![bundle, bundleIdentifier];
-        ident != nil
+        let ident: *mut AnyObject = objc2::msg_send![bundle, bundleIdentifier];
+        !ident.is_null()
+    }
+
+    fn request_full_access(reminders: bool) {
+        use std::panic::AssertUnwindSafe;
+
+        use block2::RcBlock;
+        use objc2::rc::Retained;
+        use objc2::runtime::{AnyClass, AnyObject, Bool};
+
+        if !unsafe { main_bundle_has_identifier() } {
+            return;
+        }
+
+        let block = RcBlock::new(|_granted: Bool, _err: *mut AnyObject| {});
+
+        let modern = objc2::exception::catch(AssertUnwindSafe(|| unsafe {
+            let Some(cls) = AnyClass::get(c"EKEventStore") else {
+                return;
+            };
+            let store: Retained<AnyObject> = objc2::msg_send![cls, new];
+            if reminders {
+                let _: () = objc2::msg_send![
+                    &*store,
+                    requestFullAccessToRemindersWithCompletionHandler: &*block
+                ];
+            } else {
+                let _: () = objc2::msg_send![
+                    &*store,
+                    requestFullAccessToEventsWithCompletionHandler: &*block
+                ];
+            }
+            core::mem::forget(store);
+        }));
+
+        if modern.is_ok() {
+            return;
+        }
+
+        let legacy = objc2::exception::catch(AssertUnwindSafe(|| unsafe {
+            let Some(cls) = AnyClass::get(c"EKEventStore") else {
+                return;
+            };
+            let store: Retained<AnyObject> = objc2::msg_send![cls, new];
+            let entity = if reminders {
+                EK_ENTITY_TYPE_REMINDER
+            } else {
+                EK_ENTITY_TYPE_EVENT
+            };
+            let _: () = objc2::msg_send![
+                &*store,
+                requestAccessToEntityType: entity,
+                completionHandler: &*block
+            ];
+            core::mem::forget(store);
+        }));
+
+        if let Err(exception) = legacy {
+            let what = if reminders { "reminders" } else { "calendar" };
+            tracing::warn!(
+                "EventKit {what} access request failed (modern attempt: {modern:?}): {exception:?}"
+            );
+        }
     }
 
     pub fn request_access() {
-        unsafe {
-            if !main_bundle_has_identifier() {
-                return;
-            }
-            let store: id = msg_send![class!(EKEventStore), alloc];
-            let store: id = msg_send![store, init];
-            if store == nil {
-                return;
-            }
-            let handler = ConcreteBlock::new(|_granted: BOOL, _err: id| {}).copy();
-            let full = sel!(requestFullAccessToEventsWithCompletionHandler:);
-            let responds: BOOL = msg_send![store, respondsToSelector: full];
-            if responds != NO {
-                let _: () =
-                    msg_send![store, requestFullAccessToEventsWithCompletionHandler: &*handler];
-            } else {
-                let _: () = msg_send![
-                    store,
-                    requestAccessToEntityType: EK_ENTITY_TYPE_EVENT
-                    completionHandler: &*handler
-                ];
-            }
-            std::mem::forget(handler);
-        }
+        request_full_access(false);
     }
 
     pub fn request_reminders_access() {
-        unsafe {
-            if !main_bundle_has_identifier() {
-                return;
-            }
-            let store: id = msg_send![class!(EKEventStore), alloc];
-            let store: id = msg_send![store, init];
-            if store == nil {
-                return;
-            }
-            let handler = ConcreteBlock::new(|_granted: BOOL, _err: id| {}).copy();
-            let full = sel!(requestFullAccessToRemindersWithCompletionHandler:);
-            let responds: BOOL = msg_send![store, respondsToSelector: full];
-            if responds != NO {
-                let _: () =
-                    msg_send![store, requestFullAccessToRemindersWithCompletionHandler: &*handler];
-            } else {
-                let _: () = msg_send![
-                    store,
-                    requestAccessToEntityType: EK_ENTITY_TYPE_REMINDER
-                    completionHandler: &*handler
-                ];
-            }
-            std::mem::forget(handler);
-        }
+        request_full_access(true);
     }
 
     pub fn read_events(window_secs: f64) -> Vec<CalendarEvent> {

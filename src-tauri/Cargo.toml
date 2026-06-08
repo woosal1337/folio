@@ -46,6 +46,8 @@ objc = "0.2"
 cocoa = "0.26"
 # Objective-C completion-handler blocks for AVCaptureDevice mic-access requests.
 block = "0.1"
+objc2 = { version = "0.6", features = ["exception"] }
+block2 = "0.6"
 
 # Audio HAL per-process input watcher (macOS 14.2+): reads the same
 # per-PID "is using a mic input" signal that powers the orange menu-bar

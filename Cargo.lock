@@ -1766,6 +1766,7 @@ version = "1.0.0"
 dependencies = [
  "anyhow",
  "block",
+ "block2",
  "chrono",
  "cocoa",
  "core-foundation 0.9.4",
@@ -1773,6 +1774,7 @@ dependencies = [
  "folio-core",
  "hound",
  "objc",
+ "objc2",
  "parking_lot",
  "reqwest 0.12.28",
  "serde",
