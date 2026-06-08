@@ -15,7 +15,7 @@ cask "folio" do
   url "https://github.com/woosal1337/folio/releases/download/v#{version}/Folio_#{version}_aarch64.dmg",
       verified: "github.com/woosal1337/folio/"
   name "Folio"
-  desc "Local-first meeting transcription for macOS"
+  desc "Local-first meeting transcription"
   homepage "https://github.com/woosal1337/folio"
 
   livecheck do
@@ -24,7 +24,7 @@ cask "folio" do
   end
 
   depends_on arch: :arm64
-  depends_on macos: ">= :ventura"
+  depends_on macos: :ventura
 
   app "Folio.app"
 
