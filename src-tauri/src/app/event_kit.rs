@@ -74,8 +74,20 @@ mod imp {
         status_for(EK_ENTITY_TYPE_REMINDER)
     }
 
+    unsafe fn main_bundle_has_identifier() -> bool {
+        let bundle: id = msg_send![class!(NSBundle), mainBundle];
+        if bundle == nil {
+            return false;
+        }
+        let ident: id = msg_send![bundle, bundleIdentifier];
+        ident != nil
+    }
+
     pub fn request_access() {
         unsafe {
+            if !main_bundle_has_identifier() {
+                return;
+            }
             let store: id = msg_send![class!(EKEventStore), alloc];
             let store: id = msg_send![store, init];
             if store == nil {
@@ -100,6 +112,9 @@ mod imp {
 
     pub fn request_reminders_access() {
         unsafe {
+            if !main_bundle_has_identifier() {
+                return;
+            }
             let store: id = msg_send![class!(EKEventStore), alloc];
             let store: id = msg_send![store, init];
             if store == nil {
