@@ -5,8 +5,6 @@ const MIC_URL: &str = "x-apple.systempreferences:com.apple.preference.security?P
 const SCREEN_URL: &str =
     "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture";
 
-const SYSTEM_AUDIO_URL: &str =
-    "x-apple.systempreferences:com.apple.preference.security?Privacy_SystemAudioRecording";
 const CALENDAR_URL: &str =
     "x-apple.systempreferences:com.apple.preference.security?Privacy_Calendars";
 const REMINDERS_URL: &str =
@@ -19,10 +17,6 @@ const MIC_RATIONALE: &str =
 const SCREEN_RATIONALE: &str =
     "We record what the other side says by capturing system audio. Screen Recording is the macOS API that allows it.";
 
-const SYSTEM_AUDIO_RATIONALE: &str =
-    "We capture what the other side says using the system audio API. \
-     This only grants audio access — not screen recording — so Folio appears under \
-     System Audio Recording Only in Privacy & Security.";
 const CALENDAR_RATIONALE: &str =
     "Pre-fills meeting titles and attendees on Stop, and back-fills the calendar event's notes with the summary.";
 const REMINDERS_RATIONALE: &str =
@@ -32,13 +26,6 @@ const NOTIFICATIONS_RATIONALE: &str =
 
 #[tauri::command]
 pub fn list_permissions() -> Vec<PermissionRow> {
-    #[cfg(target_os = "macos")]
-    let (audio_rationale, audio_url) = if folio_core::audio::process_tap::is_supported() {
-        (SYSTEM_AUDIO_RATIONALE, SYSTEM_AUDIO_URL)
-    } else {
-        (SCREEN_RATIONALE, SCREEN_URL)
-    };
-    #[cfg(not(target_os = "macos"))]
     let (audio_rationale, audio_url) = (SCREEN_RATIONALE, SCREEN_URL);
 
     #[cfg(target_os = "macos")]
@@ -216,16 +203,7 @@ pub fn open_permission_settings(
 ) -> Result<(), String> {
     let url = match permission {
         Permission::Microphone => MIC_URL,
-        Permission::ScreenRecording => {
-            #[cfg(target_os = "macos")]
-            if folio_core::audio::process_tap::is_supported() {
-                SYSTEM_AUDIO_URL
-            } else {
-                SCREEN_URL
-            }
-            #[cfg(not(target_os = "macos"))]
-            SCREEN_URL
-        }
+        Permission::ScreenRecording => SCREEN_URL,
         Permission::Calendar => CALENDAR_URL,
         Permission::Reminders => REMINDERS_URL,
         Permission::Notifications => NOTIFICATIONS_URL,
