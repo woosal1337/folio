@@ -90,7 +90,7 @@ zip = { version = "2", default-features = false, features = ["deflate"] }
 # HMAC-SHA256 for the webhook signed event stream (v2 finding 079 /
 # GET-101). The MAC accompanies every outbound POST so subscribers
 # can verify Folio sent it without a shared cleartext token.
-hmac = "0.12"
+hmac = "0.13"
 sha2 = "0.10"
 hex = "0.4"
 
