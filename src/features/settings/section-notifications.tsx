@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Bell, Inbox, Mic2 } from "lucide-react";
+import { Inbox, Mic2 } from "lucide-react";
 
 import ChromeIcon from "@/assets/app-icons/chrome.svg?react";
 import SafariIcon from "@/assets/app-icons/safari.svg?react";
@@ -75,13 +75,6 @@ export function SectionNotifications({
       </header>
 
       <Group title="Meeting notifications">
-        <ToggleRow
-          icon={Bell}
-          title="Scheduled meetings"
-          description="Notify 1 minute before meetings on your calendar start."
-          checked={settings.notify_scheduled_meetings}
-          onChange={(v) => onChange("notify_scheduled_meetings", v)}
-        />
         <ToggleRow
           icon={Mic2}
           title="Auto-detected meetings"

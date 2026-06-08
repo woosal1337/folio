@@ -3,7 +3,6 @@ import {
   BarChart3,
   Bell,
   Bot,
-  Calendar as CalendarIcon,
   Folder,
   Lock,
   Mic,
@@ -40,7 +39,6 @@ import type { Settings } from "@/shared/types/Settings";
 import { SectionAi } from "./section-ai";
 import { SectionAppearance } from "./section-appearance";
 import { SectionAudio } from "./section-audio";
-import { SectionCalendar } from "./section-calendar";
 import { SectionConnectors } from "./section-connectors";
 import { SectionGeneral } from "./section-general";
 import { SectionNotifications } from "./section-notifications";
@@ -76,7 +74,6 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { id: "preferences", label: "Preferences", icon: SettingsIcon },
       { id: "analytics", label: "Analytics", icon: BarChart3 },
-      { id: "calendar", label: "Calendar", icon: CalendarIcon },
       { id: "notifications", label: "Notifications", icon: Bell },
     ],
   },
@@ -202,8 +199,6 @@ export function SettingsModal({ open, onOpenChange }: Props) {
                 <p className="text-sm text-muted-foreground">Loading…</p>
               ) : section === "preferences" ? (
                 <SectionPreferences settings={settings} onChange={update} />
-              ) : section === "calendar" ? (
-                <SectionCalendar settings={settings} onChange={update} />
               ) : section === "notifications" ? (
                 <SectionNotifications settings={settings} onChange={update} />
               ) : section === "general" ? (

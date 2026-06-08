@@ -1,19 +1,13 @@
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
-import { CalendarClock, FileAudio, FileText, Lock, Mic, Plus } from "lucide-react";
+import { FileAudio, FileText, Lock, Mic, Plus } from "lucide-react";
 
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent } from "@/shared/ui/card";
-import {
-  calendarAuthorizationStatus,
-  listRecordings,
-  nextCalendarEvent,
-  requestCalendarAccess,
-} from "@/shared/lib/ipc";
+import { listRecordings } from "@/shared/lib/ipc";
 import { useQuickNote, useTakeNotes } from "@/shared/hooks/use-take-notes";
 import { useNoteContextMenu } from "@/shared/hooks/use-note-context-menu";
 import { AskBar } from "@/chrome/ask-bar";
-import type { CalendarEvent } from "@/shared/types/CalendarEvent";
 import type { RecordingSummary } from "@/shared/types/RecordingSummary";
 
 type Group = "Today" | "Yesterday" | "Earlier";
@@ -31,23 +25,6 @@ function groupFor(createdAt: string | null): Group {
   return "Earlier";
 }
 
-function comingUpSubtitle(event: CalendarEvent): string {
-  const start = new Date(event.starts_at);
-  const parts: string[] = [];
-  if (!Number.isNaN(start.getTime())) {
-    const mins = Math.round((start.getTime() - Date.now()) / 60000);
-    if (mins <= 0) parts.push("starts now");
-    else if (mins < 60) parts.push(`in ${mins} min`);
-    else
-      parts.push(
-        `at ${start.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`
-      );
-  }
-  const n = event.attendees?.length ?? 0;
-  if (n > 0) parts.push(`${n} ${n === 1 ? "person" : "people"}`);
-  return parts.join(" · ");
-}
-
 function timeLabel(createdAt: string | null): string {
   if (!createdAt) return "";
   const d = new Date(createdAt);
@@ -61,9 +38,6 @@ export default function Home() {
   const quickNote = useQuickNote();
   const [recordings, setRecordings] = React.useState<RecordingSummary[]>([]);
   const [loading, setLoading] = React.useState(true);
-
-  const [nextEvent, setNextEvent] = React.useState<CalendarEvent | null>(null);
-  const [calAccess, setCalAccess] = React.useState<string>("not_determined");
 
   const reload = React.useCallback(async () => {
     try {
@@ -80,19 +54,6 @@ export default function Home() {
   }, [reload]);
 
   const openContextMenu = useNoteContextMenu(reload);
-
-  const loadCalendar = React.useCallback(async () => {
-    try {
-      const access = await calendarAuthorizationStatus();
-      setCalAccess(access);
-      setNextEvent(access === "authorized" ? await nextCalendarEvent() : null);
-    } catch (e) {
-      console.error("home: calendar load failed", e);
-    }
-  }, []);
-  React.useEffect(() => {
-    void loadCalendar();
-  }, [loadCalendar]);
 
   const groups = React.useMemo(() => {
     const buckets: Record<Group, RecordingSummary[]> = {
@@ -119,72 +80,20 @@ export default function Home() {
         <div>
           <h1 className="font-serif text-3xl font-medium tracking-tight">Home</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {`What's coming up, and the notes you've taken.`}
+            {`The notes you've taken.`}
           </p>
         </div>
-        <Button variant="outline" className="gap-2" onClick={quickNote}>
-          <Plus className="h-4 w-4" />
-          Quick note
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button className="gap-2" onClick={() => takeNotes()}>
+            <Mic className="h-4 w-4" />
+            Take notes
+          </Button>
+          <Button variant="outline" className="gap-2" onClick={quickNote}>
+            <Plus className="h-4 w-4" />
+            Quick note
+          </Button>
+        </div>
       </header>
-
-      <section className="space-y-2">
-        <h2 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-          Coming up
-        </h2>
-        <Card>
-          <CardContent className="flex items-center justify-between gap-4 py-5">
-            <div className="flex min-w-0 items-center gap-3">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-                <CalendarClock className="h-4 w-4" />
-              </span>
-              <div className="min-w-0">
-                {nextEvent ? (
-                  <>
-                    <p className="truncate text-sm font-medium">{nextEvent.title}</p>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {comingUpSubtitle(nextEvent)}
-                    </p>
-                  </>
-                ) : calAccess === "denied" || calAccess === "restricted" ? (
-                  <>
-                    <p className="text-sm font-medium">Calendar access is off</p>
-                    <p className="text-xs text-muted-foreground">
-                      Turn on Calendar access to see your next meeting here.
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <p className="text-sm font-medium">No upcoming meetings</p>
-                    <p className="text-xs text-muted-foreground">
-                      {`Nothing on the calendar soon — or just start a note.`}
-                    </p>
-                  </>
-                )}
-              </div>
-            </div>
-            {calAccess === "denied" || calAccess === "restricted" ? (
-              <Button
-                variant="outline"
-                className="shrink-0 gap-2"
-                onClick={() => {
-                  void requestCalendarAccess().then(loadCalendar);
-                }}
-              >
-                Enable calendar
-              </Button>
-            ) : (
-              <Button
-                className="shrink-0 gap-2"
-                onClick={() => takeNotes(nextEvent?.title)}
-              >
-                <Mic className="h-4 w-4" />
-                Take notes
-              </Button>
-            )}
-          </CardContent>
-        </Card>
-      </section>
 
       <section className="space-y-3">
         <h2 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">

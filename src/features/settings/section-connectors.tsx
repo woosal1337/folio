@@ -1,6 +1,5 @@
 import * as React from "react";
 import {
-  Calendar as CalendarIcon,
   Check,
   CheckCircle2,
   Copy,
@@ -47,15 +46,6 @@ interface ConnectorCard {
 }
 
 const CONNECTORS: ConnectorCard[] = [
-  {
-    id: "apple-calendar",
-    name: "Apple Calendar",
-    description:
-      "Pre-fills meeting titles + attendees, detects when meetings start, and auto-names recordings.",
-    icon: CalendarIcon,
-    status: "shipped",
-    shippedNote: "Granted in Settings → Calendar",
-  },
   {
     id: "apple-reminders",
     name: "Apple Reminders",

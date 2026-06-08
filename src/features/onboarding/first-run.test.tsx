@@ -22,21 +22,18 @@ vi.mock("@/shared/lib/ipc", async () => {
       },
     ]),
     openPermissionSettings: vi.fn(async () => {}),
-    requestCalendarAccess: vi.fn(async () => {}),
     setProviderKey: vi.fn(async () => {}),
   };
 });
 
 interface MockSettings {
   onboarding_completed: boolean;
-  onboarding_calendar_deferred: boolean;
   transcriber: "local_whisper" | "openai";
 }
 
 function makeSettings(overrides: Partial<MockSettings> = {}): MockSettings {
   return {
     onboarding_completed: false,
-    onboarding_calendar_deferred: false,
     transcriber: "local_whisper",
     ...overrides,
   };
@@ -96,19 +93,12 @@ afterEach(() => {
 });
 
 describe("FirstRunConductor — local-only setup", () => {
-  it("permissions → eventkit (skip) → transcriber → onFinish", async () => {
+  it("permissions → transcriber → onFinish", async () => {
     const user = userEvent.setup();
     const onFinish = vi.fn();
     render(<FirstRunConductor onFinish={onFinish} />);
 
     await user.click(await screen.findByRole("button", { name: /continue/i }));
-
-    expect(
-      await screen.findByRole("heading", {
-        name: /read your mac.s calendar locally/i,
-      })
-    ).toBeTruthy();
-    await user.click(screen.getByRole("button", { name: /skip for now/i }));
 
     expect(
       await screen.findByRole("heading", { name: /welcome to folio/i })

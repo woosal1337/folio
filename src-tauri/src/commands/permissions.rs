@@ -17,8 +17,6 @@ const MIC_RATIONALE: &str =
 const SCREEN_RATIONALE: &str =
     "We record what the other side says by capturing system audio. Screen Recording is the macOS API that allows it.";
 
-const CALENDAR_RATIONALE: &str =
-    "Pre-fills meeting titles and attendees on Stop, and back-fills the calendar event's notes with the summary.";
 const REMINDERS_RATIONALE: &str =
     "Syncs extracted action items into your Apple Reminders list, if you turn that on.";
 const NOTIFICATIONS_RATIONALE: &str =
@@ -29,15 +27,9 @@ pub fn list_permissions() -> Vec<PermissionRow> {
     let (audio_rationale, audio_url) = (SCREEN_RATIONALE, SCREEN_URL);
 
     #[cfg(target_os = "macos")]
-    let (mic, screen, calendar, reminders) = (
-        mac::mic_status(),
-        mac::screen_status(),
-        calendar_status(),
-        reminders_status(),
-    );
+    let (mic, screen, reminders) = (mac::mic_status(), mac::screen_status(), reminders_status());
     #[cfg(not(target_os = "macos"))]
-    let (mic, screen, calendar, reminders) = (
-        PermissionStatus::Unknown,
+    let (mic, screen, reminders) = (
         PermissionStatus::Unknown,
         PermissionStatus::Unknown,
         PermissionStatus::Unknown,
@@ -55,12 +47,6 @@ pub fn list_permissions() -> Vec<PermissionRow> {
             status: screen,
             rationale: audio_rationale.to_string(),
             settings_url: audio_url.to_string(),
-        },
-        PermissionRow {
-            permission: Permission::Calendar,
-            status: calendar,
-            rationale: CALENDAR_RATIONALE.to_string(),
-            settings_url: CALENDAR_URL.to_string(),
         },
         PermissionRow {
             permission: Permission::Reminders,

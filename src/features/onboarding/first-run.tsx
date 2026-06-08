@@ -13,61 +13,24 @@ import { Button } from "@/shared/ui/button";
 import { Card, CardContent } from "@/shared/ui/card";
 import { cn } from "@/shared/lib/utils";
 import { humanizeError } from "@/shared/lib/errors";
-import { requestCalendarAccess, setProviderKey } from "@/shared/lib/ipc";
+import { setProviderKey } from "@/shared/lib/ipc";
 import { useSettingsStore } from "@/shared/stores/settings-store";
 import { PermissionsScreen } from "./permissions-screen";
-import { EventKitRationaleScreen } from "./eventkit-rationale-screen";
 
 type Transcriber = "local_whisper" | "openai";
 
-type Step = "permissions" | "eventkit" | "transcriber";
+type Step = "permissions" | "transcriber";
 
 export function FirstRunConductor({ onFinish }: { onFinish: () => void }) {
   const settings = useSettingsStore((s) => s.settings);
   const saveSettings = useSettingsStore((s) => s.save);
 
   const [step, setStep] = React.useState<Step>("permissions");
-  const [calendarDeferred, setCalendarDeferred] = React.useState<boolean>(
-    settings?.onboarding_calendar_deferred ?? false
-  );
   const [transcriber, setTranscriber] = React.useState<Transcriber>(
     (settings?.transcriber as Transcriber) ?? "local_whisper"
   );
   const [openaiKey, setOpenaiKey] = React.useState("");
   const [savingKey, setSavingKey] = React.useState(false);
-
-  const persistPartial = React.useCallback(
-    async (patch: Partial<NonNullable<typeof settings>>) => {
-      if (!settings) return;
-      try {
-        await saveSettings({ ...settings, ...patch });
-      } catch (e) {
-        console.error("save settings:", e);
-        toast.error("Could not save", { description: humanizeError(e) });
-      }
-    },
-    [settings, saveSettings]
-  );
-
-  const handleGrantCalendar = React.useCallback(async () => {
-    try {
-      await requestCalendarAccess();
-      setCalendarDeferred(false);
-      await persistPartial({ onboarding_calendar_deferred: false });
-    } catch (e) {
-      console.error("request_calendar_access:", e);
-      toast.error("Could not open calendar settings", {
-        description: humanizeError(e),
-      });
-    }
-    setStep("transcriber");
-  }, [persistPartial]);
-
-  const handleSkipCalendar = React.useCallback(async () => {
-    setCalendarDeferred(true);
-    await persistPartial({ onboarding_calendar_deferred: true });
-    setStep("transcriber");
-  }, [persistPartial]);
 
   const finish = React.useCallback(async () => {
     if (transcriber === "openai" && openaiKey.trim().length > 0) {
@@ -86,7 +49,6 @@ export function FirstRunConductor({ onFinish }: { onFinish: () => void }) {
     try {
       await saveSettings({
         ...settings,
-        onboarding_calendar_deferred: calendarDeferred,
         transcriber,
         onboarding_completed: true,
       });
@@ -98,20 +60,12 @@ export function FirstRunConductor({ onFinish }: { onFinish: () => void }) {
       console.error("update settings on first-run finish:", e);
       toast.error("Could not save preferences", { description: humanizeError(e) });
     }
-  }, [openaiKey, settings, calendarDeferred, transcriber, saveSettings, onFinish]);
+  }, [openaiKey, settings, transcriber, saveSettings, onFinish]);
 
   if (!settings) return null;
 
   if (step === "permissions") {
-    return <PermissionsScreen onContinue={() => setStep("eventkit")} />;
-  }
-  if (step === "eventkit") {
-    return (
-      <EventKitRationaleScreen
-        onGrant={handleGrantCalendar}
-        onSkip={handleSkipCalendar}
-      />
-    );
+    return <PermissionsScreen onContinue={() => setStep("transcriber")} />;
   }
 
   return (

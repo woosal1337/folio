@@ -2,7 +2,6 @@ import { create } from "zustand";
 
 export type SettingsSection =
   | "preferences"
-  | "calendar"
   | "notifications"
   | "general"
   | "audio"

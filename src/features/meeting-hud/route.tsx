@@ -3,24 +3,16 @@ import { X } from "lucide-react";
 
 import {
   dismissMeetingHud,
-  getMeetingBrief,
   getPendingMeeting,
   meetingTakeNotes,
-  nextCalendarEvent,
   onMeetingDetected,
-  type BriefBullet,
   type DetectedMeeting,
 } from "@/shared/lib/ipc";
 
 const AUTO_DISMISS_MS = 14_000;
 
-const BRIEF_RECEDE_MS = 9_000;
-
 export default function MeetingHud() {
   const [meeting, setMeeting] = React.useState<DetectedMeeting | null>(null);
-  const [bullets, setBullets] = React.useState<BriefBullet[]>([]);
-  const [briefVisible, setBriefVisible] = React.useState(true);
-  const [sourcesCount, setSourcesCount] = React.useState(0);
 
   React.useEffect(() => {
     const els = [document.documentElement, document.body];
@@ -50,33 +42,11 @@ export default function MeetingHud() {
 
   React.useEffect(() => {
     if (!meeting) return;
-    void (async () => {
-      try {
-        const event = await nextCalendarEvent();
-        const attendees = event?.attendees ?? [];
-        if (attendees.length === 0) return;
-        const brief = await getMeetingBrief(attendees);
-        if (brief && brief.bullets.length > 0) {
-          setBullets(brief.bullets);
-          setSourcesCount(brief.sources_count);
-        }
-      } catch {}
-    })();
-  }, [meeting]);
-
-  React.useEffect(() => {
-    if (!meeting) return;
     const id = window.setTimeout(() => {
       void dismissMeetingHud().catch(() => {});
     }, AUTO_DISMISS_MS);
     return () => window.clearTimeout(id);
   }, [meeting]);
-
-  React.useEffect(() => {
-    if (bullets.length === 0) return;
-    const id = window.setTimeout(() => setBriefVisible(false), BRIEF_RECEDE_MS);
-    return () => window.clearTimeout(id);
-  }, [bullets]);
 
   const onTakeNotes = React.useCallback(() => {
     void meetingTakeNotes().catch((e) => console.error("meeting_take_notes:", e));
@@ -87,44 +57,9 @@ export default function MeetingHud() {
   }, []);
 
   const appName = meeting?.app_label ?? "a call";
-  const showBrief = bullets.length > 0 && briefVisible;
 
   return (
     <div className="fixed inset-0 flex select-none flex-col justify-end overflow-hidden">
-      <div
-        aria-live="polite"
-        style={{
-          transition: "opacity 0.6s ease, transform 0.5s ease",
-          opacity: showBrief ? 1 : 0,
-          transform: showBrief ? "translateY(0)" : "translateY(-8px)",
-          pointerEvents: showBrief ? "auto" : "none",
-        }}
-        className="mx-0.5 mb-1.5 overflow-hidden rounded-xl border border-white/10 bg-neutral-900/95 px-3.5 py-2.5 shadow-2xl backdrop-blur"
-      >
-        <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
-          Before this meeting
-        </p>
-        <ul className="space-y-1.5">
-          {bullets.map((b, i) => (
-            <li
-              key={i}
-              className="flex items-start gap-2 text-[12px] leading-snug text-neutral-200"
-            >
-              <span
-                className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500"
-                aria-hidden
-              />
-              {b.text}
-            </li>
-          ))}
-        </ul>
-        {sourcesCount > 0 ? (
-          <p className="mt-2 text-[10px] text-neutral-600">
-            From {sourcesCount} local note{sourcesCount === 1 ? "" : "s"}
-          </p>
-        ) : null}
-      </div>
-
       <div
         className="flex items-center gap-2.5 overflow-hidden rounded-full border border-white/10 bg-neutral-900/95 px-3 text-white shadow-2xl backdrop-blur"
         style={{ height: 56 }}
