@@ -16,6 +16,7 @@ import {
   transcribeRecording as ipcTranscribe,
   diarizeSession as ipcDiarize,
   runVad as ipcRunVad,
+  whisperModelStatus as ipcWhisperModelStatus,
 } from "@/shared/lib/ipc";
 import { estimateOpenAITranscribeCost, formatUsd } from "@/shared/lib/cost-estimate";
 import { humanizeError } from "@/shared/lib/errors";
@@ -25,6 +26,7 @@ import { useCloudCostConfirmStore } from "@/shared/stores/cloud-cost-confirm-sto
 import { useJobsStore } from "@/shared/stores/jobs-store";
 import { useMemoriesStore } from "@/shared/stores/memories-store";
 import { useSettingsStore } from "@/shared/stores/settings-store";
+import { useSettingsUiStore } from "@/shared/stores/settings-ui-store";
 import { useTasksStore } from "@/shared/stores/tasks-store";
 
 interface RecordingState {
@@ -236,8 +238,28 @@ export const useRecording = create<RecordingState>((set, get) => {
     }
   };
 
+  const openTranscriptionSettings = () =>
+    useSettingsUiStore.getState().openAt("transcription");
+
   const runTranscription = async (sessionDir: string) => {
     const settings = useSettingsStore.getState().settings;
+
+    if ((settings?.transcriber ?? "local_whisper") === "local_whisper") {
+      const modelStatus = await ipcWhisperModelStatus().catch(() => null);
+      if (modelStatus && !modelStatus.present) {
+        playFeedback("error");
+        toast.error("Whisper model not downloaded", {
+          description:
+            "Download the local transcription model to transcribe on this Mac.",
+          action: {
+            label: "Open Settings",
+            onClick: openTranscriptionSettings,
+          },
+        });
+        return;
+      }
+    }
+
     if (settings?.transcriber === "openai") {
       const label = basename(sessionDir);
       const summary = await ipcGetRecording(label).catch(() => null);
@@ -391,7 +413,15 @@ export const useRecording = create<RecordingState>((set, get) => {
         transcribingDir: null,
         transcribeError: message,
       });
-      toast.error("Transcription failed", { description: message });
+      const pointsToTranscriptionSettings = message
+        .toLowerCase()
+        .includes("settings → transcription");
+      toast.error("Transcription failed", {
+        description: message,
+        ...(pointsToTranscriptionSettings
+          ? { action: { label: "Open Settings", onClick: openTranscriptionSettings } }
+          : {}),
+      });
     } finally {
       useJobsStore.getState().pop(jobId);
     }
