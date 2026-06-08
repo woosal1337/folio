@@ -47,27 +47,28 @@ fn fill_circle(buf: &mut [u8], cx: u32, cy: u32, radius: u32, r: u8, g: u8, b: u
     }
 }
 
+const DOT_CX: u32 = 11;
+const DOT_CY: u32 = 11;
+const DOT_RADIUS: u32 = 6;
+
 fn idle_icon_rgba() -> Vec<u8> {
     let mut buf = blank();
 
-    fill_rect(&mut buf, 4, 11, 3, 8, 255, 255, 255, 255);
-    fill_rect(&mut buf, 9, 7, 3, 14, 255, 255, 255, 255);
-    fill_rect(&mut buf, 14, 11, 3, 8, 255, 255, 255, 255);
+    fill_circle(&mut buf, DOT_CX, DOT_CY, DOT_RADIUS, 142, 142, 147, 255);
     buf
 }
 
 fn recording_icon_rgba() -> Vec<u8> {
     let mut buf = blank();
 
-    fill_circle(&mut buf, 11, 11, 8, 220, 38, 38, 255);
+    fill_circle(&mut buf, DOT_CX, DOT_CY, DOT_RADIUS, 220, 38, 38, 255);
     buf
 }
 
 fn paused_icon_rgba() -> Vec<u8> {
     let mut buf = blank();
 
-    fill_rect(&mut buf, 4, 5, 5, 12, 255, 255, 255, 255);
-    fill_rect(&mut buf, 13, 5, 5, 12, 255, 255, 255, 255);
+    fill_circle(&mut buf, DOT_CX, DOT_CY, DOT_RADIUS, 245, 158, 11, 255);
     buf
 }
 
@@ -129,7 +130,7 @@ pub fn install<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
         .show_menu_on_left_click(true)
         .tooltip("Folio — idle")
         .icon(make_image(idle_icon_rgba()))
-        .icon_as_template(true)
+        .icon_as_template(false)
         .on_menu_event(|app, event| match event.id.as_ref() {
             MENU_START => emit_to_window(app, "tray:start-recording"),
             MENU_STOP => emit_to_window(app, "tray:stop-recording"),
@@ -168,22 +169,22 @@ pub fn set_tray_state<R: Runtime>(app: &AppHandle<R>, state: TrayState) {
     };
 
     let (tooltip, title, rgba, is_template) = match state {
-        TrayState::Idle => ("Folio — idle".to_string(), None, idle_icon_rgba(), true),
+        TrayState::Idle => ("Folio — idle".to_string(), None, idle_icon_rgba(), false),
         TrayState::Recording(secs) => (
             format!("Folio — recording {}", format_elapsed(secs)),
-            Some(format!("● {}", format_elapsed(secs))),
+            Some(format_elapsed(secs)),
             recording_icon_rgba(),
             false,
         ),
         TrayState::Paused(secs) => (
             format!("Folio — paused {}", format_elapsed(secs)),
-            Some(format!("⏸ {}", format_elapsed(secs))),
+            Some(format_elapsed(secs)),
             paused_icon_rgba(),
-            true,
+            false,
         ),
         TrayState::Airgapped => (
             "Folio — Privacy Mode on".to_string(),
-            Some("🔒".to_string()),
+            None,
             airgap_icon_rgba(),
             true,
         ),
@@ -273,12 +274,11 @@ mod tests {
     }
 
     #[test]
-    fn idle_icon_has_white_pixels() {
+    fn idle_icon_has_gray_pixels() {
         let buf = idle_icon_rgba();
 
-        let col = 10usize;
-        let row = 9usize;
-        let idx = (row * ICON_SIZE as usize + col) * 4;
-        assert_eq!(buf[idx], 255, "idle icon should have white pixels");
+        let idx = (DOT_CY as usize * ICON_SIZE as usize + DOT_CX as usize) * 4;
+        assert_eq!(buf[idx], 142, "idle icon center should be system gray");
+        assert!(buf[idx + 3] > 0, "alpha should be non-zero");
     }
 }
