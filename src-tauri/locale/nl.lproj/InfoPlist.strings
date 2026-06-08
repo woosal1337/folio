@@ -8,10 +8,14 @@
 
 "NSCalendarsUsageDescription" = "Folio leest je agenda om mensen met wie je vergadert voor te stellen en te detecteren wanneer vergaderingen beginnen. Agendagegevens blijven op je Mac.";
 
+
+"NSCalendarsFullAccessUsageDescription" = "Folio leest je agenda om mensen met wie je vergadert voor te stellen en te detecteren wanneer vergaderingen beginnen. Agendagegevens blijven op je Mac.";
 "NSContactsUsageDescription" = "Folio leest je contacten om voor te stellen wie je voor je werkruimte kunt uitnodigen. Contacten blijven op je Mac.";
 
 "NSRemindersUsageDescription" = "Folio schrijft actiepunten uit vergaderingen naar een door jou gekozen Herinneringen-lijst. Herinneringen blijven in je iCloud-account, niet op de servers van Folio.";
 
+
+"NSRemindersFullAccessUsageDescription" = "Folio schrijft actiepunten uit vergaderingen naar een door jou gekozen Herinneringen-lijst. Herinneringen blijven in je iCloud-account, niet op de servers van Folio.";
 "NSAppleEventsUsageDescription" = "Folio coördineert met systeemgebeurtenissen om te detecteren wanneer je videoconferentie-app een gesprek start, en biedt aan dit op te nemen.";
 
 "NSLocationWhenInUseUsageDescription" = "Folio gebruikt je locatie niet.";

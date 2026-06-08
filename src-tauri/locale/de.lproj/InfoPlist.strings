@@ -10,10 +10,14 @@
 
 "NSCalendarsUsageDescription" = "Folio liest deinen Kalender, um Personen vorzuschlagen, mit denen du dich triffst, und um zu erkennen, wann Meetings beginnen. Kalenderdaten bleiben auf deinem Mac.";
 
+
+"NSCalendarsFullAccessUsageDescription" = "Folio liest deinen Kalender, um Personen vorzuschlagen, mit denen du dich triffst, und um zu erkennen, wann Meetings beginnen. Kalenderdaten bleiben auf deinem Mac.";
 "NSContactsUsageDescription" = "Folio liest define Kontakte, um vorzuschlagen, wen du in deinen Workspace einladen kannst. Kontakte bleiben auf deinem Mac.";
 
 "NSRemindersUsageDescription" = "Folio schreibt Aufgaben aus Meetings in eine von dir gewählte Erinnerungs-Liste. Erinnerungen bleiben in deinem iCloud-Konto, nicht auf Folios Servern.";
 
+
+"NSRemindersFullAccessUsageDescription" = "Folio schreibt Aufgaben aus Meetings in eine von dir gewählte Erinnerungs-Liste. Erinnerungen bleiben in deinem iCloud-Konto, nicht auf Folios Servern.";
 "NSAppleEventsUsageDescription" = "Folio koordiniert mit Systemereignissen, um zu erkennen, wann define Videokonferenz-App einen Anruf started, und bietet an, ihn aufzunehmen.";
 
 "NSLocationWhenInUseUsageDescription" = "Folio verwendet deinen Standort nicht.";

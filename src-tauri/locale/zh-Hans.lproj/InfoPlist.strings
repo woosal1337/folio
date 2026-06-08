@@ -8,10 +8,14 @@
 
 "NSCalendarsUsageDescription" = "Folio 读取你的日历，以建议你常与之开会的人并检测会议何时开始。日历数据保留在你的 Mac 上。";
 
+
+"NSCalendarsFullAccessUsageDescription" = "Folio 读取你的日历，以建议你常与之开会的人并检测会议何时开始。日历数据保留在你的 Mac 上。";
 "NSContactsUsageDescription" = "Folio 读取你的通讯录，以建议邀请谁加入你的工作区。通讯录保留在你的 Mac 上。";
 
 "NSRemindersUsageDescription" = "Folio 将会议待办事项写入你选择的提醒事项列表。提醒事项保留在你的 iCloud 帐户中，而不在 Folio 的服务器上。";
 
+
+"NSRemindersFullAccessUsageDescription" = "Folio 将会议待办事项写入你选择的提醒事项列表。提醒事项保留在你的 iCloud 帐户中，而不在 Folio 的服务器上。";
 "NSAppleEventsUsageDescription" = "Folio 与系统事件协调，以检测你的视频会议应用何时启动通话，并提议进行捕获。";
 
 "NSLocationWhenInUseUsageDescription" = "Folio 不会使用你的位置信息。";

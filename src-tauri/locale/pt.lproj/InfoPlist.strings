@@ -8,10 +8,14 @@
 
 "NSCalendarsUsageDescription" = "O Folio lê seu calendário para sugerir as pessoas com quem você se reúne e detectar quando as reuniões começam. Os dados do calendário permanecem no seu Mac.";
 
+
+"NSCalendarsFullAccessUsageDescription" = "O Folio lê seu calendário para sugerir as pessoas com quem você se reúne e detectar quando as reuniões começam. Os dados do calendário permanecem no seu Mac.";
 "NSContactsUsageDescription" = "O Folio lê seus contatos para sugerir quem convidar para o seu espaço de trabalho. Os contatos permanecem no seu Mac.";
 
 "NSRemindersUsageDescription" = "O Folio escreve os items de ação das reuniões em uma lista de Lembretes que você escolher. Os lembretes ficam na sua conta iCloud, não nos servidores do Folio.";
 
+
+"NSRemindersFullAccessUsageDescription" = "O Folio escreve os items de ação das reuniões em uma lista de Lembretes que você escolher. Os lembretes ficam na sua conta iCloud, não nos servidores do Folio.";
 "NSAppleEventsUsageDescription" = "O Folio se coordena com eventos do sistema para detectar quando seu aplicativo de videoconferência inicia uma chamada e oferecer captura.";
 
 "NSLocationWhenInUseUsageDescription" = "O Folio não usa sua localização.";

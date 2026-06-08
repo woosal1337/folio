@@ -13,10 +13,14 @@
 
 "NSCalendarsUsageDescription" = "Folio reads your calendar to suggest the people you meet with and to detect when meetings start. Calendar data stays on your Mac.";
 
+
+"NSCalendarsFullAccessUsageDescription" = "Folio reads your calendar to suggest the people you meet with and to detect when meetings start. Calendar data stays on your Mac.";
 "NSContactsUsageDescription" = "Folio reads your contacts so it can suggest who to invite to your workspace. Contacts stay on your Mac.";
 
 "NSRemindersUsageDescription" = "Folio writes meeting action items to a Reminders list you choose. Reminders stay in your iCloud account, not on Folio's servers.";
 
+
+"NSRemindersFullAccessUsageDescription" = "Folio writes meeting action items to a Reminders list you choose. Reminders stay in your iCloud account, not on Folio's servers.";
 "NSAppleEventsUsageDescription" = "Folio coordinates with system events to detect when your video-conferencing app starts a call and offer to capture it.";
 
 "NSLocationWhenInUseUsageDescription" = "Folio does not use your location.";

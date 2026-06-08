@@ -30,10 +30,16 @@
     <key>NSCalendarsUsageDescription</key>
     <string>Folio reads your calendar to suggest the people you meet with and to detect when meetings start. Calendar data stays on your Mac.</string>
 
+    <key>NSCalendarsFullAccessUsageDescription</key>
+    <string>Folio reads your calendar to suggest the people you meet with and to detect when meetings start. Calendar data stays on your Mac.</string>
+
     <key>NSContactsUsageDescription</key>
     <string>Folio reads your contacts so it can suggest who to invite to your workspace. Contacts stay on your Mac.</string>
 
     <key>NSRemindersUsageDescription</key>
+    <string>Folio writes meeting action items to a Reminders list you choose. Reminders stay in your iCloud account, not on Folio's servers.</string>
+
+    <key>NSRemindersFullAccessUsageDescription</key>
     <string>Folio writes meeting action items to a Reminders list you choose. Reminders stay in your iCloud account, not on Folio's servers.</string>
 
     <key>NSAppleEventsUsageDescription</key>

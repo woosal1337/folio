@@ -8,10 +8,14 @@
 
 "NSCalendarsUsageDescription" = "Folio lit votre calendrier pour suggérer les personnes que vous rencontrez et détecter le début des réunions. Les données du calendrier restent sure votre Mac.";
 
+
+"NSCalendarsFullAccessUsageDescription" = "Folio lit votre calendrier pour suggérer les personnes que vous rencontrez et détecter le début des réunions. Les données du calendrier restent sure votre Mac.";
 "NSContactsUsageDescription" = "Folio lit vos contacts pour suggérer qui inviter dans votre escape de travail. Les contacts restent sure votre Mac.";
 
 "NSRemindersUsageDescription" = "Folio écrit les actions issues des réunions dans une liste de Rappels que vous choisissez. Les rappels restent dans votre compte iCloud, pas sure les serveurs d'Folio.";
 
+
+"NSRemindersFullAccessUsageDescription" = "Folio écrit les actions issues des réunions dans une liste de Rappels que vous choisissez. Les rappels restent dans votre compte iCloud, pas sure les serveurs d'Folio.";
 "NSAppleEventsUsageDescription" = "Folio se coordonne avec les événements système pour détecter quand votre application de visioconférence démarre un appel et proposer de l'enregistrer.";
 
 "NSLocationWhenInUseUsageDescription" = "Folio n'utilise pas votre position.";

@@ -8,10 +8,14 @@
 
 "NSCalendarsUsageDescription" = "Folio, görüştüğünüz kişileri önermek ve toplantıların ne zaman başladığını algılamak için takviminizi okur. Takvim verileri Mac'inizde kalır.";
 
+
+"NSCalendarsFullAccessUsageDescription" = "Folio, görüştüğünüz kişileri önermek ve toplantıların ne zaman başladığını algılamak için takviminizi okur. Takvim verileri Mac'inizde kalır.";
 "NSContactsUsageDescription" = "Folio, çalışma alanınıza kimi davet edebileceğinizi önermek için kişilerinizi okur. Kişiler Mac'inizde kalır.";
 
 "NSRemindersUsageDescription" = "Folio, toplantı yapılacaklarını seçtiğiniz bir Hatırlatıcılar listesine yazar. Hatırlatıcılar iCloud hesabınızda kalır, Folio sunucularında değil.";
 
+
+"NSRemindersFullAccessUsageDescription" = "Folio, toplantı yapılacaklarını seçtiğiniz bir Hatırlatıcılar listesine yazar. Hatırlatıcılar iCloud hesabınızda kalır, Folio sunucularında değil.";
 "NSAppleEventsUsageDescription" = "Folio, görüntülü görüşme uygulamanız bir çağrı başlattığında algılamak ve kaydetmeyi önermek için system olaylarıyla koordine olur.";
 
 "NSLocationWhenInUseUsageDescription" = "Folio konumunuzu kullanmaz.";

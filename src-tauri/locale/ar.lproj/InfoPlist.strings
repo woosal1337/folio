@@ -8,10 +8,14 @@
 
 "NSCalendarsUsageDescription" = "يقرأ Folio تقويمك ليقترح عليك الأشخاص الذين تجتمع بهم وليكتشف بدء الاجتماعات. تبقى بيانات التقويم على جهاز Mac.";
 
+
+"NSCalendarsFullAccessUsageDescription" = "يقرأ Folio تقويمك ليقترح عليك الأشخاص الذين تجتمع بهم وليكتشف بدء الاجتماعات. تبقى بيانات التقويم على جهاز Mac.";
 "NSContactsUsageDescription" = "يقرأ Folio جهات الاتصال لاقتراح من تدعوه إلى مساحة عملك. تبقى جهات الاتصال على جهاز Mac.";
 
 "NSRemindersUsageDescription" = "يكتب Folio مهام الاجتماعات في قائمة Reminders تختارها. تبقى التذكيرات في حساب iCloud لديك، وليست على خوادم Folio.";
 
+
+"NSRemindersFullAccessUsageDescription" = "يكتب Folio مهام الاجتماعات في قائمة Reminders تختارها. تبقى التذكيرات في حساب iCloud لديك، وليست على خوادم Folio.";
 "NSAppleEventsUsageDescription" = "ينسّق Folio مع أحداث النظام لاكتشاف بدء مكالمة في تطبيق مكالمات الفيديو الخاص بك ويعرض تسجيلها.";
 
 "NSLocationWhenInUseUsageDescription" = "لا يستخدم Folio موقعك.";
