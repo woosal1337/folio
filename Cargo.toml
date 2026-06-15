@@ -73,7 +73,7 @@ uuid = { version = "1.10", features = ["v4", "v7", "serde"] }
 # Apple's system libsqlite3 still get the FTS5 + vec extensions
 # we depend on. `load_extension` is needed so `sqlite-vec`'s
 # `sqlite3_vec_init` can be registered at connection time.
-rusqlite = { version = "0.32", features = ["bundled", "load_extension"] }
+rusqlite = { version = "0.40", features = ["bundled", "load_extension"] }
 sqlite-vec = "0.1"
 zerocopy = { version = "0.7", features = ["derive"] }
 
