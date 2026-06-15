@@ -85,7 +85,7 @@ zstd = "0.13"
 # Deflate-only build to keep the dep tree minimal; we don't need
 # zstd-inside-zip since the heavy artifacts (.wav / .json.zst) are
 # already incompressible.
-zip = { version = "2", default-features = false, features = ["deflate"] }
+zip = { version = "4", default-features = false, features = ["deflate"] }
 
 # HMAC-SHA256 for the webhook signed event stream (v2 finding 079 /
 # GET-101). The MAC accompanies every outbound POST so subscribers
