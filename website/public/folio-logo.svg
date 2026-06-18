@@ -1,0 +1,54 @@
+<svg
+  width="64"
+  height="64"
+  viewBox="0 0 1024 1024"
+  fill="none"
+  xmlns="http://www.w3.org/2000/svg"
+>
+  <defs>
+    <radialGradient id="folio-orb-light" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(382 276) rotate(58) scale(474 560)">
+      <stop offset="0" stop-color="#F0F0F0" />
+      <stop offset="0.28" stop-color="#B0B0B8" />
+      <stop offset="0.62" stop-color="#4A4A52" />
+      <stop offset="1" stop-color="#18181B" />
+    </radialGradient>
+    <linearGradient id="folio-wave-light" x1="280" y1="486" x2="744" y2="568" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F4F4F5" />
+      <stop offset="0.5" stop-color="#EBEBEB" />
+      <stop offset="1" stop-color="#D4D4D8" />
+    </linearGradient>
+    <linearGradient id="folio-tile" x1="162" y1="130" x2="872" y2="936" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#18181B" />
+      <stop offset="0.58" stop-color="#121216" />
+      <stop offset="1" stop-color="#0E0E10" />
+    </linearGradient>
+    <filter id="folio-orb-shadow" x="174" y="144" width="678" height="722" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="32" stdDeviation="34" flood-color="#000000" flood-opacity="0.46" />
+      <feDropShadow dx="0" dy="10" stdDeviation="16" flood-color="#303034" flood-opacity="0.22" />
+    </filter>
+    <clipPath id="folio-orb-clip">
+      <circle cx="512" cy="500" r="274" />
+    </clipPath>
+  </defs>
+  <rect x="80" y="80" width="864" height="864" rx="212" fill="url(#folio-tile)" />
+  <rect x="81.5" y="81.5" width="861" height="861" rx="210.5" stroke="#303034" stroke-width="3" opacity="0.8" />
+  <g filter="url(#folio-orb-shadow)">
+    <circle cx="512" cy="500" r="274" fill="url(#folio-orb-light)" />
+    <g clip-path="url(#folio-orb-clip)">
+      <path
+        d="M228 506C290 464 344 462 400 505C462 552 521 552 582 505C642 459 696 462 774 506"
+        stroke="url(#folio-wave-light)"
+        stroke-width="52"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
+      <path
+        d="M273 594C346 710 493 769 638 710"
+        stroke="#0E0E10"
+        stroke-width="44"
+        stroke-linecap="round"
+        opacity="0.16"
+      />
+    </g>
+  </g>
+</svg>
