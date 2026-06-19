@@ -4,7 +4,7 @@ export const siteConfig = {
   tagline: "Local-first meeting notes for macOS",
   description:
     "Folio captures system audio and your microphone, transcribes on-device, and writes a markdown note per meeting to your own vault. Audio never leaves your machine.",
-  url: "https://folio.app",
+  url: "https://folio.chele.bi",
   version: "1.1.0",
   license: "Apache-2.0",
   platform: "macOS 13+",

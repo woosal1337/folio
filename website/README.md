@@ -1,9 +1,9 @@
 # Folio website
 
-Marketing and documentation site for [Folio](https://github.com/woosal1337/folio),
-the local-first meeting transcription app for macOS. Built with Next.js, React,
-TypeScript, and Tailwind CSS, and styled with Folio's own design tokens. Lives in
-`website/` inside the main Folio repository.
+Marketing and documentation site for [Folio](https://folio.chele.bi), the local-first
+meeting transcription app for macOS. Live at **[folio.chele.bi](https://folio.chele.bi)**.
+Built with Next.js, React, TypeScript, and Tailwind CSS, and styled with Folio's own
+design tokens. Lives in `website/` inside the main Folio repository.
 
 ## Stack
 
@@ -61,8 +61,9 @@ stack (SF Pro on macOS), matching the app.
 
 ## Deploy
 
-A standard Next.js App Router project. On Vercel, set the project root to `website/`,
-keep the default build command (`next build`), and Bun is detected from `bun.lock`.
+Deployed on Vercel at **[folio.chele.bi](https://folio.chele.bi)**. A standard Next.js
+App Router project: the Vercel project root is set to `website/`, the build command is
+the default `next build`, and Bun is detected from `bun.lock`.
 
 ## Code style
 
