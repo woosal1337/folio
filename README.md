@@ -3,15 +3,16 @@
 </p>
 
 <p align="center">
+  <a href="https://folio.chele.bi"><img src="https://img.shields.io/badge/website-folio.chele.bi-0E0E10.svg" alt="Website"></a>
   <a href="https://github.com/woosal1337/folio/actions/workflows/ci.yml"><img src="https://github.com/woosal1337/folio/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="./LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue.svg" alt="License"></a>
   <a href="#development"><img src="https://img.shields.io/badge/platform-macOS-lightgrey.svg" alt="Platform"></a>
   <a href="https://tauri.app"><img src="https://img.shields.io/badge/built%20with-Tauri%202-24C8DB.svg" alt="Built with Tauri"></a>
 </p>
 
-# Folio
+# [Folio](https://folio.chele.bi)
 
-Local-first meeting transcription for macOS. Captures system audio + microphone independently, transcribes on-device, writes per-meeting markdown to your vault. Audio never leaves your machine.
+Local-first meeting transcription for macOS. Captures system audio + microphone independently, transcribes on-device, writes per-meeting markdown to your vault. Audio never leaves your machine. Website: [folio.chele.bi](https://folio.chele.bi).
 
 **Status:** `1.0.0`. Install via [Homebrew](#install) or the notarized DMG, or build from source.
 
