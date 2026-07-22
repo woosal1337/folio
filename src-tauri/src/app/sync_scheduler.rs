@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use folio_core::server::{sync_session, RemoteClient, RemoteStatus, ServerTokens};
+use folio_core::server::{RemoteStatus, ServerTokens};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager};
 use tracing::{debug, warn};
@@ -55,14 +55,10 @@ async fn tick(app: &AppHandle) -> Result<(), String> {
         return Ok(());
     }
 
-    let mut client = RemoteClient::new(&endpoint).map_err(|e| e.to_string())?;
-    if let Some(token) = ServerTokens::access().map_err(|e| e.to_string())? {
-        client = client.with_token(token);
-    }
     let language = (!language.is_empty() && language != "auto").then_some(language);
 
     for session in pending {
-        match sync_session(&client, &session, language.as_deref()).await {
+        match crate::commands::server::run_sync(&endpoint, &session, language.as_deref()).await {
             Ok(outcome) => {
                 let _ = app.emit(
                     "remote-sync-progress",

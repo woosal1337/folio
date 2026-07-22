@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use folio_core::server::{sync_session, RemoteClient, ServerTokens, SyncState};
+use folio_core::server::{sync_session, RemoteClient, ServerTokens, SyncOutcome, SyncState};
 use serde::Serialize;
 use tauri::State;
 use tracing::info;
@@ -151,12 +151,55 @@ pub async fn sync_recording(
     }
     let session_dir = folio_core::paths::canonicalize_under(&output_dir, &session_dir)
         .map_err(|e| format!("invalid session directory: {e}"))?;
-    let client = build_client(&endpoint, true)?;
     let language = (!language.is_empty() && language != "auto").then_some(language);
-    let outcome = sync_session(&client, &session_dir, language.as_deref())
-        .await
-        .map_err(|e| e.to_string())?;
+    let outcome = run_sync(&endpoint, &session_dir, language.as_deref()).await?;
     Ok(outcome.state)
+}
+
+fn is_auth_error(e: &folio_core::FolioError) -> bool {
+    let s = e.to_string().to_lowercase();
+    s.contains("401")
+        || s.contains("invalid token")
+        || s.contains("unauthorized")
+        || s.contains("missing bearer")
+}
+
+async fn refresh_tokens(endpoint: &str) -> Result<(), String> {
+    let refresh = ServerTokens::refresh()
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| "session expired — sign in to your server again".to_string())?;
+    let client = RemoteClient::new(endpoint).map_err(|e| e.to_string())?;
+    match client.refresh(&refresh).await {
+        Ok(tokens) => {
+            ServerTokens::set(&tokens.access_token, &tokens.refresh_token)
+                .map_err(|e| e.to_string())?;
+            info!("refreshed remote server access token");
+            Ok(())
+        }
+        Err(e) => {
+            let _ = ServerTokens::clear();
+            Err(format!("session expired — sign in to your server again ({e})"))
+        }
+    }
+}
+
+pub async fn run_sync(
+    endpoint: &str,
+    session_dir: &std::path::Path,
+    language: Option<&str>,
+) -> Result<SyncOutcome, String> {
+    let client = build_client(endpoint, true)?;
+    match sync_session(&client, session_dir, language).await {
+        Ok(outcome) => Ok(outcome),
+        Err(e) if is_auth_error(&e) => {
+            refresh_tokens(endpoint).await?;
+            let client = build_client(endpoint, true)?;
+            sync_session(&client, session_dir, language)
+                .await
+                .map_err(|e| e.to_string())
+        }
+        Err(e) => Err(e.to_string()),
+    }
 }
 
 #[tauri::command]
