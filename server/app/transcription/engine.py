@@ -77,7 +77,12 @@ class FasterWhisperEngine(TranscriptionEngine):
     ) -> tuple[str | None, list[Segment]]:
         model = self._load()
         hint = language if language and language != "auto" else None
-        segments, info = model.transcribe(wav_path, language=hint)
+        segments, info = model.transcribe(
+            wav_path,
+            language=hint,
+            vad_filter=True,
+            condition_on_previous_text=False,
+        )
         out: list[Segment] = []
         detected = getattr(info, "language", None)
         for seg in segments:
