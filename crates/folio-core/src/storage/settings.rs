@@ -156,6 +156,12 @@ pub struct Settings {
 
     #[serde(default)]
     pub auto_segment_secs: Option<u64>,
+
+    #[serde(default)]
+    pub remote_endpoint: String,
+
+    #[serde(default)]
+    pub remote_auto_upload: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize, TS)]
@@ -332,6 +338,8 @@ impl Default for Settings {
             workspace_auto_join: true,
             workspace_logo_path: String::new(),
             auto_segment_secs: None,
+            remote_endpoint: String::new(),
+            remote_auto_upload: false,
         }
     }
 }

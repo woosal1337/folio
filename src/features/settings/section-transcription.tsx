@@ -9,7 +9,18 @@ import { Label } from "@/shared/ui/label";
 import { Switch } from "@/shared/ui/switch";
 import { cn } from "@/shared/lib/utils";
 import { humanizeError } from "@/shared/lib/errors";
-import { listProviders, setProviderKey, whisperModelStatus } from "@/shared/lib/ipc";
+import {
+  listProviders,
+  setProviderKey,
+  whisperModelStatus,
+  testRemoteEndpoint,
+  remoteLogin,
+  remoteRegister,
+  remoteLogout,
+  remoteMe,
+  type RemoteAccount,
+  type EndpointTest,
+} from "@/shared/lib/ipc";
 import type { ProviderStatus } from "@/shared/types/ProviderStatus";
 import type { Settings } from "@/shared/types/Settings";
 import type { WhisperModelStatus } from "@/shared/types/WhisperModelStatus";
@@ -32,6 +43,11 @@ const PROVIDERS: { id: string; label: string; desc: string }[] = [
     id: "local_whisper",
     label: "Local Whisper",
     desc: "Runs on this Mac via whisper.cpp · no audio leaves your machine",
+  },
+  {
+    id: "remote_server",
+    label: "Remote server",
+    desc: "Uploads to your GPU server · frees this Mac · syncs the transcript back",
   },
 ];
 
@@ -212,6 +228,10 @@ export function SectionTranscription({ settings, onChange }: Props) {
 
       {settings.transcriber === "openai" && <OpenAiKeySection />}
 
+      {settings.transcriber === "remote_server" && (
+        <RemoteServerSection settings={settings} onChange={onChange} />
+      )}
+
       {settings.transcriber === "local_whisper" && (
         <LocalWhisperSection
           settings={settings}
@@ -334,6 +354,203 @@ function OpenAiKeySection() {
       <p className="text-xs text-muted-foreground">
         Stored in the macOS Keychain. Never persisted to disk; never logged. Sent only
         to api.openai.com when transcribing.
+      </p>
+    </section>
+  );
+}
+
+function RemoteServerSection({
+  settings,
+  onChange,
+}: {
+  settings: Settings;
+  onChange: <K extends keyof Settings>(key: K, value: Settings[K]) => void;
+}) {
+  const [account, setAccount] = React.useState<RemoteAccount | null>(null);
+  const [email, setEmail] = React.useState("");
+  const [password, setPassword] = React.useState("");
+  const [busy, setBusy] = React.useState(false);
+  const [testing, setTesting] = React.useState(false);
+  const [testResult, setTestResult] = React.useState<EndpointTest | null>(null);
+
+  const refreshAccount = React.useCallback(async () => {
+    try {
+      setAccount(await remoteMe());
+    } catch (e) {
+      console.error("remote_me:", e);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    void refreshAccount();
+  }, [refreshAccount]);
+
+  const onTest = async () => {
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const result = await testRemoteEndpoint(settings.remote_endpoint);
+      setTestResult(result);
+      if (result.ok) {
+        toast.success(result.message);
+      } else {
+        toast.error("Could not reach server", { description: result.message });
+      }
+    } catch (e) {
+      toast.error("Connection test failed", { description: humanizeError(e) });
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  const authenticate = async (mode: "login" | "register") => {
+    if (email.trim().length === 0 || password.length === 0) {
+      toast.error("Enter your email and password");
+      return;
+    }
+    setBusy(true);
+    try {
+      if (mode === "register") {
+        await remoteRegister(email.trim(), password);
+        toast.success("Account created");
+      } else {
+        await remoteLogin(email.trim(), password);
+        toast.success("Signed in");
+      }
+      setPassword("");
+      await refreshAccount();
+    } catch (e) {
+      toast.error(mode === "register" ? "Could not register" : "Could not sign in", {
+        description: humanizeError(e),
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onLogout = async () => {
+    try {
+      await remoteLogout();
+      await refreshAccount();
+      toast.success("Signed out");
+    } catch (e) {
+      toast.error("Could not sign out", { description: humanizeError(e) });
+    }
+  };
+
+  const endpointSet = settings.remote_endpoint.trim().length > 0;
+
+  return (
+    <section className="space-y-4">
+      <div className="space-y-2">
+        <Label
+          htmlFor="remote-endpoint"
+          className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground"
+        >
+          <Zap className="h-3.5 w-3.5" />
+          Server endpoint
+        </Label>
+        <div className="flex gap-2">
+          <Input
+            id="remote-endpoint"
+            type="url"
+            placeholder="https://folio-api.example.com"
+            value={settings.remote_endpoint}
+            onChange={(e) => onChange("remote_endpoint", e.target.value)}
+            className="font-mono"
+            autoComplete="off"
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onTest}
+            disabled={testing || !endpointSet}
+          >
+            {testing ? "Testing…" : "Test"}
+          </Button>
+        </div>
+        {testResult?.ok ? (
+          <p className="text-xs text-muted-foreground">
+            {testResult.message}
+            {testResult.gpu ? " · GPU" : ""}
+            {testResult.model ? ` · ${testResult.model}` : ""}
+          </p>
+        ) : null}
+      </div>
+
+      <div className="space-y-2">
+        <Label className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+          <KeyRound className="h-3.5 w-3.5" />
+          Account
+          {account?.signed_in ? (
+            <Badge variant="accent" className="text-2xs">
+              {account.email ?? "signed in"}
+            </Badge>
+          ) : null}
+        </Label>
+        {account?.signed_in ? (
+          <Button type="button" variant="outline" size="sm" onClick={onLogout}>
+            Sign out
+          </Button>
+        ) : (
+          <div className="space-y-2">
+            <Input
+              type="email"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="off"
+            />
+            <Input
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="off"
+            />
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => authenticate("login")}
+                disabled={busy || !endpointSet}
+              >
+                {busy ? "…" : "Sign in"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => authenticate("register")}
+                disabled={busy || !endpointSet}
+              >
+                Create account
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="flex items-center justify-between">
+        <div className="space-y-0.5">
+          <Label htmlFor="remote-auto-upload" className="text-sm">
+            Auto-upload recordings
+          </Label>
+          <p className="text-xs text-muted-foreground">
+            When a recording stops, upload it to the server and sync the transcript back.
+          </p>
+        </div>
+        <Switch
+          id="remote-auto-upload"
+          checked={settings.remote_auto_upload}
+          onCheckedChange={(checked) => onChange("remote_auto_upload", checked)}
+        />
+      </div>
+
+      <p className="text-xs text-muted-foreground">
+        Audio is uploaded to your server and processed there. Tokens are stored in the
+        macOS Keychain. Disabled entirely in Privacy Mode.
       </p>
     </section>
   );
