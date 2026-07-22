@@ -1,0 +1,20 @@
+# CPU-only worker image. faster-whisper runs on CPU (slower; fine for testing
+# or small self-hosts without a GPU). The default Dockerfile.worker is GPU.
+FROM python:3.12-slim
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1
+
+WORKDIR /app
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt requirements-worker.txt ./
+RUN pip install -r requirements-worker.txt
+
+COPY app ./app
+
+CMD ["python", "-m", "app.workers.transcribe_worker"]

@@ -1,0 +1,26 @@
+# GPU worker image (default). faster-whisper / CTranslate2 on CUDA.
+#
+# CUDA + cuDNN runtime libraries come from the nvidia-*-cu12 pip wheels
+# (requirements-gpu.txt) rather than a CUDA base image, so this stays on the
+# slim Python base. The host must provide the NVIDIA driver + NVIDIA Container
+# Toolkit (Coolify GPU servers do). For a CPU-only worker use Dockerfile.worker.cpu.
+FROM python:3.12-slim
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1
+
+WORKDIR /app
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt requirements-worker.txt requirements-gpu.txt ./
+RUN pip install -r requirements-gpu.txt
+
+ENV LD_LIBRARY_PATH=/usr/local/lib/python3.12/site-packages/nvidia/cublas/lib:/usr/local/lib/python3.12/site-packages/nvidia/cudnn/lib
+
+COPY app ./app
+
+CMD ["python", "-m", "app.workers.transcribe_worker"]
