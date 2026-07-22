@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 from pathlib import Path
 
@@ -126,3 +127,27 @@ def get_engine(settings: Settings) -> TranscriptionEngine:
 
 def wav_exists(path: str) -> bool:
     return Path(path).exists()
+
+
+def worker_caps_path(settings: Settings) -> Path:
+    return Path(settings.storage_dir) / "_worker_capabilities.json"
+
+
+def write_worker_capabilities(settings: Settings) -> None:
+    engine = get_engine(settings)
+    caps = {
+        "engine": engine.name,
+        "model": settings.whisper_model,
+        "gpu": gpu_available(),
+        "diarization": settings.diarization_enabled,
+    }
+    path = worker_caps_path(settings)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(caps))
+
+
+def read_worker_capabilities(settings: Settings) -> dict | None:
+    try:
+        return json.loads(worker_caps_path(settings).read_text())
+    except Exception:
+        return None

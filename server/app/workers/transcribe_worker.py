@@ -11,7 +11,7 @@ from app.db.base import SessionLocal, init_db
 from app.db.models import Channel, Job, Recording, Transcript
 from app.schemas.transcript import ChannelTranscript, SessionTranscript
 from app.storage import get_storage
-from app.transcription.engine import get_engine
+from app.transcription.engine import get_engine, write_worker_capabilities
 
 logger = logging.getLogger(__name__)
 
@@ -107,6 +107,10 @@ async def process_next() -> bool:
 async def run_worker() -> None:
     settings = get_settings()
     logger.info("worker started (engine=%s)", get_engine(settings).name)
+    try:
+        write_worker_capabilities(settings)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("could not publish worker capabilities: %s", exc)
     while True:
         if not await process_next():
             await asyncio.sleep(settings.worker_poll_interval_seconds)

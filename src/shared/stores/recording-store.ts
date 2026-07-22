@@ -17,6 +17,7 @@ import {
   diarizeSession as ipcDiarize,
   runVad as ipcRunVad,
   whisperModelStatus as ipcWhisperModelStatus,
+  syncRecording as ipcSyncRecording,
 } from "@/shared/lib/ipc";
 import { estimateOpenAITranscribeCost, formatUsd } from "@/shared/lib/cost-estimate";
 import { humanizeError } from "@/shared/lib/errors";
@@ -241,8 +242,88 @@ export const useRecording = create<RecordingState>((set, get) => {
   const openTranscriptionSettings = () =>
     useSettingsUiStore.getState().openAt("transcription");
 
+  const runRemoteSync = async (sessionDir: string) => {
+    const settings = useSettingsStore.getState().settings;
+    if (!settings?.remote_endpoint || settings.remote_endpoint.trim().length === 0) {
+      playFeedback("error");
+      toast.error("Remote server not configured", {
+        description: "Set a server endpoint in Settings → Transcription.",
+        action: { label: "Open Settings", onClick: openTranscriptionSettings },
+      });
+      return;
+    }
+    const jobId = `transcribe:${sessionDir}`;
+    set({
+      transcribing: true,
+      transcribingDir: sessionDir,
+      transcribeError: null,
+      lastTranscriptPath: null,
+    });
+    useJobsStore.getState().push({
+      id: jobId,
+      kind: "sync",
+      label: `Syncing ${basename(sessionDir)} to server`,
+      sessionDir,
+      recordingLabel: basename(sessionDir),
+    });
+    toast.info("Uploading to server…", { description: basename(sessionDir) });
+    try {
+      let state = await ipcSyncRecording(sessionDir);
+      let guard = 0;
+      while (
+        state.remote_status !== "succeeded" &&
+        state.remote_status !== "failed" &&
+        guard < 600
+      ) {
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+        state = await ipcSyncRecording(sessionDir);
+        guard += 1;
+      }
+      if (state.remote_status === "succeeded") {
+        set({
+          transcribing: false,
+          transcribingDir: null,
+          lastTranscriptPath: `${sessionDir}/transcript.json`,
+        });
+        playFeedback("success");
+        toast.success("Transcript synced from server", {
+          description: basename(sessionDir),
+        });
+        void maybeAutoSummarize(sessionDir);
+        void maybeAutoExtractTasks(sessionDir);
+        void maybeAutoExtractMemories(sessionDir);
+        void maybeAutoName(sessionDir);
+      } else {
+        const message = state.error ?? "remote transcription failed";
+        set({
+          transcribing: false,
+          transcribingDir: null,
+          transcribeError: message,
+        });
+        playFeedback("error");
+        toast.error("Remote transcription failed", { description: message });
+      }
+    } catch (e) {
+      const message = humanizeError(e);
+      set({
+        transcribing: false,
+        transcribingDir: null,
+        transcribeError: message,
+      });
+      playFeedback("error");
+      toast.error("Sync failed", { description: message });
+    } finally {
+      useJobsStore.getState().pop(jobId);
+    }
+  };
+
   const runTranscription = async (sessionDir: string) => {
     const settings = useSettingsStore.getState().settings;
+
+    if (settings?.transcriber === "remote_server") {
+      await runRemoteSync(sessionDir);
+      return;
+    }
 
     if ((settings?.transcriber ?? "local_whisper") === "local_whisper") {
       const modelStatus = await ipcWhisperModelStatus().catch(() => null);
@@ -574,6 +655,13 @@ export const useRecording = create<RecordingState>((set, get) => {
             void runTranscription(sessionDir);
           }
         })();
+      }
+      if (
+        settings?.transcriber === "remote_server" &&
+        (settings?.remote_auto_upload ?? false) &&
+        !(settings?.privacy_mode ?? false)
+      ) {
+        void runTranscription(sessionDir);
       }
     },
 

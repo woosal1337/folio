@@ -6,7 +6,8 @@ export type JobKind =
   | "transcribe"
   | "diarize"
   | "agent"
-  | "download";
+  | "download"
+  | "sync";
 
 export interface Job {
   id: string;

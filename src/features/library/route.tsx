@@ -2,6 +2,8 @@ import * as React from "react";
 import {
   FileAudio,
   FileText,
+  Cloud,
+  CloudOff,
   Loader2,
   MoreHorizontal,
   RefreshCw,
@@ -11,6 +13,7 @@ import {
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { Folder, X } from "lucide-react";
+import type { SyncState } from "@/shared/types/SyncState";
 
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent } from "@/shared/ui/card";
@@ -334,6 +337,10 @@ function NoteRow({
         </span>
       ) : null}
 
+      {item.sync && item.sync.remote_status !== "none" ? (
+        <SyncBadge sync={item.sync} />
+      ) : null}
+
       <span className="shrink-0 font-mono text-2xs text-muted-foreground">
         {formatRowTime(item.created_at)}
       </span>
@@ -345,6 +352,37 @@ function NoteRow({
         onDelete={onDelete}
       />
     </div>
+  );
+}
+
+function SyncBadge({ sync }: { sync: SyncState }) {
+  if (sync.remote_status === "succeeded") {
+    return (
+      <span className="inline-flex items-center gap-1 text-2xs text-sky-600 dark:text-sky-400">
+        <Cloud className="h-3 w-3" />
+        synced
+      </span>
+    );
+  }
+  if (sync.remote_status === "failed") {
+    return (
+      <span className="inline-flex items-center gap-1 text-2xs text-red-600 dark:text-red-400">
+        <CloudOff className="h-3 w-3" />
+        sync failed
+      </span>
+    );
+  }
+  const label =
+    sync.upload_state !== "complete"
+      ? "uploading"
+      : sync.remote_status === "running"
+        ? "on GPU"
+        : "queued";
+  return (
+    <span className="inline-flex items-center gap-1 text-2xs text-muted-foreground">
+      <Loader2 className="h-3 w-3 animate-spin" />
+      {label}
+    </span>
   );
 }
 

@@ -99,6 +99,7 @@ pub async fn create_note(state: State<'_, AppState>) -> Result<RecordingSummary,
             suggested_tags: Vec::new(),
             suggested_subtitle: None,
             language_override: None,
+            sync: None,
         })
     })
     .await

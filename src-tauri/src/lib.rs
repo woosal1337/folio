@@ -62,6 +62,8 @@ pub fn run() {
             if let Ok(mut slot) = WATCHER_HANDLE.lock() {
                 *slot = Some(watcher_handle);
             }
+
+            app::sync_scheduler::spawn(app.handle().clone());
             let _ = app;
             Ok(())
         })
