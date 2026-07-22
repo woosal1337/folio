@@ -133,6 +133,11 @@ pub async fn sync_recording(
     state: State<'_, AppState>,
     session_dir: PathBuf,
 ) -> Result<SyncState, String> {
+    if !ServerTokens::has() {
+        return Err(
+            "Not signed in to your Folio server — open Settings → Transcription → Remote server and create an account or sign in.".into(),
+        );
+    }
     let (endpoint, output_dir, language) = {
         let settings = state.settings.lock();
         (

@@ -495,6 +495,10 @@ function RemoteServerSection({
           </Button>
         ) : (
           <div className="space-y-2">
+            <p className="text-xs text-amber-600 dark:text-amber-400">
+              Create an account or sign in to upload and sync recordings — the server
+              rejects requests without it.
+            </p>
             <Input
               type="email"
               placeholder="you@example.com"
