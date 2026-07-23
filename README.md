@@ -12,7 +12,7 @@
 
 # [Folio](https://folio.chele.bi)
 
-Local-first meeting transcription for macOS. Captures system audio + microphone independently, transcribes on-device, writes per-meeting markdown to your vault. Audio never leaves your machine. Website: [folio.chele.bi](https://folio.chele.bi).
+Local-first meeting transcription for macOS. Captures system audio + microphone independently, transcribes on-device by default, writes per-meeting markdown to your vault. Audio leaves your machine only if you opt in — cloud transcription, or a GPU server you host yourself ([`server/`](server/README.md)). Website: [folio.chele.bi](https://folio.chele.bi).
 
 **Status:** `1.0.0`. Install via [Homebrew](#install) or the notarized DMG, or build from source.
 
