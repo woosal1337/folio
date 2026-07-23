@@ -1,6 +1,6 @@
 const nextConfig = {
-  reactStrictMode: true,
-  poweredByHeader: false,
+    reactStrictMode: true,
+    poweredByHeader: false,
 };
 
 export default nextConfig;

@@ -52,19 +52,19 @@ The server must return transcripts that deserialize, unchanged, into the Rust
 {
   "channels": [
     {
-      "channel": "mic",              // or "system"
-      "language": "en",              // nullable
+      "channel": "mic", // or "system"
+      "language": "en", // nullable
       "segments": [
         {
           "start_seconds": 0.0,
           "end_seconds": 1.24,
           "text": "hello",
-          "speaker": null,           // Option<i32>, filled by diarization
-          "language": "en"           // nullable
-        }
-      ]
-    }
-  ]
+          "speaker": null, // Option<i32>, filled by diarization
+          "language": "en", // nullable
+        },
+      ],
+    },
+  ],
 }
 ```
 
@@ -75,22 +75,22 @@ client-side after the pull, exactly as they do for the local path.
 
 ## REST contract (`/v1`)
 
-| Method | Path                                   | Purpose                                    |
-| ------ | -------------------------------------- | ------------------------------------------ |
-| GET    | `/health`                              | liveness                                   |
-| GET    | `/v1/capabilities`                     | version, engine, model, GPU, diarization   |
-| POST   | `/v1/auth/register`                    | create account → tokens                    |
-| POST   | `/v1/auth/login`                       | password → access + refresh tokens         |
-| POST   | `/v1/auth/refresh`                     | refresh → new access token                 |
-| GET    | `/v1/auth/me`                          | current user                               |
-| POST   | `/v1/recordings`                       | create/upsert a recording by client UUID   |
-| GET    | `/v1/recordings`                       | list (supports `updated_since` for delta)  |
-| GET    | `/v1/recordings/{id}`                  | one recording + channel/job state          |
-| DELETE | `/v1/recordings/{id}`                  | delete recording + artifacts               |
-| PUT    | `/v1/recordings/{id}/channels/{name}`  | resumable chunked upload of `mic`/`system` |
-| POST   | `/v1/recordings/{id}/transcribe`       | enqueue a transcription job                |
-| GET    | `/v1/jobs/{id}`                        | poll status / progress / error             |
-| GET    | `/v1/recordings/{id}/transcript`       | fetch the `SessionTranscript`              |
+| Method | Path                                  | Purpose                                    |
+| ------ | ------------------------------------- | ------------------------------------------ |
+| GET    | `/health`                             | liveness                                   |
+| GET    | `/v1/capabilities`                    | version, engine, model, GPU, diarization   |
+| POST   | `/v1/auth/register`                   | create account → tokens                    |
+| POST   | `/v1/auth/login`                      | password → access + refresh tokens         |
+| POST   | `/v1/auth/refresh`                    | refresh → new access token                 |
+| GET    | `/v1/auth/me`                         | current user                               |
+| POST   | `/v1/recordings`                      | create/upsert a recording by client UUID   |
+| GET    | `/v1/recordings`                      | list (supports `updated_since` for delta)  |
+| GET    | `/v1/recordings/{id}`                 | one recording + channel/job state          |
+| DELETE | `/v1/recordings/{id}`                 | delete recording + artifacts               |
+| PUT    | `/v1/recordings/{id}/channels/{name}` | resumable chunked upload of `mic`/`system` |
+| POST   | `/v1/recordings/{id}/transcribe`      | enqueue a transcription job                |
+| GET    | `/v1/jobs/{id}`                       | poll status / progress / error             |
+| GET    | `/v1/recordings/{id}/transcript`      | fetch the `SessionTranscript`              |
 
 ### Resumable channel upload
 
@@ -121,7 +121,7 @@ Each recording session directory gets a durable UUID and a `sync.json` sidecar
   "upload_state": "pending | uploading | complete",
   "remote_status": "none | queued | running | succeeded | failed",
   "last_synced_at": "<rfc3339 | null>",
-  "error": "<string | null>"
+  "error": "<string | null>",
 }
 ```
 

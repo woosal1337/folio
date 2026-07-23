@@ -9,17 +9,17 @@ import { FaqSection } from "@/components/landing/faq-section";
 import { CtaSection } from "@/components/landing/cta-section";
 
 export default function HomePage() {
-  return (
-    <>
-      <Hero />
-      <TrustBar />
-      <FeatureGrid />
-      <HowItWorks />
-      <PrivacySection />
-      <ConnectorsSection />
-      <InstallSection />
-      <FaqSection />
-      <CtaSection />
-    </>
-  );
+    return (
+        <>
+            <Hero />
+            <TrustBar />
+            <FeatureGrid />
+            <HowItWorks />
+            <PrivacySection />
+            <ConnectorsSection />
+            <InstallSection />
+            <FaqSection />
+            <CtaSection />
+        </>
+    );
 }

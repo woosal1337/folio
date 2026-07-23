@@ -24,14 +24,14 @@ The site runs at `http://localhost:3000`.
 
 ## Scripts
 
-| Script | What it does |
-| --- | --- |
-| `bun run dev` | Start the dev server |
-| `bun run build` | Production build |
-| `bun run start` | Serve the production build |
-| `bun run lint` | Lint with `next lint` |
+| Script              | What it does                |
+| ------------------- | --------------------------- |
+| `bun run dev`       | Start the dev server        |
+| `bun run build`     | Production build            |
+| `bun run start`     | Serve the production build  |
+| `bun run lint`      | Lint with `next lint`       |
 | `bun run typecheck` | Type-check without emitting |
-| `bun run format` | Format with Prettier |
+| `bun run format`    | Format with Prettier        |
 
 ## Structure
 
