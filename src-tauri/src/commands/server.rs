@@ -178,7 +178,9 @@ async fn refresh_tokens(endpoint: &str) -> Result<(), String> {
         }
         Err(e) => {
             let _ = ServerTokens::clear();
-            Err(format!("session expired — sign in to your server again ({e})"))
+            Err(format!(
+                "session expired — sign in to your server again ({e})"
+            ))
         }
     }
 }

@@ -7,7 +7,7 @@ use folio_core::transcription::SessionTranscript;
 #[ignore]
 async fn remote_round_trip_against_live_server() {
     let endpoint = std::env::var("FOLIO_TEST_ENDPOINT")
-        .expect("set FOLIO_TEST_ENDPOINT (e.g. https://folio-api.chele.bi)");
+        .expect("set FOLIO_TEST_ENDPOINT (e.g. https://folio-api.example.com)");
     let wav = std::env::var("FOLIO_TEST_WAV").expect("set FOLIO_TEST_WAV (path to a speech wav)");
 
     let email = format!("rusttest-{}@example.com", uuid::Uuid::new_v4().simple());

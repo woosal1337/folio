@@ -21,7 +21,7 @@ pub fn next_calendar_event() -> Option<CalendarEvent> {
 pub fn list_calendar_events(window_days: u32) -> Vec<CalendarEvent> {
     let window_secs = (window_days.max(1) as f64) * 24.0 * 60.0 * 60.0;
     let mut events = event_kit::read_events(window_secs);
-    events.sort_by(|a, b| a.starts_at.cmp(&b.starts_at));
+    events.sort_by_key(|e| e.starts_at);
     events
 }
 

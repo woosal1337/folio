@@ -11,11 +11,11 @@ pub struct ServerTokens;
 impl ServerTokens {
     pub fn set(access: &str, refresh: &str) -> Result<()> {
         if access.trim().is_empty() {
-            return Err(FolioError::Backend("refusing to store an empty access token".into()));
+            return Err(FolioError::Backend(
+                "refusing to store an empty access token".into(),
+            ));
         }
-        entry(ACCESS)?
-            .set_password(access)
-            .map_err(keychain_err)?;
+        entry(ACCESS)?.set_password(access).map_err(keychain_err)?;
         entry(REFRESH)?
             .set_password(refresh)
             .map_err(keychain_err)?;

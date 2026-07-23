@@ -57,7 +57,7 @@ fn handle_call(name: &str, args: &Value) -> Result<Value, String> {
             let p: RecentMeetingsParams = serde_json::from_value(args.clone())
                 .unwrap_or(RecentMeetingsParams { limit: None });
             let mut recs = scan_recordings(&settings().output_dir);
-            recs.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+            recs.sort_by_key(|r| std::cmp::Reverse(r.created_at));
             recs.truncate(p.limit.unwrap_or(20));
             Ok(json!(recs))
         }
@@ -153,7 +153,7 @@ fn handle_call(name: &str, args: &Value) -> Result<Value, String> {
                 .into_iter()
                 .filter(|r| r.folder.as_deref() == Some(p.folder.as_str()))
                 .collect();
-            recs.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+            recs.sort_by_key(|r| std::cmp::Reverse(r.created_at));
             if let Some(l) = p.limit {
                 recs.truncate(l);
             }
@@ -167,7 +167,7 @@ fn handle_call(name: &str, args: &Value) -> Result<Value, String> {
                 .into_iter()
                 .filter(|r| r.created_at.map(|c| c >= from && c <= to).unwrap_or(false))
                 .collect();
-            recs.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+            recs.sort_by_key(|r| std::cmp::Reverse(r.created_at));
             if let Some(l) = p.limit {
                 recs.truncate(l);
             }
@@ -177,7 +177,7 @@ fn handle_call(name: &str, args: &Value) -> Result<Value, String> {
             let p: NotesByPersonParams = req(args)?;
             let needle = p.person.to_lowercase();
             let mut recs = scan_recordings(&settings().output_dir);
-            recs.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+            recs.sort_by_key(|r| std::cmp::Reverse(r.created_at));
             let mut out = Vec::new();
             for r in recs.into_iter().take(MAX_PERSON_SCAN) {
                 if !r.has_transcript {

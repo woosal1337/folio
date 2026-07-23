@@ -10,21 +10,16 @@ use uuid::Uuid;
 use crate::error::{FolioError, Result};
 
 #[non_exhaustive]
-#[derive(Copy, Clone, Debug, Serialize, Deserialize, TS, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, TS, PartialEq, Eq, Default)]
 #[ts(export, export_to = "../../../src/shared/types/")]
 #[serde(rename_all = "snake_case")]
 pub enum TaskStatus {
+    #[default]
     Todo,
 
     Doing,
 
     Done,
-}
-
-impl Default for TaskStatus {
-    fn default() -> Self {
-        Self::Todo
-    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, TS)]

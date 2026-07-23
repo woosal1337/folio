@@ -79,7 +79,10 @@ pub async fn sync_session(
         sync_state::save(session_dir, &state)?;
     }
 
-    let job_id = state.remote_job_id.clone().expect("remote_job_id set above");
+    let job_id = state
+        .remote_job_id
+        .clone()
+        .expect("remote_job_id set above");
     let job = client.poll_job(&job_id).await?;
     state.remote_status = map_status(&job.status);
 

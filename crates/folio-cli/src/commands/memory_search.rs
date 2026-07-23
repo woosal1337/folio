@@ -30,7 +30,7 @@ pub fn run(args: MemorySearchArgs) -> Result<()> {
         })
         .collect();
 
-    matches.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
+    matches.sort_by_key(|m| std::cmp::Reverse(m.updated_at));
     if args.limit > 0 && matches.len() > args.limit {
         matches.truncate(args.limit);
     }

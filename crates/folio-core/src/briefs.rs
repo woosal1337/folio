@@ -71,7 +71,7 @@ pub async fn generate(
     let mut sources_count = 0;
 
     let mut recordings = scan_recordings(output_dir);
-    recordings.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+    recordings.sort_by_key(|r| std::cmp::Reverse(r.created_at));
     for r in recordings.iter().take(20) {
         let dir = Path::new(&r.session_dir);
         let summary = crate::llm::AgentRunStore::list(dir)

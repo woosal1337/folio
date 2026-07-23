@@ -204,7 +204,10 @@ impl RemoteClient {
         decode(resp, "fetch_transcript").await
     }
 
-    pub async fn list_recordings(&self, updated_since: Option<&str>) -> Result<Vec<RemoteRecording>> {
+    pub async fn list_recordings(
+        &self,
+        updated_since: Option<&str>,
+    ) -> Result<Vec<RemoteRecording>> {
         self.ensure_egress()?;
         let url = match updated_since {
             Some(since) => format!("{}?updated_since={since}", self.url("/v1/recordings")),
