@@ -2,8 +2,6 @@ import * as React from "react";
 import {
   FileAudio,
   FileText,
-  Cloud,
-  CloudOff,
   Loader2,
   MoreHorizontal,
   RefreshCw,
@@ -13,7 +11,8 @@ import {
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { Folder, X } from "lucide-react";
-import type { SyncState } from "@/shared/types/SyncState";
+
+import { SyncBadge } from "@/shared/ui/sync-badge";
 
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent } from "@/shared/ui/card";
@@ -25,6 +24,7 @@ import {
   clearRecordingArtifacts,
   deleteRecording,
   listRecordings,
+  onRemoteSyncProgress,
   revealInFinder,
   searchNoteContent,
 } from "@/shared/lib/ipc";
@@ -71,6 +71,14 @@ export default function Library() {
   React.useEffect(() => {
     refresh();
   }, [refresh, lastSavedDir, lastTranscriptPath]);
+
+  React.useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    void onRemoteSyncProgress(() => void refresh()).then((fn) => {
+      unlisten = fn;
+    });
+    return () => unlisten?.();
+  }, [refresh]);
 
   const open = React.useCallback(
     (item: RecordingSummary) => {
@@ -328,12 +336,12 @@ function NoteRow({
       {transcribing ? (
         <span className="inline-flex items-center gap-1 text-2xs text-muted-foreground">
           <Loader2 className="h-3 w-3 animate-spin" />
-          transcribing
+          Transcribing
         </span>
       ) : item.has_transcript ? (
         <span className="inline-flex items-center gap-1 text-2xs text-emerald-600 dark:text-emerald-400">
           <Sparkles className="h-3 w-3" />
-          transcribed
+          Transcribed
         </span>
       ) : null}
 
@@ -352,37 +360,6 @@ function NoteRow({
         onDelete={onDelete}
       />
     </div>
-  );
-}
-
-function SyncBadge({ sync }: { sync: SyncState }) {
-  if (sync.remote_status === "succeeded") {
-    return (
-      <span className="inline-flex items-center gap-1 text-2xs text-sky-600 dark:text-sky-400">
-        <Cloud className="h-3 w-3" />
-        synced
-      </span>
-    );
-  }
-  if (sync.remote_status === "failed") {
-    return (
-      <span className="inline-flex items-center gap-1 text-2xs text-red-600 dark:text-red-400">
-        <CloudOff className="h-3 w-3" />
-        sync failed
-      </span>
-    );
-  }
-  const label =
-    sync.upload_state !== "complete"
-      ? "uploading"
-      : sync.remote_status === "running"
-        ? "on GPU"
-        : "queued";
-  return (
-    <span className="inline-flex items-center gap-1 text-2xs text-muted-foreground">
-      <Loader2 className="h-3 w-3 animate-spin" />
-      {label}
-    </span>
   );
 }
 

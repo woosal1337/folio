@@ -3,6 +3,7 @@ import {
   ArrowLeft,
   Check,
   ChevronRight,
+  CloudOff,
   Copy,
   FileText,
   Loader2,
@@ -39,6 +40,7 @@ import {
   listAgentRuns,
   setEnhancedNotesAccepted,
   onLiveTranscript,
+  onRemoteSyncProgress,
   readTranscript,
   renameNote,
   revealInFinder,
@@ -46,8 +48,10 @@ import {
   sharePaths,
 } from "@/shared/lib/ipc";
 import { useRecording } from "@/shared/stores/recording-store";
+import { useRemoteAccountStore } from "@/shared/stores/remote-account-store";
 import { useSettingsStore } from "@/shared/stores/settings-store";
 import { useJobsStore } from "@/shared/stores/jobs-store";
+import { SyncBadge } from "@/shared/ui/sync-badge";
 import { useTranscriberCopy } from "@/shared/hooks/use-transcriber-copy";
 import type { AgentRun } from "@/shared/types/AgentRun";
 import type { RecordingSummary } from "@/shared/types/RecordingSummary";
@@ -95,6 +99,14 @@ export default function Editor() {
   const liveTranscriptEnabled = useSettingsStore(
     (s) => s.settings?.live_transcript_enabled ?? false
   );
+  const isRemoteProvider = useSettingsStore(
+    (s) => s.settings?.transcriber === "remote_server"
+  );
+  const account = useRemoteAccountStore((s) => s.account);
+  const refreshAccount = useRemoteAccountStore((s) => s.refresh);
+  React.useEffect(() => {
+    if (isRemoteProvider && account === null) void refreshAccount();
+  }, [isRemoteProvider, account, refreshAccount]);
   const [livePreview, setLivePreview] = React.useState("");
   const liveSessionDir = recState.liveSessionDir;
   const isCapturingThis =
@@ -114,25 +126,39 @@ export default function Editor() {
     return () => unlisten?.();
   }, [isCapturingThis, recording?.session_dir]);
 
+  const navRecording =
+    stateFromNav && stateFromNav.label === label ? stateFromNav : null;
+  const recordingRef = React.useRef(recording);
+  recordingRef.current = recording;
+
   React.useEffect(() => {
-    if (recording) return;
     if (!label) {
       setNotFound(true);
       return;
     }
     let cancelled = false;
-    setRecordingLoading(true);
+    setNotFound(false);
+    if (navRecording) setRecording(navRecording);
+    const seeded =
+      navRecording ??
+      (recordingRef.current?.label === label ? recordingRef.current : null);
+    if (!seeded) {
+      setRecording(null);
+      setRecordingLoading(true);
+    }
     (async () => {
       try {
         const r = await getRecording(label);
         if (cancelled) return;
         if (r) setRecording(r);
-        else setNotFound(true);
+        else if (!seeded) setNotFound(true);
       } catch (e) {
         if (cancelled) return;
         console.error("get_recording:", e);
-        toast.error("Could not load recording", { description: humanizeError(e) });
-        setNotFound(true);
+        if (!seeded) {
+          toast.error("Could not load recording", { description: humanizeError(e) });
+          setNotFound(true);
+        }
       } finally {
         if (!cancelled) setRecordingLoading(false);
       }
@@ -140,7 +166,32 @@ export default function Editor() {
     return () => {
       cancelled = true;
     };
-  }, [label, recording]);
+  }, [label, navRecording]);
+
+  const refreshSummary = React.useCallback(async () => {
+    if (!label) return;
+    try {
+      const r = await getRecording(label);
+      if (r) setRecording(r);
+    } catch (e) {
+      console.error("get_recording refresh:", e);
+    }
+  }, [label]);
+
+  const sessionDir = recording?.session_dir ?? null;
+  const lastSavedDir = recState.lastSavedDir;
+  React.useEffect(() => {
+    if (lastSavedDir && lastSavedDir === sessionDir) void refreshSummary();
+  }, [lastSavedDir, sessionDir, refreshSummary]);
+
+  const prevTranscribingDir = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    const prev = prevTranscribingDir.current;
+    prevTranscribingDir.current = transcribingDir;
+    if (prev && prev === sessionDir && transcribingDir !== prev) {
+      void refreshSummary();
+    }
+  }, [transcribingDir, sessionDir, refreshSummary]);
 
   const loadTranscript = React.useCallback(async (sessionDir: string) => {
     setTranscriptLoading(true);
@@ -164,20 +215,22 @@ export default function Editor() {
   }, [recording, loadTranscript, lastTranscriptPath]);
 
   React.useEffect(() => {
-    if (!label || !lastTranscriptPath) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const r = await getRecording(label);
-        if (!cancelled && r) setRecording(r);
-      } catch (e) {
-        if (!cancelled) console.error("get_recording on transcript complete:", e);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [label, lastTranscriptPath]);
+    if (!lastTranscriptPath) return;
+    void refreshSummary();
+  }, [lastTranscriptPath, refreshSummary]);
+
+  React.useEffect(() => {
+    if (!sessionDir) return;
+    let unlisten: (() => void) | undefined;
+    void onRemoteSyncProgress((p) => {
+      if (p.session_dir !== sessionDir) return;
+      void refreshSummary();
+      if (p.transcript_written) void loadTranscript(sessionDir);
+    }).then((fn) => {
+      unlisten = fn;
+    });
+    return () => unlisten?.();
+  }, [sessionDir, refreshSummary, loadTranscript]);
 
   const [agentRuns, setAgentRuns] = React.useState<AgentRun[]>([]);
   const refreshRuns = React.useCallback(async () => {
@@ -216,6 +269,7 @@ export default function Editor() {
     prevJobIds.current = active;
     if (completedIds.length > 0) {
       void refreshRuns();
+      void refreshSummary();
       if (
         completedIds.some(
           (id) => id.startsWith("diarize:") || id.startsWith("transcribe:")
@@ -224,7 +278,7 @@ export default function Editor() {
         void loadTranscript(dir);
       }
     }
-  }, [jobs, recording?.session_dir, refreshRuns, loadTranscript]);
+  }, [jobs, recording?.session_dir, refreshRuns, refreshSummary, loadTranscript]);
 
   const summaryRun = agentRuns.find((r) => r.agent_id === "summarize") ?? null;
 
@@ -441,6 +495,28 @@ export default function Editor() {
   const otherActive = (recState.recording || recState.paused) && !isThisActive;
   const dockElapsedLabel = formatElapsed(recState.elapsed);
 
+  const progressLabel = isRemoteProvider
+    ? recState.remoteStage === "uploading"
+      ? "Uploading audio to your server…"
+      : recState.remoteStage === "processing"
+        ? "Transcribing on your server's GPU…"
+        : recState.remoteStage === "queued"
+          ? "Queued on your server…"
+          : "Syncing with your server…"
+    : transcriber.progressLabel;
+  const storeError =
+    recState.transcribeErrorDir === recording.session_dir
+      ? recState.transcribeError
+      : null;
+  const syncFailed = recording.sync?.remote_status === "failed";
+  const transcribeFailure = isCurrentlyTranscribing
+    ? null
+    : (storeError ??
+      (syncFailed && !recording.has_transcript
+        ? (recording.sync?.error ?? "Remote transcription failed")
+        : null));
+  const needsRemoteAuth = isRemoteProvider && account !== null && !account.signed_in;
+
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-8 py-8 pb-28">
       <div data-drag="" className="flex select-none items-center justify-between">
@@ -514,32 +590,85 @@ export default function Editor() {
           {recording.has_transcript ? (
             <Badge variant="accent" className="gap-1 text-2xs">
               <Sparkles className="h-3 w-3" />
-              transcribed
+              Transcribed
             </Badge>
+          ) : null}
+          {recording.sync && recording.sync.remote_status !== "none" ? (
+            <SyncBadge sync={recording.sync} />
           ) : null}
         </div>
       </div>
 
       {isCurrentlyTranscribing ? (
         <div
-          className="flex items-center gap-2 text-sm text-muted-foreground"
+          className="flex items-center gap-3 rounded-lg border border-border bg-card/40 px-4 py-3"
           role="status"
           aria-live="polite"
         >
-          <Loader2 className="h-4 w-4 animate-spin" />
-          <span>{transcriber.progressLabel}</span>
-        </div>
-      ) : hasAudio && !recording.has_transcript ? (
-        <div className="flex flex-col items-start gap-3 rounded-lg border border-dashed border-border bg-card/40 px-4 py-6">
-          <div className="flex items-center gap-2">
-            <FileText className="h-4 w-4 text-muted-foreground" />
-            <p className="text-sm">This note has audio but no transcript yet.</p>
+          <Loader2 className="h-4 w-4 shrink-0 animate-spin text-primary" />
+          <div className="min-w-0">
+            <p className="text-sm font-medium">{progressLabel}</p>
+            <p className="text-xs text-muted-foreground">
+              {isRemoteProvider
+                ? "You can keep working — the transcript appears here when it's ready."
+                : "The transcript appears here when it's ready."}
+            </p>
           </div>
-          <Button onClick={handleTranscribe} className="gap-2">
-            <Sparkles className="h-3.5 w-3.5" />
-            Transcribe now
+        </div>
+      ) : transcribeFailure ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3">
+          <div className="flex min-w-0 items-start gap-2.5">
+            <CloudOff className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+            <div className="min-w-0 space-y-0.5">
+              <p className="text-sm font-medium">
+                {isRemoteProvider ? "Sync failed" : "Transcription failed"}
+              </p>
+              <p className="break-words text-xs text-muted-foreground">
+                {transcribeFailure}
+              </p>
+            </div>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            className="shrink-0 gap-1.5"
+            onClick={handleTranscribe}
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+            Try again
           </Button>
-          <p className="text-xs text-muted-foreground">{transcriber.emptyStateHint}</p>
+        </div>
+      ) : hasAudio && !recording.has_transcript && !isRecordingThis && !isPausedThis ? (
+        <div className="flex flex-col items-center gap-4 rounded-lg border border-dashed border-border bg-card/40 px-6 py-10 text-center">
+          <div className="rounded-full border border-border bg-muted/40 p-3">
+            <FileText className="h-5 w-5 text-muted-foreground" />
+          </div>
+          <div className="space-y-1">
+            <p className="text-sm font-medium">No transcript yet</p>
+            <p className="mx-auto max-w-sm text-xs text-muted-foreground">
+              {transcriber.emptyStateHint}
+            </p>
+          </div>
+          {needsRemoteAuth ? (
+            <div className="flex flex-col items-center gap-2">
+              <Button className="gap-2" onClick={() => navigate("/account")}>
+                <UserIcon className="h-3.5 w-3.5" />
+                Sign in to your server
+              </Button>
+              <p className="text-2xs text-amber-600 dark:text-amber-400">
+                Your server needs an account before it accepts uploads.
+              </p>
+            </div>
+          ) : (
+            <Button
+              onClick={handleTranscribe}
+              className="gap-2"
+              title={transcriber.triggerTooltip}
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              Transcribe now
+            </Button>
+          )}
         </div>
       ) : null}
 

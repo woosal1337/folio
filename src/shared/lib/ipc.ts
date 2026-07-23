@@ -643,6 +643,20 @@ export async function onLiveTranscript(
   return listen<LiveTranscript>("live-transcript", (event) => handler(event.payload));
 }
 
+export interface RemoteSyncProgress {
+  session_dir: string;
+  remote_status: string;
+  transcript_written: boolean;
+}
+
+export async function onRemoteSyncProgress(
+  handler: (progress: RemoteSyncProgress) => void
+): Promise<UnlistenFn> {
+  return listen<RemoteSyncProgress>("remote-sync-progress", (event) =>
+    handler(event.payload)
+  );
+}
+
 export type TrayEvent =
   | "tray:start-recording"
   | "tray:stop-recording"

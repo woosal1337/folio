@@ -1,5 +1,6 @@
 import * as React from "react";
-import { Captions, KeyRound, Zap } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Captions, CircleUserRound, KeyRound, Server, Zap } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/shared/ui/badge";
@@ -9,18 +10,9 @@ import { Label } from "@/shared/ui/label";
 import { Switch } from "@/shared/ui/switch";
 import { cn } from "@/shared/lib/utils";
 import { humanizeError } from "@/shared/lib/errors";
-import {
-  listProviders,
-  setProviderKey,
-  whisperModelStatus,
-  testRemoteEndpoint,
-  remoteLogin,
-  remoteRegister,
-  remoteLogout,
-  remoteMe,
-  type RemoteAccount,
-  type EndpointTest,
-} from "@/shared/lib/ipc";
+import { listProviders, setProviderKey, whisperModelStatus } from "@/shared/lib/ipc";
+import { useRemoteAccountStore } from "@/shared/stores/remote-account-store";
+import { useSettingsUiStore } from "@/shared/stores/settings-ui-store";
 import type { ProviderStatus } from "@/shared/types/ProviderStatus";
 import type { Settings } from "@/shared/types/Settings";
 import type { WhisperModelStatus } from "@/shared/types/WhisperModelStatus";
@@ -217,7 +209,7 @@ export function SectionTranscription({ settings, onChange }: Props) {
                 </div>
                 {selected && (
                   <Badge variant="accent" className="shrink-0 text-2xs">
-                    selected
+                    Selected
                   </Badge>
                 )}
               </button>
@@ -327,7 +319,7 @@ function OpenAiKeySection() {
         OpenAI API key
         {status?.configured ? (
           <Badge variant="accent" className="text-2xs">
-            stored · {status.redacted_suffix ?? "key set"}
+            Stored · {status.redacted_suffix ?? "key set"}
           </Badge>
         ) : null}
       </Label>
@@ -366,174 +358,56 @@ function RemoteServerSection({
   settings: Settings;
   onChange: <K extends keyof Settings>(key: K, value: Settings[K]) => void;
 }) {
-  const [account, setAccount] = React.useState<RemoteAccount | null>(null);
-  const [email, setEmail] = React.useState("");
-  const [password, setPassword] = React.useState("");
-  const [busy, setBusy] = React.useState(false);
-  const [testing, setTesting] = React.useState(false);
-  const [testResult, setTestResult] = React.useState<EndpointTest | null>(null);
-
-  const refreshAccount = React.useCallback(async () => {
-    try {
-      setAccount(await remoteMe());
-    } catch (e) {
-      console.error("remote_me:", e);
-    }
-  }, []);
+  const navigate = useNavigate();
+  const closeSettings = useSettingsUiStore((s) => s.close);
+  const account = useRemoteAccountStore((s) => s.account);
+  const refreshAccount = useRemoteAccountStore((s) => s.refresh);
 
   React.useEffect(() => {
     void refreshAccount();
   }, [refreshAccount]);
 
-  const onTest = async () => {
-    setTesting(true);
-    setTestResult(null);
-    try {
-      const result = await testRemoteEndpoint(settings.remote_endpoint);
-      setTestResult(result);
-      if (result.ok) {
-        toast.success(result.message);
-      } else {
-        toast.error("Could not reach server", { description: result.message });
-      }
-    } catch (e) {
-      toast.error("Connection test failed", { description: humanizeError(e) });
-    } finally {
-      setTesting(false);
-    }
-  };
-
-  const authenticate = async (mode: "login" | "register") => {
-    if (email.trim().length === 0 || password.length === 0) {
-      toast.error("Enter your email and password");
-      return;
-    }
-    setBusy(true);
-    try {
-      if (mode === "register") {
-        await remoteRegister(email.trim(), password);
-        toast.success("Account created");
-      } else {
-        await remoteLogin(email.trim(), password);
-        toast.success("Signed in");
-      }
-      setPassword("");
-      await refreshAccount();
-    } catch (e) {
-      toast.error(mode === "register" ? "Could not register" : "Could not sign in", {
-        description: humanizeError(e),
-      });
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const onLogout = async () => {
-    try {
-      await remoteLogout();
-      await refreshAccount();
-      toast.success("Signed out");
-    } catch (e) {
-      toast.error("Could not sign out", { description: humanizeError(e) });
-    }
-  };
-
-  const endpointSet = settings.remote_endpoint.trim().length > 0;
+  const endpoint = settings.remote_endpoint.trim();
 
   return (
     <section className="space-y-4">
-      <div className="space-y-2">
-        <Label
-          htmlFor="remote-endpoint"
-          className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground"
-        >
-          <Zap className="h-3.5 w-3.5" />
-          Server endpoint
-        </Label>
-        <div className="flex gap-2">
-          <Input
-            id="remote-endpoint"
-            type="url"
-            placeholder="https://folio-api.example.com"
-            value={settings.remote_endpoint}
-            onChange={(e) => onChange("remote_endpoint", e.target.value)}
-            className="font-mono"
-            autoComplete="off"
-          />
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={onTest}
-            disabled={testing || !endpointSet}
-          >
-            {testing ? "Testing…" : "Test"}
-          </Button>
-        </div>
-        {testResult?.ok ? (
-          <p className="text-xs text-muted-foreground">
-            {testResult.message}
-            {testResult.gpu ? " · GPU" : ""}
-            {testResult.model ? ` · ${testResult.model}` : ""}
-          </p>
-        ) : null}
-      </div>
-
-      <div className="space-y-2">
-        <Label className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-          <KeyRound className="h-3.5 w-3.5" />
-          Account
-          {account?.signed_in ? (
-            <Badge variant="accent" className="text-2xs">
-              {account.email ?? "signed in"}
-            </Badge>
-          ) : null}
-        </Label>
-        {account?.signed_in ? (
-          <Button type="button" variant="outline" size="sm" onClick={onLogout}>
-            Sign out
-          </Button>
-        ) : (
-          <div className="space-y-2">
-            <p className="text-xs text-amber-600 dark:text-amber-400">
-              Create an account or sign in to upload and sync recordings — the server
-              rejects requests without it.
+      <div className="space-y-3 rounded-lg border border-border bg-card p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 space-y-1">
+            <p className="flex items-center gap-2 text-sm font-medium">
+              <Server className="h-4 w-4 text-muted-foreground" />
+              Folio Server
             </p>
-            <Input
-              type="email"
-              placeholder="you@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              autoComplete="off"
-            />
-            <Input
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete="off"
-            />
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                size="sm"
-                onClick={() => authenticate("login")}
-                disabled={busy || !endpointSet}
-              >
-                {busy ? "…" : "Sign in"}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => authenticate("register")}
-                disabled={busy || !endpointSet}
-              >
-                Create account
-              </Button>
-            </div>
+            <p className="truncate font-mono text-xs text-muted-foreground">
+              {endpoint || "No endpoint configured"}
+            </p>
           </div>
-        )}
+          {account?.signed_in ? (
+            <Badge variant="accent" className="shrink-0 text-2xs">
+              {account.email ?? "Signed in"}
+            </Badge>
+          ) : (
+            <Badge variant="outline" className="shrink-0 text-2xs">
+              Not signed in
+            </Badge>
+          )}
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="gap-1.5"
+          onClick={() => {
+            closeSettings();
+            navigate("/account");
+          }}
+        >
+          <CircleUserRound className="h-3.5 w-3.5" />
+          Manage in Account
+        </Button>
+        <p className="text-xs text-muted-foreground">
+          Endpoint, connection test, and sign-in live in the Account tab.
+        </p>
       </div>
 
       <div className="flex items-center justify-between">
@@ -542,7 +416,8 @@ function RemoteServerSection({
             Auto-upload recordings
           </Label>
           <p className="text-xs text-muted-foreground">
-            When a recording stops, upload it to the server and sync the transcript back.
+            When a recording stops, upload it to the server and sync the transcript
+            back.
           </p>
         </div>
         <Switch

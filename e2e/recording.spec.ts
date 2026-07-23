@@ -38,6 +38,25 @@ test("a fresh note shows a Draft name, not the timestamp", async ({ page }) => {
   );
 });
 
+test("stopping a recording refreshes the note in place — never a stale empty page", async ({
+  page,
+}) => {
+  await setupScenario(page, { startSignedIn: true });
+  await page.goto("/");
+  await page.getByRole("button", { name: /take notes/i }).click();
+  await expect(page).toHaveURL(/#\/editor\/2026-05-28-note/);
+  await expect(page.getByRole("button", { name: /^stop$/i })).toBeVisible();
+
+  await page.getByRole("button", { name: /^stop$/i }).click();
+
+  await expect
+    .poll(async () => (await ipcCalls(page, "stop_recording")).length)
+    .toBe(1);
+  await expect(page).toHaveURL(/#\/editor\/2026-05-28-note/);
+  await expect(page.getByText(/no transcript yet/i)).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByRole("button", { name: /transcribe now/i })).toBeVisible();
+});
+
 test("editing the note title persists it", async ({ page }) => {
   await setupScenario(page, { startSignedIn: true });
   await page.goto("/");

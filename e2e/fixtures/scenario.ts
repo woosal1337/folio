@@ -319,7 +319,12 @@ export async function setupScenario(page: Page, options: ScenarioOptions = {}) {
         (window as unknown as Record<string, unknown>).__FOLIO_INPUT_DEVICES__,
       list_recordings: () =>
         (window as unknown as Record<string, unknown>).__FOLIO_RECORDINGS__,
-      get_recording: () => null,
+      get_recording: (args) => {
+        const a = args as { label: string };
+        const recs = (window as unknown as Record<string, unknown>)
+          .__FOLIO_RECORDINGS__ as Array<Record<string, unknown>>;
+        return recs.find((r) => r.label === a.label) ?? null;
+      },
 
       search_note_content: (args) => {
         const a = args as { query: string };
@@ -433,16 +438,35 @@ export async function setupScenario(page: Page, options: ScenarioOptions = {}) {
         session_dir: "/tmp/Folio/2026-05-28-note",
         paused: false,
       }),
-      stop_recording: () => ({
-        artifacts: {
-          session_dir: "/tmp/Folio/2026-05-28-note",
-          mic_path: "/tmp/Folio/2026-05-28-note/mic.wav",
-          system_path: null,
-          started_at: "2026-05-28T14:00:00Z",
-          stopped_at: "2026-05-28T14:01:00Z",
-        },
-        label: "2026-05-28-note",
-      }),
+      stop_recording: () => {
+        const w = window as unknown as Record<string, unknown>;
+        const recs = w.__FOLIO_RECORDINGS__ as Array<Record<string, unknown>>;
+        if (!recs.some((r) => r.label === "2026-05-28-note")) {
+          recs.unshift({
+            session_dir: "/tmp/Folio/2026-05-28-note",
+            label: "2026-05-28-note",
+            duration_seconds: 60,
+            mic_bytes: 1048576,
+            system_bytes: null,
+            mic_sample_rate: 48000,
+            system_sample_rate: null,
+            created_at: new Date().toISOString(),
+            has_transcript: false,
+            suggested_tags: [],
+            draft_name: "Draft 1",
+          });
+        }
+        return {
+          artifacts: {
+            session_dir: "/tmp/Folio/2026-05-28-note",
+            mic_path: "/tmp/Folio/2026-05-28-note/mic.wav",
+            system_path: null,
+            started_at: "2026-05-28T14:00:00Z",
+            stopped_at: "2026-05-28T14:01:00Z",
+          },
+          label: "2026-05-28-note",
+        };
+      },
       pause_recording: () => ({
         recording: false,
         elapsed_secs: 5,
@@ -492,15 +516,18 @@ export async function setupScenario(page: Page, options: ScenarioOptions = {}) {
         message: "Connected to Folio Server v0.1.0",
       }),
       remote_login: () => {
-        (window as unknown as Record<string, unknown>).__FOLIO_REMOTE_SIGNED_IN__ = true;
+        (window as unknown as Record<string, unknown>).__FOLIO_REMOTE_SIGNED_IN__ =
+          true;
         return null;
       },
       remote_register: () => {
-        (window as unknown as Record<string, unknown>).__FOLIO_REMOTE_SIGNED_IN__ = true;
+        (window as unknown as Record<string, unknown>).__FOLIO_REMOTE_SIGNED_IN__ =
+          true;
         return null;
       },
       remote_logout: () => {
-        (window as unknown as Record<string, unknown>).__FOLIO_REMOTE_SIGNED_IN__ = false;
+        (window as unknown as Record<string, unknown>).__FOLIO_REMOTE_SIGNED_IN__ =
+          false;
         return null;
       },
       sync_recording: () => ({
