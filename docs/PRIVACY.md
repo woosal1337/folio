@@ -26,18 +26,25 @@ Folio makes outbound network requests only in these cases:
 | `huggingface.co` / `github.com` | First use of local Whisper / diarization (Whisper + the pyannote segmentation model come from Hugging Face; the WeSpeaker embedding model comes from the k2-fsa/sherpa-onnx GitHub releases) | An HTTP GET to download the model weights. No user data. |
 | `api.openai.com`                | Only if you set an OpenAI key **and** choose cloud transcription or AI notes                                                                                                                 | The audio or text you are transcribing / summarising     |
 | `api.anthropic.com`             | Only if you set an Anthropic key **and** use AI notes                                                                                                                                        | The text you are summarising                             |
+| Your Folio Server (self-hosted) | Only if you choose the Remote server provider in Account, set an endpoint you control, and sign in                                                                                           | The recording's audio tracks; the transcript syncs back  |
 | A webhook URL                   | Only if you configure one in Settings                                                                                                                                                        | The event payload you configured                         |
 
-If you never configure a cloud key and never set a webhook, the only
-outbound request Folio ever makes is the one-time model download — and that
-too can be blocked (see Privacy Mode).
+If you never configure a cloud key, never point Folio at a Folio Server, and
+never set a webhook, the only outbound request Folio ever makes is the
+one-time model download — and that too can be blocked (see Privacy Mode).
+
+The Folio Server case differs from the cloud rows in one important way: the
+destination is a machine you deploy and administer yourself
+([`server/`](../server/README.md)), authenticated with your own account, and
+the audio never touches a third party.
 
 ## Privacy Mode (air-gap)
 
 Settings → Privacy enables Privacy Mode. When on, the egress guard
-(`cloud_guard`) blocks **every** outbound request except `localhost`,
-including model downloads. The app keeps working end-to-end with Wi-Fi off,
-provided the models you need are already downloaded.
+(`cloud_guard`) blocks **every** outbound request except `localhost` —
+model downloads and uploads to your own Folio Server included. The app keeps
+working end-to-end with Wi-Fi off, provided the models you need are already
+downloaded.
 
 ## No telemetry
 

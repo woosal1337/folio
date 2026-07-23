@@ -31,6 +31,7 @@ import type { NewMemory } from "@/shared/types/NewMemory";
 import type { NewTask } from "@/shared/types/NewTask";
 import type { Settings } from "@/shared/types/Settings";
 import type { SessionTranscript } from "@/shared/types/SessionTranscript";
+import type { SyncState } from "@/shared/types/SyncState";
 import type { DigestResult } from "@/shared/types/DigestResult";
 import type { GitSyncSummary } from "@/shared/types/GitSyncSummary";
 import type { PurgeSummary } from "@/shared/types/PurgeSummary";
@@ -642,6 +643,20 @@ export async function onLiveTranscript(
   return listen<LiveTranscript>("live-transcript", (event) => handler(event.payload));
 }
 
+export interface RemoteSyncProgress {
+  session_dir: string;
+  remote_status: string;
+  transcript_written: boolean;
+}
+
+export async function onRemoteSyncProgress(
+  handler: (progress: RemoteSyncProgress) => void
+): Promise<UnlistenFn> {
+  return listen<RemoteSyncProgress>("remote-sync-progress", (event) =>
+    handler(event.payload)
+  );
+}
+
 export type TrayEvent =
   | "tray:start-recording"
   | "tray:stop-recording"
@@ -894,4 +909,45 @@ export function revokeMcpClient(clientId: string): Promise<void> {
 
 export function listMcpAccessLog(): Promise<McpAccessEntry[]> {
   return call<McpAccessEntry[]>("list_mcp_access_log");
+}
+
+export interface RemoteAccount {
+  signed_in: boolean;
+  email: string | null;
+}
+
+export interface EndpointTest {
+  ok: boolean;
+  engine: string | null;
+  model: string | null;
+  gpu: boolean | null;
+  message: string;
+}
+
+export function remoteRegister(email: string, password: string): Promise<void> {
+  return call<void>("remote_register", { email, password });
+}
+
+export function remoteLogin(email: string, password: string): Promise<void> {
+  return call<void>("remote_login", { email, password });
+}
+
+export function remoteLogout(): Promise<void> {
+  return call<void>("remote_logout");
+}
+
+export function remoteMe(): Promise<RemoteAccount> {
+  return call<RemoteAccount>("remote_me");
+}
+
+export function testRemoteEndpoint(endpoint: string): Promise<EndpointTest> {
+  return call<EndpointTest>("test_remote_endpoint", { endpoint });
+}
+
+export function syncRecording(sessionDir: string): Promise<SyncState> {
+  return call<SyncState>("sync_recording", { sessionDir });
+}
+
+export function getSyncStatus(sessionDir: string): Promise<SyncState | null> {
+  return call<SyncState | null>("get_sync_status", { sessionDir });
 }

@@ -1,5 +1,6 @@
 import * as React from "react";
-import { Captions, KeyRound, Zap } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Captions, CircleUserRound, KeyRound, Server, Zap } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/shared/ui/badge";
@@ -10,6 +11,8 @@ import { Switch } from "@/shared/ui/switch";
 import { cn } from "@/shared/lib/utils";
 import { humanizeError } from "@/shared/lib/errors";
 import { listProviders, setProviderKey, whisperModelStatus } from "@/shared/lib/ipc";
+import { useRemoteAccountStore } from "@/shared/stores/remote-account-store";
+import { useSettingsUiStore } from "@/shared/stores/settings-ui-store";
 import type { ProviderStatus } from "@/shared/types/ProviderStatus";
 import type { Settings } from "@/shared/types/Settings";
 import type { WhisperModelStatus } from "@/shared/types/WhisperModelStatus";
@@ -32,6 +35,11 @@ const PROVIDERS: { id: string; label: string; desc: string }[] = [
     id: "local_whisper",
     label: "Local Whisper",
     desc: "Runs on this Mac via whisper.cpp · no audio leaves your machine",
+  },
+  {
+    id: "remote_server",
+    label: "Remote server",
+    desc: "Uploads to your GPU server · frees this Mac · syncs the transcript back",
   },
 ];
 
@@ -201,7 +209,7 @@ export function SectionTranscription({ settings, onChange }: Props) {
                 </div>
                 {selected && (
                   <Badge variant="accent" className="shrink-0 text-2xs">
-                    selected
+                    Selected
                   </Badge>
                 )}
               </button>
@@ -211,6 +219,10 @@ export function SectionTranscription({ settings, onChange }: Props) {
       </section>
 
       {settings.transcriber === "openai" && <OpenAiKeySection />}
+
+      {settings.transcriber === "remote_server" && (
+        <RemoteServerSection settings={settings} onChange={onChange} />
+      )}
 
       {settings.transcriber === "local_whisper" && (
         <LocalWhisperSection
@@ -307,7 +319,7 @@ function OpenAiKeySection() {
         OpenAI API key
         {status?.configured ? (
           <Badge variant="accent" className="text-2xs">
-            stored · {status.redacted_suffix ?? "key set"}
+            Stored · {status.redacted_suffix ?? "key set"}
           </Badge>
         ) : null}
       </Label>
@@ -334,6 +346,90 @@ function OpenAiKeySection() {
       <p className="text-xs text-muted-foreground">
         Stored in the macOS Keychain. Never persisted to disk; never logged. Sent only
         to api.openai.com when transcribing.
+      </p>
+    </section>
+  );
+}
+
+function RemoteServerSection({
+  settings,
+  onChange,
+}: {
+  settings: Settings;
+  onChange: <K extends keyof Settings>(key: K, value: Settings[K]) => void;
+}) {
+  const navigate = useNavigate();
+  const closeSettings = useSettingsUiStore((s) => s.close);
+  const account = useRemoteAccountStore((s) => s.account);
+  const refreshAccount = useRemoteAccountStore((s) => s.refresh);
+
+  React.useEffect(() => {
+    void refreshAccount();
+  }, [refreshAccount]);
+
+  const endpoint = settings.remote_endpoint.trim();
+
+  return (
+    <section className="space-y-4">
+      <div className="space-y-3 rounded-lg border border-border bg-card p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 space-y-1">
+            <p className="flex items-center gap-2 text-sm font-medium">
+              <Server className="h-4 w-4 text-muted-foreground" />
+              Folio Server
+            </p>
+            <p className="truncate font-mono text-xs text-muted-foreground">
+              {endpoint || "No endpoint configured"}
+            </p>
+          </div>
+          {account?.signed_in ? (
+            <Badge variant="accent" className="shrink-0 text-2xs">
+              {account.email ?? "Signed in"}
+            </Badge>
+          ) : (
+            <Badge variant="outline" className="shrink-0 text-2xs">
+              Not signed in
+            </Badge>
+          )}
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="gap-1.5"
+          onClick={() => {
+            closeSettings();
+            navigate("/account");
+          }}
+        >
+          <CircleUserRound className="h-3.5 w-3.5" />
+          Manage in Account
+        </Button>
+        <p className="text-xs text-muted-foreground">
+          Endpoint, connection test, and sign-in live in the Account tab.
+        </p>
+      </div>
+
+      <div className="flex items-center justify-between">
+        <div className="space-y-0.5">
+          <Label htmlFor="remote-auto-upload" className="text-sm">
+            Auto-upload recordings
+          </Label>
+          <p className="text-xs text-muted-foreground">
+            When a recording stops, upload it to the server and sync the transcript
+            back.
+          </p>
+        </div>
+        <Switch
+          id="remote-auto-upload"
+          checked={settings.remote_auto_upload}
+          onCheckedChange={(checked) => onChange("remote_auto_upload", checked)}
+        />
+      </div>
+
+      <p className="text-xs text-muted-foreground">
+        Audio is uploaded to your server and processed there. Tokens are stored in the
+        macOS Keychain. Disabled entirely in Privacy Mode.
       </p>
     </section>
   );

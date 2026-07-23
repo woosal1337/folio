@@ -19,6 +19,7 @@ pub mod preferences;
 pub mod recipes;
 pub mod recording;
 pub mod recording_bar;
+pub mod server;
 pub mod settings;
 pub mod speakers;
 pub mod tasks;

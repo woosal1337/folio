@@ -2,6 +2,7 @@ import * as React from "react";
 import {
   AudioLines,
   Bot,
+  Cloud,
   FileAudio,
   Layers,
   Loader2,
@@ -21,6 +22,7 @@ const KIND_META: Record<JobKind, { icon: LucideIcon; tone: string }> = {
   diarize: { icon: ScanFace, tone: "text-primary" },
   agent: { icon: Sparkles, tone: "text-primary" },
   download: { icon: Bot, tone: "text-primary" },
+  sync: { icon: Cloud, tone: "text-primary" },
 };
 
 export function JobStrip() {

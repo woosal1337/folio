@@ -47,6 +47,9 @@ pub struct RecordingSummary {
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub draft_name: Option<String>,
+
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sync: Option<crate::server::sync_state::SyncState>,
 }
 
 pub fn scan_recordings(output_dir: &Path) -> Vec<RecordingSummary> {
@@ -94,6 +97,7 @@ pub fn scan_recordings(output_dir: &Path) -> Vec<RecordingSummary> {
         let title = read_first_line(&path, "title.txt");
         let folder = read_first_line(&path, "folder.txt");
         let draft_name = read_first_line(&path, "draft.txt");
+        let sync = crate::server::sync_state::load(&path).ok().flatten();
         out.push(RecordingSummary {
             session_dir: path,
             label,
@@ -126,6 +130,7 @@ pub fn scan_recordings(output_dir: &Path) -> Vec<RecordingSummary> {
             title,
             folder,
             draft_name,
+            sync,
         });
     }
 

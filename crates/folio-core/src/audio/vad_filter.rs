@@ -8,16 +8,11 @@ use crate::audio::vad::silero;
 use crate::error::{FolioError, Result};
 use crate::transcription::vad::{active_ranges_with, ActiveRange};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum VadEngine {
+    #[default]
     Silero,
     Rms,
-}
-
-impl Default for VadEngine {
-    fn default() -> Self {
-        Self::Silero
-    }
 }
 
 const PAD_MS: u64 = 250;

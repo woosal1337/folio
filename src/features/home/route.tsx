@@ -1,12 +1,14 @@
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
-import { FileAudio, FileText, Lock, Mic, Plus } from "lucide-react";
+import { Cloud, FileAudio, FileText, Loader2, Lock, Mic, Plus } from "lucide-react";
 
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent } from "@/shared/ui/card";
-import { listRecordings } from "@/shared/lib/ipc";
+import { listRecordings, onRemoteSyncProgress } from "@/shared/lib/ipc";
 import { useQuickNote, useTakeNotes } from "@/shared/hooks/use-take-notes";
 import { useNoteContextMenu } from "@/shared/hooks/use-note-context-menu";
+import { useJobsStore } from "@/shared/stores/jobs-store";
+import { useRecording } from "@/shared/stores/recording-store";
 import { AskBar } from "@/chrome/ask-bar";
 import type { RecordingSummary } from "@/shared/types/RecordingSummary";
 
@@ -49,8 +51,26 @@ export default function Home() {
     }
   }, []);
 
+  const lastSavedDir = useRecording((s) => s.lastSavedDir);
+  const lastTranscriptPath = useRecording((s) => s.lastTranscriptPath);
+  const transcribingDir = useRecording((s) => s.transcribingDir);
   React.useEffect(() => {
     void reload();
+  }, [reload, lastSavedDir, lastTranscriptPath]);
+
+  const jobCount = useJobsStore((s) => Object.keys(s.jobs).length);
+  const prevJobCount = React.useRef(jobCount);
+  React.useEffect(() => {
+    if (jobCount < prevJobCount.current) void reload();
+    prevJobCount.current = jobCount;
+  }, [jobCount, reload]);
+
+  React.useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    void onRemoteSyncProgress(() => void reload()).then((fn) => {
+      unlisten = fn;
+    });
+    return () => unlisten?.();
   }, [reload]);
 
   const openContextMenu = useNoteContextMenu(reload);
@@ -135,7 +155,22 @@ export default function Home() {
                         {r.suggested_subtitle || "Me"}
                       </p>
                     </div>
-                    <Lock className="h-3 w-3 shrink-0 text-muted-foreground" />
+                    {transcribingDir === r.session_dir ? (
+                      <Loader2
+                        className="h-3 w-3 shrink-0 animate-spin text-muted-foreground"
+                        aria-label="Transcribing"
+                      />
+                    ) : r.sync?.remote_status === "succeeded" ? (
+                      <Cloud
+                        className="h-3 w-3 shrink-0 text-sky-500"
+                        aria-label="Synced to your server"
+                      />
+                    ) : (
+                      <Lock
+                        className="h-3 w-3 shrink-0 text-muted-foreground"
+                        aria-label="Stored only on this Mac"
+                      />
+                    )}
                     <span className="shrink-0 font-mono text-xs text-muted-foreground">
                       {timeLabel(r.created_at)}
                     </span>

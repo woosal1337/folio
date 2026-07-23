@@ -668,7 +668,8 @@ mod tests {
             "beta",
         );
         idx.upsert(&a, None).unwrap();
-        idx.rebuild_from(&[b.clone()], |_| None).unwrap();
+        idx.rebuild_from(std::slice::from_ref(&b), |_| None)
+            .unwrap();
         let listed = idx.list_all(false).unwrap();
         assert_eq!(listed.len(), 1);
         assert_eq!(listed[0].id, b.id);

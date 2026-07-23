@@ -100,7 +100,7 @@ pub fn list_all(vault_root: &Path) -> Result<Vec<Decision>> {
         })?;
         out.push(parsed);
     }
-    out.sort_by(|a, b| b.decided_at.cmp(&a.decided_at));
+    out.sort_by_key(|d| std::cmp::Reverse(d.decided_at));
     Ok(out)
 }
 

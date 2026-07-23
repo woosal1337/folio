@@ -12,6 +12,8 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { Folder, X } from "lucide-react";
 
+import { SyncBadge } from "@/shared/ui/sync-badge";
+
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent } from "@/shared/ui/card";
 import { useQuickNote } from "@/shared/hooks/use-take-notes";
@@ -22,6 +24,7 @@ import {
   clearRecordingArtifacts,
   deleteRecording,
   listRecordings,
+  onRemoteSyncProgress,
   revealInFinder,
   searchNoteContent,
 } from "@/shared/lib/ipc";
@@ -68,6 +71,14 @@ export default function Library() {
   React.useEffect(() => {
     refresh();
   }, [refresh, lastSavedDir, lastTranscriptPath]);
+
+  React.useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    void onRemoteSyncProgress(() => void refresh()).then((fn) => {
+      unlisten = fn;
+    });
+    return () => unlisten?.();
+  }, [refresh]);
 
   const open = React.useCallback(
     (item: RecordingSummary) => {
@@ -325,13 +336,17 @@ function NoteRow({
       {transcribing ? (
         <span className="inline-flex items-center gap-1 text-2xs text-muted-foreground">
           <Loader2 className="h-3 w-3 animate-spin" />
-          transcribing
+          Transcribing
         </span>
       ) : item.has_transcript ? (
         <span className="inline-flex items-center gap-1 text-2xs text-emerald-600 dark:text-emerald-400">
           <Sparkles className="h-3 w-3" />
-          transcribed
+          Transcribed
         </span>
+      ) : null}
+
+      {item.sync && item.sync.remote_status !== "none" ? (
+        <SyncBadge sync={item.sync} />
       ) : null}
 
       <span className="shrink-0 font-mono text-2xs text-muted-foreground">

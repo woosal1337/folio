@@ -1,0 +1,54 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - SERVICE_FQDN_API_8080
+      - FOLIO_JWT_SECRET=${SERVICE_BASE64_64_JWT}
+      - FOLIO_DATABASE_URL=sqlite+aiosqlite:////data/folio.db
+      - FOLIO_STORAGE_DIR=/data/blobs
+      - FOLIO_ENVIRONMENT=production
+      - FOLIO_ALLOW_REGISTRATION=${FOLIO_ALLOW_REGISTRATION:-true}
+      - FOLIO_WHISPER_MODEL=${FOLIO_WHISPER_MODEL:-base}
+      - FOLIO_MAX_UPLOAD_BYTES=${FOLIO_MAX_UPLOAD_BYTES:-2147483648}
+    volumes:
+      - folio-data:/data
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8080/health').status==200 else 1)
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    environment:
+      - FOLIO_JWT_SECRET=${SERVICE_BASE64_64_JWT}
+      - FOLIO_DATABASE_URL=sqlite+aiosqlite:////data/folio.db
+      - FOLIO_STORAGE_DIR=/data/blobs
+      - FOLIO_WHISPER_DEVICE=cuda
+      - FOLIO_WHISPER_COMPUTE_TYPE=${FOLIO_WHISPER_COMPUTE_TYPE:-float16}
+      - FOLIO_WHISPER_MODEL=${FOLIO_WHISPER_MODEL:-base}
+    volumes:
+      - folio-data:/data
+    depends_on:
+      - api
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: unless-stopped
+
+volumes:
+  folio-data:

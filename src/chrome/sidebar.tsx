@@ -3,6 +3,7 @@ import { NavLink, useLocation } from "react-router-dom";
 import {
   BarChart2,
   Brain,
+  CircleUserRound,
   Home as HomeIcon,
   KanbanSquare,
   Library,
@@ -16,6 +17,8 @@ import {
 import { cn } from "@/shared/lib/utils";
 import { useTheme } from "@/shared/hooks/use-theme";
 import { useSidebarCollapsed } from "@/shared/hooks/use-sidebar-collapsed";
+import { useRemoteAccountStore } from "@/shared/stores/remote-account-store";
+import { useSettingsStore } from "@/shared/stores/settings-store";
 import { Button } from "@/shared/ui/button";
 import { SpacesSection } from "@/chrome/spaces-section";
 import logoUrl from "@/assets/logo.svg";
@@ -44,6 +47,19 @@ export function Sidebar({ onOpenSettings }: SidebarProps) {
   const { theme, toggle: toggleTheme } = useTheme();
   const { collapsed, toggle: toggleCollapsed } = useSidebarCollapsed();
   const location = useLocation();
+  const account = useRemoteAccountStore((s) => s.account);
+  const refreshAccount = useRemoteAccountStore((s) => s.refresh);
+  const remoteActive = useSettingsStore(
+    (s) =>
+      s.settings?.transcriber === "remote_server" &&
+      (s.settings?.remote_endpoint ?? "").trim().length > 0
+  );
+
+  React.useEffect(() => {
+    void refreshAccount();
+  }, [refreshAccount]);
+
+  const accountActive = location.pathname.startsWith("/account");
 
   return (
     <aside
@@ -135,6 +151,32 @@ export function Sidebar({ onOpenSettings }: SidebarProps) {
           collapsed ? "items-center px-1.5" : "px-2"
         )}
       >
+        <NavLink
+          to="/account"
+          aria-label="Account"
+          title={collapsed ? "Account" : undefined}
+          className={cn(
+            "inline-flex items-center rounded-md text-sm font-medium transition-colors",
+            collapsed ? "h-9 w-9 justify-center" : "h-8 justify-start gap-3 px-3",
+            accountActive
+              ? "bg-accent text-accent-foreground"
+              : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+          )}
+        >
+          <CircleUserRound className="h-4 w-4 shrink-0" />
+          {!collapsed && (
+            <span className="min-w-0 flex-1 truncate text-left">
+              {account?.signed_in ? (account.email ?? "Account") : "Account"}
+            </span>
+          )}
+          {!collapsed && account?.signed_in ? (
+            <span
+              className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500"
+              title="Signed in to your server"
+              aria-label="Signed in to your server"
+            />
+          ) : null}
+        </NavLink>
         <Button
           variant="ghost"
           size={collapsed ? "icon" : "sm"}
@@ -173,7 +215,8 @@ export function Sidebar({ onOpenSettings }: SidebarProps) {
         </Button>
         {!collapsed && (
           <div className="mt-2 px-3 pb-1 text-2xs text-muted-foreground">
-            v{__FOLIO_VERSION__} · audio stays on this Mac
+            v{__FOLIO_VERSION__} ·{" "}
+            {remoteActive ? "synced to your server" : "audio stays on this Mac"}
           </div>
         )}
       </div>

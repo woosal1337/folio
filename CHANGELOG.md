@@ -46,6 +46,55 @@ All notable changes to Folio are documented here. The format follows
 
 _Nothing yet._
 
+## [1.2.0] — 2026-07-23
+
+Remote GPU transcription: point Folio at a server you own and let it do the
+heavy lifting while your Mac sleeps. Local transcription stays the default.
+
+### Added
+
+- **Remote server transcription (opt-in).** Pick "Remote server" as the
+  provider and recordings upload to a self-hosted Folio Server, transcribe on
+  its GPU with faster-whisper, and the transcript syncs straight back into
+  your vault. Uploads are resumable, size-capped, and integrity-checked, and
+  everything is scoped to your account on that server.
+- **A self-hostable backend lives in `server/`.** Deploy it with one click on
+  Coolify (Docker Compose resource, base directory `server/`) or with
+  `./deploy.sh` on any Docker host — GPU by default, CPU stack included. See
+  `server/README.md`.
+- **Account tab.** A new sidebar destination for your server connection:
+  endpoint with a live connection test (engine, model, GPU), sign in / create
+  account, auto-upload, and a one-click way to make the server your default
+  transcriber.
+- **Sync status everywhere.** Uploading / Queued / On GPU / Synced / Sync
+  failed badges on Home, My Notes, and the note page, with stage-aware
+  progress and a Try again action when a sync fails.
+
+### Changed
+
+- **Stopping a recording lands you on the note.** Folio navigates to the
+  finished note and the page updates live through upload → transcription →
+  synced, instead of leaving a stale empty view behind.
+- **Status chips use sentence case** (Transcribed, Synced, On GPU, …) across
+  the app.
+
+### Fixed
+
+- **Share / export no longer crashes the app.** The macOS share sheet was
+  being presented off the main thread, which took the whole app down on
+  current macOS.
+- **Remote sessions no longer expire mid-day.** Access tokens refresh
+  automatically instead of failing with "invalid token" after 30 minutes.
+- **Silence no longer yields phantom captions.** The server runs
+  voice-activity detection before transcribing, so a silent track produces an
+  empty transcript instead of hallucinated text.
+
+### Security
+
+- **The server refuses to boot in production with the default JWT secret**,
+  and registration can be locked once your accounts exist
+  (`FOLIO_ALLOW_REGISTRATION=false`).
+
 ## [1.1.0] — 2026-06-09
 
 Reliability pass for macOS 26 (Tahoe). Removes the macOS Calendar integration
@@ -124,7 +173,8 @@ machine on the default path.
 Project initialized. See [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) for
 the architecture.
 
-[Unreleased]: https://github.com/woosal1337/folio/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/woosal1337/folio/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/woosal1337/folio/releases/tag/v1.2.0
 [1.1.0]: https://github.com/woosal1337/folio/releases/tag/v1.1.0
 [1.0.0]: https://github.com/woosal1337/folio/releases/tag/v1.0.0
 [0.0.1]: https://github.com/woosal1337/folio/releases/tag/v0.0.1

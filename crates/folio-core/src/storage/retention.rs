@@ -43,6 +43,12 @@ pub fn purge_old_wavs(recordings_dir: &Path, older_than_days: u32) -> PurgeSumma
             continue;
         }
 
+        if let Some(sync) = crate::server::sync_state::load(&path).ok().flatten() {
+            if sync.upload_state != crate::server::sync_state::UploadPhase::Complete {
+                continue;
+            }
+        }
+
         let mut wavs = Vec::with_capacity(2);
         for name in ["mic.wav", "system.wav"] {
             let wav = path.join(name);

@@ -379,7 +379,7 @@ fn build_folder_context(
     let tasks_count = open.len();
 
     let mut recordings = scan_recordings(output_dir);
-    recordings.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+    recordings.sort_by_key(|r| std::cmp::Reverse(r.created_at));
     let in_folder: Vec<_> = recordings
         .iter()
         .filter(|r| r.folder.as_deref() == Some(folder_name))
@@ -539,7 +539,7 @@ fn build_library_context(
         included += 1;
     }
 
-    recordings.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+    recordings.sort_by_key(|r| std::cmp::Reverse(r.created_at));
     let capped = included >= LIBRARY_RECENT_NOTES && notes_total > included;
 
     let mut memories_count = 0;

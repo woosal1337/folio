@@ -52,6 +52,8 @@ export interface MockSettings {
   workspace_discoverable: boolean;
   workspace_auto_join: boolean;
   workspace_logo_path: string;
+  remote_endpoint: string;
+  remote_auto_upload: boolean;
 }
 
 export function freshSettings(overrides: Partial<MockSettings> = {}): MockSettings {
@@ -105,6 +107,8 @@ export function freshSettings(overrides: Partial<MockSettings> = {}): MockSettin
     workspace_discoverable: true,
     workspace_auto_join: true,
     workspace_logo_path: "",
+    remote_endpoint: "",
+    remote_auto_upload: false,
     ...overrides,
   };
 }
@@ -315,7 +319,12 @@ export async function setupScenario(page: Page, options: ScenarioOptions = {}) {
         (window as unknown as Record<string, unknown>).__FOLIO_INPUT_DEVICES__,
       list_recordings: () =>
         (window as unknown as Record<string, unknown>).__FOLIO_RECORDINGS__,
-      get_recording: () => null,
+      get_recording: (args) => {
+        const a = args as { label: string };
+        const recs = (window as unknown as Record<string, unknown>)
+          .__FOLIO_RECORDINGS__ as Array<Record<string, unknown>>;
+        return recs.find((r) => r.label === a.label) ?? null;
+      },
 
       search_note_content: (args) => {
         const a = args as { query: string };
@@ -429,16 +438,35 @@ export async function setupScenario(page: Page, options: ScenarioOptions = {}) {
         session_dir: "/tmp/Folio/2026-05-28-note",
         paused: false,
       }),
-      stop_recording: () => ({
-        artifacts: {
-          session_dir: "/tmp/Folio/2026-05-28-note",
-          mic_path: "/tmp/Folio/2026-05-28-note/mic.wav",
-          system_path: null,
-          started_at: "2026-05-28T14:00:00Z",
-          stopped_at: "2026-05-28T14:01:00Z",
-        },
-        label: "2026-05-28-note",
-      }),
+      stop_recording: () => {
+        const w = window as unknown as Record<string, unknown>;
+        const recs = w.__FOLIO_RECORDINGS__ as Array<Record<string, unknown>>;
+        if (!recs.some((r) => r.label === "2026-05-28-note")) {
+          recs.unshift({
+            session_dir: "/tmp/Folio/2026-05-28-note",
+            label: "2026-05-28-note",
+            duration_seconds: 60,
+            mic_bytes: 1048576,
+            system_bytes: null,
+            mic_sample_rate: 48000,
+            system_sample_rate: null,
+            created_at: new Date().toISOString(),
+            has_transcript: false,
+            suggested_tags: [],
+            draft_name: "Draft 1",
+          });
+        }
+        return {
+          artifacts: {
+            session_dir: "/tmp/Folio/2026-05-28-note",
+            mic_path: "/tmp/Folio/2026-05-28-note/mic.wav",
+            system_path: null,
+            started_at: "2026-05-28T14:00:00Z",
+            stopped_at: "2026-05-28T14:01:00Z",
+          },
+          label: "2026-05-28-note",
+        };
+      },
       pause_recording: () => ({
         recording: false,
         elapsed_secs: 5,
@@ -472,6 +500,46 @@ export async function setupScenario(page: Page, options: ScenarioOptions = {}) {
       delete_provider_key: () => null,
       test_provider: () => ({ ok: true, latency_ms: 120 }),
       list_provider_models: () => [],
+
+      remote_me: () => {
+        const signed = (window as unknown as Record<string, unknown>)
+          .__FOLIO_REMOTE_SIGNED_IN__;
+        return signed
+          ? { signed_in: true, email: "you@example.com" }
+          : { signed_in: false, email: null };
+      },
+      test_remote_endpoint: () => ({
+        ok: true,
+        engine: "faster_whisper",
+        model: "large-v3",
+        gpu: true,
+        message: "Connected to Folio Server v0.1.0",
+      }),
+      remote_login: () => {
+        (window as unknown as Record<string, unknown>).__FOLIO_REMOTE_SIGNED_IN__ =
+          true;
+        return null;
+      },
+      remote_register: () => {
+        (window as unknown as Record<string, unknown>).__FOLIO_REMOTE_SIGNED_IN__ =
+          true;
+        return null;
+      },
+      remote_logout: () => {
+        (window as unknown as Record<string, unknown>).__FOLIO_REMOTE_SIGNED_IN__ =
+          false;
+        return null;
+      },
+      sync_recording: () => ({
+        schema_version: 1,
+        recording_id: "client-uuid",
+        remote_recording_id: "srv-1",
+        remote_job_id: "job-1",
+        upload_state: "complete",
+        remote_status: "succeeded",
+        last_synced_at: new Date().toISOString(),
+      }),
+      get_sync_status: () => null,
 
       list_chat_threads: (args) => {
         const a = args as { scope?: string; sessionDir?: string };

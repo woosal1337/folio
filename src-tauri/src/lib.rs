@@ -62,6 +62,8 @@ pub fn run() {
             if let Ok(mut slot) = WATCHER_HANDLE.lock() {
                 *slot = Some(watcher_handle);
             }
+
+            app::sync_scheduler::spawn(app.handle().clone());
             let _ = app;
             Ok(())
         })
@@ -73,6 +75,13 @@ pub fn run() {
             commands::devices::stop_mic_monitor,
             commands::settings::get_settings,
             commands::settings::save_settings,
+            commands::server::remote_register,
+            commands::server::remote_login,
+            commands::server::remote_logout,
+            commands::server::remote_me,
+            commands::server::test_remote_endpoint,
+            commands::server::sync_recording,
+            commands::server::get_sync_status,
             commands::recording::recording_status,
             commands::recording::create_note,
             commands::recording::rename_note,

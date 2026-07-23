@@ -26,6 +26,7 @@ const FirstRunConductor = React.lazy(() =>
 );
 const Library = React.lazy(() => import("@/features/library/route"));
 const Editor = React.lazy(() => import("@/features/editor/route"));
+const Account = React.lazy(() => import("@/features/account/route"));
 const Tasks = React.lazy(() => import("@/features/tasks/route"));
 const PreferencesWindow = React.lazy(
   () => import("@/features/preferences-window/route")
@@ -178,6 +179,7 @@ function MainApp() {
                   <Route path="/editor/:label" element={<Editor />} />
 
                   <Route path="/inbox" element={<Navigate to="/" replace />} />
+                  <Route path="/account" element={<Account />} />
                   <Route path="/preferences-window" element={<PreferencesWindow />} />
                   <Route path="/ai" element={<Navigate to="/" replace />} />
                   <Route path="/tasks" element={<Tasks />} />

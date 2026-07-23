@@ -99,3 +99,5 @@ e2e/fixtures/audio/*.wav
 
 # folio-mcp sidecar binaries staged for release bundling
 src-tauri/binaries/
+
+e2e/remote-settings.png
