@@ -23,7 +23,13 @@ yanked = "deny"
 # migrates; the desktop binary targets macOS first so these are not
 # load-bearing for us today.
 unmaintained = "workspace"
-ignore = []
+# RUSTSEC-2026-0194 / RUSTSEC-2026-0195: quick-xml < 0.41 is subject to
+# DoS via crafted XML (quadratic duplicate-attribute check, unbounded
+# namespace-declaration allocation). It enters the graph only through
+# tauri-runtime-wry, which pins ^0.38, so no fixed release is reachable
+# until Tauri bumps it. The desktop app feeds no attacker-supplied XML
+# through that path. Remove both entries when Tauri moves to >=0.41.
+ignore = ["RUSTSEC-2026-0194", "RUSTSEC-2026-0195"]
 
 [licenses]
 version = 2
