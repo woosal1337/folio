@@ -7,7 +7,6 @@ pub mod diarization;
 pub mod encryption;
 pub mod error;
 pub mod evals;
-pub mod ffi;
 pub mod highlight_reel;
 pub mod import;
 pub mod live_notes;
