@@ -149,7 +149,11 @@ pub async fn reveal_in_finder(state: State<'_, AppState>, path: PathBuf) -> Resu
 }
 
 #[tauri::command]
-pub async fn share_paths(state: State<'_, AppState>, paths: Vec<PathBuf>) -> Result<(), String> {
+pub async fn share_paths(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+    paths: Vec<PathBuf>,
+) -> Result<(), String> {
     info!("share_paths: {} item(s)", paths.len());
     let output_dir = state.settings.lock().output_dir.clone();
     let mut canon_paths: Vec<PathBuf> = Vec::with_capacity(paths.len());
@@ -158,5 +162,11 @@ pub async fn share_paths(state: State<'_, AppState>, paths: Vec<PathBuf>) -> Res
             folio_core::paths::canonicalize_under(&output_dir, p).map_err(|e| e.to_string())?;
         canon_paths.push(canon);
     }
-    crate::app::share_sheet::share_paths(&canon_paths)
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    app.run_on_main_thread(move || {
+        let _ = tx.send(crate::app::share_sheet::share_paths(&canon_paths));
+    })
+    .map_err(|e| e.to_string())?;
+    rx.await
+        .map_err(|_| "share_paths: main-thread task dropped".to_string())?
 }
