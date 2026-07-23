@@ -23,12 +23,18 @@ deployed:
      api + worker); nothing to paste.
 3. Enable **GPU** for the resource (GPU-capable Coolify server + NVIDIA Container
    Toolkit). The worker reserves an NVIDIA device by default.
-4. **Deploy.** Point Folio at `https://your-domain` under
-   *Settings → Transcription → Remote server*, register/log in, and enable it.
+4. **Deploy.** In Folio open **Account** in the sidebar, set the endpoint to
+   `https://your-domain`, hit **Test** (it should report `faster_whisper` and
+   GPU), create your account, then pick **Remote server** as the provider under
+   _Settings → Transcription_ — or use **Make default** on the Account page.
 
 Optional overrides (Coolify → Environment Variables): `FOLIO_WHISPER_MODEL`
 (default `base`; use `small`/`medium`/`large-v3` on a bigger GPU),
 `FOLIO_ALLOW_REGISTRATION=false` to lock a personal server after you sign up.
+
+The GPU worker image stays on `python:3.12-slim`: CUDA + cuDNN runtimes come
+from the `nvidia-*-cu12` pip wheels (`requirements-gpu.txt`), so the host only
+needs the NVIDIA driver and the NVIDIA Container Toolkit — no CUDA base image.
 
 ## Run with Docker locally
 
@@ -73,15 +79,22 @@ python scripts/smoke_e2e.py http://127.0.0.1:8080 /path/to/mic.wav
 Everything is driven by `FOLIO_*` environment variables — see
 [`.env.example`](.env.example). Highlights:
 
-| Var                          | Default                          | Notes                                     |
-| ---------------------------- | -------------------------------- | ----------------------------------------- |
-| `FOLIO_JWT_SECRET`           | `change-me-in-production`        | Coolify generates this; set it otherwise  |
-| `FOLIO_DATABASE_URL`         | `sqlite+aiosqlite:///./data/folio.db` | Postgres: `postgresql+asyncpg://…`   |
-| `FOLIO_STORAGE_DIR`          | `./data/blobs`                   | uploaded audio + transcripts              |
-| `FOLIO_WHISPER_MODEL`        | `base`                           | `tiny`…`large-v3`                         |
-| `FOLIO_WHISPER_DEVICE`       | `auto`                           | compose sets `cuda` on the GPU worker     |
-| `FOLIO_WHISPER_ENGINE`       | `auto`                           | `auto` / `faster_whisper` / `stub`        |
-| `FOLIO_ALLOW_REGISTRATION`   | `true`                           | disable to lock down a personal server    |
+| Var                        | Default                               | Notes                                       |
+| -------------------------- | ------------------------------------- | ------------------------------------------- |
+| `FOLIO_JWT_SECRET`         | `change-me-in-production`             | Coolify generates this; set it otherwise    |
+| `FOLIO_DATABASE_URL`       | `sqlite+aiosqlite:///./data/folio.db` | Postgres: `postgresql+asyncpg://…`          |
+| `FOLIO_STORAGE_DIR`        | `./data/blobs`                        | uploaded audio + transcripts                |
+| `FOLIO_WHISPER_MODEL`      | `base`                                | `tiny`…`large-v3`                           |
+| `FOLIO_WHISPER_DEVICE`     | `auto`                                | compose sets `cuda` on the GPU worker       |
+| `FOLIO_WHISPER_ENGINE`     | `auto`                                | `auto` / `faster_whisper` / `stub`          |
+| `FOLIO_ALLOW_REGISTRATION` | `true`                                | disable to lock down a personal server      |
+| `FOLIO_ENVIRONMENT`        | `development`                         | `production` refuses the default JWT secret |
+
+Registration is open by default so you can create your first account; on an
+internet-facing server set `FOLIO_ALLOW_REGISTRATION=false` afterwards.
+`/v1/capabilities` reports whether registration is open. With
+`FOLIO_ENVIRONMENT=production` (the compose default) the API refuses to boot
+while `FOLIO_JWT_SECRET` is still `change-me-in-production`.
 
 ## Health & capabilities
 

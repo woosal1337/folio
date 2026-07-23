@@ -1,6 +1,3 @@
-# CPU-only stack (no GPU). Standalone — use instead of docker-compose.yml:
-#   docker compose -f docker-compose.cpu.yml up --build
-# Reads configuration from .env (set FOLIO_JWT_SECRET there).
 services:
   api:
     build:

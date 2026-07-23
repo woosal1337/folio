@@ -1,15 +1,3 @@
-# Folio transcription server — GPU stack, Coolify one-click ready.
-#
-# Coolify: create a new "Docker Compose" resource pointing at this repo with
-# base directory `server/`. The magic variables below make it one-click:
-#   SERVICE_FQDN_API_8080  -> Coolify assigns a domain and routes it to the API
-#                             (attach your custom domain in the Coolify UI).
-#   SERVICE_BASE64_64_JWT  -> Coolify generates a strong JWT signing secret,
-#                             shared by the api and worker.
-# Enable GPU for this resource on a GPU-capable Coolify server; the worker
-# reserves an NVIDIA device below.
-#
-# Local (non-GPU) Docker: use docker-compose.cpu.yml instead.
 services:
   api:
     build:

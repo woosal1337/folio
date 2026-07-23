@@ -1,14 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# One-command bring-up for the Folio transcription server.
-# Usage:
-#   ./deploy.sh          # GPU stack (default; requires NVIDIA runtime)
-#   ./deploy.sh cpu      # CPU-only stack
-#
-# Production deploys usually go through Coolify (Docker Compose resource) which
-# reads docker-compose.yml directly — see README.md.
-
 cd "$(dirname "$0")"
 
 if [ ! -f .env ]; then

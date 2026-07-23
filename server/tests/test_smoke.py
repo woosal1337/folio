@@ -1,6 +1,19 @@
 import hashlib
 import uuid
 
+import pytest
+
+
+def test_production_refuses_default_jwt_secret():
+    from app.core.config import DEFAULT_JWT_SECRET, Settings, enforce_production_config
+
+    ok = Settings(environment="production", jwt_secret="a-real-secret")
+    enforce_production_config(ok)
+
+    bad = Settings(environment="production", jwt_secret=DEFAULT_JWT_SECRET)
+    with pytest.raises(RuntimeError, match="FOLIO_JWT_SECRET"):
+        enforce_production_config(bad)
+
 
 async def test_health(client):
     resp = await client.get("/health")

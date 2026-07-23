@@ -1,13 +1,3 @@
-"""End-to-end smoke test against a running Folio server.
-
-Registers a user, uploads a real WAV in two chunks (exercising the resumable
-protocol), enqueues transcription, polls the job, and prints the transcript —
-the exact flow the desktop client's sync engine will drive.
-
-Usage:
-    python scripts/smoke_e2e.py [BASE_URL] MIC_WAV [SYSTEM_WAV]
-"""
-
 import hashlib
 import sys
 import time
@@ -46,7 +36,7 @@ def main() -> int:
     if args and args[0].startswith("http"):
         base = args.pop(0)
     if not args:
-        print("need at least a mic wav path")
+        print("usage: python scripts/smoke_e2e.py [BASE_URL] MIC_WAV [SYSTEM_WAV]")
         return 2
     mic = args[0]
     system = args[1] if len(args) > 1 else None

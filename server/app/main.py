@@ -5,13 +5,14 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import auth, health, jobs, recordings
-from app.core.config import get_settings
+from app.core.config import enforce_production_config, get_settings
 from app.core.logging import configure_logging
 from app.db.base import init_db
 
 
 def create_app() -> FastAPI:
     settings = get_settings()
+    enforce_production_config(settings)
     configure_logging()
 
     @contextlib.asynccontextmanager

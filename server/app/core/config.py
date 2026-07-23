@@ -2,6 +2,8 @@ from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+DEFAULT_JWT_SECRET = "change-me-in-production"
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -12,7 +14,7 @@ class Settings(BaseSettings):
     version: str = "0.1.0"
     environment: str = "development"
 
-    jwt_secret: str = "change-me-in-production"
+    jwt_secret: str = DEFAULT_JWT_SECRET
     jwt_algorithm: str = "HS256"
     access_token_ttl_minutes: int = 30
     refresh_token_ttl_days: int = 30
@@ -42,6 +44,14 @@ class Settings(BaseSettings):
     @property
     def is_production(self) -> bool:
         return self.environment.lower() in {"production", "prod"}
+
+
+def enforce_production_config(settings: Settings) -> None:
+    if settings.is_production and settings.jwt_secret == DEFAULT_JWT_SECRET:
+        raise RuntimeError(
+            "FOLIO_JWT_SECRET is still the default value — set a strong secret "
+            "before running in production"
+        )
 
 
 @lru_cache
