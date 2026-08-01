@@ -9,8 +9,8 @@
 # `update-homebrew-cask` job in .github/workflows/release.yml on every tagged
 # release, so `brew upgrade --cask folio` tracks new releases.
 cask "folio" do
-  version "1.2.0"
-  sha256 "5ab735078e071b1523bc5c2fc1b735cfffe83cc33fdc5892e8b0f4bf48a9a1b2"
+  version "2.0.0"
+  sha256 "eea15330793681d57be1301265438686e63173081bcbec45580ca8c1ab553ea9"
 
   url "https://github.com/woosal1337/folio/releases/download/v#{version}/Folio_#{version}_aarch64.dmg",
       verified: "github.com/woosal1337/folio/"
