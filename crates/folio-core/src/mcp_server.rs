@@ -12,8 +12,6 @@ pub enum McpTool {
 
     NotesByPerson,
 
-    NotesByFolder,
-
     NotesByDateRange,
 }
 
@@ -29,7 +27,6 @@ impl McpTool {
             McpTool::QuoteSegment => "quote_segment",
 
             McpTool::NotesByPerson => "notes_by_person",
-            McpTool::NotesByFolder => "notes_by_folder",
             McpTool::NotesByDateRange => "notes_by_date_range",
         }
     }
@@ -44,7 +41,6 @@ impl McpTool {
             "recent_meetings" => McpTool::RecentMeetings,
             "quote_segment" => McpTool::QuoteSegment,
             "notes_by_person" => McpTool::NotesByPerson,
-            "notes_by_folder" => McpTool::NotesByFolder,
             "notes_by_date_range" => McpTool::NotesByDateRange,
             _ => return None,
         })
@@ -60,7 +56,6 @@ impl McpTool {
             McpTool::RecentMeetings => "List the user's most recent recordings (label, duration, has_transcript, timestamp).",
             McpTool::QuoteSegment => "Quote a specific (start, end) segment from a recording's transcript.",
             McpTool::NotesByPerson => "Return notes that mention a specific person (by name or email address), newest first.",
-            McpTool::NotesByFolder => "Return notes belonging to a named folder/Space, newest first.",
             McpTool::NotesByDateRange => "Return notes captured between two ISO-8601 dates (inclusive), newest first.",
         }
     }
@@ -76,7 +71,6 @@ pub fn catalogue() -> &'static [McpTool] {
         McpTool::RecentMeetings,
         McpTool::QuoteSegment,
         McpTool::NotesByPerson,
-        McpTool::NotesByFolder,
         McpTool::NotesByDateRange,
     ]
 }
@@ -142,13 +136,6 @@ pub struct NotesByPersonParams {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct NotesByFolderParams {
-    pub folder: String,
-    #[serde(default)]
-    pub limit: Option<usize>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct NotesByDateRangeParams {
     pub from: String,
 
@@ -179,8 +166,8 @@ mod tests {
     }
 
     #[test]
-    fn catalogue_has_ten_tools() {
-        assert_eq!(catalogue().len(), 10);
+    fn catalogue_has_nine_tools() {
+        assert_eq!(catalogue().len(), 9);
     }
 
     #[test]

@@ -18,16 +18,19 @@ test("save_settings carries the patched payload, not an arbitrary blob", async (
   await setupScenario(page, { startSignedIn: true });
   await page.goto("/");
   await page.getByRole("button", { name: /^settings$/i }).click();
-  await page.getByRole("button", { name: /^preferences$/i }).click();
+  await page
+    .getByRole("button", { name: /^general$/i })
+    .first()
+    .click();
 
-  const toggle = page.getByRole("switch", { name: /live meeting indicator/i });
+  const toggle = page.getByRole("switch", { name: /capture system audio/i });
   await toggle.click();
   await page.getByRole("button", { name: /^save$/i }).click();
 
   const calls = await ipcCalls(page, "save_settings");
   expect(calls.length).toBeGreaterThanOrEqual(1);
-  const last = calls.at(-1)!.args as { settings: { live_meeting_indicator: boolean } };
-  expect(last.settings.live_meeting_indicator).toBe(false);
+  const last = calls.at(-1)!.args as { settings: { system_audio_enabled: boolean } };
+  expect(last.settings.system_audio_enabled).toBe(false);
 });
 
 test("auth_logout clears identity + flips the gate back to signup", async ({

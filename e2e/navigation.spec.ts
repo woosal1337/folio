@@ -8,23 +8,11 @@ test.beforeEach(async ({ page }) => {
   await expect(page.getByRole("heading", { name: /^home$/i })).toBeVisible();
 });
 
-test("Home is the landing surface", async ({ page }) => {
-  await expect(page.getByRole("heading", { name: "Coming up" })).toBeVisible();
-});
-
-test("My Notes route loads", async ({ page }) => {
-  await page.getByRole("link", { name: /my notes/i }).click();
-  await expect(page.getByRole("heading", { name: /^my notes$/i })).toBeVisible();
-});
-
-test("Tasks route loads", async ({ page }) => {
-  await page.getByRole("link", { name: /tasks/i }).click();
-  await expect(page.getByRole("heading", { name: /^tasks$/i })).toBeVisible();
-});
-
-test("Memory route loads", async ({ page }) => {
-  await page.getByRole("link", { name: /memory/i }).click();
-  await expect(page.getByRole("heading", { name: /^memory$/i })).toBeVisible();
+test("Home is the landing surface and carries the note list controls", async ({
+  page,
+}) => {
+  await expect(page.getByRole("button", { name: /take notes/i })).toBeVisible();
+  await expect(page.getByRole("textbox", { name: /search recordings/i })).toBeVisible();
 });
 
 test("retired surfaces have no sidebar entry", async ({ page }) => {
@@ -32,11 +20,20 @@ test("retired surfaces have no sidebar entry", async ({ page }) => {
   await expect(nav.getByRole("link", { name: /^record$/i })).toHaveCount(0);
   await expect(nav.getByRole("link", { name: /^inbox$/i })).toHaveCount(0);
   await expect(nav.getByRole("link", { name: /^chat$/i })).toHaveCount(0);
+  await expect(nav.getByRole("link", { name: /^my notes$/i })).toHaveCount(0);
+  await expect(nav.getByRole("link", { name: /^tasks$/i })).toHaveCount(0);
+  await expect(nav.getByRole("link", { name: /^memory$/i })).toHaveCount(0);
 });
 
 test("retired routes redirect home", async ({ page }) => {
-  await page.goto("/#/record");
-  await expect(page.getByRole("heading", { name: /^home$/i })).toBeVisible();
-  await page.goto("/#/inbox");
-  await expect(page.getByRole("heading", { name: /^home$/i })).toBeVisible();
+  for (const route of [
+    "/#/record",
+    "/#/inbox",
+    "/#/library",
+    "/#/tasks",
+    "/#/memory",
+  ]) {
+    await page.goto(route);
+    await expect(page.getByRole("heading", { name: /^home$/i })).toBeVisible();
+  }
 });

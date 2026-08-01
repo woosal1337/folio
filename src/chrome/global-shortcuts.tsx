@@ -7,7 +7,6 @@ import {
   focusInTextInput,
   matchesChord,
 } from "@/shared/lib/shortcuts";
-import { openPreferencesWindow } from "@/shared/lib/ipc";
 import { useRecording } from "@/shared/stores/recording-store";
 import { useSettingsUiStore } from "@/shared/stores/settings-ui-store";
 import { useTakeNotes } from "@/shared/hooks/use-take-notes";
@@ -32,19 +31,13 @@ export function GlobalShortcuts({ onOpenCheatsheet, onOpenPalette }: Props) {
         event.preventDefault();
         dispatch(shortcut.action, {
           navigate,
-          openPreferences: () => {
-            openPreferencesWindow().catch((e) => {
-              console.error("open_preferences_window:", e);
-              openPreferences();
-            });
-          },
+          openPreferences,
           openCheatsheet: onOpenCheatsheet,
           openAsk: onOpenPalette,
           toggleRecording: () => {
             if (recording) void stop();
             else takeNotes();
           },
-          newTask: () => navigate("/tasks"),
           segmentPrev: () => {
             document.dispatchEvent(new CustomEvent("folio:transcript-prev"));
           },

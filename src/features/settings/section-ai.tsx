@@ -540,9 +540,5 @@ function labelFor(id: ProviderId): string {
   switch (id) {
     case "openai":
       return "OpenAI";
-    case "anthropic":
-      return "Anthropic";
-    case "deepseek":
-      return "DeepSeek";
   }
 }

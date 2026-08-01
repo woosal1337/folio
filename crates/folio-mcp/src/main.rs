@@ -6,8 +6,8 @@ use serde_json::{json, Value};
 
 use folio_core::mcp_server::{
     catalogue, CreateTaskParams, FindDecisionParams, GetTranscriptParams, ListTasksParams, McpTool,
-    NotesByDateRangeParams, NotesByFolderParams, NotesByPersonParams, QuoteSegmentParams,
-    RecentMeetingsParams, SearchMemoryParams,
+    NotesByDateRangeParams, NotesByPersonParams, QuoteSegmentParams, RecentMeetingsParams,
+    SearchMemoryParams,
 };
 use folio_core::memory::{MemoryKind, MemoryQuery, MemoryStore};
 use folio_core::storage::{scan_recordings, NewTask, SettingsStore, TaskStore};
@@ -147,18 +147,6 @@ fn handle_call(name: &str, args: &Value) -> Result<Value, String> {
             };
             Ok(json!(store.list(&query).map_err(|e| e.to_string())?))
         }
-        McpTool::NotesByFolder => {
-            let p: NotesByFolderParams = req(args)?;
-            let mut recs: Vec<_> = scan_recordings(&settings().output_dir)
-                .into_iter()
-                .filter(|r| r.folder.as_deref() == Some(p.folder.as_str()))
-                .collect();
-            recs.sort_by_key(|r| std::cmp::Reverse(r.created_at));
-            if let Some(l) = p.limit {
-                recs.truncate(l);
-            }
-            Ok(json!(recs))
-        }
         McpTool::NotesByDateRange => {
             let p: NotesByDateRangeParams = req(args)?;
             let from = parse_bound(&p.from, false)?;
@@ -251,10 +239,6 @@ fn input_schema(tool: McpTool) -> Value {
         McpTool::NotesByPerson => obj(
             json!({ "person": { "type": "string" }, "limit": limit }),
             vec!["person"],
-        ),
-        McpTool::NotesByFolder => obj(
-            json!({ "folder": { "type": "string" }, "limit": limit }),
-            vec!["folder"],
         ),
         McpTool::NotesByDateRange => obj(
             json!({

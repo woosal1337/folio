@@ -18,13 +18,11 @@ test("Collapse button toggles the sidebar width", async ({ page }) => {
     .toBeLessThan(beforeWidth);
 });
 
-test("Navigating to My Notes highlights its sidebar entry as the active route", async ({
+test("Home stays the active sidebar entry while an editor route is open", async ({
   page,
 }) => {
-  await page.getByRole("link", { name: /my notes/i }).click();
-
   await expect(
-    page.getByRole("link", { name: /my notes/i, includeHidden: false })
+    page.getByRole("link", { name: /^home$/i, includeHidden: false })
   ).toHaveAttribute("aria-current", "page");
 });
 

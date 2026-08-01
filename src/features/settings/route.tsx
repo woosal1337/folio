@@ -1,18 +1,15 @@
 import * as React from "react";
 import {
   BarChart3,
-  Bell,
   Bot,
   Folder,
   Lock,
   Mic,
   Palette,
-  Plug,
   Settings as SettingsIcon,
   Sparkles,
   Wallet,
   Waves,
-  Workflow,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -39,15 +36,12 @@ import type { Settings } from "@/shared/types/Settings";
 import { SectionAi } from "./section-ai";
 import { SectionAppearance } from "./section-appearance";
 import { SectionAudio } from "./section-audio";
-import { SectionConnectors } from "./section-connectors";
 import { SectionGeneral } from "./section-general";
-import { SectionNotifications } from "./section-notifications";
 import { SectionPreferences } from "./section-preferences";
 import { SectionPrivacy } from "./section-privacy";
 import { SectionStorage } from "./section-storage";
 import { SectionTranscription } from "./section-transcription";
 import { SectionUsage } from "./section-usage";
-import { SectionWebhooks } from "./section-webhooks";
 import { SectionAnalytics } from "./section-analytics";
 
 type Section = SettingsSection;
@@ -74,7 +68,6 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { id: "preferences", label: "Preferences", icon: SettingsIcon },
       { id: "analytics", label: "Analytics", icon: BarChart3 },
-      { id: "notifications", label: "Notifications", icon: Bell },
     ],
   },
   {
@@ -91,11 +84,7 @@ const NAV_GROUPS: NavGroup[] = [
   },
   {
     label: "Integrations",
-    items: [
-      { id: "usage", label: "Usage", icon: Wallet },
-      { id: "connectors", label: "Connectors", icon: Plug },
-      { id: "webhooks", label: "Webhooks", icon: Workflow },
-    ],
+    items: [{ id: "usage", label: "Usage", icon: Wallet }],
   },
 ];
 
@@ -198,9 +187,7 @@ export function SettingsModal({ open, onOpenChange }: Props) {
               {!settings ? (
                 <p className="text-sm text-muted-foreground">Loading…</p>
               ) : section === "preferences" ? (
-                <SectionPreferences settings={settings} onChange={update} />
-              ) : section === "notifications" ? (
-                <SectionNotifications settings={settings} onChange={update} />
+                <SectionPreferences onChange={update} />
               ) : section === "general" ? (
                 <SectionGeneral
                   settings={settings}
@@ -217,10 +204,6 @@ export function SettingsModal({ open, onOpenChange }: Props) {
                 <SectionStorage settings={settings} onChange={update} />
               ) : section === "analytics" ? (
                 <SectionAnalytics />
-              ) : section === "connectors" ? (
-                <SectionConnectors />
-              ) : section === "webhooks" ? (
-                <SectionWebhooks />
               ) : section === "usage" ? (
                 <SectionUsage />
               ) : section === "privacy" ? (

@@ -46,6 +46,56 @@ All notable changes to Folio are documented here. The format follows
 
 _Nothing yet._
 
+## [2.0.0] — 2026-08-01
+
+A deliberate stripping-back: Folio keeps the parts that record, transcribe, and
+read well, and drops everything that never worked.
+
+### Added
+
+- **Large recordings upload again.** Audio now uploads to your server in 8 MiB
+  chunks instead of one enormous request, so files past ~100 MB no longer bounce
+  off Cloudflare's request-size limit. An interrupted upload resumes from where
+  the server left off rather than starting over.
+
+### Changed
+
+- **Home is the only place your notes live.** Home and My Notes showed the same
+  list on two screens; they are now one. Home keeps its Today / Yesterday /
+  Earlier grouping and gains search, transcript and sort filters, and per-row
+  actions. Every row shows both its transcription state and its sync state.
+- **Settings is smaller and honest.** Every remaining toggle now does something.
+  Roughly thirty controls that saved a value nothing ever read have been removed.
+- **Preferences opens in the app.** ⌘, now opens the in-app Settings dialog
+  instead of a second, separate window that drifted out of sync with it.
+
+### Removed
+
+- **Tasks and Memory tabs.** Extracted tasks and memories are still captured and
+  still feed Analytics and the editor's participant cards; the standalone
+  browsing screens are gone.
+- **Spaces / folders.** The sidebar section, the editor's folder chip, folder
+  filtering, the chat folder scope, and the `notes_by_folder` MCP tool.
+- **Meeting auto-detection.** Folio no longer watches for conferencing apps or
+  offers a "take notes?" popup when a call starts. Start recordings yourself.
+- **Notifications settings.** Folio never sent a system notification; the tab
+  configured behaviour that did not exist.
+- **Integrations and Webhooks.** The connector cards were placeholders, and no
+  webhook was ever fired for any event.
+- **Anthropic and DeepSeek providers.** Both returned "support arrives in phase
+  2" on every call. OpenAI is the supported provider.
+- **Background sync loop.** Recordings still upload automatically when you stop
+  them; the extra timer that re-synced every thirty seconds is gone.
+
+### Fixed
+
+- **Uploads no longer race themselves.** The background sync timer could start a
+  second upload of a recording while the first was still running, so the same
+  file was sent two or three times over. Only one sync per recording now runs at
+  a time.
+- **Sidebar footer type size.** Account, Settings, and the theme toggle render at
+  the same size as the rest of the sidebar instead of Account being larger.
+
 ## [1.2.0] — 2026-07-23
 
 Remote GPU transcription: point Folio at a server you own and let it do the
@@ -173,7 +223,8 @@ machine on the default path.
 Project initialized. See [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) for
 the architecture.
 
-[Unreleased]: https://github.com/woosal1337/folio/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/woosal1337/folio/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/woosal1337/folio/releases/tag/v2.0.0
 [1.2.0]: https://github.com/woosal1337/folio/releases/tag/v1.2.0
 [1.1.0]: https://github.com/woosal1337/folio/releases/tag/v1.1.0
 [1.0.0]: https://github.com/woosal1337/folio/releases/tag/v1.0.0

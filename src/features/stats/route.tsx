@@ -180,7 +180,7 @@ export default function StatsRoute() {
       if (!r) return;
       navigate(`/editor/${encodeURIComponent(r.label)}`, { state: { recording: r } });
     } else {
-      navigate(`/library`, { state: { dateFilter: cell.date } });
+      navigate("/");
     }
   };
 

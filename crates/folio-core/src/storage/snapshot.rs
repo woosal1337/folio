@@ -111,10 +111,6 @@ pub fn export(destination: &Path, paths: &SnapshotPaths) -> Result<SnapshotSumma
     })
 }
 
-pub fn default_filename(now: &chrono::DateTime<Utc>) -> String {
-    format!("folio-snapshot-{}.zip", now.format("%Y-%m-%d-%H%M%S"))
-}
-
 fn copy_into_zip<W: Write + std::io::Seek>(
     zip: &mut ZipWriter<W>,
     src: &Path,
@@ -260,16 +256,5 @@ mod tests {
         let mut archive = ZipArchive::new(File::open(&dest).unwrap()).unwrap();
         assert_eq!(archive.len(), 1);
         assert_eq!(archive.by_index(0).unwrap().name(), "manifest.json");
-    }
-
-    #[test]
-    fn default_filename_is_iso_dated() {
-        let stamp = chrono::DateTime::parse_from_rfc3339("2026-05-25T17:34:09Z")
-            .unwrap()
-            .with_timezone(&Utc);
-        assert_eq!(
-            default_filename(&stamp),
-            "folio-snapshot-2026-05-25-173409.zip"
-        );
     }
 }

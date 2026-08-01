@@ -26,18 +26,6 @@ impl OpenAiTranscriber {
             endpoint: DEFAULT_ENDPOINT.into(),
         }
     }
-
-    #[must_use]
-    pub fn with_model(mut self, model: impl Into<String>) -> Self {
-        self.model = model.into();
-        self
-    }
-
-    #[must_use]
-    pub fn with_endpoint(mut self, endpoint: impl Into<String>) -> Self {
-        self.endpoint = endpoint.into();
-        self
-    }
 }
 
 impl Transcriber for OpenAiTranscriber {

@@ -2,15 +2,12 @@ import { create } from "zustand";
 
 export type SettingsSection =
   | "preferences"
-  | "notifications"
   | "general"
   | "audio"
   | "transcription"
   | "ai"
   | "storage"
   | "analytics"
-  | "connectors"
-  | "webhooks"
   | "usage"
   | "privacy"
   | "appearance";

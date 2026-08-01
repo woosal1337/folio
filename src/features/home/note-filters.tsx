@@ -21,7 +21,7 @@ const FILTERS: { id: TranscriptFilter; label: string }[] = [
   { id: "untranscribed", label: "Untranscribed" },
 ];
 
-export function LibraryFilters({
+export function NoteFilters({
   query,
   onQueryChange,
   filter,

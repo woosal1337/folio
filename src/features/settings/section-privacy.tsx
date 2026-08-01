@@ -1,4 +1,4 @@
-import { Lock, ShieldCheck } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
 
 import { Switch } from "@/shared/ui/switch";
 import type { Settings } from "@/shared/types/Settings";
@@ -44,36 +44,6 @@ export function SectionPrivacy({ settings, onChange }: Props) {
             onCheckedChange={(v) => onChange("privacy_mode", v)}
             className="mt-1"
             aria-label="Privacy Mode"
-          />
-        </div>
-      </section>
-
-      <section
-        aria-label="Anonymous aggregate stats"
-        className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4"
-      >
-        <div className="flex items-start gap-3">
-          <Lock className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-          <div className="flex-1">
-            <p className="text-sm font-medium">
-              Contribute to the public aggregate counter
-            </p>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              When on, Folio adds three numbers to a public counter at{" "}
-              <code className="rounded bg-muted px-1 py-0.5 text-2xs">
-                folio.app/stats
-              </code>
-              : total minutes transcribed locally, total cost saved over cloud Whisper,
-              and a still-alive install ping. No content and no identifiers ever leave
-              your machine — the upload is three integers and an opaque per-install
-              salt. Designed as a public trust artifact for the BYO-key audience.
-            </p>
-          </div>
-          <Switch
-            checked={settings.share_aggregate_stats}
-            onCheckedChange={(v) => onChange("share_aggregate_stats", v)}
-            className="mt-1"
-            aria-label="Share anonymous aggregate stats"
           />
         </div>
       </section>

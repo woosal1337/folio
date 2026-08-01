@@ -1,7 +1,6 @@
 pub mod capture;
 pub mod devices;
 pub mod enhancement;
-pub mod inflight;
 pub mod level_meter;
 pub mod mic;
 pub mod mic_monitor;

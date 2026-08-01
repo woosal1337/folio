@@ -63,13 +63,6 @@ fn is_command_keyword(s: &str) -> bool {
     matches!(s, "/action" | "/decision" | "/question" | "/highlight")
 }
 
-pub fn parse_buffer(buffer: &str, anchor_seconds: f64) -> Vec<LiveNote> {
-    buffer
-        .lines()
-        .filter_map(|line| parse_line(line, anchor_seconds))
-        .collect()
-}
-
 pub fn render_markdown(notes: &[LiveNote]) -> String {
     let mut sections: Vec<(NoteKind, Vec<&LiveNote>)> = Vec::new();
     for kind in [
@@ -223,13 +216,6 @@ mod tests {
         assert!(parse_line("", 0.0).is_none());
         assert!(parse_line("   ", 0.0).is_none());
         assert!(parse_line("/action   ", 0.0).is_none());
-    }
-
-    #[test]
-    fn parse_buffer_handles_multiline_input() {
-        let buffer = "/action one\n/decision two\n\n/question three";
-        let notes = parse_buffer(buffer, 0.0);
-        assert_eq!(notes.len(), 3);
     }
 
     #[test]

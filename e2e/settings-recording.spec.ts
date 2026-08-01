@@ -18,6 +18,7 @@ test("General — input device list populates from list_input_devices", async ({
     .click();
 
   const options = await page
+    .getByRole("dialog")
     .locator("select")
     .first()
     .locator("option")

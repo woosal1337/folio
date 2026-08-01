@@ -1,15 +1,21 @@
+use std::fs::File;
+use std::io::{Read, Seek, SeekFrom};
 use std::path::Path;
+use std::time::Instant;
 
 use chrono::Utc;
 use sha2::{Digest, Sha256};
 
-use crate::error::Result;
+use crate::error::{FolioError, Result};
 use crate::server::client::RemoteClient;
 use crate::server::sync_state::{self, RemoteStatus, SyncState, UploadPhase};
+use crate::server::types::ChunkOutcome;
 use crate::storage::session::TRANSCRIPT_FILENAME;
 use crate::transcription::SessionTranscript;
 
 const CHANNELS: &[&str] = &["mic", "system"];
+
+const UPLOAD_CHUNK_BYTES: usize = 8 * 1024 * 1024;
 
 #[derive(Debug, Clone)]
 pub struct SyncOutcome {
@@ -60,11 +66,7 @@ pub async fn sync_session(
             if !wav.exists() {
                 continue;
             }
-            let data = std::fs::read(&wav)?;
-            let digest = sha256_hex(&data);
-            client
-                .upload_channel(&remote_id, channel, 0, data, true, Some(&digest))
-                .await?;
+            upload_channel_chunked(client, &remote_id, channel, &wav).await?;
         }
         state.upload_state = UploadPhase::Complete;
         sync_state::save(session_dir, &state)?;
@@ -108,10 +110,6 @@ pub async fn sync_session(
     })
 }
 
-pub fn is_terminal(status: RemoteStatus) -> bool {
-    matches!(status, RemoteStatus::Succeeded | RemoteStatus::Failed)
-}
-
 fn map_status(status: &str) -> RemoteStatus {
     match status {
         "queued" => RemoteStatus::Queued,
@@ -126,10 +124,102 @@ fn new_recording_id() -> String {
     uuid::Uuid::new_v4().to_string()
 }
 
-fn sha256_hex(data: &[u8]) -> String {
+fn sha256_file(path: &Path) -> Result<String> {
+    let mut file = File::open(path)?;
     let mut hasher = Sha256::new();
-    hasher.update(data);
-    hex::encode(hasher.finalize())
+    let mut buf = vec![0u8; 1 << 20];
+    loop {
+        let read = file.read(&mut buf)?;
+        if read == 0 {
+            break;
+        }
+        hasher.update(&buf[..read]);
+    }
+    Ok(hex::encode(hasher.finalize()))
+}
+
+async fn upload_channel_chunked(
+    client: &RemoteClient,
+    remote_id: &str,
+    channel: &str,
+    wav: &Path,
+) -> Result<()> {
+    let total = std::fs::metadata(wav)?.len();
+    let hash_started = Instant::now();
+    let digest = sha256_file(wav)?;
+    tracing::info!(
+        channel,
+        bytes = total,
+        hash_secs = hash_started.elapsed().as_secs_f64(),
+        "upload: hashed channel"
+    );
+    let started = Instant::now();
+    let mut file = File::open(wav)?;
+    let mut offset: u64 = 0;
+    let mut stalls = 0u32;
+    let mut chunks = 0u32;
+
+    loop {
+        let sent_from = offset;
+        file.seek(SeekFrom::Start(offset))?;
+        let want = std::cmp::min(UPLOAD_CHUNK_BYTES as u64, total.saturating_sub(offset)) as usize;
+        let mut buf = vec![0u8; want];
+        file.read_exact(&mut buf)?;
+        let complete = offset + want as u64 >= total;
+
+        let outcome = client
+            .upload_channel_chunk(
+                remote_id,
+                channel,
+                offset,
+                buf,
+                complete,
+                if complete {
+                    Some(digest.as_str())
+                } else {
+                    None
+                },
+            )
+            .await?;
+
+        chunks += 1;
+        match outcome {
+            ChunkOutcome::Accepted(result) => {
+                offset = result.offset.max(0) as u64;
+                if result.complete || offset >= total {
+                    let secs = started.elapsed().as_secs_f64();
+                    tracing::info!(
+                        channel,
+                        bytes = total,
+                        chunks,
+                        secs,
+                        mb_per_sec = (total as f64 / 1_048_576.0) / secs.max(0.001),
+                        "upload: channel complete"
+                    );
+                    return Ok(());
+                }
+            }
+            ChunkOutcome::OffsetMismatch { expected } => {
+                if expected > total {
+                    return Err(FolioError::Backend(format!(
+                        "upload_channel: server holds {expected} bytes for {channel}, local file is {total}"
+                    )));
+                }
+                offset = expected;
+            }
+        }
+
+        if offset <= sent_from {
+            stalls += 1;
+            if stalls > 3 {
+                return Err(FolioError::Backend(format!(
+                    "upload_channel: {channel} stalled at offset {offset} of {total}"
+                )));
+            }
+        } else {
+            stalls = 0;
+        }
+    }
 }
 
 fn wav_duration_secs(path: &Path) -> i64 {

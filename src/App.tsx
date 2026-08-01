@@ -17,21 +17,14 @@ import { verbSource } from "@/shared/lib/command-palette";
 
 const Home = React.lazy(() => import("@/features/home/route"));
 const Chat = React.lazy(() => import("@/features/chat/route"));
-const MeetingHud = React.lazy(() => import("@/features/meeting-hud/route"));
 const RecordingBar = React.lazy(() => import("@/features/recording-bar/route"));
 const FirstRunConductor = React.lazy(() =>
   import("@/features/onboarding/first-run").then((m) => ({
     default: m.FirstRunConductor,
   }))
 );
-const Library = React.lazy(() => import("@/features/library/route"));
 const Editor = React.lazy(() => import("@/features/editor/route"));
 const Account = React.lazy(() => import("@/features/account/route"));
-const Tasks = React.lazy(() => import("@/features/tasks/route"));
-const PreferencesWindow = React.lazy(
-  () => import("@/features/preferences-window/route")
-);
-const MemoryRoute = React.lazy(() => import("@/features/memory/route"));
 const StatsRoute = React.lazy(() => import("@/features/stats/route"));
 const SettingsModal = React.lazy(() =>
   import("@/features/settings/route").then((m) => ({ default: m.SettingsModal }))
@@ -41,7 +34,6 @@ import { useWindowDoubleClick, useWindowDrag } from "@/shared/hooks/use-window-d
 import { useSettingsStore } from "@/shared/stores/settings-store";
 import { useSettingsUiStore } from "@/shared/stores/settings-ui-store";
 import {
-  MEETING_HUD_WINDOW_LABEL,
   RECORDING_BAR_WINDOW_LABEL,
   currentWindowLabel,
   onRecordingBarPause,
@@ -53,16 +45,6 @@ import { useTakeNotes } from "@/shared/hooks/use-take-notes";
 import { useRecording } from "@/shared/stores/recording-store";
 
 export default function App() {
-  if (currentWindowLabel() === MEETING_HUD_WINDOW_LABEL) {
-    return (
-      <ErrorBoundary>
-        <React.Suspense fallback={null}>
-          <MeetingHud />
-        </React.Suspense>
-      </ErrorBoundary>
-    );
-  }
-
   if (currentWindowLabel() === RECORDING_BAR_WINDOW_LABEL) {
     return (
       <ErrorBoundary>
@@ -174,16 +156,15 @@ function MainApp() {
                   <Route path="/chat" element={<Chat />} />
 
                   <Route path="/record" element={<Navigate to="/" replace />} />
-                  <Route path="/library" element={<Library />} />
-                  <Route path="/editor" element={<Navigate to="/library" replace />} />
+                  <Route path="/library" element={<Navigate to="/" replace />} />
+                  <Route path="/editor" element={<Navigate to="/" replace />} />
                   <Route path="/editor/:label" element={<Editor />} />
 
                   <Route path="/inbox" element={<Navigate to="/" replace />} />
                   <Route path="/account" element={<Account />} />
-                  <Route path="/preferences-window" element={<PreferencesWindow />} />
                   <Route path="/ai" element={<Navigate to="/" replace />} />
-                  <Route path="/tasks" element={<Tasks />} />
-                  <Route path="/memory" element={<MemoryRoute />} />
+                  <Route path="/tasks" element={<Navigate to="/" replace />} />
+                  <Route path="/memory" element={<Navigate to="/" replace />} />
                   <Route path="/stats" element={<StatsRoute />} />
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
@@ -237,9 +218,7 @@ function PaletteHost({
       verbSource({
         startRecording: takeNotes,
         openChat: () => navigate("/chat"),
-        openLibrary: () => navigate("/library"),
-        openMemory: () => navigate("/memory"),
-        openTasks: () => navigate("/tasks"),
+        openLibrary: () => navigate("/"),
         openPreferences: onOpenPreferences,
         openCheatsheet: onOpenCheatsheet,
       }),

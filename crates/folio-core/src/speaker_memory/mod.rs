@@ -100,10 +100,6 @@ impl SpeakerRegistry {
         self.records.iter().all(|r| !r.is_live())
     }
 
-    pub fn live_len(&self) -> usize {
-        self.records.iter().filter(|r| r.is_live()).count()
-    }
-
     pub fn record(&self, id: Uuid) -> Option<&NamedVoiceRecord> {
         self.records.iter().find(|r| r.id == id)
     }

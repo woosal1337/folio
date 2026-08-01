@@ -104,17 +104,6 @@ export function extensionFor(format: ExportFormat): string {
   return format;
 }
 
-export function mimeFor(format: ExportFormat): string {
-  switch (format) {
-    case "srt":
-      return "application/x-subrip";
-    case "vtt":
-      return "text/vtt";
-    case "txt":
-      return "text/plain";
-  }
-}
-
 export function segmentMatches(segment: TranscriptSegment, query: string): boolean {
   if (query.trim().length === 0) return true;
   return segment.text.toLowerCase().includes(query.toLowerCase());

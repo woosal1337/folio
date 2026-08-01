@@ -40,7 +40,6 @@ import {
   listAgentRuns,
   setEnhancedNotesAccepted,
   onLiveTranscript,
-  onRemoteSyncProgress,
   readTranscript,
   renameNote,
   revealInFinder,
@@ -57,7 +56,6 @@ import type { AgentRun } from "@/shared/types/AgentRun";
 import type { RecordingSummary } from "@/shared/types/RecordingSummary";
 import type { SessionTranscript } from "@/shared/types/SessionTranscript";
 
-import { FolderChip } from "./folder-chip";
 import { confirmDelete } from "@/shared/stores/confirm-delete-store";
 import { serialiseAsPlainText } from "@/shared/lib/note-export";
 import { ParticipantCards } from "./participant-cards";
@@ -218,19 +216,6 @@ export default function Editor() {
     if (!lastTranscriptPath) return;
     void refreshSummary();
   }, [lastTranscriptPath, refreshSummary]);
-
-  React.useEffect(() => {
-    if (!sessionDir) return;
-    let unlisten: (() => void) | undefined;
-    void onRemoteSyncProgress((p) => {
-      if (p.session_dir !== sessionDir) return;
-      void refreshSummary();
-      if (p.transcript_written) void loadTranscript(sessionDir);
-    }).then((fn) => {
-      unlisten = fn;
-    });
-    return () => unlisten?.();
-  }, [sessionDir, refreshSummary, loadTranscript]);
 
   const [agentRuns, setAgentRuns] = React.useState<AgentRun[]>([]);
   const refreshRuns = React.useCallback(async () => {
@@ -418,7 +403,7 @@ export default function Editor() {
     try {
       await deleteRecording(recording.session_dir);
       toast.success("Note deleted");
-      navigate("/library");
+      navigate("/");
     } catch (e) {
       console.error("delete_recording:", e);
       toast.error("Could not delete note", { description: humanizeError(e) });
@@ -457,9 +442,9 @@ export default function Editor() {
           The note <span className="font-mono">{label}</span> does not exist in your
           recordings folder. It may have been deleted or renamed.
         </p>
-        <Button onClick={() => navigate("/library")} className="gap-2">
+        <Button onClick={() => navigate("/")} className="gap-2">
           <ArrowLeft className="h-3.5 w-3.5" />
-          Back to Library
+          Back to Home
         </Button>
       </CenteredPage>
     );
@@ -521,11 +506,11 @@ export default function Editor() {
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-8 py-8 pb-28">
       <div data-drag="" className="flex select-none items-center justify-between">
         <Link
-          to="/library"
+          to="/"
           className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
-          Library
+          Home
         </Link>
         <div className="flex items-center gap-1.5">
           {recording.has_transcript ? (
@@ -576,13 +561,6 @@ export default function Editor() {
             <UserIcon className="h-3 w-3" />
             Me
           </Chip>
-          <FolderChip
-            sessionDir={recording.session_dir}
-            folder={recording.folder ?? null}
-            onChange={(next) =>
-              setRecording((prev) => (prev ? { ...prev, folder: next } : prev))
-            }
-          />
           <span className="font-mono">
             {formatDuration(Number(recording.duration_seconds))} ·{" "}
             {formatBytes(totalBytes)}

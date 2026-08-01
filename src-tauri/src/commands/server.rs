@@ -1,4 +1,6 @@
-use std::path::PathBuf;
+use std::collections::HashSet;
+use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 
 use folio_core::server::{sync_session, RemoteClient, ServerTokens, SyncOutcome, SyncState};
 use serde::Serialize;
@@ -6,6 +8,33 @@ use tauri::State;
 use tracing::info;
 
 use crate::app::AppState;
+
+static SYNCING: Mutex<Option<HashSet<PathBuf>>> = Mutex::new(None);
+
+pub struct SyncGuard(PathBuf);
+
+impl SyncGuard {
+    fn claim(session_dir: &Path) -> Option<Self> {
+        let mut slot = SYNCING.lock().ok()?;
+        let set = slot.get_or_insert_with(HashSet::new);
+        if !set.insert(session_dir.to_path_buf()) {
+            return None;
+        }
+        Some(SyncGuard(session_dir.to_path_buf()))
+    }
+}
+
+impl Drop for SyncGuard {
+    fn drop(&mut self) {
+        if let Ok(mut slot) = SYNCING.lock() {
+            if let Some(set) = slot.as_mut() {
+                set.remove(&self.0);
+            }
+        }
+    }
+}
+
+pub const SYNC_ALREADY_RUNNING: &str = "a sync is already running for this recording";
 
 fn build_client(endpoint: &str, with_token: bool) -> Result<RemoteClient, String> {
     let mut client = RemoteClient::new(endpoint).map_err(|e| e.to_string())?;
@@ -190,6 +219,7 @@ pub async fn run_sync(
     session_dir: &std::path::Path,
     language: Option<&str>,
 ) -> Result<SyncOutcome, String> {
+    let _guard = SyncGuard::claim(session_dir).ok_or(SYNC_ALREADY_RUNNING)?;
     let client = build_client(endpoint, true)?;
     match sync_session(&client, session_dir, language).await {
         Ok(outcome) => Ok(outcome),
@@ -202,19 +232,4 @@ pub async fn run_sync(
         }
         Err(e) => Err(e.to_string()),
     }
-}
-
-#[tauri::command]
-pub async fn get_sync_status(
-    state: State<'_, AppState>,
-    session_dir: PathBuf,
-) -> Result<Option<SyncState>, String> {
-    let output_dir = state.settings.lock().output_dir.clone();
-    tauri::async_runtime::spawn_blocking(move || -> Result<Option<SyncState>, String> {
-        let session_dir = folio_core::paths::canonicalize_under(&output_dir, &session_dir)
-            .map_err(|e| e.to_string())?;
-        folio_core::server::sync_state::load(&session_dir).map_err(|e| e.to_string())
-    })
-    .await
-    .map_err(|e| format!("get_sync_status task panicked: {e}"))?
 }

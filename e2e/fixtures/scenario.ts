@@ -6,14 +6,11 @@ export interface MockSettings {
   mic_device: string | null;
   system_audio_enabled: boolean;
   output_dir: string;
-  notes_dir: string;
   tasks_path: string;
-  transcripts_dir: string;
   theme: string;
   transcriber: string;
   transcription_language: string;
   briefing_language: string;
-  dictionary_terms: string[];
   local_whisper_model: string;
   voice_processing_enabled: boolean;
   auto_transcribe_enabled: boolean;
@@ -26,32 +23,8 @@ export interface MockSettings {
   auto_extract_tasks_enabled: boolean;
   auto_name_enabled: boolean;
   wav_retention_days: number | null;
-  share_aggregate_stats: boolean;
-  pro_license_key: string;
-  pro_trial_started_at: string;
-  voice_debrief_enabled: boolean;
   privacy_mode: boolean;
   onboarding_completed: boolean;
-  show_upcoming_meetings_in_menubar: boolean;
-  show_events_without_participants: boolean;
-  live_meeting_indicator: boolean;
-  open_at_login: boolean;
-  move_aside_in_meetings: boolean;
-  default_link_sharing: string;
-  always_open_shared_links: boolean;
-  privacy_tier_band_enabled: boolean;
-  auto_delete_period_days: number | null;
-  notify_scheduled_meetings: boolean;
-  notify_auto_detected_meetings: boolean;
-  notification_muted_apps: string[];
-  note_shared_notification: string;
-  signin_mode: string;
-  workspace_name: string;
-  workspace_bucket: string;
-  onboarding_calendar_deferred: boolean;
-  workspace_discoverable: boolean;
-  workspace_auto_join: boolean;
-  workspace_logo_path: string;
   remote_endpoint: string;
   remote_auto_upload: boolean;
 }
@@ -61,14 +34,11 @@ export function freshSettings(overrides: Partial<MockSettings> = {}): MockSettin
     mic_device: null,
     system_audio_enabled: true,
     output_dir: "/tmp/Folio",
-    notes_dir: "/tmp/Folio/Notes",
     tasks_path: "/tmp/Folio/Tasks.json",
-    transcripts_dir: "/tmp/Folio/Transcripts",
     theme: "dark",
     transcriber: "local_whisper",
     transcription_language: "auto",
     briefing_language: "en",
-    dictionary_terms: [],
     local_whisper_model: "large-v3",
     voice_processing_enabled: true,
     auto_transcribe_enabled: true,
@@ -81,32 +51,8 @@ export function freshSettings(overrides: Partial<MockSettings> = {}): MockSettin
     auto_extract_tasks_enabled: false,
     auto_name_enabled: false,
     wav_retention_days: null,
-    share_aggregate_stats: false,
-    pro_license_key: "",
-    pro_trial_started_at: "",
-    voice_debrief_enabled: false,
     privacy_mode: false,
     onboarding_completed: false,
-    show_upcoming_meetings_in_menubar: true,
-    show_events_without_participants: false,
-    live_meeting_indicator: true,
-    open_at_login: false,
-    move_aside_in_meetings: false,
-    default_link_sharing: "disabled",
-    always_open_shared_links: true,
-    privacy_tier_band_enabled: false,
-    auto_delete_period_days: 90,
-    notify_scheduled_meetings: true,
-    notify_auto_detected_meetings: true,
-    notification_muted_apps: [],
-    note_shared_notification: "activity_and_email",
-    signin_mode: "",
-    workspace_name: "",
-    workspace_bucket: "",
-    onboarding_calendar_deferred: false,
-    workspace_discoverable: true,
-    workspace_auto_join: true,
-    workspace_logo_path: "",
     remote_endpoint: "",
     remote_auto_upload: false,
     ...overrides,
@@ -145,9 +91,6 @@ export interface ProviderStub {
 export async function setupScenario(page: Page, options: ScenarioOptions = {}) {
   const baseSettings = freshSettings({
     onboarding_completed: true,
-    workspace_name: "Clinora",
-    workspace_bucket: "founder",
-    signin_mode: "email",
     ...(options.initialSettings ?? {}),
   });
   const startSignedIn = options.startSignedIn ?? true;

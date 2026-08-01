@@ -56,11 +56,6 @@ pub async fn test_provider(provider: ProviderId) -> Result<(), String> {
             let p = OpenAiProvider::new(key);
             p.test().await.map_err(|e| e.to_string())
         }
-        ProviderId::Anthropic | ProviderId::Deepseek => Err(format!(
-            "{} support arrives in phase 2 of the AI chat rollout",
-            provider.display_name()
-        )),
-
         _ => Err(format!("{} is not yet supported", provider.display_name())),
     }
 }
@@ -83,10 +78,6 @@ pub async fn list_provider_models(provider: ProviderId) -> Result<Vec<ModelInfo>
             let p = OpenAiProvider::new(key);
             p.list_models().await.map_err(|e| e.to_string())
         }
-        ProviderId::Anthropic | ProviderId::Deepseek => Err(format!(
-            "{} support arrives in phase 2 of the AI chat rollout",
-            provider.display_name()
-        )),
         _ => Err(format!("{} is not yet supported", provider.display_name())),
     }
 }

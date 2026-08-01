@@ -2,11 +2,8 @@ import * as React from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
   BarChart2,
-  Brain,
   CircleUserRound,
   Home as HomeIcon,
-  KanbanSquare,
-  Library,
   Moon,
   PanelLeftClose,
   PanelLeftOpen,
@@ -20,7 +17,6 @@ import { useSidebarCollapsed } from "@/shared/hooks/use-sidebar-collapsed";
 import { useRemoteAccountStore } from "@/shared/stores/remote-account-store";
 import { useSettingsStore } from "@/shared/stores/settings-store";
 import { Button } from "@/shared/ui/button";
-import { SpacesSection } from "@/chrome/spaces-section";
 import logoUrl from "@/assets/logo.svg";
 
 interface NavItem {
@@ -32,10 +28,7 @@ interface NavItem {
 }
 
 const items: NavItem[] = [
-  { to: "/", label: "Home", icon: HomeIcon },
-  { to: "/library", label: "My Notes", icon: Library, alsoActiveOn: ["/editor"] },
-  { to: "/tasks", label: "Tasks", icon: KanbanSquare },
-  { to: "/memory", label: "Memory", icon: Brain },
+  { to: "/", label: "Home", icon: HomeIcon, alsoActiveOn: ["/editor"] },
   { to: "/stats", label: "Stats", icon: BarChart2 },
 ];
 
@@ -141,8 +134,6 @@ export function Sidebar({ onOpenSettings }: SidebarProps) {
             );
           })}
         </nav>
-
-        <SpacesSection collapsed={collapsed} />
       </div>
 
       <div
@@ -181,7 +172,7 @@ export function Sidebar({ onOpenSettings }: SidebarProps) {
           variant="ghost"
           size={collapsed ? "icon" : "sm"}
           className={cn(
-            "font-medium text-muted-foreground",
+            "text-sm font-medium text-muted-foreground",
             collapsed ? "h-9 w-9" : "justify-start gap-3"
           )}
           onClick={onOpenSettings}
@@ -195,7 +186,7 @@ export function Sidebar({ onOpenSettings }: SidebarProps) {
           variant="ghost"
           size={collapsed ? "icon" : "sm"}
           className={cn(
-            "font-medium text-muted-foreground",
+            "text-sm font-medium text-muted-foreground",
             collapsed ? "h-9 w-9" : "justify-start gap-3"
           )}
           onClick={toggleTheme}

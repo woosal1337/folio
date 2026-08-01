@@ -7,7 +7,7 @@ use folio_core::llm::prompt;
 use folio_core::llm::provider::LlmProvider;
 use folio_core::llm::router::{decide, signals_from, RouterPolicy};
 use folio_core::llm::{
-    Agent, AgentRun, AgentRunStore, ChatMessage, ChatRequest, ChatRole, KeyStore, OpenAiProvider,
+    AgentRun, AgentRunStore, ChatMessage, ChatRequest, ChatRole, KeyStore, OpenAiProvider,
     ProviderId,
 };
 use folio_core::memory::{EmbeddingClient, MemoryStore};
@@ -23,12 +23,6 @@ const MAX_TOOL_ITERATIONS: usize = 5;
 const AGENT_TEMPERATURE: f32 = 0.2;
 
 #[tauri::command]
-pub fn list_agents() -> Vec<Agent> {
-    debug!("list_agents");
-    agents::defaults()
-}
-
-#[tauri::command]
 pub async fn list_agent_runs(
     state: State<'_, AppState>,
     session_dir: PathBuf,
@@ -41,22 +35,6 @@ pub async fn list_agent_runs(
     })
     .await
     .map_err(|e| format!("list_agent_runs task panicked: {e}"))?
-}
-
-#[tauri::command]
-pub async fn delete_agent_run(
-    state: State<'_, AppState>,
-    session_dir: PathBuf,
-    agent_id: String,
-) -> Result<(), String> {
-    let output_dir = state.settings.lock().output_dir.clone();
-    tauri::async_runtime::spawn_blocking(move || -> Result<(), String> {
-        let path = folio_core::paths::canonicalize_under(&output_dir, &session_dir)
-            .map_err(|e| e.to_string())?;
-        AgentRunStore::delete(&path, &agent_id).map_err(|e| e.to_string())
-    })
-    .await
-    .map_err(|e| format!("delete_agent_run task panicked: {e}"))?
 }
 
 #[tauri::command]
