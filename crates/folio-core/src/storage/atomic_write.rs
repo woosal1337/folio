@@ -41,17 +41,6 @@ pub fn atomic_write_json<T: serde::Serialize>(path: &Path, value: &T) -> Result<
     atomic_write(path, &bytes)
 }
 
-pub fn read_schema_version(stamp_path: &Path) -> u32 {
-    fs::read_to_string(stamp_path)
-        .ok()
-        .and_then(|s| s.trim().parse::<u32>().ok())
-        .unwrap_or(0)
-}
-
-pub fn write_schema_version(stamp_path: &Path, version: u32) -> Result<()> {
-    atomic_write(stamp_path, version.to_string().as_bytes())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -76,15 +65,6 @@ mod tests {
         let path = dir.path().join("nested/sub/dir/file.txt");
         atomic_write(&path, b"hi").unwrap();
         assert!(path.exists());
-    }
-
-    #[test]
-    fn schema_version_round_trips() {
-        let dir = tempfile::tempdir().unwrap();
-        let stamp = dir.path().join("store.schema");
-        assert_eq!(read_schema_version(&stamp), 0);
-        write_schema_version(&stamp, 7).unwrap();
-        assert_eq!(read_schema_version(&stamp), 7);
     }
 
     #[test]

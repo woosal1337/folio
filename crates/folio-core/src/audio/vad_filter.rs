@@ -57,10 +57,6 @@ pub struct VadFilterOutcome {
     pub sidecar: VadSidecar,
 }
 
-pub fn apply_vad_to_wav(input_wav: &Path) -> Result<VadFilterOutcome> {
-    apply_vad_to_wav_with(input_wav, VadEngine::default())
-}
-
 pub fn apply_vad_to_wav_with(input_wav: &Path, engine: VadEngine) -> Result<VadFilterOutcome> {
     let stem = input_wav
         .file_stem()

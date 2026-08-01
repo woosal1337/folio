@@ -14,124 +14,6 @@ test.beforeEach(async ({ page }) => {
   await page.getByRole("button", { name: /^settings$/i }).click();
 });
 
-test("Preferences → live_meeting_indicator persists when toggled", async ({ page }) => {
-  await page.getByRole("button", { name: /^preferences$/i }).click();
-  await page.getByRole("switch", { name: /live meeting indicator/i }).click();
-  await page
-    .getByRole("button", { name: /^save$/i })
-    .last()
-    .click();
-  expect((await readSettings(page)).live_meeting_indicator).toBe(false);
-});
-
-test("Preferences → open_at_login persists when toggled", async ({ page }) => {
-  await page.getByRole("button", { name: /^preferences$/i }).click();
-  await page.getByRole("switch", { name: /open folio when you log in/i }).click();
-  await page
-    .getByRole("button", { name: /^save$/i })
-    .last()
-    .click();
-  expect((await readSettings(page)).open_at_login).toBe(true);
-});
-
-test("Preferences → move_aside_in_meetings persists when toggled", async ({ page }) => {
-  await page.getByRole("button", { name: /^preferences$/i }).click();
-  await page.getByRole("switch", { name: /move folio aside in meetings/i }).click();
-  await page
-    .getByRole("button", { name: /^save$/i })
-    .last()
-    .click();
-  expect((await readSettings(page)).move_aside_in_meetings).toBe(true);
-});
-
-test("Preferences → privacy_tier_band_enabled persists when toggled", async ({
-  page,
-}) => {
-  await page.getByRole("button", { name: /^preferences$/i }).click();
-  await page.getByRole("switch", { name: /privacy tier colour band/i }).click();
-  await page
-    .getByRole("button", { name: /^save$/i })
-    .last()
-    .click();
-  expect((await readSettings(page)).privacy_tier_band_enabled).toBe(true);
-});
-
-test("Preferences → always_open_shared_links persists when toggled off", async ({
-  page,
-}) => {
-  await page.getByRole("button", { name: /^preferences$/i }).click();
-  await page
-    .getByRole("switch", { name: /always open shared links in folio/i })
-    .click();
-  await page
-    .getByRole("button", { name: /^save$/i })
-    .last()
-    .click();
-  expect((await readSettings(page)).always_open_shared_links).toBe(false);
-});
-
-test("Preferences → default_link_sharing changes to anyone_with_link", async ({
-  page,
-}) => {
-  await page.getByRole("button", { name: /^preferences$/i }).click();
-  const select = page.getByLabel(/default link sharing/i);
-  await select.selectOption("anyone_with_link");
-  await page
-    .getByRole("button", { name: /^save$/i })
-    .last()
-    .click();
-  expect((await readSettings(page)).default_link_sharing).toBe("anyone_with_link");
-});
-
-test("Preferences → auto_delete_period switches to 30 days", async ({ page }) => {
-  await page.getByRole("button", { name: /^preferences$/i }).click();
-  const select = page.getByLabel(/auto-delete transcripts/i);
-  await select.selectOption({ value: "30" });
-  await page
-    .getByRole("button", { name: /^save$/i })
-    .last()
-    .click();
-  expect((await readSettings(page)).auto_delete_period_days).toBe(30);
-});
-
-test("Calendar → show_upcoming_meetings_in_menubar persists when toggled off", async ({
-  page,
-}) => {
-  await page.getByRole("button", { name: /^calendar$/i }).click();
-  await page
-    .getByRole("switch", { name: /show upcoming meetings in menu bar/i })
-    .click();
-  await page
-    .getByRole("button", { name: /^save$/i })
-    .last()
-    .click();
-  expect((await readSettings(page)).show_upcoming_meetings_in_menubar).toBe(false);
-});
-
-test("Notifications → notify_scheduled_meetings persists when toggled off", async ({
-  page,
-}) => {
-  await page.getByRole("button", { name: /^notifications$/i }).click();
-  await page.getByRole("switch", { name: /scheduled meetings/i }).click();
-  await page
-    .getByRole("button", { name: /^save$/i })
-    .last()
-    .click();
-  expect((await readSettings(page)).notify_scheduled_meetings).toBe(false);
-});
-
-test("Notifications → notify_auto_detected_meetings persists when toggled off", async ({
-  page,
-}) => {
-  await page.getByRole("button", { name: /^notifications$/i }).click();
-  await page.getByRole("switch", { name: /auto-detected meetings/i }).click();
-  await page
-    .getByRole("button", { name: /^save$/i })
-    .last()
-    .click();
-  expect((await readSettings(page)).notify_auto_detected_meetings).toBe(false);
-});
-
 test("Audio → voice_processing_enabled persists when toggled off", async ({ page }) => {
   await page.getByRole("button", { name: /^audio$/i }).click();
   await page.getByRole("switch", { name: /voice processing/i }).click();
@@ -234,15 +116,6 @@ test("Privacy → privacy_mode toggle flips airgap on", async ({ page }) => {
   expect((await readSettings(page)).privacy_mode).toBe(true);
 });
 
-test("Privacy → share_aggregate_stats stays off by default (opt-in only)", async ({
-  page,
-}) => {
-  await page.getByRole("button", { name: /^privacy$/i }).click();
-
-  const switches = page.getByRole("switch");
-  await expect(switches.nth(1)).not.toBeChecked();
-});
-
 test("Storage → wav_retention_days input persists when edited", async ({ page }) => {
   await page.getByRole("button", { name: /^storage$/i }).click();
 
@@ -276,6 +149,6 @@ test("freshSettings helper returns a complete + valid settings shape", async () 
 
   expect(s.theme).toMatch(/^(light|dark)$/);
   expect(s.transcriber).toMatch(/^(local_whisper|openai)$/);
-  expect(s.auto_delete_period_days).toBe(90);
-  expect(s.default_link_sharing).toBe("disabled");
+  expect(s.privacy_mode).toBe(false);
+  expect(s.remote_auto_upload).toBe(false);
 });

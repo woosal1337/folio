@@ -12,7 +12,6 @@ import {
   onOpenUrl as platformOnDeepLink,
 } from "@tauri-apps/plugin-deep-link";
 
-import type { Agent } from "@/shared/types/Agent";
 import type { AgentRun } from "@/shared/types/AgentRun";
 import type { NoteSearchHit } from "@/shared/types/NoteSearchHit";
 import type { ChatThread } from "@/shared/types/ChatThread";
@@ -24,25 +23,17 @@ import type { RecordingResult } from "@/shared/types/RecordingResult";
 import type { RecordingStatus } from "@/shared/types/RecordingStatus";
 import type { RecordingSummary } from "@/shared/types/RecordingSummary";
 import type { Memory } from "@/shared/types/Memory";
-import type { MemoryKind } from "@/shared/types/MemoryKind";
 import type { MemoryQuery } from "@/shared/types/MemoryQuery";
-import type { MemoryUpdate } from "@/shared/types/MemoryUpdate";
-import type { NewMemory } from "@/shared/types/NewMemory";
-import type { NewTask } from "@/shared/types/NewTask";
 import type { Settings } from "@/shared/types/Settings";
 import type { SessionTranscript } from "@/shared/types/SessionTranscript";
 import type { SyncState } from "@/shared/types/SyncState";
 import type { DigestResult } from "@/shared/types/DigestResult";
 import type { GitSyncSummary } from "@/shared/types/GitSyncSummary";
 import type { PurgeSummary } from "@/shared/types/PurgeSummary";
-import type { ShareBundleSummary } from "@/shared/types/ShareBundleSummary";
 import type { SnapshotSummary } from "@/shared/types/SnapshotSummary";
 import type { Task } from "@/shared/types/Task";
-import type { WebhookSubscription } from "@/shared/types/WebhookSubscription";
 import type { DiarizationModelStatus } from "@/shared/types/DiarizationModelStatus";
 import type { SpeakerLabel } from "@/shared/types/SpeakerLabel";
-import type { TaskStatus } from "@/shared/types/TaskStatus";
-import type { TaskUpdate } from "@/shared/types/TaskUpdate";
 import type { TranscriptionResult } from "@/shared/types/TranscriptionResult";
 import type { WhisperModel } from "@/shared/types/WhisperModel";
 import type { WhisperModelStatus } from "@/shared/types/WhisperModelStatus";
@@ -86,10 +77,6 @@ export interface MicLevelResult {
   peak_db: number;
   status: MicStatus;
   settings_url: string;
-}
-
-export function checkMicLevel(deviceName?: string): Promise<MicLevelResult> {
-  return call<MicLevelResult>("check_mic_level", { deviceName });
 }
 
 export function startMicMonitor(deviceName?: string): Promise<void> {
@@ -169,29 +156,6 @@ export function exportNoteMarkdown(sessionDir: string): Promise<string> {
 
 export function deleteRecording(sessionDir: string): Promise<void> {
   return call<void>("delete_recording", { sessionDir });
-}
-
-export function listFolders(): Promise<string[]> {
-  return call<string[]>("list_folders");
-}
-
-export function createFolder(name: string): Promise<string[]> {
-  return call<string[]>("create_folder", { name });
-}
-
-export function renameFolder(from: string, to: string): Promise<string[]> {
-  return call<string[]>("rename_folder", { from, to });
-}
-
-export function deleteFolder(name: string): Promise<string[]> {
-  return call<string[]>("delete_folder", { name });
-}
-
-export function setNoteFolder(
-  sessionDir: string,
-  folder: string | null
-): Promise<void> {
-  return call<void>("set_note_folder", { sessionDir, folder });
 }
 
 export function transcribeRecording(sessionDir: string): Promise<TranscriptionResult> {
@@ -329,10 +293,6 @@ export function listProviderModels(provider: ProviderId): Promise<ModelInfo[]> {
   return call<ModelInfo[]>("list_provider_models", { provider });
 }
 
-export function listAgents(): Promise<Agent[]> {
-  return call<Agent[]>("list_agents");
-}
-
 export function runAgent(sessionDir: string, agentId: string): Promise<AgentRun> {
   return call<AgentRun>("run_agent", { sessionDir, agentId });
 }
@@ -341,72 +301,12 @@ export function listAgentRuns(sessionDir: string): Promise<AgentRun[]> {
   return call<AgentRun[]>("list_agent_runs", { sessionDir });
 }
 
-export function deleteAgentRun(sessionDir: string, agentId: string): Promise<void> {
-  return call<void>("delete_agent_run", { sessionDir, agentId });
-}
-
 export function listTasks(): Promise<Task[]> {
   return call<Task[]>("list_tasks");
 }
 
-export function createTask(task: NewTask): Promise<Task> {
-  return call<Task>("create_task", { task });
-}
-
-export function updateTask(id: string, patch: TaskUpdate): Promise<Task> {
-  return call<Task>("update_task", { id, patch });
-}
-
-export function deleteTask(id: string): Promise<void> {
-  return call<void>("delete_task", { id });
-}
-
-export function setTaskStatus(id: string, status: TaskStatus): Promise<Task> {
-  return call<Task>("set_task_status", { id, status });
-}
-
 export function listMemories(query: MemoryQuery): Promise<Memory[]> {
   return call<Memory[]>("list_memories", { query });
-}
-
-export function getMemory(id: string): Promise<Memory | null> {
-  return call<Memory | null>("get_memory", { id });
-}
-
-export function createMemory(memory: NewMemory): Promise<Memory> {
-  return call<Memory>("create_memory", { memory });
-}
-
-export function updateMemory(id: string, patch: MemoryUpdate): Promise<Memory> {
-  return call<Memory>("update_memory", { id, patch });
-}
-
-export function deleteMemory(id: string): Promise<Memory> {
-  return call<Memory>("delete_memory", { id });
-}
-
-export function purgeMemory(id: string): Promise<void> {
-  return call<void>("purge_memory", { id });
-}
-
-export function pinMemory(id: string, pinned: boolean): Promise<Memory> {
-  return call<Memory>("pin_memory", { id, pinned });
-}
-
-export function searchMemories(
-  query: string,
-  kinds: MemoryKind[],
-  limit?: number
-): Promise<Memory[]> {
-  return call<Memory[]>("search_memories", { query, kinds, limit });
-}
-
-export function rebuildMemoryIndex(): Promise<number> {
-  return call<number>("rebuild_memory_index");
-}
-
-export function memoryFilePath(id: string): Promise<string | null> {
-  return call<string | null>("memory_file_path", { id });
 }
 
 export function clearRecordingArtifacts(sessionDir: string): Promise<void> {
@@ -427,51 +327,12 @@ export function generateWeeklyDigest(): Promise<DigestResult> {
   return call<DigestResult>("generate_weekly_digest");
 }
 
-export function exportShareBundle(
-  sessionDir: string,
-  destination: string
-): Promise<ShareBundleSummary> {
-  return call<ShareBundleSummary>("export_share_bundle", {
-    sessionDir,
-    destination,
-  });
-}
-
 export function gitSyncVault(): Promise<GitSyncSummary> {
   return call<GitSyncSummary>("git_sync_vault");
 }
 
 export function gitVaultIsRepo(): Promise<boolean> {
   return call<boolean>("git_vault_is_repo");
-}
-
-export function listWebhooks(): Promise<WebhookSubscription[]> {
-  return call<WebhookSubscription[]>("list_webhooks");
-}
-
-export function saveWebhook(
-  subscription: WebhookSubscription
-): Promise<WebhookSubscription> {
-  return call<WebhookSubscription>("save_webhook", { subscription });
-}
-
-export function deleteWebhook(id: string): Promise<void> {
-  return call<void>("delete_webhook", { id });
-}
-
-export function testWebhook(id: string): Promise<string> {
-  return call<string>("test_webhook", { id });
-}
-
-export function getRecordingLanguage(sessionDir: string): Promise<string | null> {
-  return call<string | null>("get_recording_language", { sessionDir });
-}
-
-export function setRecordingLanguage(
-  sessionDir: string,
-  language: string | null
-): Promise<void> {
-  return call<void>("set_recording_language", { sessionDir, language });
 }
 
 export function sharePaths(paths: string[]): Promise<void> {
@@ -493,104 +354,12 @@ export function requestPermission(permission: Permission): Promise<void> {
   return call<void>("request_permission", { permission });
 }
 
-export function requestCalendarAccess(): Promise<void> {
-  return call<void>("request_calendar_access");
-}
-
-import type { AttendeeSuggestion } from "@/shared/types/AttendeeSuggestion";
-import type { CalendarEvent } from "@/shared/types/CalendarEvent";
-
-export function listAttendeeSuggestions(
-  userEmail: string,
-  domainFilter: string,
-  windowDays: number,
-  minCount: number
-): Promise<AttendeeSuggestion[]> {
-  return call<AttendeeSuggestion[]>("list_attendee_suggestions", {
-    userEmail,
-    domainFilter,
-    windowDays,
-    minCount,
-  });
-}
-
-export function calendarAuthorizationStatus(): Promise<string> {
-  return call<string>("calendar_authorization_status");
-}
-
-export function nextCalendarEvent(): Promise<CalendarEvent | null> {
-  return call<CalendarEvent | null>("next_calendar_event");
-}
-
-export function listCalendarEvents(windowDays: number): Promise<CalendarEvent[]> {
-  return call<CalendarEvent[]>("list_calendar_events", { windowDays });
-}
-
 export function setTrayRecording(
   elapsedSecs: number | null,
   paused?: boolean,
   airgapped?: boolean
 ): Promise<void> {
   return call<void>("set_tray_recording", { elapsedSecs, paused, airgapped });
-}
-
-export function openPreferencesWindow(): Promise<void> {
-  return call<void>("open_preferences_window");
-}
-
-export const MEETING_HUD_WINDOW_LABEL = "meeting-hud";
-
-export const MEETING_DETECTED_EVENT = "meeting-detected";
-
-export const MEETING_TAKE_NOTES_EVENT = "meeting:take-notes";
-
-export interface DetectedMeeting {
-  bundle_id: string;
-  app_label: string;
-  detected_at_ms: number;
-}
-
-export function getPendingMeeting(): Promise<DetectedMeeting | null> {
-  return call<DetectedMeeting | null>("get_pending_meeting");
-}
-
-export function meetingTakeNotes(): Promise<void> {
-  return call<void>("meeting_take_notes");
-}
-
-export function dismissMeetingHud(): Promise<void> {
-  return call<void>("dismiss_meeting_hud");
-}
-
-export function suppressMeetingApp(bundleId: string): Promise<void> {
-  return call<void>("suppress_meeting_app", { bundleId });
-}
-
-export async function onMeetingDetected(
-  handler: (meeting: DetectedMeeting) => void
-): Promise<UnlistenFn> {
-  return listen<DetectedMeeting>(MEETING_DETECTED_EVENT, (event) =>
-    handler(event.payload)
-  );
-}
-
-export interface BriefBullet {
-  text: string;
-  source_label?: string | null;
-}
-
-export interface MeetingBrief {
-  bullets: BriefBullet[];
-  sources_count: number;
-  attendees_searched: string[];
-}
-
-export function getMeetingBrief(attendees: string[]): Promise<MeetingBrief | null> {
-  return call<MeetingBrief | null>("get_meeting_brief", { attendees });
-}
-
-export async function onMeetingTakeNotes(handler: () => void): Promise<UnlistenFn> {
-  return listen(MEETING_TAKE_NOTES_EVENT, () => handler());
 }
 
 export const RECORDING_BAR_WINDOW_LABEL = "recording-bar";
@@ -643,25 +412,10 @@ export async function onLiveTranscript(
   return listen<LiveTranscript>("live-transcript", (event) => handler(event.payload));
 }
 
-export interface RemoteSyncProgress {
-  session_dir: string;
-  remote_status: string;
-  transcript_written: boolean;
-}
-
-export async function onRemoteSyncProgress(
-  handler: (progress: RemoteSyncProgress) => void
-): Promise<UnlistenFn> {
-  return listen<RemoteSyncProgress>("remote-sync-progress", (event) =>
-    handler(event.payload)
-  );
-}
-
 export type TrayEvent =
   | "tray:start-recording"
   | "tray:stop-recording"
-  | "tray:open-library"
-  | "tray:open-inbox";
+  | "tray:open-library";
 
 export async function onTrayEvent(
   event: TrayEvent,
@@ -721,20 +475,6 @@ export interface CoverageNote {
   tasks: number;
 }
 
-export function askFolder(
-  folderName: string,
-  question: string,
-  history: ChatTurn[],
-  model?: string
-): Promise<{ answer: string; coverage: CoverageNote }> {
-  return call<{ answer: string; coverage: CoverageNote }>("ask_folder", {
-    folderName,
-    question,
-    history,
-    model,
-  });
-}
-
 export function askLibrary(
   question: string,
   history: ChatTurn[],
@@ -772,13 +512,6 @@ export function currentWindowLabel(): string {
 
 import type { TranscriptHit } from "@/shared/types/TranscriptHit";
 
-export function locateTranscriptSpan(
-  sessionDir: string,
-  span: string
-): Promise<TranscriptHit | null> {
-  return call<TranscriptHit | null>("locate_transcript_span", { sessionDir, span });
-}
-
 export function locateNoteEvidence(
   sessionDir: string,
   line: string
@@ -794,10 +527,6 @@ export function assetUrl(path: string): string {
 
 export async function startWindowDrag(): Promise<void> {
   await getCurrentWindow().startDragging();
-}
-
-export async function isWindowMaximized(): Promise<boolean> {
-  return getCurrentWindow().isMaximized();
 }
 
 export async function toggleWindowMaximize(): Promise<void> {
@@ -868,18 +597,6 @@ export interface McpConnectInfo {
   binary_path: string | null;
 }
 
-export function generateMcpConfig(): Promise<McpConnectInfo> {
-  return call<McpConnectInfo>("generate_mcp_config");
-}
-
-export function writeMcpConfig(
-  configPath: string,
-  binaryPath: string,
-  clientId: string
-): Promise<string> {
-  return call<string>("write_mcp_config", { configPath, binaryPath, clientId });
-}
-
 export interface McpClientGrant {
   client_id: string;
   client_name?: string | null;
@@ -893,22 +610,6 @@ export interface McpAccessEntry {
   tool: string;
   notes: string[];
   query?: string | null;
-}
-
-export function listMcpGrants(): Promise<McpClientGrant[]> {
-  return call<McpClientGrant[]>("list_mcp_grants");
-}
-
-export function grantMcpClient(clientId: string, clientName?: string): Promise<void> {
-  return call<void>("grant_mcp_client", { clientId, clientName });
-}
-
-export function revokeMcpClient(clientId: string): Promise<void> {
-  return call<void>("revoke_mcp_client", { clientId });
-}
-
-export function listMcpAccessLog(): Promise<McpAccessEntry[]> {
-  return call<McpAccessEntry[]>("list_mcp_access_log");
 }
 
 export interface RemoteAccount {
@@ -946,8 +647,4 @@ export function testRemoteEndpoint(endpoint: string): Promise<EndpointTest> {
 
 export function syncRecording(sessionDir: string): Promise<SyncState> {
   return call<SyncState>("sync_recording", { sessionDir });
-}
-
-export function getSyncStatus(sessionDir: string): Promise<SyncState | null> {
-  return call<SyncState | null>("get_sync_status", { sessionDir });
 }

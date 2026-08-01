@@ -13,9 +13,7 @@ pub struct Settings {
     pub mic_device: Option<String>,
     pub system_audio_enabled: bool,
     pub output_dir: PathBuf,
-    pub notes_dir: PathBuf,
     pub tasks_path: PathBuf,
-    pub transcripts_dir: PathBuf,
     #[serde(default = "default_theme")]
     pub theme: String,
     #[serde(default = "default_provider")]
@@ -25,8 +23,6 @@ pub struct Settings {
 
     #[serde(default = "default_briefing_language")]
     pub briefing_language: String,
-    #[serde(default)]
-    pub dictionary_terms: Vec<String>,
 
     #[serde(default = "default_local_whisper_model")]
     pub local_whisper_model: String,
@@ -71,88 +67,10 @@ pub struct Settings {
     pub wav_retention_days: Option<u32>,
 
     #[serde(default)]
-    pub share_aggregate_stats: bool,
-
-    #[serde(default)]
-    pub pro_license_key: String,
-
-    #[serde(default)]
-    pub pro_trial_started_at: String,
-
-    #[serde(default)]
-    pub reminders_sync_enabled: bool,
-
-    #[serde(default = "default_reminders_list")]
-    pub reminders_list_name: String,
-
-    #[serde(default)]
     pub privacy_mode: bool,
 
     #[serde(default)]
-    pub voice_debrief_enabled: bool,
-
-    #[serde(default)]
     pub onboarding_completed: bool,
-
-    #[serde(default = "default_live_meeting_indicator")]
-    pub live_meeting_indicator: bool,
-
-    #[serde(default)]
-    pub open_at_login: bool,
-
-    #[serde(default)]
-    pub move_aside_in_meetings: bool,
-
-    #[serde(default = "default_link_sharing")]
-    pub default_link_sharing: String,
-
-    #[serde(default = "default_always_open_shared_links")]
-    pub always_open_shared_links: bool,
-
-    #[serde(default = "default_privacy_tier_band_enabled")]
-    pub privacy_tier_band_enabled: bool,
-
-    #[serde(default = "default_auto_delete_period_days")]
-    pub auto_delete_period_days: Option<u32>,
-
-    #[serde(default = "default_show_upcoming_meetings_in_menubar")]
-    pub show_upcoming_meetings_in_menubar: bool,
-
-    #[serde(default)]
-    pub show_events_without_participants: bool,
-
-    #[serde(default = "default_notify_scheduled_meetings")]
-    pub notify_scheduled_meetings: bool,
-
-    #[serde(default = "default_notify_auto_detected_meetings")]
-    pub notify_auto_detected_meetings: bool,
-
-    #[serde(default)]
-    pub notification_muted_apps: Vec<String>,
-
-    #[serde(default = "default_note_shared_notification")]
-    pub note_shared_notification: String,
-
-    #[serde(default)]
-    pub signin_mode: String,
-
-    #[serde(default)]
-    pub workspace_name: String,
-
-    #[serde(default)]
-    pub workspace_bucket: String,
-
-    #[serde(default)]
-    pub onboarding_calendar_deferred: bool,
-
-    #[serde(default = "default_true")]
-    pub workspace_discoverable: bool,
-
-    #[serde(default = "default_true")]
-    pub workspace_auto_join: bool,
-
-    #[serde(default)]
-    pub workspace_logo_path: String,
 
     #[serde(default)]
     pub auto_segment_secs: Option<u64>,
@@ -230,40 +148,9 @@ fn default_auto_extract_memories_enabled() -> bool {
 fn default_auto_name_enabled() -> bool {
     true
 }
-fn default_reminders_list() -> String {
-    "Folio".into()
-}
 fn default_feedback_sounds_enabled() -> bool {
     false
 }
-fn default_live_meeting_indicator() -> bool {
-    true
-}
-fn default_link_sharing() -> String {
-    "disabled".into()
-}
-fn default_always_open_shared_links() -> bool {
-    true
-}
-fn default_privacy_tier_band_enabled() -> bool {
-    true
-}
-fn default_auto_delete_period_days() -> Option<u32> {
-    Some(90)
-}
-fn default_show_upcoming_meetings_in_menubar() -> bool {
-    true
-}
-fn default_notify_scheduled_meetings() -> bool {
-    true
-}
-fn default_notify_auto_detected_meetings() -> bool {
-    true
-}
-fn default_note_shared_notification() -> String {
-    "activity_and_email".into()
-}
-
 fn default_memory_dir() -> PathBuf {
     let home = std::env::var_os("HOME")
         .map(PathBuf::from)
@@ -287,14 +174,11 @@ impl Default for Settings {
             mic_device: None,
             system_audio_enabled: true,
             output_dir: folio.join("Recordings"),
-            notes_dir: folio.join("Notes"),
             tasks_path: folio.join("Tasks").join("tasks.json"),
-            transcripts_dir: folio.join("Transcripts"),
             theme: default_theme(),
             transcriber: default_provider(),
             transcription_language: default_language(),
             briefing_language: default_briefing_language(),
-            dictionary_terms: Vec::new(),
             local_whisper_model: default_local_whisper_model(),
             voice_processing_enabled: default_voice_processing_enabled(),
             auto_transcribe_enabled: default_auto_transcribe_enabled(),
@@ -309,34 +193,8 @@ impl Default for Settings {
             auto_extract_tasks_enabled: default_auto_extract_tasks_enabled(),
             auto_name_enabled: default_auto_name_enabled(),
             wav_retention_days: None,
-            share_aggregate_stats: false,
-            pro_license_key: String::new(),
-            pro_trial_started_at: String::new(),
-            reminders_sync_enabled: false,
-            reminders_list_name: default_reminders_list(),
             privacy_mode: false,
-            voice_debrief_enabled: false,
             onboarding_completed: false,
-            live_meeting_indicator: default_live_meeting_indicator(),
-            open_at_login: false,
-            move_aside_in_meetings: false,
-            default_link_sharing: default_link_sharing(),
-            always_open_shared_links: default_always_open_shared_links(),
-            privacy_tier_band_enabled: default_privacy_tier_band_enabled(),
-            auto_delete_period_days: default_auto_delete_period_days(),
-            show_upcoming_meetings_in_menubar: default_show_upcoming_meetings_in_menubar(),
-            show_events_without_participants: false,
-            notify_scheduled_meetings: default_notify_scheduled_meetings(),
-            notify_auto_detected_meetings: default_notify_auto_detected_meetings(),
-            notification_muted_apps: Vec::new(),
-            note_shared_notification: default_note_shared_notification(),
-            signin_mode: String::new(),
-            workspace_name: String::new(),
-            workspace_bucket: String::new(),
-            onboarding_calendar_deferred: false,
-            workspace_discoverable: true,
-            workspace_auto_join: true,
-            workspace_logo_path: String::new(),
             auto_segment_secs: None,
             remote_endpoint: String::new(),
             remote_auto_upload: false,

@@ -18,7 +18,7 @@ const RECORDING = {
 
 test("Share / export writes Markdown and opens the share sheet", async ({ page }) => {
   await setupScenario(page, { startSignedIn: true, recordings: [RECORDING] });
-  await page.goto("/#/library");
+  await page.goto("/#/");
   await page.getByText("Shareable note").first().click();
   await expect(page).toHaveURL(/#\/editor\//);
 

@@ -25,31 +25,6 @@ pub fn canonicalize_under(root: &Path, candidate: &Path) -> Result<PathBuf> {
     Ok(canon_target)
 }
 
-pub fn canonicalize_under_any(roots: &[&Path], candidate: &Path) -> Result<PathBuf> {
-    let canon_target = std::fs::canonicalize(candidate).map_err(|e| {
-        FolioError::Storage(format!(
-            "could not canonicalize {}: {e}",
-            candidate.display()
-        ))
-    })?;
-    for root in roots {
-        if let Ok(canon_root) = std::fs::canonicalize(root) {
-            if canon_target.starts_with(&canon_root) {
-                return Ok(canon_target);
-            }
-        }
-    }
-    Err(FolioError::Storage(format!(
-        "refused: {} is not under any allowed root ({})",
-        canon_target.display(),
-        roots
-            .iter()
-            .map(|p| p.display().to_string())
-            .collect::<Vec<_>>()
-            .join(", ")
-    )))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -94,26 +69,5 @@ mod tests {
             let err = canonicalize_under(root.path(), &link).unwrap_err();
             assert!(format!("{err}").contains("refused"));
         }
-    }
-
-    #[test]
-    fn under_any_accepts_first_matching_root() {
-        let a = tempfile::tempdir().unwrap();
-        let b = tempfile::tempdir().unwrap();
-        let child = b.path().join("inside.txt");
-        std::fs::write(&child, b"hi").unwrap();
-        let canon = canonicalize_under_any(&[a.path(), b.path()], &child).unwrap();
-        assert!(canon.starts_with(std::fs::canonicalize(b.path()).unwrap()));
-    }
-
-    #[test]
-    fn under_any_rejects_when_no_root_matches() {
-        let a = tempfile::tempdir().unwrap();
-        let b = tempfile::tempdir().unwrap();
-        let outside = tempfile::tempdir().unwrap();
-        let leaf = outside.path().join("x.txt");
-        std::fs::write(&leaf, b"hi").unwrap();
-        let err = canonicalize_under_any(&[a.path(), b.path()], &leaf).unwrap_err();
-        assert!(format!("{err}").contains("not under any allowed root"));
     }
 }

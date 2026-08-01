@@ -104,15 +104,6 @@ pub fn list_all(vault_root: &Path) -> Result<Vec<Decision>> {
     Ok(out)
 }
 
-pub fn mark_reversed_by(vault_root: &Path, prior_id: &str, new_id: &str) -> Result<Decision> {
-    let dir = decisions_dir(vault_root);
-    let mut prior = get(vault_root, prior_id)?
-        .ok_or_else(|| FolioError::Storage(format!("decision {prior_id} not found")))?;
-    prior.reversed_by_id = Some(new_id.to_string());
-    write_atomic(&dir, &prior)?;
-    Ok(prior)
-}
-
 fn write_atomic(dir: &Path, decision: &Decision) -> Result<()> {
     let final_path = dir.join(format!("{}.json", decision.id));
     let tmp_path = dir.join(format!("{}.json.tmp", decision.id));
@@ -164,16 +155,6 @@ mod tests {
     fn list_all_empty_when_dir_missing() {
         let dir = tempfile::tempdir().unwrap();
         assert!(list_all(dir.path()).unwrap().is_empty());
-    }
-
-    #[test]
-    fn mark_reversed_by_persists_the_link() {
-        let dir = tempfile::tempdir().unwrap();
-        let prior = create(dir.path(), new_decision("old")).unwrap();
-        let new = create(dir.path(), new_decision("new")).unwrap();
-        mark_reversed_by(dir.path(), &prior.id, &new.id).unwrap();
-        let refreshed = get(dir.path(), &prior.id).unwrap().unwrap();
-        assert_eq!(refreshed.reversed_by_id.as_deref(), Some(new.id.as_str()));
     }
 
     #[test]

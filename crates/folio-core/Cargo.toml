@@ -14,14 +14,12 @@ name = "folio_core"
 
 [dependencies]
 thiserror = { workspace = true }
-anyhow = { workspace = true }
 tracing = { workspace = true }
 cpal = { workspace = true }
 hound = { workspace = true }
 rubato = { workspace = true }
 voice_activity_detector = { workspace = true }
 sherpa-onnx = { workspace = true }
-crossbeam-queue = { workspace = true }
 
 # RNNoise system-audio speech enhancement (GET-188). Pure-Rust, always
 # compiled (the runtime `system_audio_enhancement.enabled` setting is the
@@ -50,7 +48,6 @@ zip = { workspace = true }
 
 # HMAC-SHA256 for the webhook signed event stream (v2 finding 079 /
 # GET-101).
-hmac = { workspace = true }
 sha2 = { workspace = true }
 hex = { workspace = true }
 
@@ -62,7 +59,6 @@ reqwest = { workspace = true }
 # LLM provider plumbing for the AI chat feature (phase 1 of the plan
 keyring = { workspace = true }
 async-trait = { workspace = true }
-tokio = { workspace = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 # ScreenCaptureKit Rust bindings for system audio capture.
@@ -70,7 +66,6 @@ tokio = { workspace = true }
 # (macOS 14.4+, no Screen Recording permission required) tracked in
 # architecture/audio-capture.md.
 screencapturekit = "0.3"
-core-foundation = "0.9"
 core-media-rs = "0.3"
 core-audio-types-rs = "0.3"
 
@@ -93,8 +88,6 @@ objc2-core-audio = { version = "0.3", features = [
   "objc2",
   "objc2-foundation",
 ] }
-objc2 = { version = "0.6" }
-objc2-foundation = { version = "0.3" }
 
 # Local Whisper inference. Metal acceleration on Apple Silicon gives
 # us ~5-10x realtime on M1+ for the large-v3 model. The first build
@@ -111,6 +104,6 @@ whisper-rs = { workspace = true }
 workspace = true
 
 [dev-dependencies]
+tokio = { workspace = true }
 tempfile = "3.10"
-approx = "0.5"
 filetime = "0.2"

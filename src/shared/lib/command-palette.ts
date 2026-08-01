@@ -66,8 +66,6 @@ export function verbSource(actions: {
   startRecording: () => void;
   openChat: () => void;
   openLibrary: () => void;
-  openMemory: () => void;
-  openTasks: () => void;
   openPreferences: () => void;
   openCheatsheet: () => void;
 }): CommandSource {
@@ -92,26 +90,10 @@ export function verbSource(actions: {
       {
         id: "verb:library",
         kind: "verb",
-        title: "Open My Notes",
-        keywords: ["notes", "recordings", "list", "library"],
-        shortcut: "⌘3",
+        title: "Open Home",
+        keywords: ["home", "notes", "recordings", "list", "library"],
+        shortcut: "⌘1",
         action: actions.openLibrary,
-      },
-      {
-        id: "verb:tasks",
-        kind: "verb",
-        title: "Open Tasks",
-        keywords: ["kanban", "to-do"],
-        shortcut: "⌘4",
-        action: actions.openTasks,
-      },
-      {
-        id: "verb:memory",
-        kind: "verb",
-        title: "Open Memory",
-        keywords: ["facts", "claims"],
-        shortcut: "⌘5",
-        action: actions.openMemory,
       },
       {
         id: "verb:settings",

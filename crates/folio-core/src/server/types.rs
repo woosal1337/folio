@@ -68,6 +68,12 @@ pub struct UploadResult {
     pub complete: bool,
 }
 
+#[derive(Debug, Clone)]
+pub enum ChunkOutcome {
+    Accepted(UploadResult),
+    OffsetMismatch { expected: u64 },
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct TranscribeRequest {
     pub language: Option<String>,

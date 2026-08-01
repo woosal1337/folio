@@ -1,4 +1,3 @@
-pub mod cross_track_aec;
 mod rnnoise;
 
 use std::path::Path;

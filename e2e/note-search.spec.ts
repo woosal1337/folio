@@ -18,11 +18,11 @@ const RECORDING = {
   transcript_text: "we approved the flamingo procurement for Q3",
 };
 
-test("My Notes search finds a phrase that only appears in the transcript", async ({
+test("Home search finds a phrase that only appears in the transcript", async ({
   page,
 }) => {
   await setupScenario(page, { startSignedIn: true, recordings: [RECORDING] });
-  await page.goto("/#/library");
+  await page.goto("/#/");
   await expect(page.getByText("Budget meeting").first()).toBeVisible();
 
   const search = page.getByRole("textbox", { name: /search recordings/i });
@@ -32,9 +32,9 @@ test("My Notes search finds a phrase that only appears in the transcript", async
   await expect(page.getByText(/flamingo procurement/i).first()).toBeVisible();
 });
 
-test("My Notes search hides notes with no content match", async ({ page }) => {
+test("Home search hides notes with no content match", async ({ page }) => {
   await setupScenario(page, { startSignedIn: true, recordings: [RECORDING] });
-  await page.goto("/#/library");
+  await page.goto("/#/");
   const search = page.getByRole("textbox", { name: /search recordings/i });
   await search.fill("zzz-nonexistent-term");
   await expect(page.getByText("Budget meeting")).toHaveCount(0);

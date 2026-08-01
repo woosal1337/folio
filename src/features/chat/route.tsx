@@ -19,11 +19,9 @@ import { toast } from "sonner";
 import { Button } from "@/shared/ui/button";
 import { Markdown } from "@/shared/ui/markdown";
 import {
-  askFolder,
   askLibrary,
   deleteChatThread,
   listChatThreads,
-  listFolders,
   listProviderModels,
   listRecipes,
   saveChatThread,
@@ -193,14 +191,6 @@ export default function Chat() {
       .catch(() => {});
   }, []);
 
-  const [folders, setFolders] = React.useState<string[]>([]);
-  const [scopeFolder, setScopeFolder] = React.useState<string>("all");
-  React.useEffect(() => {
-    listFolders()
-      .then(setFolders)
-      .catch(() => {});
-  }, []);
-
   const allRecipes = React.useMemo(() => [...RECIPES, ...userRecipes], [userRecipes]);
 
   const [paletteOpen, setPaletteOpen] = React.useState(false);
@@ -290,10 +280,7 @@ export default function Chat() {
       setBusy(true);
 
       try {
-        const { answer, coverage } =
-          scopeFolder !== "all"
-            ? await askFolder(scopeFolder, q, history, model || undefined)
-            : await askLibrary(q, history, model || undefined);
+        const { answer, coverage } = await askLibrary(q, history, model || undefined);
         setMessages((prev) => {
           const next: Msg[] = [
             ...prev,
@@ -313,7 +300,7 @@ export default function Chat() {
         setBusy(false);
       }
     },
-    [busy, closePalette, messages, model, persist, scopeFolder]
+    [busy, closePalette, messages, model, persist]
   );
 
   const openThread = React.useCallback((t: ChatThread) => {
@@ -434,21 +421,6 @@ export default function Chat() {
             ) : null}
           </div>
 
-          {folders.length > 0 ? (
-            <select
-              value={scopeFolder}
-              onChange={(e) => setScopeFolder(e.target.value)}
-              aria-label="Scope"
-              className="h-8 rounded-md border border-input bg-card px-2 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <option value="all">All notes</option>
-              {folders.map((f) => (
-                <option key={f} value={f}>
-                  {f}
-                </option>
-              ))}
-            </select>
-          ) : null}
           {models.length > 0 ? (
             <select
               value={model}

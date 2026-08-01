@@ -26,7 +26,6 @@ tauri-build = { workspace = true }
 folio-core = { path = "../crates/folio-core" }
 
 tauri = { workspace = true }
-urlencoding = { workspace = true }
 tauri-plugin-dialog = { workspace = true }
 tauri-plugin-fs = { workspace = true }
 tauri-plugin-opener = { workspace = true }
@@ -55,14 +54,10 @@ block2 = "0.6"
 # channel, not when the app launches. coreaudio-sys gives us the raw
 # AudioObject* API; core-foundation wraps the CFString bundle id the
 # audio server hands back.
-coreaudio-sys = { workspace = true }
-core-foundation = "0.9"
 
 # State + IO
 serde = { workspace = true }
 serde_json = { workspace = true }
-anyhow = { workspace = true }
-thiserror = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 chrono = { workspace = true }

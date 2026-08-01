@@ -11,32 +11,22 @@ use crate::llm::types::{ChatRequest, ChatResponse, ModelInfo};
 #[ts(export, export_to = "../../../src/shared/types/")]
 pub enum ProviderId {
     OpenAi,
-    Anthropic,
-    Deepseek,
 }
 
 impl ProviderId {
     pub fn all() -> &'static [ProviderId] {
-        &[
-            ProviderId::OpenAi,
-            ProviderId::Anthropic,
-            ProviderId::Deepseek,
-        ]
+        &[ProviderId::OpenAi]
     }
 
     pub fn as_str(self) -> &'static str {
         match self {
             ProviderId::OpenAi => "openai",
-            ProviderId::Anthropic => "anthropic",
-            ProviderId::Deepseek => "deepseek",
         }
     }
 
     pub fn display_name(self) -> &'static str {
         match self {
             ProviderId::OpenAi => "OpenAI",
-            ProviderId::Anthropic => "Anthropic",
-            ProviderId::Deepseek => "DeepSeek",
         }
     }
 }

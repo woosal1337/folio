@@ -19,7 +19,6 @@ import {
   whisperModelStatus as ipcWhisperModelStatus,
   syncRecording as ipcSyncRecording,
   currentWindowLabel,
-  MEETING_HUD_WINDOW_LABEL,
   RECORDING_BAR_WINDOW_LABEL,
 } from "@/shared/lib/ipc";
 import { estimateOpenAITranscribeCost, formatUsd } from "@/shared/lib/cost-estimate";
@@ -29,10 +28,8 @@ import { playFeedback } from "@/shared/lib/feedback";
 import { formatBatteryPct, readPower, shouldDeferOnPower } from "@/shared/lib/power";
 import { useCloudCostConfirmStore } from "@/shared/stores/cloud-cost-confirm-store";
 import { useJobsStore } from "@/shared/stores/jobs-store";
-import { useMemoriesStore } from "@/shared/stores/memories-store";
 import { useSettingsStore } from "@/shared/stores/settings-store";
 import { useSettingsUiStore } from "@/shared/stores/settings-ui-store";
-import { useTasksStore } from "@/shared/stores/tasks-store";
 import type { SyncState } from "@/shared/types/SyncState";
 
 export type RemoteSyncStage = "uploading" | "queued" | "processing";
@@ -143,7 +140,7 @@ export const useRecording = create<RecordingState>((set, get) => {
   const navigateToNote = (sessionDir: string) => {
     try {
       const win = currentWindowLabel();
-      if (win === MEETING_HUD_WINDOW_LABEL || win === RECORDING_BAR_WINDOW_LABEL) {
+      if (win === RECORDING_BAR_WINDOW_LABEL) {
         return;
       }
     } catch {
@@ -199,7 +196,6 @@ export const useRecording = create<RecordingState>((set, get) => {
     });
     try {
       await ipcRunAgent(sessionDir, "extract-memories");
-      void useMemoriesStore.getState().refresh();
       toast.success("Memories captured", { description: basename(sessionDir) });
     } catch (e) {
       console.error("auto-extract-memories failed:", e);
@@ -253,8 +249,6 @@ export const useRecording = create<RecordingState>((set, get) => {
     });
     try {
       await ipcRunAgent(sessionDir, "extract-tasks");
-
-      void useTasksStore.getState().refresh();
       toast.success("Tasks ready", { description: basename(sessionDir) });
     } catch (e) {
       console.error("auto-extract-tasks failed:", e);

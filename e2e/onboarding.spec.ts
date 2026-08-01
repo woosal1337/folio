@@ -9,9 +9,6 @@ test.describe("Onboarding — fresh signup", () => {
     await setupScenario(page, {
       initialSettings: {
         onboarding_completed: false,
-        signin_mode: "",
-        workspace_name: "",
-        workspace_bucket: "",
       },
       startSignedIn: false,
     });
@@ -60,7 +57,7 @@ test.describe("Onboarding — fresh signup", () => {
     await page.getByRole("button", { name: /i.?m ready/i }).click();
 
     await expect(page.getByRole("heading", { name: /^home$/i })).toBeVisible();
-    await expect(page.getByRole("navigation").getByText(/my notes/i)).toBeVisible();
+    await expect(page.getByRole("navigation").getByText(/^home$/i)).toBeVisible();
 
     const signupCalls = await ipcCalls(page, "auth_request_signin_code");
     expect(signupCalls).toHaveLength(1);
@@ -69,9 +66,6 @@ test.describe("Onboarding — fresh signup", () => {
 
     const saved = await readSettings(page);
     expect(saved.onboarding_completed).toBe(true);
-    expect(saved.signin_mode).toBe("email");
-    expect(saved.workspace_name).toBe("Clinora");
-    expect(saved.workspace_bucket).toBe("founder");
     expect(saved.transcriber).toBe("local_whisper");
   });
 

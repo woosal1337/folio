@@ -1,20 +1,7 @@
 import * as React from "react";
-import {
-  Bell,
-  Eye,
-  Languages,
-  Link as LinkIcon,
-  LogIn,
-  Palette,
-  ShieldCheck,
-  Sparkles,
-  Trash2,
-  Type,
-  Users,
-} from "lucide-react";
+import { Bell, Eye, Palette, Type } from "lucide-react";
 
 import { Label } from "@/shared/ui/label";
-import { Switch } from "@/shared/ui/switch";
 import { useTheme, type Theme } from "@/shared/hooks/use-theme";
 import {
   READING_FONTS,
@@ -26,42 +13,8 @@ import {
 import type { Settings } from "@/shared/types/Settings";
 
 interface SectionPreferencesProps {
-  settings: Settings;
   onChange: <K extends keyof Settings>(key: K, value: Settings[K]) => void;
 }
-
-const LINK_SHARING_OPTIONS: { value: string; label: string; description: string }[] = [
-  {
-    value: "disabled",
-    label: "Disabled",
-    description: "Sharing links is turned off. Notes stay on your Mac.",
-  },
-  {
-    value: "anyone_with_link",
-    label: "Anyone with the link",
-    description: "Anyone who has the URL can open it. Use with care.",
-  },
-];
-
-const AUTO_DELETE_OPTIONS: {
-  value: number | null;
-  label: string;
-  description?: string;
-}[] = [
-  { value: 7, label: "7 days" },
-  { value: 30, label: "30 days" },
-  {
-    value: 90,
-    label: "90 days",
-    description: "Recommended — GDPR data-minimisation default.",
-  },
-  { value: 365, label: "1 year" },
-  {
-    value: null,
-    label: "Off",
-    description: "Keep transcripts indefinitely. Not recommended in the EU.",
-  },
-];
 
 const FONT_LABELS: Record<ReadingFont, string> = {
   system: "System",
@@ -77,7 +30,7 @@ const SIZE_LABELS: Record<ReadingSize, string> = {
   xl: "Extra Large",
 };
 
-export function SectionPreferences({ settings, onChange }: SectionPreferencesProps) {
+export function SectionPreferences({ onChange }: SectionPreferencesProps) {
   const { theme, setTheme } = useTheme();
   const { font, size, setFont, setSize } = useReadingControls();
 
@@ -87,30 +40,6 @@ export function SectionPreferences({ settings, onChange }: SectionPreferencesPro
         <h2 className="font-serif text-2xl font-medium">Preferences</h2>
         <p className="text-sm text-muted-foreground">App-wide behaviour.</p>
       </header>
-
-      <PreferencesGroup title="General">
-        <ToggleRow
-          icon={Sparkles}
-          title="Live meeting indicator"
-          description="A thin indicator on the right edge of the screen while Folio is transcribing."
-          checked={settings.live_meeting_indicator}
-          onChange={(v) => onChange("live_meeting_indicator", v)}
-        />
-        <ToggleRow
-          icon={LogIn}
-          title="Open Folio when you log in"
-          description="Folio launches automatically when you sign into macOS."
-          checked={settings.open_at_login}
-          onChange={(v) => onChange("open_at_login", v)}
-        />
-        <ToggleRow
-          icon={Users}
-          title="Move Folio aside in meetings"
-          description="When a meeting starts, Folio repositions so you can keep typing notes alongside your conferencing app."
-          checked={settings.move_aside_in_meetings}
-          onChange={(v) => onChange("move_aside_in_meetings", v)}
-        />
-      </PreferencesGroup>
 
       <PreferencesGroup title="Appearance">
         <SelectRow
@@ -145,64 +74,9 @@ export function SectionPreferences({ settings, onChange }: SectionPreferencesPro
         />
       </PreferencesGroup>
 
-      <PreferencesGroup title="Privacy">
-        <SelectRow
-          icon={LinkIcon}
-          title="Default link sharing"
-          description="Who can open a shared meeting link by default. You can override per share."
-          value={settings.default_link_sharing}
-          onChange={(v) => onChange("default_link_sharing", v)}
-          options={LINK_SHARING_OPTIONS.map((o) => ({
-            value: o.value,
-            label: o.label,
-          }))}
-          longDescription={
-            LINK_SHARING_OPTIONS.find((o) => o.value === settings.default_link_sharing)
-              ?.description
-          }
-        />
-        <ToggleRow
-          icon={LinkIcon}
-          title="Always open shared links in Folio"
-          description="When you click a shared meeting link in your browser, jump into the Folio app instead of opening a web view."
-          checked={settings.always_open_shared_links}
-          onChange={(v) => onChange("always_open_shared_links", v)}
-        />
-        <ToggleRow
-          icon={ShieldCheck}
-          title="Privacy tier colour band"
-          description="Coloured left border on every artefact (green = on-device, amber = encrypted cloud, red = third-party cloud)."
-          checked={settings.privacy_tier_band_enabled}
-          onChange={(v) => onChange("privacy_tier_band_enabled", v)}
-        />
-        <SelectRow
-          icon={Trash2}
-          title="Auto-delete transcripts"
-          description="Older transcripts are removed automatically. GDPR Art. 5 data minimisation default."
-          value={autoDeleteValue(settings.auto_delete_period_days)}
-          onChange={(v) => onChange("auto_delete_period_days", autoDeletePersist(v))}
-          options={AUTO_DELETE_OPTIONS.map((o) => ({
-            value: autoDeleteValue(o.value),
-            label: o.label,
-          }))}
-          longDescription={
-            AUTO_DELETE_OPTIONS.find(
-              (o) => o.value === settings.auto_delete_period_days
-            )?.description
-          }
-        />
-        <PrivacyRedLineNotice />
-      </PreferencesGroup>
+      <PrivacyRedLineNotice />
     </section>
   );
-}
-
-function autoDeleteValue(v: number | null | undefined): string {
-  return v === null || v === undefined ? "off" : String(v);
-}
-
-function autoDeletePersist(v: string): number | null {
-  return v === "off" ? null : Number.parseInt(v, 10);
 }
 
 function PreferencesGroup({
@@ -224,46 +98,10 @@ function PreferencesGroup({
   );
 }
 
-interface ToggleRowProps {
-  icon: React.ComponentType<{ className?: string }>;
-  title: string;
-  description: string;
-  checked: boolean;
-  onChange: (v: boolean) => void;
-}
-
-function ToggleRow({
-  icon: Icon,
-  title,
-  description,
-  checked,
-  onChange,
-}: ToggleRowProps) {
-  const id = React.useId();
-  return (
-    <div className="flex items-start gap-4 rounded-md p-3 hover:bg-muted/30">
-      <Icon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-      <div className="min-w-0 flex-1 space-y-0.5">
-        <Label htmlFor={id} className="text-sm font-medium">
-          {title}
-        </Label>
-        <p className="max-w-prose text-xs text-muted-foreground">{description}</p>
-      </div>
-      <Switch
-        id={id}
-        checked={checked}
-        onCheckedChange={onChange}
-        className="mt-1 shrink-0"
-      />
-    </div>
-  );
-}
-
 interface SelectRowProps {
   icon: React.ComponentType<{ className?: string }>;
   title: string;
   description: string;
-  longDescription?: string;
   value: string;
   onChange: (v: string) => void;
   options: { value: string; label: string }[];
@@ -273,7 +111,6 @@ function SelectRow({
   icon: Icon,
   title,
   description,
-  longDescription,
   value,
   onChange,
   options,
@@ -287,11 +124,6 @@ function SelectRow({
           {title}
         </Label>
         <p className="max-w-prose text-xs text-muted-foreground">{description}</p>
-        {longDescription ? (
-          <p className="max-w-prose text-2xs italic text-muted-foreground">
-            {longDescription}
-          </p>
-        ) : null}
       </div>
       <select
         id={id}
@@ -330,5 +162,3 @@ function PrivacyRedLineNotice() {
     </div>
   );
 }
-
-void Languages;

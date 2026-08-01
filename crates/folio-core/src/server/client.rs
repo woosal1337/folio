@@ -4,8 +4,8 @@ use reqwest::Client;
 
 use crate::error::{FolioError, Result};
 use crate::server::types::{
-    Capabilities, CreateRecordingRequest, JobInfo, LoginRequest, RefreshRequest, RegisterRequest,
-    RemoteRecording, TokenPair, TranscribeRequest, UploadResult, UserInfo,
+    Capabilities, ChunkOutcome, CreateRecordingRequest, JobInfo, LoginRequest, RefreshRequest,
+    RegisterRequest, RemoteRecording, TokenPair, TranscribeRequest, UploadResult, UserInfo,
 };
 use crate::transcription::SessionTranscript;
 
@@ -145,6 +145,26 @@ impl RemoteClient {
         complete: bool,
         sha256: Option<&str>,
     ) -> Result<UploadResult> {
+        match self
+            .upload_channel_chunk(recording_id, channel, offset, data, complete, sha256)
+            .await?
+        {
+            ChunkOutcome::Accepted(result) => Ok(result),
+            ChunkOutcome::OffsetMismatch { expected } => Err(FolioError::Backend(format!(
+                "upload_channel: server expected offset {expected}, client sent {offset}"
+            ))),
+        }
+    }
+
+    pub async fn upload_channel_chunk(
+        &self,
+        recording_id: &str,
+        channel: &str,
+        offset: u64,
+        data: Vec<u8>,
+        complete: bool,
+        sha256: Option<&str>,
+    ) -> Result<ChunkOutcome> {
         self.ensure_egress()?;
         let mut rb = self
             .client
@@ -160,7 +180,20 @@ impl RemoteClient {
             .send()
             .await
             .map_err(|e| FolioError::Backend(format!("upload_channel request failed: {e}")))?;
-        decode(resp, "upload_channel").await
+
+        if resp.status() == reqwest::StatusCode::CONFLICT {
+            let body = resp.text().await.unwrap_or_default();
+            if let Some(expected) = parse_offset_conflict(&body) {
+                return Ok(ChunkOutcome::OffsetMismatch { expected });
+            }
+            return Err(FolioError::Backend(format!(
+                "upload_channel: HTTP 409: {}",
+                truncate(&body, 400)
+            )));
+        }
+        decode(resp, "upload_channel")
+            .await
+            .map(ChunkOutcome::Accepted)
     }
 
     pub async fn enqueue_transcribe(
@@ -255,6 +288,11 @@ async fn decode<T: serde::de::DeserializeOwned>(resp: reqwest::Response, ctx: &s
     resp.json::<T>()
         .await
         .map_err(|e| FolioError::Backend(format!("{ctx}: response decode failed: {e}")))
+}
+
+fn parse_offset_conflict(body: &str) -> Option<u64> {
+    let v: serde_json::Value = serde_json::from_str(body).ok()?;
+    v.get("detail")?.get("offset")?.as_u64()
 }
 
 fn truncate(s: &str, max: usize) -> String {

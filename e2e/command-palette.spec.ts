@@ -23,7 +23,8 @@ test("Cmd-Shift-/ opens the cheatsheet overlay", async ({ page }) => {
 
 test("Escape closes the command palette", async ({ page }) => {
   await page.keyboard.press("Meta+K");
-  await expect(page.getByPlaceholder(/search|command/i).first()).toBeVisible();
+  const palette = page.getByRole("dialog");
+  await expect(palette.getByPlaceholder(/search|command/i)).toBeVisible();
   await page.keyboard.press("Escape");
-  await expect(page.getByPlaceholder(/search|command/i)).toHaveCount(0);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
 });

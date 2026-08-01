@@ -7,7 +7,6 @@ const TRAY_ID: &str = "folio-menubar";
 const MENU_START: &str = "start_recording";
 const MENU_STOP: &str = "stop_recording";
 const MENU_OPEN: &str = "open_folio";
-const MENU_INBOX: &str = "open_inbox";
 const MENU_QUIT: &str = "quit_folio";
 
 const ICON_SIZE: u32 = 22;
@@ -116,14 +115,10 @@ pub fn install<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
     )?;
     let stop = MenuItem::with_id(app, MENU_STOP, "Stop Recording", true, None::<&str>)?;
     let open = MenuItem::with_id(app, MENU_OPEN, "Open Library", true, None::<&str>)?;
-    let inbox = MenuItem::with_id(app, MENU_INBOX, "Open Inbox", true, None::<&str>)?;
     let separator = PredefinedMenuItem::separator(app)?;
     let quit = MenuItem::with_id(app, MENU_QUIT, "Quit Folio", true, Some("CmdOrCtrl+Q"))?;
 
-    let menu = Menu::with_items(
-        app,
-        &[&start, &stop, &separator, &open, &inbox, &separator, &quit],
-    )?;
+    let menu = Menu::with_items(app, &[&start, &stop, &separator, &open, &separator, &quit])?;
 
     let _tray = TrayIconBuilder::with_id(TRAY_ID)
         .menu(&menu)
@@ -135,7 +130,6 @@ pub fn install<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
             MENU_START => emit_to_window(app, "tray:start-recording"),
             MENU_STOP => emit_to_window(app, "tray:stop-recording"),
             MENU_OPEN => emit_to_window(app, "tray:open-library"),
-            MENU_INBOX => emit_to_window(app, "tray:open-inbox"),
             MENU_QUIT => app.exit(0),
             _ => {}
         })

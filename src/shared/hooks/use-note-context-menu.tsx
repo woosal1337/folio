@@ -1,14 +1,6 @@
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  FileText,
-  Folder,
-  FolderInput,
-  FolderOpen,
-  FolderX,
-  RefreshCw,
-  Trash2,
-} from "lucide-react";
+import { FileText, FolderOpen, RefreshCw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { humanizeError } from "@/shared/lib/errors";
@@ -17,7 +9,6 @@ import {
   deleteRecording,
   revealInFinder,
 } from "@/shared/lib/ipc";
-import { useFolders } from "@/shared/stores/folders-store";
 import { useRecording } from "@/shared/stores/recording-store";
 import { confirmDelete } from "@/shared/stores/confirm-delete-store";
 import {
@@ -29,12 +20,7 @@ import type { RecordingSummary } from "@/shared/types/RecordingSummary";
 export function useNoteContextMenu(onChanged?: () => void) {
   const navigate = useNavigate();
   const openMenu = useContextMenu((s) => s.openMenu);
-  const folders = useFolders((s) => s.folders);
-  const loadFolders = useFolders((s) => s.load);
-  const assign = useFolders((s) => s.assign);
   const transcribe = useRecording((s) => s.transcribe);
-
-  React.useEffect(() => void loadFolders(), [loadFolders]);
 
   return React.useCallback(
     (item: RecordingSummary, e: React.MouseEvent) => {
@@ -45,37 +31,6 @@ export function useNoteContextMenu(onChanged?: () => void) {
         item.draft_name ||
         item.label;
 
-      const move = async (folder: string | null) => {
-        try {
-          await assign(item.session_dir, folder);
-          onChanged?.();
-        } catch (err) {
-          console.error("set_note_folder:", err);
-          toast.error("Could not move note", { description: humanizeError(err) });
-        }
-      };
-
-      const folderChildren: ContextMenuItem[] = [
-        ...folders.map((f) => ({
-          id: `mv:${f}`,
-          label: f,
-          icon: Folder,
-          disabled: item.folder === f,
-          onSelect: () => void move(f),
-        })),
-        ...(item.folder
-          ? [
-              {
-                id: "mv:none",
-                label: "Remove from folder",
-                icon: FolderX,
-                separatorBefore: folders.length > 0,
-                onSelect: () => void move(null),
-              },
-            ]
-          : []),
-      ];
-
       const items: ContextMenuItem[] = [
         {
           id: "open",
@@ -85,13 +40,6 @@ export function useNoteContextMenu(onChanged?: () => void) {
             navigate(`/editor/${encodeURIComponent(item.label)}`, {
               state: { recording: item },
             }),
-        },
-        {
-          id: "move",
-          label: "Move to folder",
-          icon: FolderInput,
-          disabled: folderChildren.length === 0,
-          children: folderChildren.length ? folderChildren : undefined,
         },
         ...(item.has_transcript
           ? [
@@ -151,6 +99,6 @@ export function useNoteContextMenu(onChanged?: () => void) {
 
       openMenu(e.clientX, e.clientY, items);
     },
-    [navigate, openMenu, folders, assign, transcribe, onChanged]
+    [navigate, openMenu, transcribe, onChanged]
   );
 }

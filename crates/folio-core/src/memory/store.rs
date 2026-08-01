@@ -8,7 +8,7 @@ use uuid::Uuid;
 
 use crate::error::Result;
 use crate::memory::index::MemoryIndex;
-use crate::memory::page::{delete_page, read_dir_pages, write_page};
+use crate::memory::page::write_page;
 use crate::memory::types::{Memory, MemoryKind, MemoryQuery, MemoryUpdate, NewMemory};
 
 #[derive(Debug, Clone)]
@@ -226,33 +226,6 @@ impl MemoryStore {
         Ok(current)
     }
 
-    pub fn soft_delete(&self, id: &str) -> Result<Memory> {
-        let mut current = self
-            .get(id)?
-            .ok_or_else(|| crate::error::FolioError::Storage(format!("memory {id} not found")))?;
-        let now = Utc::now();
-        current.valid_until = Some(now);
-        current.updated_at = now;
-        self.write_through(&current)?;
-        info!(id = %current.id, "memory soft-deleted");
-        Ok(current)
-    }
-
-    pub fn purge(&self, id: &str) -> Result<()> {
-        if let Some(memory) = self.get(id)? {
-            delete_page(&self.dir, &memory)?;
-        }
-        self.index.lock().delete(id)?;
-        Ok(())
-    }
-
-    pub fn rebuild_index(&self, embed_for: impl FnMut(&str) -> Option<Vec<f32>>) -> Result<usize> {
-        let memories = read_dir_pages(&self.dir);
-        let n = memories.len();
-        self.index.lock().rebuild_from(&memories, embed_for)?;
-        Ok(n)
-    }
-
     fn write_through(&self, memory: &Memory) -> Result<()> {
         write_page(&self.dir, memory)?;
         self.index.lock().upsert(memory, None)?;
@@ -370,25 +343,6 @@ mod tests {
     }
 
     #[test]
-    fn soft_delete_hides_from_default_list() {
-        let (_dir, s) = store();
-        let m = s
-            .create(nm(MemoryKind::Pref, Some("ui.theme"), "dark"))
-            .unwrap()
-            .into_memory();
-        s.soft_delete(&m.id).unwrap();
-        let visible = s.list(&MemoryQuery::default()).unwrap();
-        assert!(visible.is_empty());
-        let archived = s
-            .list(&MemoryQuery {
-                include_archived: true,
-                ..Default::default()
-            })
-            .unwrap();
-        assert_eq!(archived.len(), 1);
-    }
-
-    #[test]
     fn always_inject_set_includes_identity_pref_project_and_pinned() {
         let (_dir, s) = store();
         s.create(nm(MemoryKind::Claim, Some("user.name"), "Ege"))
@@ -419,44 +373,6 @@ mod tests {
         assert!(contents.contains(&"dark"));
         assert!(contents.contains(&"shipping memory v1"));
         assert!(contents.contains(&"random"));
-    }
-
-    #[test]
-    fn rebuild_index_recovers_from_wipe() {
-        let (dir, s) = store();
-        s.create(nm(MemoryKind::Claim, Some("user.company"), "Folio"))
-            .unwrap();
-        s.create(nm(MemoryKind::Pref, Some("ui.theme"), "dark"))
-            .unwrap();
-
-        std::fs::remove_file(dir.path().join(".index.sqlite")).unwrap();
-        let reopened = MemoryStore::open(dir.path()).unwrap();
-        assert!(reopened.list(&MemoryQuery::default()).unwrap().is_empty());
-        let n = reopened.rebuild_index(|_| None).unwrap();
-        assert_eq!(n, 2);
-        let listed = reopened.list(&MemoryQuery::default()).unwrap();
-        assert_eq!(listed.len(), 2);
-    }
-
-    #[test]
-    fn purge_removes_file_and_row() {
-        let (dir, s) = store();
-        let m = s
-            .create(nm(MemoryKind::Observe, None, "garbage"))
-            .unwrap()
-            .into_memory();
-        s.purge(&m.id).unwrap();
-        assert!(s.list(&MemoryQuery::default()).unwrap().is_empty());
-        let md_files = std::fs::read_dir(dir.path())
-            .unwrap()
-            .filter(|e| {
-                e.as_ref()
-                    .ok()
-                    .and_then(|e| e.path().extension().map(|x| x == "md"))
-                    .unwrap_or(false)
-            })
-            .count();
-        assert_eq!(md_files, 0);
     }
 
     #[test]

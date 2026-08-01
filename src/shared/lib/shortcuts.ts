@@ -4,11 +4,7 @@ export type ShortcutAction =
   | "toggleRecording"
   | "openAsk"
   | "openCheatsheet"
-  | "newTask"
   | "navHome"
-  | "navLibrary"
-  | "navTasks"
-  | "navMemory"
   | "openPreferences"
   | "transcriptPrev"
   | "transcriptNext";
@@ -43,34 +39,10 @@ export const SHORTCUTS: Shortcut[] = [
     keys: { key: "k", cmd: true },
   },
   {
-    action: "newTask",
-    label: "New task",
-    group: "Editing",
-    keys: { key: "n", cmd: true },
-  },
-  {
     action: "navHome",
     label: "Home",
     group: "Navigation",
     keys: { key: "1", cmd: true },
-  },
-  {
-    action: "navLibrary",
-    label: "My Notes",
-    group: "Navigation",
-    keys: { key: "3", cmd: true },
-  },
-  {
-    action: "navTasks",
-    label: "Tasks",
-    group: "Navigation",
-    keys: { key: "4", cmd: true },
-  },
-  {
-    action: "navMemory",
-    label: "Memory",
-    group: "Navigation",
-    keys: { key: "5", cmd: true },
   },
   {
     action: "openPreferences",
@@ -143,7 +115,6 @@ export function dispatch(
     openCheatsheet: () => void;
     openAsk: () => void;
     toggleRecording: () => void;
-    newTask: () => void;
     segmentPrev: () => void;
     segmentNext: () => void;
   }
@@ -158,20 +129,8 @@ export function dispatch(
     case "openCheatsheet":
       ctx.openCheatsheet();
       return;
-    case "newTask":
-      ctx.newTask();
-      return;
     case "navHome":
       ctx.navigate("/");
-      return;
-    case "navLibrary":
-      ctx.navigate("/library");
-      return;
-    case "navTasks":
-      ctx.navigate("/tasks");
-      return;
-    case "navMemory":
-      ctx.navigate("/memory");
       return;
     case "openPreferences":
       ctx.openPreferences();

@@ -18,14 +18,13 @@ const RECORDING = {
 
 test("right-clicking a note row opens a quick-action menu", async ({ page }) => {
   await setupScenario(page, { startSignedIn: true, recordings: [RECORDING] });
-  await page.goto("/#/library");
+  await page.goto("/#/");
   const row = page.getByText("Quarterly review").first();
   await row.click({ button: "right" });
 
   const menu = page.getByRole("menu");
   await expect(menu).toBeVisible();
   await expect(menu.getByRole("menuitem", { name: /^open$/i })).toBeVisible();
-  await expect(menu.getByRole("menuitem", { name: /move to folder/i })).toBeVisible();
   await expect(menu.getByRole("menuitem", { name: /delete note/i })).toBeVisible();
 });
 
@@ -33,7 +32,7 @@ test("Delete from the context menu routes through the confirm dialog", async ({
   page,
 }) => {
   await setupScenario(page, { startSignedIn: true, recordings: [RECORDING] });
-  await page.goto("/#/library");
+  await page.goto("/#/");
   await page.getByText("Quarterly review").first().click({ button: "right" });
   await page.getByRole("menuitem", { name: /delete note/i }).click();
 
@@ -42,7 +41,7 @@ test("Delete from the context menu routes through the confirm dialog", async ({
 
 test("Escape closes the context menu", async ({ page }) => {
   await setupScenario(page, { startSignedIn: true, recordings: [RECORDING] });
-  await page.goto("/#/library");
+  await page.goto("/#/");
   await page.getByText("Quarterly review").first().click({ button: "right" });
   await expect(page.getByRole("menu")).toBeVisible();
   await page.keyboard.press("Escape");

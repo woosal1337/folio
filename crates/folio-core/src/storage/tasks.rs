@@ -173,16 +173,6 @@ impl TaskStore {
         Ok(())
     }
 
-    pub fn set_status(&self, id: &str, status: TaskStatus) -> Result<Task> {
-        self.update(
-            id,
-            TaskUpdate {
-                status: Some(status),
-                ..TaskUpdate::default()
-            },
-        )
-    }
-
     fn save(&self, tasks: &[Task]) -> Result<()> {
         if let Some(parent) = self.path.parent() {
             fs::create_dir_all(parent).map_err(|e| {
@@ -311,20 +301,6 @@ mod tests {
 
         store.delete(&t.id).unwrap();
         assert!(store.list().is_empty());
-    }
-
-    #[test]
-    fn set_status_round_trips() {
-        let (_dir, store) = store();
-        let t = store
-            .create(NewTask {
-                title: "x".into(),
-                ..NewTask::default()
-            })
-            .unwrap();
-        let moved = store.set_status(&t.id, TaskStatus::Done).unwrap();
-        assert_eq!(moved.status, TaskStatus::Done);
-        assert_eq!(store.get(&t.id).unwrap().status, TaskStatus::Done);
     }
 
     #[test]

@@ -364,34 +364,6 @@ pub async fn read_transcript(
 }
 
 #[tauri::command]
-pub async fn locate_transcript_span(
-    state: State<'_, AppState>,
-    session_dir: PathBuf,
-    span: String,
-) -> Result<Option<folio_core::transcription::locate::TranscriptHit>, String> {
-    let output_dir = state.settings.lock().output_dir.clone();
-
-    tauri::async_runtime::spawn_blocking(move || -> Result<_, String> {
-        let canon_root = std::fs::canonicalize(&output_dir).map_err(|e| e.to_string())?;
-        let canon_target = std::fs::canonicalize(&session_dir).map_err(|e| e.to_string())?;
-        if !canon_target.starts_with(&canon_root) {
-            return Err(format!(
-                "refused: {} not under recordings folder",
-                canon_target.display()
-            ));
-        }
-        let path = canon_target.join(TRANSCRIPT_FILENAME);
-        let transcript = SessionTranscript::read_json(&path).map_err(|e| e.to_string())?;
-        Ok(folio_core::transcription::locate::locate_span(
-            &transcript,
-            &span,
-        ))
-    })
-    .await
-    .map_err(|e| format!("locate_transcript_span task panicked: {e}"))?
-}
-
-#[tauri::command]
 pub async fn locate_note_evidence(
     state: State<'_, AppState>,
     session_dir: PathBuf,
@@ -430,55 +402,6 @@ fn read_session_language_override(session_dir: &Path) -> Option<String> {
     } else {
         Some(trimmed.to_string())
     }
-}
-
-#[tauri::command]
-pub async fn get_recording_language(
-    state: State<'_, AppState>,
-    session_dir: PathBuf,
-) -> Result<Option<String>, String> {
-    let output_dir = state.settings.lock().output_dir.clone();
-    tauri::async_runtime::spawn_blocking(move || -> Result<Option<String>, String> {
-        let dir = folio_core::paths::canonicalize_under(&output_dir, &session_dir)
-            .map_err(|e| e.to_string())?;
-        Ok(read_session_language_override(&dir))
-    })
-    .await
-    .map_err(|e| format!("get_recording_language task panicked: {e}"))?
-}
-
-#[tauri::command]
-pub async fn set_recording_language(
-    state: State<'_, AppState>,
-    session_dir: PathBuf,
-    language: Option<String>,
-) -> Result<(), String> {
-    let output_dir = state.settings.lock().output_dir.clone();
-    tauri::async_runtime::spawn_blocking(move || -> Result<(), String> {
-        let session_dir = folio_core::paths::canonicalize_under(&output_dir, &session_dir)
-            .map_err(|e| e.to_string())?;
-        let path = session_dir.join(LANGUAGE_OVERRIDE_FILE);
-        match language.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
-            Some(code) => {
-                std::fs::write(&path, format!("{code}\n"))
-                    .map_err(|e| format!("could not write {}: {e}", path.display()))?;
-                info!(path = %path.display(), language = %code, "session language override saved");
-            }
-            None => match std::fs::remove_file(&path) {
-                Ok(()) => info!(path = %path.display(), "session language override cleared"),
-                Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
-                Err(e) => {
-                    return Err(format!(
-                        "could not clear override at {}: {e}",
-                        path.display()
-                    ))
-                }
-            },
-        }
-        Ok(())
-    })
-    .await
-    .map_err(|e| format!("set_recording_language task panicked: {e}"))?
 }
 
 #[tauri::command]

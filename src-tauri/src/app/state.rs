@@ -10,8 +10,6 @@ use folio_core::storage::{Settings, SettingsStore};
 use parking_lot::Mutex;
 use tracing::warn;
 
-use crate::app::meeting_watcher::DetectedMeeting;
-
 pub struct AppState {
     pub settings: Mutex<Settings>,
     pub settings_store: SettingsStore,
@@ -19,8 +17,6 @@ pub struct AppState {
     pub recording_started: Mutex<Option<Instant>>,
 
     memory_store: Mutex<Option<(PathBuf, Arc<MemoryStore>)>>,
-
-    pub pending_meeting: Mutex<Option<DetectedMeeting>>,
 
     pub active_note: Mutex<Option<PausedNote>>,
 
@@ -55,7 +51,6 @@ impl AppState {
             session: Mutex::new(None),
             recording_started: Mutex::new(None),
             memory_store: Mutex::new(None),
-            pending_meeting: Mutex::new(None),
             active_note: Mutex::new(None),
             live_transcript_stop: Mutex::new(None),
             live_transcript_thread: Mutex::new(None),
