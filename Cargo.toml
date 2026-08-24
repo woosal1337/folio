@@ -91,7 +91,7 @@ zip = { version = "2", default-features = false, features = ["deflate"] }
 # GET-101). The MAC accompanies every outbound POST so subscribers
 # can verify Folio sent it without a shared cleartext token.
 hmac = "0.12"
-sha2 = "0.10"
+sha2 = "0.11"
 hex = "0.4"
 
 # HTTP client for cloud transcription
