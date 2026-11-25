@@ -1,0 +1,45 @@
+name: Deploy website to Cloudflare
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: [main]
+    paths: ['website/**', '.github/workflows/deploy-cloudflare-website.yml']
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-cloudflare-website
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build and deploy the static export
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: website
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build
+        run: bun run build
+        env:
+          STATIC_EXPORT: '1'
+
+      - name: Deploy
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: website
+          wranglerVersion: '4.168.0'
+          packageManager: bun
+          command: deploy
